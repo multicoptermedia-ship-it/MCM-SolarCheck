@@ -54,6 +54,6 @@ def structural_intersections(lines:tuple[StructuralLine,...],width:int,height:in
             if -margin<=px<=width+margin and -margin<=py<=height+margin:points.append(StructuralPoint(float(px),float(py)))
     unique=[]
     for point in points:
-        if all(hypot(point.x other.x,point.y-other.y)>5 for other in unique):unique.append(point)
+        if all(hypot(point.x-other.x,point.y-other.y)>5 for other in unique):unique.append(point)
         if len(unique)>=max_points:break
     return tuple(unique)
