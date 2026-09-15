@@ -1,4 +1,4 @@
-"""Domain models for imported RGB/Thermal frames and inspection findings.
+"""Domain models for imported frames, PV modules and inspection findings.
 
 These models deliberately contain no DJI SDK dependency. Vendor-specific readers
 map their output into these neutral structures.
@@ -72,6 +72,21 @@ class ImagePair:
     method: str
     distance_m: Optional[float] = None
     time_delta_s: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class PVModule:
+    module_id: str
+    frame_id: str
+    polygon_px: tuple[tuple[float, float], ...]
+    detection_confidence: Optional[float] = None
+    detector: str = "unknown"
+    position: Optional[Position] = None
+    metadata: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if len(self.polygon_px) < 3:
+            raise ValueError("PV module polygon requires at least three points")
 
 
 @dataclass(frozen=True)
