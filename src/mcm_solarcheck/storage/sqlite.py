@@ -37,15 +37,12 @@ class ProjectDatabase:
         with self.connect() as db:
             tables={row['name'] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
             if tables:
-                if 'schema_info' not in tables:
-                    raise RuntimeError('Unversioned non-empty database; refusing to modify it')
+                if 'schema_info' not in tables:raise RuntimeError('Unversioned non-empty database; refusing to modify it')
                 row=db.execute('SELECT version FROM schema_info LIMIT 1').fetchone()
                 if row is None or row['version']!=SCHEMA_VERSION:
-                    version=None if row is None else row['version']
-                    raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
+                    version=None if row is None else row['version'];raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
-            db.executescript(_SCHEMA)
-            db.execute('INSERT INTO schema_info(version) VALUES (?)',(SCHEMA_VERSION,))
+            db.executescript(_SCHEMA);db.execute('INSERT INTO schema_info(version) VALUES (?)',(SCHEMA_VERSION,))
     def create_project(self,project_id:str,name:str)->None:
         with self.connect() as db:db.execute("INSERT INTO projects(project_id,name) VALUES (?,?) ON CONFLICT(project_id) DO UPDATE SET name=excluded.name",(project_id,name))
     def _save_thermal_frame(self,db,project_id,frame,quality):
@@ -54,12 +51,25 @@ class ProjectDatabase:
     def _save_findings(self,db,project_id,findings):
         cols=('project_id','finding_id','thermal_frame_id','pixel_x','pixel_y','finding_type','confidence','raw_value','raw_delta_from_median','temperature_c','module_id','latitude','longitude','altitude_m','reviewer_status','metadata_json');sql=_upsert('findings',cols,('project_id','finding_id'))
         db.executemany(sql,[(project_id,f.finding_id,f.thermal_frame_id,f.pixel_x,f.pixel_y,f.finding_type,f.confidence,f.raw_value,f.raw_delta_from_median,f.temperature_c,f.module_id,f.position.latitude if f.position else None,f.position.longitude if f.position else None,f.position.altitude_m if f.position else None,f.reviewer_status,json.dumps(f.metadata,ensure_ascii=False)) for f in findings])
+    def _sensor_link_values(self,project_id:str,finding:Finding):
+        m=finding.metadata
+        if 'cross_sensor_status' not in m or 'rgb_frame_id' not in m:return None
+        def number(key):
+            value=m.get(key);return None if value is None else float(value)
+        candidates=tuple(v for v in m.get('cross_sensor_candidates','').split(',') if v)
+        return (project_id,finding.finding_id,m['rgb_frame_id'],m.get('pair_id'),number('pair_confidence'),number('rgb_pixel_x'),number('rgb_pixel_y'),m.get('transform_method','unknown'),1 if m.get('transform_validated')=='true' else 0,number('transform_error_px'),m['cross_sensor_status'],json.dumps(candidates))
+    def _save_sensor_links(self,db,project_id,findings):
+        cols=('project_id','finding_id','rgb_frame_id','pair_id','pair_confidence','rgb_pixel_x','rgb_pixel_y','transform_method','transform_validated','transform_error_px','status','candidates_json');sql=_upsert('finding_sensor_links',cols,('project_id','finding_id'))
+        rows=[v for f in findings if (v:=self._sensor_link_values(project_id,f)) is not None]
+        if rows:db.executemany(sql,rows)
     def save_thermal_frame(self,project_id,frame,quality):
         with self.connect() as db:self._save_thermal_frame(db,project_id,frame,quality)
     def save_findings(self,project_id,findings):
-        with self.connect() as db:self._save_findings(db,project_id,findings)
+        findings=tuple(findings)
+        with self.connect() as db:self._save_findings(db,project_id,findings);self._save_sensor_links(db,project_id,findings)
     def save_thermal_result(self,project_id,frame,quality,findings):
-        with self.connect() as db:self._save_thermal_frame(db,project_id,frame,quality);self._save_findings(db,project_id,findings)
+        findings=tuple(findings)
+        with self.connect() as db:self._save_thermal_frame(db,project_id,frame,quality);self._save_findings(db,project_id,findings);self._save_sensor_links(db,project_id,findings)
     def save_image_frames(self,project_id,frames):
         cols=('project_id','frame_id','source_file','timestamp_utc','camera_make','camera_model','width','height','latitude','longitude','altitude_m','metadata_json');sql=_upsert('image_frames',cols,('project_id','frame_id'))
         with self.connect() as db:db.executemany(sql,[(project_id,f.frame_id,str(f.source_file),f.timestamp_utc.isoformat() if f.timestamp_utc else None,f.camera_make,f.camera_model,f.width,f.height,f.position.latitude if f.position else None,f.position.longitude if f.position else None,f.position.altitude_m if f.position else None,json.dumps(f.metadata,ensure_ascii=False)) for f in frames])
@@ -70,15 +80,9 @@ class ProjectDatabase:
         cols=('project_id','module_id','frame_id','polygon_json','detection_confidence','detector','latitude','longitude','altitude_m','metadata_json');sql=_upsert('pv_modules',cols,('project_id','module_id'))
         with self.connect() as db:db.executemany(sql,[(project_id,m.module_id,m.frame_id,json.dumps(m.polygon_px),m.detection_confidence,m.detector,m.position.latitude if m.position else None,m.position.longitude if m.position else None,m.position.altitude_m if m.position else None,json.dumps(m.metadata,ensure_ascii=False)) for m in modules])
     def save_finding_sensor_link(self,project_id:str,finding:Finding)->None:
-        """Persist structured cross-sensor audit fields already attached to a Finding."""
-        m=finding.metadata
-        if 'cross_sensor_status' not in m or 'rgb_frame_id' not in m:
-            raise ValueError('finding has no cross-sensor linkage metadata')
-        def number(key):
-            value=m.get(key);return None if value is None else float(value)
-        candidates=tuple(v for v in m.get('cross_sensor_candidates','').split(',') if v)
+        values=self._sensor_link_values(project_id,finding)
+        if values is None:raise ValueError('finding has no cross-sensor linkage metadata')
         cols=('project_id','finding_id','rgb_frame_id','pair_id','pair_confidence','rgb_pixel_x','rgb_pixel_y','transform_method','transform_validated','transform_error_px','status','candidates_json')
-        values=(project_id,finding.finding_id,m['rgb_frame_id'],m.get('pair_id'),number('pair_confidence'),number('rgb_pixel_x'),number('rgb_pixel_y'),m.get('transform_method','unknown'),1 if m.get('transform_validated')=='true' else 0,number('transform_error_px'),m['cross_sensor_status'],json.dumps(candidates))
         with self.connect() as db:db.execute(_upsert('finding_sensor_links',cols,('project_id','finding_id')),values)
     def save_review(self,review,*,project_id:str):
         with self.connect() as db:
