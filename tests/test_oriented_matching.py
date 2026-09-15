@@ -9,9 +9,6 @@ def grid(w,h,rotation=0,crossing=88):
 
 
 def test_matches_same_grid_across_sensor_resolution():
-    # The M3T pair has nearly identical gimbal orientation. Resolution/FOV differ,
-    # but an artificial change of line angle without rotating the point geometry is
-    # not a physically valid rotation test for an axis-aware topology descriptor.
     thermal=grid(640,512,5);rgb=grid(4000,3000,5)
     matches=match_oriented_points(thermal,rgb,max_score=.03,ambiguity_margin=.005)
     assert len(matches)>=8
@@ -25,10 +22,13 @@ def test_incompatible_crossing_angle_is_rejected():
 
 
 def test_incompatible_grid_topology_is_rejected_even_with_loose_geometry_score():
-    thermal=grid(640,512);rgb=list(grid(4000,3000));removed=rgb.pop(5)
-    matches=match_oriented_points(thermal,tuple(rgb),max_score=1.0,ambiguity_margin=0,maximum_topology_distance=.05)
-    assert all(not (m.thermal==thermal[5]) for m in matches)
-    assert all(m.rgb!=removed for m in matches)
+    # Build an explicit regular PV grid so removing the centre junction changes
+    # neighbour occupancy/spacing along the actual 0/90 degree structural axes.
+    thermal=tuple(OrientedStructuralPoint(x,y,0,90) for y in (100,250,400) for x in (100,300,500))
+    rgb=tuple(OrientedStructuralPoint(x*6,y*6,0,90) for y in (100,250,400) for x in (100,300,500) if (x,y)!=(300,250))
+    matches=match_oriented_points(thermal,rgb,thermal_size=(640,512),rgb_size=(3840,3072),max_score=2.0,ambiguity_margin=0,maximum_topology_distance=.05)
+    centre=OrientedStructuralPoint(300,250,0,90)
+    assert all(m.thermal!=centre for m in matches)
 
 
 def test_ambiguous_duplicate_is_not_forced():
