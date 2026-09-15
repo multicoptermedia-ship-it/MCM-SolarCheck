@@ -94,10 +94,10 @@ class ProjectDatabase:
             (p.pair_id,project_id,p.rgb_frame_id,p.thermal_frame_id,p.confidence,p.method,p.distance_m,p.time_delta_s) for p in pairs])
 
     def save_modules(self, project_id: str, modules: tuple[PVModule, ...]) -> None:
-        with self.connect() as db: db.executemany("INSERT OR REPLACE INTO pv_modules VALUES (?,?,?,?,?,?,?,?,?,?,?)", [
+        with self.connect() as db: db.executemany("INSERT OR REPLACE INTO pv_modules VALUES (?,?,?,?,?,?,?,?,?,?)", [
             (m.module_id,project_id,m.frame_id,json.dumps(m.polygon_px),m.detection_confidence,m.detector,
              m.position.latitude if m.position else None,m.position.longitude if m.position else None,m.position.altitude_m if m.position else None,
-             json.dumps(m.metadata,ensure_ascii=False), None) for m in modules])
+             json.dumps(m.metadata,ensure_ascii=False)) for m in modules])
 
     def save_findings(self, project_id: str, findings: tuple[Finding, ...]) -> None:
         with self.connect() as db: db.executemany("INSERT OR REPLACE INTO findings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
