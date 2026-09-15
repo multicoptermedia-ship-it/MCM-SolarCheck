@@ -29,10 +29,11 @@ def detect_structural_lines(image:np.ndarray,*,max_dimension:int=900,min_length_
     minimum=max(20,int(min(work.shape[:2])*min_length_fraction))
     raw=cv2.HoughLinesP(edges,1,np.pi/180,threshold=max(35,minimum//2),minLineLength=minimum,maxLineGap=max(8,minimum//8))
     if raw is None:return ()
+    segments=np.asarray(raw).reshape(-1,4)
     inv=1.0/scale;bins={index:[] for index in range(180//angle_bin_deg)}
-    for x1,y1,x2,y2 in raw[:,0]:
-        x1*=inv;y1*=inv;x2*=inv;y2*=inv;length=hypot(x2-x1,y2-y1);angle=(degrees(atan2(y2-y1,x2-x1))+180)%180
-        line=StructuralLine(float(x1),float(y1),float(x2),float(y2),length,angle);bins[min(int(angle//angle_bin_deg),len(bins)-1)].append(line)
+    for x1,y1,x2,y2 in segments:
+        x1=float(x1)*inv;y1=float(y1)*inv;x2=float(x2)*inv;y2=float(y2)*inv;length=hypot(x2-x1,y2-y1);angle=(degrees(atan2(y2-y1,x2-x1))+180)%180
+        line=StructuralLine(x1,y1,x2,y2,length,angle);bins[min(int(angle//angle_bin_deg),len(bins)-1)].append(line)
     for bucket in bins.values():bucket.sort(key=lambda line:line.length,reverse=True)
     selected=[];depth=0
     while len(selected)<max_lines:
