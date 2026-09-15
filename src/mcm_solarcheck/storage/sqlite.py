@@ -6,7 +6,7 @@ import json, sqlite3
 from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
@@ -16,8 +16,9 @@ CREATE TABLE IF NOT EXISTS thermal_frames(project_id TEXT NOT NULL REFERENCES pr
 CREATE TABLE IF NOT EXISTS image_pairs(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,pair_id TEXT NOT NULL,rgb_frame_id TEXT NOT NULL,thermal_frame_id TEXT NOT NULL,confidence REAL NOT NULL,method TEXT NOT NULL,distance_m REAL,time_delta_s REAL,PRIMARY KEY(project_id,pair_id),FOREIGN KEY(project_id,rgb_frame_id) REFERENCES image_frames(project_id,frame_id) ON DELETE CASCADE,FOREIGN KEY(project_id,thermal_frame_id) REFERENCES thermal_frames(project_id,frame_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS pv_modules(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,module_id TEXT NOT NULL,frame_id TEXT NOT NULL,polygon_json TEXT NOT NULL,detection_confidence REAL,detector TEXT NOT NULL,latitude REAL,longitude REAL,altitude_m REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,module_id));
 CREATE TABLE IF NOT EXISTS findings(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,finding_id TEXT NOT NULL,thermal_frame_id TEXT NOT NULL,pixel_x INTEGER NOT NULL,pixel_y INTEGER NOT NULL,finding_type TEXT NOT NULL,confidence REAL,raw_value INTEGER,raw_delta_from_median REAL,temperature_c REAL,module_id TEXT,latitude REAL,longitude REAL,altitude_m REAL,reviewer_status TEXT NOT NULL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,finding_id),FOREIGN KEY(project_id,thermal_frame_id) REFERENCES thermal_frames(project_id,frame_id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS finding_sensor_links(project_id TEXT NOT NULL,finding_id TEXT NOT NULL,rgb_frame_id TEXT NOT NULL,pair_id TEXT,pair_confidence REAL,rgb_pixel_x REAL,rgb_pixel_y REAL,transform_method TEXT NOT NULL,transform_validated INTEGER NOT NULL CHECK(transform_validated IN (0,1)),transform_error_px REAL,status TEXT NOT NULL,candidates_json TEXT NOT NULL DEFAULT '[]',PRIMARY KEY(project_id,finding_id),FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS finding_reviews(review_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL,finding_id TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('confirmed','rejected','unclear')),reviewer TEXT NOT NULL,reviewed_at_utc TEXT NOT NULL,note TEXT,FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
-CREATE INDEX IF NOT EXISTS idx_findings_frame ON findings(project_id,thermal_frame_id); CREATE INDEX IF NOT EXISTS idx_reviews_finding ON finding_reviews(project_id,finding_id);
+CREATE INDEX IF NOT EXISTS idx_findings_frame ON findings(project_id,thermal_frame_id); CREATE INDEX IF NOT EXISTS idx_reviews_finding ON finding_reviews(project_id,finding_id); CREATE INDEX IF NOT EXISTS idx_sensor_links_rgb ON finding_sensor_links(project_id,rgb_frame_id);
 """
 
 def _upsert(table:str, columns:tuple[str,...], conflict:tuple[str,...])->str:
@@ -34,9 +35,17 @@ class ProjectDatabase:
         finally:db.close()
     def initialize(self)->None:
         with self.connect() as db:
-            db.executescript(_SCHEMA);row=db.execute('SELECT version FROM schema_info LIMIT 1').fetchone()
-            if row is None:db.execute('INSERT INTO schema_info(version) VALUES (?)',(SCHEMA_VERSION,))
-            elif row['version']!=SCHEMA_VERSION:raise RuntimeError(f"Unsupported database schema version: {row['version']}; migration required")
+            tables={row['name'] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
+            if tables:
+                if 'schema_info' not in tables:
+                    raise RuntimeError('Unversioned non-empty database; refusing to modify it')
+                row=db.execute('SELECT version FROM schema_info LIMIT 1').fetchone()
+                if row is None or row['version']!=SCHEMA_VERSION:
+                    version=None if row is None else row['version']
+                    raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
+                return
+            db.executescript(_SCHEMA)
+            db.execute('INSERT INTO schema_info(version) VALUES (?)',(SCHEMA_VERSION,))
     def create_project(self,project_id:str,name:str)->None:
         with self.connect() as db:db.execute("INSERT INTO projects(project_id,name) VALUES (?,?) ON CONFLICT(project_id) DO UPDATE SET name=excluded.name",(project_id,name))
     def _save_thermal_frame(self,db,project_id,frame,quality):
@@ -50,7 +59,6 @@ class ProjectDatabase:
     def save_findings(self,project_id,findings):
         with self.connect() as db:self._save_findings(db,project_id,findings)
     def save_thermal_result(self,project_id,frame,quality,findings):
-        """Persist one frame and all of its findings in one transaction."""
         with self.connect() as db:self._save_thermal_frame(db,project_id,frame,quality);self._save_findings(db,project_id,findings)
     def save_image_frames(self,project_id,frames):
         cols=('project_id','frame_id','source_file','timestamp_utc','camera_make','camera_model','width','height','latitude','longitude','altitude_m','metadata_json');sql=_upsert('image_frames',cols,('project_id','frame_id'))
@@ -61,6 +69,17 @@ class ProjectDatabase:
     def save_modules(self,project_id,modules):
         cols=('project_id','module_id','frame_id','polygon_json','detection_confidence','detector','latitude','longitude','altitude_m','metadata_json');sql=_upsert('pv_modules',cols,('project_id','module_id'))
         with self.connect() as db:db.executemany(sql,[(project_id,m.module_id,m.frame_id,json.dumps(m.polygon_px),m.detection_confidence,m.detector,m.position.latitude if m.position else None,m.position.longitude if m.position else None,m.position.altitude_m if m.position else None,json.dumps(m.metadata,ensure_ascii=False)) for m in modules])
+    def save_finding_sensor_link(self,project_id:str,finding:Finding)->None:
+        """Persist structured cross-sensor audit fields already attached to a Finding."""
+        m=finding.metadata
+        if 'cross_sensor_status' not in m or 'rgb_frame_id' not in m:
+            raise ValueError('finding has no cross-sensor linkage metadata')
+        def number(key):
+            value=m.get(key);return None if value is None else float(value)
+        candidates=tuple(v for v in m.get('cross_sensor_candidates','').split(',') if v)
+        cols=('project_id','finding_id','rgb_frame_id','pair_id','pair_confidence','rgb_pixel_x','rgb_pixel_y','transform_method','transform_validated','transform_error_px','status','candidates_json')
+        values=(project_id,finding.finding_id,m['rgb_frame_id'],m.get('pair_id'),number('pair_confidence'),number('rgb_pixel_x'),number('rgb_pixel_y'),m.get('transform_method','unknown'),1 if m.get('transform_validated')=='true' else 0,number('transform_error_px'),m['cross_sensor_status'],json.dumps(candidates))
+        with self.connect() as db:db.execute(_upsert('finding_sensor_links',cols,('project_id','finding_id')),values)
     def save_review(self,review,*,project_id:str):
         with self.connect() as db:
             cur=db.execute('UPDATE findings SET reviewer_status=? WHERE project_id=? AND finding_id=?',(review.status.value,project_id,review.finding_id))
