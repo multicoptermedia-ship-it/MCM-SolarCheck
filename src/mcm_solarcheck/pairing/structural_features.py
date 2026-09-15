@@ -19,8 +19,9 @@ class StructuralPoint:
     x:float;y:float
 
 
-def detect_structural_lines(image:np.ndarray,*,max_dimension:int=900,min_length_fraction:float=.12,max_lines:int=120)->tuple[StructuralLine,...]:
+def detect_structural_lines(image:np.ndarray,*,max_dimension:int=900,min_length_fraction:float=.12,max_lines:int=120,angle_bin_deg:int=15)->tuple[StructuralLine,...]:
     if image is None or image.size==0:raise ValueError('image must not be empty')
+    if angle_bin_deg<=0 or 180%angle_bin_deg:raise ValueError('angle_bin_deg must divide 180')
     gray=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY) if image.ndim==3 else image.copy()
     h,w=gray.shape[:2];scale=min(1.0,max_dimension/max(h,w))
     work=cv2.resize(gray,(round(w*scale),round(h*scale)),interpolation=cv2.INTER_AREA) if scale<1 else gray
@@ -28,12 +29,20 @@ def detect_structural_lines(image:np.ndarray,*,max_dimension:int=900,min_length_
     minimum=max(20,int(min(work.shape[:2])*min_length_fraction))
     raw=cv2.HoughLinesP(edges,1,np.pi/180,threshold=max(35,minimum//2),minLineLength=minimum,maxLineGap=max(8,minimum//8))
     if raw is None:return ()
-    inv=1.0/scale;lines=[]
+    inv=1.0/scale;bins={index:[] for index in range(180//angle_bin_deg)}
     for x1,y1,x2,y2 in raw[:,0]:
         x1*=inv;y1*=inv;x2*=inv;y2*=inv;length=hypot(x2-x1,y2-y1);angle=(degrees(atan2(y2-y1,x2-x1))+180)%180
-        lines.append(StructuralLine(float(x1),float(y1),float(x2),float(y2),length,angle))
-    lines.sort(key=lambda line:line.length,reverse=True)
-    return tuple(lines[:max_lines])
+        line=StructuralLine(float(x1),float(y1),float(x2),float(y2),length,angle);bins[min(int(angle//angle_bin_deg),len(bins)-1)].append(line)
+    for bucket in bins.values():bucket.sort(key=lambda line:line.length,reverse=True)
+    selected=[];depth=0
+    while len(selected)<max_lines:
+        added=False
+        for bucket in bins.values():
+            if depth<len(bucket):selected.append(bucket[depth]);added=True
+            if len(selected)>=max_lines:break
+        if not added:break
+        depth+=1
+    return tuple(selected)
 
 
 def _angle_difference(a:float,b:float)->float:
