@@ -9,7 +9,7 @@ def raster(values, width=4, height=2):
         height=height,
         byte_order="little",
         samples=tuple(values),
-        component_index=0,
+        stream_offset=0,
     )
 
 
