@@ -1,4 +1,4 @@
-"""Domain models for imported RGB/Thermal frames.
+"""Domain models for imported RGB/Thermal frames and inspection findings.
 
 These models deliberately contain no DJI SDK dependency. Vendor-specific readers
 map their output into these neutral structures.
@@ -72,3 +72,21 @@ class ImagePair:
     method: str
     distance_m: Optional[float] = None
     time_delta_s: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class Finding:
+    finding_id: str
+    thermal_frame_id: str
+    pixel_x: int
+    pixel_y: int
+    finding_type: str = "thermal_anomaly_candidate"
+    confidence: Optional[float] = None
+    raw_value: Optional[int] = None
+    raw_delta_from_median: Optional[float] = None
+    temperature_c: Optional[float] = None
+    module_id: Optional[str] = None
+    position: Optional[Position] = None
+    rtk: RTKQuality = field(default_factory=RTKQuality)
+    reviewer_status: str = "unreviewed"
+    metadata: dict[str, str] = field(default_factory=dict)
