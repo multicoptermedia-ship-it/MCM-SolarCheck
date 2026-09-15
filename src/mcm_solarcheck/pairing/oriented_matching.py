@@ -1,8 +1,9 @@
-"""Orientation-aware matching of thermal and RGB PV-grid intersections."""
+"""Orientation- and topology-aware matching of thermal and RGB PV-grid intersections."""
 from __future__ import annotations
 from dataclasses import dataclass
 from math import atan2,hypot,pi
 from .oriented_features import OrientedStructuralPoint
+from .grid_topology import grid_topology_signatures,topology_distance
 from .registration import ControlPoint
 
 @dataclass(frozen=True)
@@ -41,16 +42,21 @@ def _distance(a:OrientedSignature,b:OrientedSignature)->float:
     return sum((x-y)**2 for x,y in zip(a.values,b.values))**.5
 
 
-def match_oriented_points(thermal_points:tuple[OrientedStructuralPoint,...],rgb_points:tuple[OrientedStructuralPoint,...],*,thermal_size:tuple[int,int]=(640,512),rgb_size:tuple[int,int]=(4000,3000),neighbours:int=5,max_score:float=.2,ambiguity_margin:float=.025,maximum_crossing_angle_delta_deg:float=12)->tuple[OrientedMatch,...]:
-    """Require compatible crossing angles plus mutual distinctive local geometry."""
+def match_oriented_points(thermal_points:tuple[OrientedStructuralPoint,...],rgb_points:tuple[OrientedStructuralPoint,...],*,thermal_size:tuple[int,int]=(640,512),rgb_size:tuple[int,int]=(4000,3000),neighbours:int=5,max_score:float=.2,ambiguity_margin:float=.025,maximum_crossing_angle_delta_deg:float=12,topology_weight:float=.08,maximum_topology_distance:float=.45)->tuple[OrientedMatch,...]:
+    """Require compatible crossing angles, PV-grid topology and distinctive geometry."""
+    if topology_weight<0:raise ValueError('topology_weight must be non-negative')
     ts=oriented_signatures(thermal_points,thermal_size,neighbours=neighbours);rs=oriented_signatures(rgb_points,rgb_size,neighbours=neighbours)
     if not ts or not rs:return ()
+    tt={id(s.point):s for s in grid_topology_signatures(thermal_points,thermal_size)}
+    rt={id(s.point):s for s in grid_topology_signatures(rgb_points,rgb_size)}
     matrix=[]
     for t in ts:
         row=[]
         for r in rs:
-            if abs(t.point.crossing_angle_deg-r.point.crossing_angle_deg)>maximum_crossing_angle_delta_deg:row.append(float('inf'))
-            else:row.append(_distance(t,r))
+            if abs(t.point.crossing_angle_deg-r.point.crossing_angle_deg)>maximum_crossing_angle_delta_deg:row.append(float('inf'));continue
+            topo=topology_distance(tt[id(t.point)],rt[id(r.point)])
+            if topo==float('inf') or topo>maximum_topology_distance:row.append(float('inf'));continue
+            row.append(_distance(t,r)+topology_weight*topo)
         matrix.append(row)
     tb=[]
     for row in matrix:
