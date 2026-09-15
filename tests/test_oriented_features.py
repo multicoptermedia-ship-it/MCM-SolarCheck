@@ -31,6 +31,29 @@ def test_duplicate_location_keeps_more_distinct_crossing():
     assert center.crossing_angle_deg==90
 
 
+def test_infinite_line_crossing_far_beyond_segments_is_rejected():
+    lines=(line(10,20,30,20,0),line(80,60,80,90,90))
+    assert oriented_intersections(lines,100,100,segment_extension_fraction=.2)==()
+
+
+def test_small_broken_edge_gap_can_be_bridged():
+    lines=(line(10,50,45,50,0),line(50,10,50,45,90))
+    points=oriented_intersections(lines,100,100,segment_extension_fraction=.2)
+    assert len(points)==1
+    assert abs(points[0].x-50)<1e-9;assert abs(points[0].y-50)<1e-9
+
+
+def test_zero_extension_rejects_crossing_beyond_endpoint():
+    lines=(line(10,50,45,50,0),line(50,10,50,45,90))
+    assert oriented_intersections(lines,100,100,segment_extension_fraction=0)==()
+
+
+def test_negative_extension_fails():
+    try:oriented_intersections((),100,100,segment_extension_fraction=-.1)
+    except ValueError as exc:assert 'extension' in str(exc)
+    else:raise AssertionError('expected ValueError')
+
+
 def test_invalid_dimensions_fail():
     try:oriented_intersections((),0,100)
     except ValueError as exc:assert 'dimensions' in str(exc)
