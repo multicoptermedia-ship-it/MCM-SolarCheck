@@ -29,10 +29,7 @@ def test_spacing_profile_is_uniform_scale_invariant():
 
 
 def test_duplicate_edges_are_merged_into_one_grid_line():
-    lines=pv_grid()+(
-        line(82,10,82,500,90),
-        line(162,10,162,500,90),
-    )
+    lines=pv_grid()+(line(82,10,82,500,90),line(162,10,162,500,90))
     families=extract_grid_line_families(lines,merge_distance_px=4)
     vertical=max(families,key=lambda f:len(f.lines))
     assert any(l.support==2 for l in vertical.lines)
@@ -44,8 +41,6 @@ def test_exactly_equal_offsets_are_merged_without_comparing_line_objects():
     families=extract_grid_line_families(vertical,merge_distance_px=4)
     assert len(families)==1
     assert len(families[0].lines)==4
-    # Offset sign depends on the family-normal convention. Identify the merged
-    # duplicate by its support instead of assuming it is the first sorted line.
     merged=[grid_line for grid_line in families[0].lines if grid_line.support==3]
     assert len(merged)==1
 
@@ -62,6 +57,24 @@ def test_noise_orientation_is_not_preferred_over_long_grid():
     assert len(families)==2
     angles=sorted(round(f.angle_deg) for f in families)
     assert angles==[0,90]
+
+
+def test_single_extremely_long_roof_edge_does_not_seed_family_selection():
+    # The old longest-line seed strategy could select this orientation first and
+    # then exclude a real grid family through the minimum separation rule.
+    roof=(line(0,0,3000,1500,27),)
+    families=extract_grid_line_families(pv_grid()+roof,merge_distance_px=4)
+    assert len(families)==2
+    assert sorted(round(f.angle_deg) for f in families)==[0,90]
+
+
+def test_repeated_grid_support_beats_longer_sparse_diagonal_structure():
+    # Cell/roof diagonals can be individually longer than module-frame edges.
+    # A sparse diagonal orientation must not outrank a denser repeated grid.
+    diagonal=tuple(line(0,y,1200,y+840,35) for y in (0,220,440))
+    families=extract_grid_line_families(pv_grid()+diagonal,merge_distance_px=4,minimum_lines=3)
+    assert len(families)==2
+    assert sorted(round(f.angle_deg) for f in families)==[0,90]
 
 
 def test_invalid_parameters_fail_closed():
