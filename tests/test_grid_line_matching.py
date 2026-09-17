@@ -19,8 +19,10 @@ def test_matches_contiguous_subset_when_rgb_has_extra_outer_lines():
 
 
 def test_reversed_order_can_be_identified():
+    # Thermal gaps are 10,20,30; RGB increasing-order gaps are 180,120,60,
+    # so only the reversed RGB order has the same normalized spacing sequence.
     t=family((0,10,30,60));r=family((0,180,300,360))
-    m=match_grid_line_family(t,r,max_spacing_error=.001,ambiguity_margin=.001)
+    m=match_grid_line_family(t,r,max_spacing_error=.001,ambiguity_margin=0)
     assert m is not None;assert m.reversed_order is True
 
 
