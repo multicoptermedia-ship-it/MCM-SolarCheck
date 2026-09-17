@@ -19,8 +19,6 @@ def test_matches_contiguous_subset_when_rgb_has_extra_outer_lines():
 
 
 def test_reversed_order_can_be_identified():
-    # Thermal gaps are 10,20,30; RGB increasing-order gaps are 180,120,60,
-    # so only the reversed RGB order has the same normalized spacing sequence.
     t=family((0,10,30,60));r=family((0,180,300,360))
     m=match_grid_line_family(t,r,max_spacing_error=.001,ambiguity_margin=0)
     assert m is not None;assert m.reversed_order is True
@@ -34,9 +32,33 @@ def test_repetitive_uniform_spacing_is_rejected_as_ambiguous():
 def test_two_families_are_mapped_one_to_one():
     thermal=(family((0,10,25,45),90),family((0,20,50,90),0))
     rgb=(family((0,120,300,540),0),family((0,60,150,270),90))
-    matches=match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=.001)
+    matches=match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=0)
     assert len(matches)==2
     assert len({id(m.thermal) for m in matches})==2;assert len({id(m.rgb) for m in matches})==2
+
+
+def test_joint_mapping_preserves_crossing_angle_geometry():
+    thermal=(family((0,10,25,45),92),family((0,20,50,90),4))
+    # Spacing alone makes the first thermal family look like rgb[0], but that
+    # permutation changes the grid crossing angle from 88 to 55 degrees.
+    rgb=(family((0,60,150,270),3),family((0,120,300,540),91))
+    matches=match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=0,maximum_axis_geometry_error_deg=8)
+    assert len(matches)==2
+    assert matches[0].rgb is rgb[1]
+    assert matches[1].rgb is rgb[0]
+
+
+def test_joint_mapping_rejects_cross_sensor_axis_geometry_mismatch():
+    thermal=(family((0,10,25,45),90),family((0,20,50,90),0))
+    rgb=(family((0,60,150,270),10),family((0,120,300,540),55))
+    assert match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=0,maximum_axis_geometry_error_deg=10)==()
+
+
+def test_equally_good_axis_permutations_fail_closed():
+    pattern=(0,10,25,45)
+    thermal=(family(pattern,90),family(pattern,0))
+    rgb=(family(tuple(x*6 for x in pattern),2),family(tuple(x*6 for x in pattern),92))
+    assert match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=.01)==()
 
 
 def test_insufficient_lines_fail_closed():
