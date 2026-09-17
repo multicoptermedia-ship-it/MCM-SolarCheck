@@ -22,7 +22,9 @@ def setup(monkeypatch,good):
 
 def setup_grid(monkeypatch,good):
     monkeypatch.setattr(ar,'detect_structural_lines',lambda image:())
-    calls=iter((('thermal',),('rgb',)))
+    thermal=(family((10,30,50,80),90),family((20,40,70,100),0))
+    rgb=(family((60,180,300,480),90),family((120,240,420,600),0))
+    calls=iter((thermal,rgb))
     monkeypatch.setattr(ar,'extract_grid_line_families',lambda *args,**kwargs:next(calls))
     monkeypatch.setattr(ar,'match_grid_line_families',lambda *args,**kwargs:good)
 
@@ -50,6 +52,7 @@ def test_global_grid_refuses_without_two_family_matches(monkeypatch):
     setup_grid(monkeypatch,())
     result=ar.register_global_grid_images(image(640,512),image(4000,3000))
     assert result.status=='insufficient_global_grid_family_matches'
+    assert result.thermal_points==8;assert result.rgb_points==8;assert result.matches==0
     assert result.estimate.transform.validated is False;assert result.estimate.transform.method=='global_grid_homography';assert result.estimate.fit_points==0
 
 
