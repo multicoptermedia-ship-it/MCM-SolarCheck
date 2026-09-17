@@ -48,9 +48,12 @@ def _line_offset(line:StructuralLine,family_angle_deg:float)->float:
 
 
 def _cluster_offsets(lines:tuple[StructuralLine,...],angle_deg:float,merge_distance_px:float)->tuple[GridLine,...]:
-    samples=sorted((_line_offset(line,angle_deg),line) for line in lines)
+    # Sort only by the numeric offset. Equal offsets are valid (duplicate edges)
+    # and must never make Python compare StructuralLine instances.
+    samples=[(_line_offset(line,angle_deg),index,line) for index,line in enumerate(lines)]
+    samples.sort(key=lambda item:(item[0],item[1]))
     groups=[]
-    for offset,line in samples:
+    for offset,_,line in samples:
         if not groups or offset-groups[-1][-1][0]>merge_distance_px:groups.append([])
         groups[-1].append((offset,line))
     result=[]
@@ -64,6 +67,7 @@ def _cluster_offsets(lines:tuple[StructuralLine,...],angle_deg:float,merge_dista
 def extract_grid_line_families(lines:tuple[StructuralLine,...],*,angle_tolerance_deg:float=12,minimum_family_separation_deg:float=55,merge_distance_px:float=8,minimum_lines:int=3)->tuple[GridLineFamily,...]:
     """Extract at most two dominant, well-separated ordered line families."""
     if not 0<angle_tolerance_deg<45:raise ValueError('angle_tolerance_deg must be between 0 and 45')
+    if not 0<minimum_family_separation_deg<=90:raise ValueError('minimum_family_separation_deg must be between 0 and 90')
     if merge_distance_px<=0:raise ValueError('merge_distance_px must be positive')
     if minimum_lines<2:raise ValueError('minimum_lines must be at least 2')
     if not lines:return ()
