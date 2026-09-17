@@ -48,8 +48,6 @@ def _line_offset(line:StructuralLine,family_angle_deg:float)->float:
 
 
 def _cluster_offsets(lines:tuple[StructuralLine,...],angle_deg:float,merge_distance_px:float)->tuple[GridLine,...]:
-    # Sort only by the numeric offset. Equal offsets are valid (duplicate edges)
-    # and must never make Python compare StructuralLine instances.
     samples=[(_line_offset(line,angle_deg),index,line) for index,line in enumerate(lines)]
     samples.sort(key=lambda item:(item[0],item[1]))
     groups=[]
@@ -64,22 +62,43 @@ def _cluster_offsets(lines:tuple[StructuralLine,...],angle_deg:float,merge_dista
     return tuple(sorted(result,key=lambda line:line.offset_px))
 
 
+def _candidate_family(lines:tuple[StructuralLine,...],seed:StructuralLine,angle_tolerance_deg:float,merge_distance_px:float,minimum_lines:int)->GridLineFamily|None:
+    members=tuple(line for line in lines if _angle_difference(line.angle_deg,seed.angle_deg)<=angle_tolerance_deg)
+    if len(members)<minimum_lines:return None
+    angle=_mean_axis_angle(members)
+    clustered=_cluster_offsets(members,angle,merge_distance_px)
+    if len(clustered)<minimum_lines:return None
+    return GridLineFamily(angle,clustered)
+
+
+def _family_score(family:GridLineFamily)->tuple[int,int,float]:
+    """Prefer repeated distinct grid lines over one exceptionally long segment."""
+    return (len(family.lines),sum(line.support for line in family.lines),sum(line.length_px for line in family.lines))
+
+
 def extract_grid_line_families(lines:tuple[StructuralLine,...],*,angle_tolerance_deg:float=12,minimum_family_separation_deg:float=55,merge_distance_px:float=8,minimum_lines:int=3)->tuple[GridLineFamily,...]:
-    """Extract at most two dominant, well-separated ordered line families."""
+    """Extract at most two dominant, well-separated ordered line families.
+
+    Candidate orientations are evaluated globally. Selection is driven first by
+    the number of distinct repeated parallel offsets, then by supporting segments
+    and only finally by total length. This prevents a single roof edge or cell
+    diagonal from becoming the family seed merely because it is very long.
+    """
     if not 0<angle_tolerance_deg<45:raise ValueError('angle_tolerance_deg must be between 0 and 45')
     if not 0<minimum_family_separation_deg<=90:raise ValueError('minimum_family_separation_deg must be between 0 and 90')
     if merge_distance_px<=0:raise ValueError('merge_distance_px must be positive')
     if minimum_lines<2:raise ValueError('minimum_lines must be at least 2')
     if not lines:return ()
-    candidates=sorted(lines,key=lambda line:line.length,reverse=True)
-    families=[];used=set()
-    while len(families)<2:
-        seed=next((line for line in candidates if id(line) not in used and all(_angle_difference(line.angle_deg,f.angle_deg)>=minimum_family_separation_deg for f in families)),None)
-        if seed is None:break
-        members=tuple(line for line in lines if _angle_difference(line.angle_deg,seed.angle_deg)<=angle_tolerance_deg)
-        used.update(id(line) for line in members)
-        if len(members)<minimum_lines:continue
-        angle=_mean_axis_angle(members)
-        clustered=_cluster_offsets(members,angle,merge_distance_px)
-        if len(clustered)>=minimum_lines:families.append(GridLineFamily(angle,clustered))
-    return tuple(families)
+    candidates=[]
+    for seed in lines:
+        family=_candidate_family(lines,seed,angle_tolerance_deg,merge_distance_px,minimum_lines)
+        if family is None:continue
+        if any(_angle_difference(family.angle_deg,existing.angle_deg)<1 for existing in candidates):continue
+        candidates.append(family)
+    candidates.sort(key=_family_score,reverse=True)
+    selected=[]
+    for family in candidates:
+        if all(_angle_difference(family.angle_deg,other.angle_deg)>=minimum_family_separation_deg for other in selected):
+            selected.append(family)
+            if len(selected)==2:break
+    return tuple(selected)
