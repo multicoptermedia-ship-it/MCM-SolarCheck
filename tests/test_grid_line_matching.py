@@ -37,10 +37,8 @@ def test_two_families_are_mapped_one_to_one():
     assert len({id(m.thermal) for m in matches})==2;assert len({id(m.rgb) for m in matches})==2
 
 
-def test_joint_mapping_preserves_crossing_angle_geometry():
+def test_joint_mapping_preserves_common_sensor_rotation():
     thermal=(family((0,10,25,45),92),family((0,20,50,90),4))
-    # Spacing alone makes the first thermal family look like rgb[0], but that
-    # permutation changes the grid crossing angle from 88 to 55 degrees.
     rgb=(family((0,60,150,270),3),family((0,120,300,540),91))
     matches=match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=0,maximum_axis_geometry_error_deg=8)
     assert len(matches)==2
@@ -48,16 +46,25 @@ def test_joint_mapping_preserves_crossing_angle_geometry():
     assert matches[1].rgb is rgb[0]
 
 
-def test_joint_mapping_rejects_cross_sensor_axis_geometry_mismatch():
+def test_ninety_degree_axis_swap_is_rejected_despite_spacing_fit():
+    thermal=(family((0,10,25,45),92),family((0,20,50,90),4))
+    rgb=(family((0,60,150,270),3),family((0,120,300,540),91))
+    matches=match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=0,maximum_axis_geometry_error_deg=8)
+    assert all(abs(((m.rgb.angle_deg-m.thermal.angle_deg+90)%180)-90)<8 for m in matches)
+
+
+def test_joint_mapping_rejects_inconsistent_axis_rotations():
     thermal=(family((0,10,25,45),90),family((0,20,50,90),0))
     rgb=(family((0,60,150,270),10),family((0,120,300,540),55))
     assert match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=0,maximum_axis_geometry_error_deg=10)==()
 
 
-def test_equally_good_axis_permutations_fail_closed():
+def test_equally_good_physically_valid_axis_permutations_fail_closed():
+    # Degenerate duplicate orientations make two permutations physically and
+    # statistically indistinguishable; the matcher must refuse the assignment.
     pattern=(0,10,25,45)
-    thermal=(family(pattern,90),family(pattern,0))
-    rgb=(family(tuple(x*6 for x in pattern),2),family(tuple(x*6 for x in pattern),92))
+    thermal=(family(pattern,90),family(pattern,90))
+    rgb=(family(tuple(x*6 for x in pattern),91),family(tuple(x*6 for x in pattern),91))
     assert match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=.01)==()
 
 
