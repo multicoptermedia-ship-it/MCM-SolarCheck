@@ -44,7 +44,10 @@ def test_exactly_equal_offsets_are_merged_without_comparing_line_objects():
     families=extract_grid_line_families(vertical,merge_distance_px=4)
     assert len(families)==1
     assert len(families[0].lines)==4
-    assert families[0].lines[0].support==3
+    # Offset sign depends on the family-normal convention. Identify the merged
+    # duplicate by its support instead of assuming it is the first sorted line.
+    merged=[grid_line for grid_line in families[0].lines if grid_line.support==3]
+    assert len(merged)==1
 
 
 def test_single_orientation_does_not_invent_second_family():
