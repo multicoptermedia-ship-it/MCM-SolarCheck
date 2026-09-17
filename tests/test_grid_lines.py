@@ -38,6 +38,15 @@ def test_duplicate_edges_are_merged_into_one_grid_line():
     assert any(l.support==2 for l in vertical.lines)
 
 
+def test_exactly_equal_offsets_are_merged_without_comparing_line_objects():
+    duplicates=tuple(line(80,10,80,500,90) for _ in range(3))
+    vertical=duplicates+tuple(line(x,10,x,500,90) for x in (160,250,350))
+    families=extract_grid_line_families(vertical,merge_distance_px=4)
+    assert len(families)==1
+    assert len(families[0].lines)==4
+    assert families[0].lines[0].support==3
+
+
 def test_single_orientation_does_not_invent_second_family():
     vertical=tuple(line(x,0,x,500,90) for x in (50,100,150,200))
     families=extract_grid_line_families(vertical,merge_distance_px=4)
@@ -53,6 +62,11 @@ def test_noise_orientation_is_not_preferred_over_long_grid():
 
 
 def test_invalid_parameters_fail_closed():
-    try:extract_grid_line_families(pv_grid(),merge_distance_px=0)
-    except ValueError as exc:assert 'merge_distance' in str(exc)
-    else:raise AssertionError('expected ValueError')
+    for kwargs,expected in (
+        ({'merge_distance_px':0},'merge_distance'),
+        ({'minimum_family_separation_deg':0},'minimum_family_separation'),
+        ({'minimum_family_separation_deg':91},'minimum_family_separation'),
+    ):
+        try:extract_grid_line_families(pv_grid(),**kwargs)
+        except ValueError as exc:assert expected in str(exc)
+        else:raise AssertionError('expected ValueError')
