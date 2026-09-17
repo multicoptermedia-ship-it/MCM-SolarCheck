@@ -2,7 +2,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from math import inf
-from .grid_lines import GridLineFamily
+from statistics import median
+from .grid_lines import GridLine,GridLineFamily
 
 @dataclass(frozen=True)
 class GridLineFamilyMatch:
@@ -15,6 +16,16 @@ class GridLineFamilyMatch:
     score:float
 
 
+def _spacing_profile(lines:tuple[GridLine,...])->tuple[float,...]:
+    """Return direction-independent relative gaps for an explicitly ordered sequence."""
+    if len(lines)<2:return ()
+    gaps=[abs(lines[i+1].offset_px-lines[i].offset_px) for i in range(len(lines)-1)]
+    positive=[gap for gap in gaps if gap>1e-9]
+    if len(positive)!=len(gaps):return ()
+    scale=median(positive)
+    return tuple(round(gap/scale,4) for gap in gaps)
+
+
 def _window_score(a:tuple[float,...],b:tuple[float,...])->float:
     if len(a)!=len(b) or not a:return inf
     return (sum((x-y)**2 for x,y in zip(a,b))/len(a))**.5
@@ -24,23 +35,22 @@ def match_grid_line_family(thermal:GridLineFamily,rgb:GridLineFamily,*,minimum_l
     """Match an ordered contiguous line sequence by relative inter-line spacing."""
     if minimum_lines<3:raise ValueError('minimum_lines must be at least 3')
     if max_spacing_error<=0:raise ValueError('max_spacing_error must be positive')
+    if ambiguity_margin<0:raise ValueError('ambiguity_margin must be non-negative')
     n=min(len(thermal.lines),len(rgb.lines))
     if n<minimum_lines:return None
     candidates=[]
     for count in range(n,minimum_lines-1,-1):
-        gaps=count-1
         for ti in range(len(thermal.lines)-count+1):
-            tp=GridLineFamily(thermal.angle_deg,thermal.lines[ti:ti+count]).spacing_profile
+            tp=_spacing_profile(thermal.lines[ti:ti+count])
             for reversed_order in (False,True):
                 rgb_lines=tuple(reversed(rgb.lines)) if reversed_order else rgb.lines
                 for ri in range(len(rgb_lines)-count+1):
-                    rp=GridLineFamily(rgb.angle_deg,rgb_lines[ri:ri+count]).spacing_profile
+                    rp=_spacing_profile(rgb_lines[ri:ri+count])
                     score=_window_score(tp,rp)
                     candidates.append((score,-count,ti,ri,reversed_order,count))
     candidates.sort()
     best=candidates[0]
     if best[0]>max_spacing_error:return None
-    # Compare against a genuinely different alignment of the same maximum support.
     alternatives=[c for c in candidates[1:] if c[5]==best[5]]
     if alternatives and alternatives[0][0]-best[0]<ambiguity_margin:return None
     return GridLineFamilyMatch(thermal,rgb,best[4],best[2],best[3],best[5],best[0])
