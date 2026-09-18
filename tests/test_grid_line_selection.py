@@ -45,7 +45,7 @@ def test_joint_cross_resolution_match_uses_sensor_evidence_for_cadence():
     thermal=family((0,10,25,45))
     # RGB contains an extra edge between each physical grid line. The odd phase
     # reproduces the thermal spacing pattern after normalization.
-    rgb=family((0,100,120,200,270,300,450,500))
+    rgb=family((0,60,100,150,200,270,300,390))
     result=match_cross_resolution_grid_lines(thermal,rgb,minimum_lines=4,max_spacing_error=.001,ambiguity_margin=0)
     assert result is not None
     assert result.count==4
@@ -60,7 +60,7 @@ def test_joint_cross_resolution_uniform_pattern_refuses_phase_guess():
 
 def test_joint_cross_resolution_preserves_reversed_order():
     thermal=family((0,10,30,60))
-    rgb=family((0,60,120,180,300,360,500,540))
+    rgb=family((0,60,120,180,300,360,480,540))
     result=match_cross_resolution_grid_lines(thermal,rgb,minimum_lines=4,max_spacing_error=.001,ambiguity_margin=0)
     assert result is not None
     assert result.reversed_order is True
@@ -79,7 +79,7 @@ def test_m3t_0001_like_dense_rgb_selects_thermal_cadence():
     for i,value in enumerate(physical):
         rgb_offsets.append(value)
         if i<len(physical)-1:
-            rgb_offsets.extend((value+13,value+31,value+47,value+53,value+57,value+59))
+            rgb_offsets.extend(tuple(value+(physical[i+1]-value)*fraction/7 for fraction in range(1,7)))
     result=match_cross_resolution_grid_lines(thermal,family(tuple(rgb_offsets)),minimum_lines=7,max_spacing_error=.01,ambiguity_margin=0,max_step=12)
     assert result is not None
     assert result.count==7
