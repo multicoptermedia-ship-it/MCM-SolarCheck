@@ -58,3 +58,37 @@ def select_unique_grid_hypothesis(estimates:tuple[GridHypothesisEstimate,...],*,
     br=best.estimate.quality.rms_error_px;sr=second.estimate.quality.rms_error_px
     if br<=1e-12:return best if sr>1e-9 else None
     return best if sr/br>=minimum_rms_ratio else None
+
+
+@dataclass(frozen=True)
+class PhysicalAnchor:
+    thermal_x:float
+    thermal_y:float
+    rgb_x:float
+    rgb_y:float
+
+def anchor_reprojection_errors(estimate:GridHypothesisEstimate,anchors:tuple[PhysicalAnchor,...])->tuple[float,...]:
+    """Measure independent non-periodic physical anchors under a hypothesis."""
+    from math import hypot
+    from .registration import project_homography
+    matrix=estimate.estimate.transform.matrix
+    if matrix is None:return tuple(float('inf') for _ in anchors)
+    flat=tuple(v for row in matrix for v in row)
+    errors=[]
+    for anchor in anchors:
+        x,y=project_homography(flat,anchor.thermal_x,anchor.thermal_y)
+        errors.append(hypot(x-anchor.rgb_x,y-anchor.rgb_y))
+    return tuple(errors)
+
+def filter_grid_hypotheses_by_anchors(estimates:tuple[GridHypothesisEstimate,...],anchors:tuple[PhysicalAnchor,...],*,minimum_anchors:int=2,maximum_rms_error_px:float=12.0,maximum_error_px:float=30.0)->tuple[GridHypothesisEstimate,...]:
+    """Retain hypotheses supported by independent non-periodic structures."""
+    from math import sqrt
+    if minimum_anchors<1:raise ValueError('minimum_anchors must be positive')
+    if maximum_rms_error_px<=0 or maximum_error_px<=0:raise ValueError('anchor error limits must be positive')
+    if len(anchors)<minimum_anchors:return ()
+    accepted=[]
+    for estimate in estimates:
+        errors=anchor_reprojection_errors(estimate,anchors)
+        rms=sqrt(sum(e*e for e in errors)/len(errors))
+        if rms<=maximum_rms_error_px and max(errors)<=maximum_error_px:accepted.append(estimate)
+    return tuple(accepted)
