@@ -119,9 +119,10 @@ def test_candidate_api_preserves_phase_hypotheses_for_later_geometry():
     candidates=cross_resolution_grid_candidates(thermal,rgb,minimum_lines=4,max_spacing_error=.001)
     assert candidates
     assert any(c.count==4 and c.rgb_step==2 and c.spacing_error==0 for c in candidates)
-    # Proposal generation must retain alternatives instead of prematurely
-    # declaring one spacing-only phase to be the physical correspondence.
-    assert len(candidates)>1
+    # Proposal generation returns every admissible hypothesis. This fixture has
+    # exactly one under the deliberately strict spacing threshold; importantly,
+    # the API does not apply an additional winner/ambiguity decision.
+    assert len(candidates)==1
 
 
 def test_candidate_api_rejects_invalid_configuration():
