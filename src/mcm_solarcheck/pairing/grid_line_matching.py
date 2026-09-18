@@ -72,15 +72,18 @@ def _rotation_consistency(thermal:tuple[GridLineFamily,...],rgb:tuple[GridLineFa
     return max(errors) if errors else 0.0
 
 
-def match_grid_line_families(thermal:tuple[GridLineFamily,...],rgb:tuple[GridLineFamily,...],*,maximum_axis_geometry_error_deg:float=12.0,mapping_ambiguity_margin:float=.03,**kwargs)->tuple[GridLineFamilyMatch,...]:
+def match_grid_line_families(thermal:tuple[GridLineFamily,...],rgb:tuple[GridLineFamily,...],*,maximum_axis_geometry_error_deg:float=12.0,maximum_absolute_rotation_deg:float=30.0,mapping_ambiguity_margin:float=.03,**kwargs)->tuple[GridLineFamilyMatch,...]:
     """Jointly map PV grid axes using spacing and one common sensor rotation.
 
     A valid two-axis assignment must permit approximately the same signed image
-    rotation for both thermal-to-RGB axes. This distinguishes a physically
-    consistent mapping from a 90-degree axis swap, which crossing angle alone
-    cannot do. Ambiguous competing mappings still fail closed.
+    rotation for both thermal-to-RGB axes and must remain within a conservative
+    absolute rotation envelope. Paired M3T captures share near-simultaneous
+    platform geometry, so a near-90-degree axis swap is not a credible sensor
+    mapping even when its two rotations are mutually consistent. Ambiguous
+    competing mappings still fail closed.
     """
     if maximum_axis_geometry_error_deg<0:raise ValueError('maximum_axis_geometry_error_deg must be non-negative')
+    if not 0<=maximum_absolute_rotation_deg<=90:raise ValueError('maximum_absolute_rotation_deg must be between 0 and 90')
     if mapping_ambiguity_margin<0:raise ValueError('mapping_ambiguity_margin must be non-negative')
     if not thermal or not rgb:return ()
     count=min(len(thermal),len(rgb),2)
@@ -96,6 +99,8 @@ def match_grid_line_families(thermal:tuple[GridLineFamily,...],rgb:tuple[GridLin
     candidates=[]
     for r_indices in permutations(range(len(rgb)),count):
         selected_r=tuple(rgb[i] for i in r_indices)
+        rotations=tuple(_signed_axis_rotation(t.angle_deg,r.angle_deg) for t,r in zip(selected_t,selected_r))
+        if any(abs(rotation)>maximum_absolute_rotation_deg for rotation in rotations):continue
         geometry=_rotation_consistency(selected_t,selected_r)
         if geometry>maximum_axis_geometry_error_deg:continue
         matches=[]
