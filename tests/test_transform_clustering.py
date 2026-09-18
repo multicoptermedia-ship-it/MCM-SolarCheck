@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from mcm_solarcheck.pairing.transform_clustering import cluster_grid_transforms,transform_distance_px
+from mcm_solarcheck.pairing.transform_clustering import cluster_grid_transforms,transform_distance_px,select_unique_transform_cluster
 
 def est(tx=0.,ty=0.,scale=1.):
     transform=SimpleNamespace(matrix=((scale,0.,tx),(0.,scale,ty),(0.,0.,1.)))
@@ -28,3 +28,15 @@ def test_complete_link_prevents_chaining():
 def test_invalid_dimensions_fail_closed():
     import pytest
     with pytest.raises(ValueError):cluster_grid_transforms((),0,512)
+
+
+def test_unique_physical_class_can_be_selected():
+    clusters=cluster_grid_transforms((est(),est(.5)),640,512,maximum_projection_difference_px=1)
+    assert select_unique_transform_cluster(clusters) is clusters[0].representative
+
+def test_multiple_physical_classes_fail_closed():
+    clusters=cluster_grid_transforms((est(),est(25)),640,512,maximum_projection_difference_px=3)
+    assert select_unique_transform_cluster(clusters) is None
+
+def test_no_class_fails_closed():
+    assert select_unique_transform_cluster(()) is None
