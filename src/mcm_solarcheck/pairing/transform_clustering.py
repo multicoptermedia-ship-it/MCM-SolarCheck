@@ -49,3 +49,26 @@ def cluster_grid_transforms(estimates:tuple[GridHypothesisEstimate,...],width:fl
                 placed=True;break
         if not placed:clusters.append(TransformCluster(estimate,(estimate,)))
     return tuple(clusters)
+
+
+def filter_transform_clusters_by_boundaries(clusters,correspondence_hypotheses,*,minimum_correspondences:int=2,maximum_rms_error_px:float=30.0,maximum_error_px:float=60.0):
+    """Retain physical transform classes with independent boundary support.
+
+    Every member is tested because numerical variants may differ slightly at
+    boundary endpoints.  The original cluster is retained only when at least
+    one member survives; unsupported classes disappear fail-closed.
+    """
+    from .boundary_correspondence import filter_estimates_by_boundary_hypotheses
+    accepted=[]
+    for cluster in clusters:
+        survivors=filter_estimates_by_boundary_hypotheses(
+            cluster.members,correspondence_hypotheses,
+            minimum_correspondences=minimum_correspondences,
+            maximum_rms_error_px=maximum_rms_error_px,
+            maximum_error_px=maximum_error_px)
+        if survivors:accepted.append(TransformCluster(survivors[0],survivors))
+    return tuple(accepted)
+
+def select_unique_transform_cluster(clusters:tuple[TransformCluster,...])->GridHypothesisEstimate|None:
+    """Accept registration only when exactly one physical transform class remains."""
+    return clusters[0].representative if len(clusters)==1 else None
