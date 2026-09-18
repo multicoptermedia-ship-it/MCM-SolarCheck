@@ -123,8 +123,11 @@ def match_cross_resolution_grid_lines(thermal:GridLineFamily,rgb:GridLineFamily,
     if not candidates:return None
     candidates.sort(key=lambda item:item[:10])
     best=candidates[0]
+    # With a zero ambiguity margin the caller explicitly requests a deterministic
+    # best candidate. Strict fail-closed ambiguity applies only for a positive
+    # margin; exact ties are then rejected as intended.
     peers=[c for c in candidates[1:] if c[0]==best[0] and c[1]==best[1]]
-    if peers and peers[0][2]-best[2]<ambiguity_margin:return None
+    if ambiguity_margin>0 and peers and peers[0][2]-best[2]<ambiguity_margin:return None
     return CrossResolutionGridSelection(
         GridLineFamily(thermal.angle_deg,tuple(best[10])),
         GridLineFamily(rgb.angle_deg,tuple(best[11])),
