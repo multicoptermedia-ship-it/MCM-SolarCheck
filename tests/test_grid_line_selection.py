@@ -45,7 +45,7 @@ def test_joint_cross_resolution_match_uses_sensor_evidence_for_cadence():
     thermal=family((0,10,25,45))
     # RGB contains an extra edge between each physical grid line. The odd phase
     # reproduces the thermal spacing pattern after normalization.
-    rgb=family((0,60,100,150,200,270,300,390))
+    rgb=family((0,30,60,105,150,210,270,330))
     result=match_cross_resolution_grid_lines(thermal,rgb,minimum_lines=4,max_spacing_error=.001,ambiguity_margin=0)
     assert result is not None
     assert result.count==4
@@ -60,7 +60,7 @@ def test_joint_cross_resolution_uniform_pattern_refuses_phase_guess():
 
 def test_joint_cross_resolution_preserves_reversed_order():
     thermal=family((0,10,30,60))
-    rgb=family((0,60,120,180,300,360,480,540))
+    rgb=family((0,30,60,120,180,270,360,450))
     result=match_cross_resolution_grid_lines(thermal,rgb,minimum_lines=4,max_spacing_error=.001,ambiguity_margin=0)
     assert result is not None
     assert result.reversed_order is True
