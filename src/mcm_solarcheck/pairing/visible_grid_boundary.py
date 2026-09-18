@@ -44,3 +44,34 @@ def visible_grid_boundaries(lines:tuple[StructuralLine,...],families:tuple[GridL
             ep=(support.x1,support.y1) if (support.x1,support.y1)<(support.x2,support.y2) else (support.x2,support.y2)
             out.append(VisibleBoundary(fi,side,ep,support.length))
     return tuple(out)
+
+
+@dataclass(frozen=True)
+class BoundaryQuality:
+    boundary:VisibleBoundary
+    neighboring_lines:int
+    normalized_support:float
+    accepted:bool
+
+def assess_visible_boundaries(boundaries:tuple[VisibleBoundary,...],families:tuple[GridLineFamily,...],*,minimum_neighboring_lines:int=3,minimum_normalized_support:float=.5,maximum_normalized_support:float=8.0)->tuple[BoundaryQuality,...]:
+    """Quality-gate boundary evidence without asserting cross-sensor identity.
+
+    Support length is normalized by the median spacing of the corresponding
+    grid family, making the check meaningful across thermal/RGB resolutions.
+    """
+    from statistics import median
+    if minimum_neighboring_lines<2:raise ValueError('minimum_neighboring_lines must be at least 2')
+    if minimum_normalized_support<=0 or maximum_normalized_support<=minimum_normalized_support:raise ValueError('invalid normalized support limits')
+    out=[]
+    for boundary in boundaries:
+        if boundary.family_index>=len(families):
+            out.append(BoundaryQuality(boundary,0,float('inf'),False));continue
+        family=families[boundary.family_index]
+        gaps=[abs(family.lines[i+1].offset_px-family.lines[i].offset_px) for i in range(len(family.lines)-1)]
+        gaps=[g for g in gaps if g>1e-9]
+        if not gaps:
+            out.append(BoundaryQuality(boundary,len(family.lines),float('inf'),False));continue
+        normalized=boundary.support_length_px/median(gaps)
+        accepted=(len(family.lines)>=minimum_neighboring_lines and minimum_normalized_support<=normalized<=maximum_normalized_support)
+        out.append(BoundaryQuality(boundary,len(family.lines),normalized,accepted))
+    return tuple(out)
