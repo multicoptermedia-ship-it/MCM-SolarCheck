@@ -135,3 +135,40 @@ def match_cross_resolution_grid_lines(thermal:GridLineFamily,rgb:GridLineFamily,
         GridLineFamily(thermal.angle_deg,tuple(best[10])),
         GridLineFamily(rgb.angle_deg,tuple(best[11])),
         best[3],best[4],-best[0],best[2],best[9])
+
+
+def cross_resolution_grid_candidates(thermal:GridLineFamily,rgb:GridLineFamily,*,minimum_lines:int=4,max_spacing_error:float=.18,max_step:int=12)->tuple[CrossResolutionGridSelection,...]:
+    """Return all admissible cadence/phase hypotheses for later 2-D validation.
+
+    This deliberately does not choose a winner.  Spacing is only a proposal
+    stage; direction, phase and line identity must be resolved by joint
+    two-axis geometry plus independent registration holdout.
+    """
+    if minimum_lines<3:raise ValueError('minimum_lines must be at least 3')
+    if max_spacing_error<=0:raise ValueError('max_spacing_error must be positive')
+    if max_step<1:raise ValueError('max_step must be positive')
+    candidates=[]
+    tmax=min(max_step,max(1,(len(thermal.lines)-1)//(minimum_lines-1)))
+    rmax=min(max_step,max(1,(len(rgb.lines)-1)//(minimum_lines-1)))
+    for ts in range(1,tmax+1):
+        for ti in range(ts):
+            ta=thermal.lines[ti::ts]
+            for rs in range(1,rmax+1):
+                for ri in range(rs):
+                    rb=rgb.lines[ri::rs]
+                    n=min(len(ta),len(rb))
+                    for count in range(n,minimum_lines-1,-1):
+                        for tw in range(len(ta)-count+1):
+                            tl=ta[tw:tw+count];tp=_profile(tl)
+                            for reversed_order in (False,True):
+                                ordered=tuple(reversed(rb)) if reversed_order else rb
+                                for rw in range(len(ordered)-count+1):
+                                    rl=ordered[rw:rw+count]
+                                    error=_profile_error(tp,_profile(rl))
+                                    if error<=max_spacing_error:
+                                        candidates.append(CrossResolutionGridSelection(
+                                            GridLineFamily(thermal.angle_deg,tuple(tl)),
+                                            GridLineFamily(rgb.angle_deg,tuple(rl)),
+                                            ts,rs,count,error,reversed_order))
+    candidates.sort(key=lambda x:(-x.count,x.thermal_step+x.rgb_step,x.spacing_error,x.thermal_step,x.rgb_step,x.reversed_order))
+    return tuple(candidates)
