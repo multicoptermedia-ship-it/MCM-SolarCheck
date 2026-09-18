@@ -1,6 +1,6 @@
 from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
 from mcm_solarcheck.pairing.grid_line_selection import CrossResolutionGridSelection
-from mcm_solarcheck.pairing.grid_hypothesis_validation import validate_grid_hypotheses
+from mcm_solarcheck.pairing.grid_hypothesis_validation import validate_grid_hypotheses,select_unique_grid_hypothesis
 
 def family(angle,offsets):
     return GridLineFamily(angle,tuple(GridLine(angle,float(x),1,100.0) for x in offsets))
@@ -28,3 +28,21 @@ def test_insufficient_grid_evidence_fails_closed():
     a=selection(0,(0,10,20),0,(0,60,120))
     b=selection(90,(0,10,20),90,(0,60,120))
     assert validate_grid_hypotheses((a,),(b,))==()
+
+
+def test_repetitive_equal_quality_hypotheses_fail_uniqueness():
+    a=selection(0,(0,10,20,30),0,(0,60,120,180))
+    b=selection(90,(0,10,20,30),90,(0,60,120,180))
+    one=validate_grid_hypotheses((a,),(b,))[0]
+    assert select_unique_grid_hypothesis((one,one)) is None
+
+def test_single_validated_hypothesis_is_unique():
+    a=selection(0,(0,10,20,30),0,(0,60,120,180))
+    b=selection(90,(0,10,20,30),90,(0,60,120,180))
+    one=validate_grid_hypotheses((a,),(b,))[0]
+    assert select_unique_grid_hypothesis((one,)) is one
+
+def test_uniqueness_configuration_is_validated():
+    import pytest
+    with pytest.raises(ValueError):select_unique_grid_hypothesis((),minimum_control_point_advantage=0)
+    with pytest.raises(ValueError):select_unique_grid_hypothesis((),minimum_rms_ratio=1)
