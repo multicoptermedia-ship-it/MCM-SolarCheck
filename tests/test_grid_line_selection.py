@@ -68,3 +68,41 @@ def test_joint_cross_resolution_preserves_reversed_order():
 
 def test_joint_cross_resolution_rejects_bad_spacing():
     assert match_cross_resolution_grid_lines(family((0,10,30,60)),family((0,7,23,52)),minimum_lines=4,max_spacing_error=.01) is None
+
+
+def test_m3t_0001_like_dense_rgb_selects_thermal_cadence():
+    thermal=family((0,10,25,45,70,100,135))
+    # Seven physical RGB grid lines are interleaved with additional cell/frame
+    # edges. Only one stride/phase reproduces the thermal spacing signature.
+    physical=(0,60,150,270,420,600,810)
+    rgb_offsets=[]
+    for i,value in enumerate(physical):
+        rgb_offsets.append(value)
+        if i<len(physical)-1:
+            rgb_offsets.extend((value+13,value+31,value+47,value+53,value+57,value+59))
+    result=match_cross_resolution_grid_lines(thermal,family(tuple(rgb_offsets)),minimum_lines=7,max_spacing_error=.01,ambiguity_margin=0,max_step=12)
+    assert result is not None
+    assert result.count==7
+    assert result.rgb_step==7
+
+
+def test_m3t_0020_like_swapped_axes_require_rotation_gate():
+    from mcm_solarcheck.pairing.grid_line_matching import match_grid_line_families
+    thermal=(family((0,10,25,45)),family((0,20,50,90)))
+    thermal=(GridLineFamily(162,thermal[0].lines),GridLineFamily(71,thermal[1].lines))
+    rgb=(family((0,60,150,270)),family((0,120,300,540)))
+    rgb=(GridLineFamily(77,rgb[0].lines),GridLineFamily(169,rgb[1].lines))
+    matches=match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=0,maximum_axis_geometry_error_deg=8,maximum_absolute_rotation_deg=30)
+    assert len(matches)==2
+    assert matches[0].rgb is rgb[1]
+    assert matches[1].rgb is rgb[0]
+
+
+def test_m3t_0062_like_reversed_order_is_preserved_when_spacing_matches():
+    thermal=family((0,10,30,60,100))
+    # Reversed RGB physical order has the same non-uniform spacing signature.
+    rgb=family((0,240,420,540,600))
+    result=match_cross_resolution_grid_lines(thermal,rgb,minimum_lines=5,max_spacing_error=.001,ambiguity_margin=0,max_step=4)
+    assert result is not None
+    assert result.count==5
+    assert result.reversed_order is True
