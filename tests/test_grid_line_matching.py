@@ -73,12 +73,16 @@ def test_insufficient_lines_fail_closed():
 
 
 def test_consistent_near_ninety_degree_axis_swap_is_rejected_by_absolute_rotation():
-    # Crossing-angle and common-rotation consistency alone cannot distinguish
-    # this swapped mapping. Near-synchronous M3T sensor geometry makes the
-    # approximately 85-degree cross-sensor rotation physically implausible.
+    # Both permutations fit spacing perfectly. The swapped one implies about
+    # -85 degrees on both axes; the physical mapping implies only +6/+7 degrees.
     thermal=(family((0,10,25,45),162),family((0,20,50,90),71))
     rgb=(family((0,60,150,270),77),family((0,120,300,540),169))
-    assert match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=0,maximum_axis_geometry_error_deg=8,maximum_absolute_rotation_deg=30)==()
+    matches=match_grid_line_families(thermal,rgb,max_spacing_error=.001,ambiguity_margin=0,mapping_ambiguity_margin=0,maximum_axis_geometry_error_deg=8,maximum_absolute_rotation_deg=30)
+    assert len(matches)==2
+    assert matches[0].rgb is rgb[1]
+    assert matches[1].rgb is rgb[0]
+    rotations=[((m.rgb.angle_deg-m.thermal.angle_deg+90)%180)-90 for m in matches]
+    assert all(abs(rotation)<8 for rotation in rotations)
 
 
 def test_absolute_rotation_gate_accepts_small_common_rotation():
