@@ -33,3 +33,28 @@ def validate_grid_hypotheses(first:tuple[CrossResolutionGridSelection,...],secon
         if estimate.quality.validated:
             accepted.append(GridHypothesisEstimate(a,b,estimate))
     return tuple(accepted)
+
+
+def select_unique_grid_hypothesis(estimates:tuple[GridHypothesisEstimate,...],*,minimum_control_point_advantage:int=4,minimum_rms_ratio:float=1.5)->GridHypothesisEstimate|None:
+    """Accept one 2-D hypothesis only when it is clearly better than alternatives.
+
+    Regular PV grids can support many low-error homographies with different
+    physical line identities.  Prefer broader evidence first, then require a
+    substantial RMS advantage over an equally supported competitor.  Exact or
+    near-equivalent alternatives fail closed.
+    """
+    if minimum_control_point_advantage<1:raise ValueError('minimum_control_point_advantage must be positive')
+    if minimum_rms_ratio<=1:raise ValueError('minimum_rms_ratio must be greater than 1')
+    if not estimates:return None
+    ranked=sorted(estimates,key=lambda e:(-e.estimate.quality.control_points,e.estimate.quality.rms_error_px,e.estimate.quality.max_error_px))
+    best=ranked[0]
+    if len(ranked)==1:return best
+    second=ranked[1]
+    bp=best.estimate.quality.control_points;sp=second.estimate.quality.control_points
+    if bp-sp>=minimum_control_point_advantage:return best
+    # When evidence coverage is comparable, error alone is accepted only with
+    # a material separation; tiny numerical differences on repetitive grids
+    # are not physical identity evidence.
+    br=best.estimate.quality.rms_error_px;sr=second.estimate.quality.rms_error_px
+    if br<=1e-12:return best if sr>1e-9 else None
+    return best if sr/br>=minimum_rms_ratio else None
