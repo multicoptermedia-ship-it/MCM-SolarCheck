@@ -1,5 +1,5 @@
 from mcm_solarcheck.pairing.visible_grid_boundary import VisibleBoundary,BoundaryQuality
-from mcm_solarcheck.pairing.boundary_correspondence import boundary_correspondence_hypotheses
+from mcm_solarcheck.pairing.boundary_correspondence import boundary_correspondence_hypotheses,BoundaryCorrespondence,score_boundary_hypothesis
 
 def q(f,s,ok=True):
     b=VisibleBoundary(f,s,(float(f),0.0),1.0)
@@ -28,3 +28,23 @@ def test_missing_boundary_is_not_invented():
 def test_axis_mapping_must_be_permutation():
     import pytest
     with pytest.raises(ValueError):boundary_correspondence_hypotheses((),(),(0,0))
+
+
+def test_boundary_score_uses_independent_endpoint_geometry():
+    from types import SimpleNamespace
+    # thermal -> RGB is exact 6x scale
+    transform=SimpleNamespace(matrix=((6.,0.,0.),(0.,6.,0.),(0.,0.,1.)))
+    estimate=SimpleNamespace(estimate=SimpleNamespace(transform=transform))
+    t=VisibleBoundary(0,'first',(5.,7.),1.)
+    r=VisibleBoundary(0,'first',(30.,42.),1.)
+    score=score_boundary_hypothesis(estimate,(BoundaryCorrespondence(t,r),))
+    assert score is not None and score.rms_error_px<1e-9
+
+def test_wrong_physical_boundary_identity_has_large_error():
+    from types import SimpleNamespace
+    transform=SimpleNamespace(matrix=((6.,0.,0.),(0.,6.,0.),(0.,0.,1.)))
+    estimate=SimpleNamespace(estimate=SimpleNamespace(transform=transform))
+    t=VisibleBoundary(0,'first',(5.,7.),1.)
+    r=VisibleBoundary(0,'last',(130.,142.),1.)
+    score=score_boundary_hypothesis(estimate,(BoundaryCorrespondence(t,r),))
+    assert score is not None and score.rms_error_px>100
