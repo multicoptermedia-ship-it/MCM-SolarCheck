@@ -99,8 +99,11 @@ def match_cross_resolution_grid_lines(thermal:GridLineFamily,rgb:GridLineFamily,
     if ambiguity_margin<0:raise ValueError('ambiguity_margin must be non-negative')
     if max_step<1:raise ValueError('max_step must be positive')
     candidates=[]
-    tmax=min(max_step,max(1,len(thermal.lines)//minimum_lines))
-    rmax=min(max_step,max(1,len(rgb.lines)//minimum_lines))
+    # A stride may still leave minimum_lines when the selected phase starts
+    # early enough. floor(len/minimum_lines) incorrectly excludes such valid
+    # cadences (e.g. 8 RGB lines, stride 2 -> 4 lines).
+    tmax=min(max_step,max(1,(len(thermal.lines)-1)//(minimum_lines-1)))
+    rmax=min(max_step,max(1,(len(rgb.lines)-1)//(minimum_lines-1)))
     for ts in range(1,tmax+1):
         for ti in range(ts):
             ta=thermal.lines[ti::ts]
