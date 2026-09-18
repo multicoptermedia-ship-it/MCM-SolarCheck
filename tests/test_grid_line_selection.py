@@ -1,5 +1,5 @@
 from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
-from mcm_solarcheck.pairing.grid_line_selection import select_regular_grid_lines,match_cross_resolution_grid_lines
+from mcm_solarcheck.pairing.grid_line_selection import select_regular_grid_lines,match_cross_resolution_grid_lines,cross_resolution_grid_candidates
 
 
 def family(offsets,supports=None):
@@ -111,3 +111,21 @@ def test_m3t_0062_like_reversed_order_is_preserved_when_spacing_matches():
     assert result is not None
     assert result.count==5
     assert result.reversed_order is True
+
+
+def test_candidate_api_preserves_phase_hypotheses_for_later_geometry():
+    thermal=family((0,10,25,45))
+    rgb=family((0,30,60,105,150,210,270,330))
+    candidates=cross_resolution_grid_candidates(thermal,rgb,minimum_lines=4,max_spacing_error=.001)
+    assert candidates
+    assert any(c.count==4 and c.rgb_step==2 and c.spacing_error==0 for c in candidates)
+    # Proposal generation must retain alternatives instead of prematurely
+    # declaring one spacing-only phase to be the physical correspondence.
+    assert len(candidates)>1
+
+
+def test_candidate_api_rejects_invalid_configuration():
+    import pytest
+    with pytest.raises(ValueError):cross_resolution_grid_candidates(family((0,10,20,30)),family((0,10,20,30)),minimum_lines=2)
+    with pytest.raises(ValueError):cross_resolution_grid_candidates(family((0,10,20,30)),family((0,10,20,30)),max_spacing_error=0)
+    with pytest.raises(ValueError):cross_resolution_grid_candidates(family((0,10,20,30)),family((0,10,20,30)),max_step=0)
