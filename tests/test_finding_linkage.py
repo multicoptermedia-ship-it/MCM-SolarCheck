@@ -59,3 +59,14 @@ def test_same_frame_id_cannot_masquerade_as_cross_sensor_link():
  import pytest
  with pytest.raises(ValueError,match="must differ"):
   link_finding_to_rgb_module(finding(),rgb_frame_id="T-0001",rgb_modules=(),transform=transform())
+
+
+def test_pair_confidence_requires_pair_identity():
+ import pytest
+ with pytest.raises(ValueError,match="requires pair_id"):
+  link_finding_to_rgb_module(finding(),rgb_frame_id="V-0001",rgb_modules=(module(),),transform=transform(),pair_confidence=.9)
+
+def test_blank_pair_id_is_rejected():
+ import pytest
+ with pytest.raises(ValueError,match="must not be blank"):
+  link_finding_to_rgb_module(finding(),rgb_frame_id="V-0001",rgb_modules=(module(),),transform=transform(),pair_id=" ")
