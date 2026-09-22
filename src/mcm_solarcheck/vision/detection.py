@@ -35,7 +35,16 @@ def normalize_module_detections(
     keeps YOLO/segmentation frameworks outside the domain layer and makes model
     replacement straightforward.
     """
-    if not 0.0 <= minimum_confidence <= 1.0:\n        raise ValueError("minimum_confidence must be between 0 and 1")\n    accepted = tuple(d for d in detections if d.class_name == "pv_module" and d.confidence >= minimum_confidence)\n    if validate_geometry:\n        if image_size is None:\n            raise ValueError("image_size is required when geometry validation is enabled")\n        from mcm_solarcheck.vision.module_quality import filter_module_detections\n        accepted = filter_module_detections(accepted, image_size[0], image_size[1])\n    accepted = list(accepted)\n    accepted.sort(key=lambda d: (min(y for _, y in d.polygon_px), min(x for x, _ in d.polygon_px), -d.confidence))
+    if not 0.0 <= minimum_confidence <= 1.0:
+        raise ValueError("minimum_confidence must be between 0 and 1")
+    accepted = tuple(d for d in detections if d.class_name == "pv_module" and d.confidence >= minimum_confidence)
+    if validate_geometry:
+        if image_size is None:
+            raise ValueError("image_size is required when geometry validation is enabled")
+        from mcm_solarcheck.vision.module_quality import filter_module_detections
+        accepted = filter_module_detections(accepted, image_size[0], image_size[1])
+    accepted = list(accepted)
+    accepted.sort(key=lambda d: (min(y for _, y in d.polygon_px), min(x for x, _ in d.polygon_px), -d.confidence))
     return tuple(
         PVModule(
             module_id=f"{frame_id}:M-{index:04d}", frame_id=frame_id,
