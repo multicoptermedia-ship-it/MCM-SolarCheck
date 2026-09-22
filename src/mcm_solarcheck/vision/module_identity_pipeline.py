@@ -11,6 +11,8 @@ class ModuleIdentityRun:
  status:str
 
 def assign_confirmed_module_identities(modules,tracker:ModuleIdentityTracker)->ModuleIdentityRun:
+ modules=tuple(modules)
+ if len({m.frame_id for m in modules})>1:return ModuleIdentityRun((),"mixed_coordinate_frames")
  observations=module_observations(modules)
  if not observations:return ModuleIdentityRun((),"no_modules")
  quality=assess_observation_geometry(observations)
