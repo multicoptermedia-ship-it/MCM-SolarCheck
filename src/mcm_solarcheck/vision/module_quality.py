@@ -22,9 +22,10 @@ def assess_module_detection(detection:ModuleDetection,width:int,height:int,*,min
     p=detection.polygon_px
     if not all(isfinite(x) and isfinite(y) for x,y in p): return ModuleDetectionQuality(detection,False,"non_finite")
     if any(x<0 or y<0 or x>=width or y>=height for x,y in p): return ModuleDetectionQuality(detection,False,"outside_image")
-    if not is_valid_module_polygon(p): return ModuleDetectionQuality(detection,False,"invalid_polygon")
-    a=_area(p); f=a/(width*height)
+    a=_area(p)
     if a<=1e-9: return ModuleDetectionQuality(detection,False,"degenerate_polygon")
+    if not is_valid_module_polygon(p): return ModuleDetectionQuality(detection,False,"invalid_polygon")
+    f=a/(width*height)
     if f<minimum_area_fraction: return ModuleDetectionQuality(detection,False,"too_small")
     if f>maximum_area_fraction: return ModuleDetectionQuality(detection,False,"too_large")
     return ModuleDetectionQuality(detection,True,"accepted")
