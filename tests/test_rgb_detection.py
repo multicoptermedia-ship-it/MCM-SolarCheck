@@ -29,7 +29,21 @@ def test_normalization_filters_orders_and_numbers_modules():
         ModuleDetection(((200, 10), (250, 10), (250, 60), (200, 60)), 0.20),
         ModuleDetection(((300, 10), (350, 10), (350, 60), (300, 60)), 0.99, "roof"),
     )
-    modules = normalize_module_detections("T-0042", detections, detector_name="fixture", minimum_confidence=0.5)
+    modules = normalize_module_detections("T-0042", detections, detector_name="fixture", minimum_confidence=0.5, image_size=(4000,3000))
     assert [m.module_id for m in modules] == ["T-0042:M-0001", "T-0042:M-0002"]
     assert modules[0].polygon_px[0] == (10, 10)
     assert modules[1].detection_confidence == 0.95
+
+
+def test_normalization_geometry_gate_rejects_duplicate_and_outside():
+    good = ModuleDetection(((100,100),(300,100),(300,500),(100,500)), .95)
+    duplicate = ModuleDetection(((105,105),(305,105),(305,505),(105,505)), .80)
+    outside = ModuleDetection(((-10,100),(200,100),(200,500),(-10,500)), .99)
+    modules = normalize_module_detections("V-1",(duplicate,outside,good),detector_name="fixture",image_size=(4000,3000))
+    assert len(modules)==1
+    assert modules[0].detection_confidence==.95
+
+
+def test_normalization_requires_image_size_for_safe_default():
+    with pytest.raises(ValueError):
+        normalize_module_detections("V-1",(ModuleDetection(((0,0),(10,0),(10,10)),.9),),detector_name="fixture")
