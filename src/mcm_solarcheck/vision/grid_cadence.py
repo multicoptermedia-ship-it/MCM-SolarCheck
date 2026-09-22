@@ -48,3 +48,13 @@ def select_supported_cadence_multiple(family:GridLineFamily,support_intervals,*,
     if ranked[0][1]<2:return GridCadence(False,"insufficient_independent_support",base.median_gap_px)
     if len(ranked)>1 and ranked[1][1]==ranked[0][1]:return GridCadence(False,"ambiguous_cadence",base.median_gap_px)
     return GridCadence(True,"independently_supported",base.median_gap_px,ranked[0][0])
+
+
+def cadence_line_subsets(family:GridLineFamily,multiple:int)->tuple[GridLineFamily,...]:
+    """Return every possible phase for a confirmed cadence without guessing alignment."""
+    if multiple<2 or len(family.lines)<2:return ()
+    lines=tuple(sorted(family.lines,key=lambda x:x.offset_px));out=[]
+    for phase in range(multiple):
+        chosen=lines[phase::multiple]
+        if len(chosen)>=2:out.append(GridLineFamily(family.angle_deg,chosen))
+    return tuple(out)

@@ -1,5 +1,5 @@
 from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
-from mcm_solarcheck.vision.grid_cadence import assess_grid_cadence,select_supported_cadence_multiple
+from mcm_solarcheck.vision.grid_cadence import assess_grid_cadence,select_supported_cadence_multiple,cadence_line_subsets
 
 def fam(offsets):return GridLineFamily(0,tuple(GridLine(0,x,1,10) for x in offsets))
 
@@ -24,3 +24,13 @@ def test_single_independent_interval_cannot_select_multiple():
 def test_equal_competing_multiples_fail_closed():
  q=select_supported_cadence_multiple(fam((0,10,20,30,40,50)),(20,20,30,30))
  assert not q.accepted and q.reason=='ambiguous_cadence'
+
+
+def test_cadence_subsets_preserve_all_alignment_phases():
+ f=fam((0,10,20,30,40,50,60))
+ q=cadence_line_subsets(f,3)
+ assert tuple(tuple(x.offset_px for x in s.lines) for s in q)==((0,30,60),(10,40),(20,50))
+
+def test_invalid_or_unusable_multiple_returns_no_subsets():
+ assert cadence_line_subsets(fam((0,10,20)),1)==()
+ assert cadence_line_subsets(fam((0,10)),3)==()
