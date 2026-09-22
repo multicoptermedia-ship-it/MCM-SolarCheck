@@ -39,7 +39,7 @@ def _bbox_iou(a,b):
 def filter_module_detections(detections:tuple[ModuleDetection,...],width:int,height:int,*,duplicate_iou:float=.75)->tuple[ModuleDetection,...]:
     """Fail closed on invalid geometry and suppress high-overlap duplicate detections."""
     if not 0<duplicate_iou<=1: raise ValueError("duplicate_iou must be in (0,1]")
-    valid=[q.detection for q in (assess_module_detection(d,width,height) for d in detections) if q.accepted and d.class_name=="pv_module"]
+    valid = [q.detection for q in (assess_module_detection(d, width, height) for d in detections) if q.accepted and q.detection.class_name == "pv_module"]
     valid.sort(key=lambda d:(-d.confidence,_center(d.polygon_px)))
     kept=[]
     for d in valid:
