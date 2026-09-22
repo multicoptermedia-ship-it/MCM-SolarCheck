@@ -62,7 +62,7 @@ def test_overlapping_modules_are_never_silently_resolved():
     assert result.candidates == ("M-0001", "M-0002")
 
 
-def test_unexpected_thermal_geometry_fails_closed():
- t=PixelTransform("test",True,320,256,4000,3000,((1,0,0),(0,1,0),(0,0,1)),1)
+def test_invalid_transform_geometry_fails_closed():
+ t=PixelTransform("test",True,0,256,4000,3000,((1,0,0),(0,1,0),(0,0,1)),1)
  r=assign_thermal_point_to_rgb_module(thermal_x=10,thermal_y=10,transform=t,rgb_modules=(module(),),rgb_frame_id="V-0001")
- assert r.status=="thermal_geometry_mismatch" and r.module_id is None
+ assert r.status=="invalid_transform_geometry" and r.module_id is None
