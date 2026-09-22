@@ -6,7 +6,7 @@ from mcm_solarcheck.pairing.grid_lines import GridLineFamily
 from mcm_solarcheck.vision.detection import ModuleDetection
 
 def _intersection(a,b):
-    aa=radians(a.angle_deg);bb=radians(b.angle_deg)
+    aa=radians(a.angle_deg+90);bb=radians(b.angle_deg+90)
     n1=(cos(aa),sin(aa));n2=(cos(bb),sin(bb));det=n1[0]*n2[1]-n1[1]*n2[0]
     if abs(det)<1e-6:return None
     return ((a.offset_px*n2[1]-n1[1]*b.offset_px)/det,(n1[0]*b.offset_px-a.offset_px*n2[0])/det)
