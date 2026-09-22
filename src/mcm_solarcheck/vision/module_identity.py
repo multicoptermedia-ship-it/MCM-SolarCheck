@@ -58,6 +58,7 @@ class ModuleIdentityTracker:
         self.max_normalized_distance = max_normalized_distance
         self.ambiguity_margin = ambiguity_margin
         self.modules: dict[str, PhysicalModule] = {}
+        self.coordinate_space_id: str | None = None
         self._next_id = 1
 
     @staticmethod

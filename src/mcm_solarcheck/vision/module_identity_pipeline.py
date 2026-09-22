@@ -35,8 +35,8 @@ def assign_confirmed_module_identities(modules,tracker:ModuleIdentityTracker)->M
 def assign_registered_observations(observations,tracker:ModuleIdentityTracker,*,coordinate_space_id:str)->ModuleIdentityRun:
  """Assign observations only after caller explicitly supplies a common registered space."""
  if not coordinate_space_id.strip():return ModuleIdentityRun((),"common_coordinate_space_required")
- previous=getattr(tracker,"_mcm_coordinate_space_id",None)
+ previous=tracker.coordinate_space_id
  if previous is not None and previous!=coordinate_space_id:return ModuleIdentityRun((),"coordinate_space_mismatch")
  run=_assign(tuple(observations),tracker)
- if run.assignments:setattr(tracker,"_mcm_coordinate_space_id",coordinate_space_id)
+ if run.assignments:tracker.coordinate_space_id=coordinate_space_id
  return run
