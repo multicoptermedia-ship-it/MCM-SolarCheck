@@ -66,3 +66,9 @@ def test_invalid_transform_geometry_fails_closed():
  t=PixelTransform("test",True,0,256,4000,3000,((1,0,0),(0,1,0),(0,0,1)),1)
  r=assign_thermal_point_to_rgb_module(thermal_x=10,thermal_y=10,transform=t,rgb_modules=(module(),),rgb_frame_id="V-0001")
  assert r.status=="invalid_transform_geometry" and r.module_id is None
+
+
+def test_negative_registration_error_fails_closed():
+ t=transform(error=-1)
+ r=assign_thermal_point_to_rgb_module(thermal_x=100,thermal_y=100,transform=t,rgb_modules=(module(),),rgb_frame_id="V-0001")
+ assert r.status=="invalid_transform_error" and r.module_id is None

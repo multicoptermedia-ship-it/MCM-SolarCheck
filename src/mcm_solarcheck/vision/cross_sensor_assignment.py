@@ -53,6 +53,8 @@ def assign_thermal_point_to_rgb_module(
         return CrossSensorModuleAssignment(None,None,"invalid_transform_geometry",transform.validation_error_px)
     if safety_factor < 0:
         raise ValueError("safety_factor must be non-negative")
+    if transform.validation_error_px is not None and transform.validation_error_px < 0:
+        return CrossSensorModuleAssignment(None,None,"invalid_transform_error",transform.validation_error_px)
     if not transform.validated or transform.matrix is None:
         return CrossSensorModuleAssignment(None, None, "transform_unvalidated", transform.validation_error_px)
 
