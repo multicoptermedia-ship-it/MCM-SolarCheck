@@ -97,6 +97,21 @@ class ProjectDatabase:
         with self.connect() as db:
             if mrows:db.executemany(msql,mrows)
             if irows:db.executemany(isql,irows)
+    def save_modules_identities_and_findings(self,project_id,modules,assignments,findings):
+        modules=tuple(modules);assignments=tuple(assignments);findings=tuple(findings)
+        module_keys={(m.frame_id,m.module_id) for m in modules};assignment_keys={(a.observation.frame_id,a.observation.local_id) for a in assignments}
+        if not assignment_keys.issubset(module_keys):raise ValueError('identity assignment does not reference persisted module')
+        assigned_ids={m.module_id for m in modules}
+        for finding in findings:
+            if finding.module_id is not None and finding.module_id not in assigned_ids:raise ValueError('finding references module outside atomic persistence batch')
+        mcols=('project_id','module_id','frame_id','polygon_json','detection_confidence','detector','latitude','longitude','altitude_m','metadata_json');msql=_upsert('pv_modules',mcols,('project_id','module_id'))
+        icols=('project_id','frame_id','local_module_id','physical_module_id','status','normalized_distance');isql=_upsert('module_identity_links',icols,('project_id','frame_id','local_module_id'))
+        mrows=[(project_id,m.module_id,m.frame_id,json.dumps(m.polygon_px),m.detection_confidence,m.detector,m.position.latitude if m.position else None,m.position.longitude if m.position else None,m.position.altitude_m if m.position else None,json.dumps(m.metadata,ensure_ascii=False)) for m in modules]
+        irows=[(project_id,a.observation.frame_id,a.observation.local_id,a.module_id,a.status,a.normalized_distance) for a in assignments if a.module_id is not None]
+        with self.connect() as db:
+            if mrows:db.executemany(msql,mrows)
+            if irows:db.executemany(isql,irows)
+            self._save_findings(db,project_id,findings);self._save_sensor_links(db,project_id,findings)
     def save_finding_sensor_link(self,project_id:str,finding:Finding)->None:
         values=self._sensor_link_values(project_id,finding)
         if values is None:raise ValueError('finding has no cross-sensor linkage metadata')
