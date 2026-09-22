@@ -18,7 +18,7 @@ class GridModuleDetector:
         h,w=image.shape[:2]
         scale=min(1.0,self.max_dimension/max(h,w))
         small=cv2.resize(image,None,fx=scale,fy=scale,interpolation=cv2.INTER_AREA) if scale<1 else image
-        lines=detect_structural_lines(small,max_dimension=self.max_dimension)
+        lines=detect_structural_lines(small,max_dimension=self.max_dimension,min_length_fraction=.08)
         families=extract_grid_line_families(lines)
         detections=grid_module_detections(families,small.shape[1],small.shape[0],margin_px=2)
         if scale==1:return detections
