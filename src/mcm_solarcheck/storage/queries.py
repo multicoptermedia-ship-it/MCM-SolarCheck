@@ -48,6 +48,14 @@ class FindingRecord:
     transform_error_px: float | None = None
     cross_sensor_status: str | None = None
 
+@dataclass(frozen=True)
+class ModuleIdentityRecord:
+    frame_id:str
+    local_module_id:str
+    physical_module_id:str
+    status:str
+    normalized_distance:float|None
+
 class InspectionQueries:
     """Stable read boundary between SQLite and UI/report generation."""
     def __init__(self,database:ProjectDatabase)->None:self.database=database
@@ -59,6 +67,13 @@ class InspectionQueries:
             statuses={row['reviewer_status']:int(row['n']) for row in db.execute('SELECT reviewer_status, COUNT(*) AS n FROM findings WHERE project_id=? GROUP BY reviewer_status',(project_id,))}
             calibrated=int(db.execute('SELECT COUNT(*) FROM findings WHERE project_id=? AND temperature_c IS NOT NULL',(project_id,)).fetchone()[0])
             return InspectionSummary(project_id,count('image_frames'),count('thermal_frames'),count('image_pairs'),count('pv_modules'),count('findings'),statuses.get('unreviewed',0),statuses.get('confirmed',0),statuses.get('rejected',0),statuses.get('unclear',0),calibrated)
+    def module_identities(self,project_id:str,*,physical_module_id:str|None=None)->tuple[ModuleIdentityRecord,...]:
+        sql='SELECT frame_id,local_module_id,physical_module_id,status,normalized_distance FROM module_identity_links WHERE project_id=?'
+        params=[project_id]
+        if physical_module_id is not None:sql+=' AND physical_module_id=?';params.append(physical_module_id)
+        sql+=' ORDER BY physical_module_id,frame_id,local_module_id'
+        with self.database.connect() as db:rows=db.execute(sql,tuple(params)).fetchall()
+        return tuple(ModuleIdentityRecord(**dict(row)) for row in rows)
     def findings(self,project_id:str,*,reviewer_status:str|None=None,confirmed_only:bool=False)->tuple[FindingRecord,...]:
         if confirmed_only and reviewer_status is not None:raise ValueError('Use either confirmed_only or reviewer_status, not both')
         status='confirmed' if confirmed_only else reviewer_status
