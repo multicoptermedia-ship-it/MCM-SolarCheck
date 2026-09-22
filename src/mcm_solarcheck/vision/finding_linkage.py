@@ -23,6 +23,10 @@ def link_finding_to_rgb_module(
     A module_id is written only for an unambiguous, validated cross-sensor
     assignment.  Failed/ambiguous attempts remain visible in metadata.
     """
+    if pair_confidence is not None and not 0.0 <= pair_confidence <= 1.0:
+        raise ValueError("pair_confidence must be between 0 and 1")
+    if finding.thermal_frame_id == rgb_frame_id:
+        raise ValueError("thermal and RGB frame ids must differ")
     result = assign_thermal_point_to_rgb_module(
         thermal_x=finding.pixel_x,
         thermal_y=finding.pixel_y,

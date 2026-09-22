@@ -48,3 +48,14 @@ def test_ambiguous_attempt_does_not_destroy_existing_module_id():
     )
     assert result.module_id == "M-OLD"
     assert result.metadata["cross_sensor_status"] == "ambiguous_edge"
+
+
+def test_invalid_pair_confidence_is_rejected():
+ import pytest
+ with pytest.raises(ValueError,match="pair_confidence"):
+  link_finding_to_rgb_module(finding(),rgb_frame_id="V-0001",rgb_modules=(module(),),transform=transform(),pair_confidence=1.1)
+
+def test_same_frame_id_cannot_masquerade_as_cross_sensor_link():
+ import pytest
+ with pytest.raises(ValueError,match="must differ"):
+  link_finding_to_rgb_module(finding(),rgb_frame_id="T-0001",rgb_modules=(),transform=transform())
