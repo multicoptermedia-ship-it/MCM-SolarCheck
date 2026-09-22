@@ -3,8 +3,8 @@ from mcm_solarcheck.vision.opencv_module_detector import OpenCVModuleDetector
 
 def test_detects_separated_blue_modules(tmp_path):
     im=np.full((600,800,3),230,np.uint8)
-    cv2.rectangle(im,(100,100),(300,220),(120,70,40),-1)
-    cv2.rectangle(im,(400,300),(600,420),(120,70,40),-1)
+    cv2.rectangle(im,(100,100),(180,150),(120,70,40),-1)
+    cv2.rectangle(im,(400,300),(480,350),(120,70,40),-1)
     p=tmp_path/"rgb.jpg";cv2.imwrite(str(p),im)
     d=OpenCVModuleDetector(max_dimension=800).detect(p)
     assert len(d)==2
