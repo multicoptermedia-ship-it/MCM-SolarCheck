@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from math import hypot,isfinite
-from mcm_solarcheck.vision.detection import ModuleDetection
+from mcm_solarcheck.vision.detection import ModuleDetection\nfrom mcm_solarcheck.vision.polygon_geometry import convex_polygon_iou,is_valid_module_polygon
 
 def _area(poly):
     return abs(sum(poly[i][0]*poly[(i+1)%len(poly)][1]-poly[(i+1)%len(poly)][0]*poly[i][1] for i in range(len(poly)))/2)
@@ -21,7 +21,7 @@ def assess_module_detection(detection:ModuleDetection,width:int,height:int,*,min
     p=detection.polygon_px
     if not all(isfinite(x) and isfinite(y) for x,y in p): return ModuleDetectionQuality(detection,False,"non_finite")
     if any(x<0 or y<0 or x>=width or y>=height for x,y in p): return ModuleDetectionQuality(detection,False,"outside_image")
-    a=_area(p); f=a/(width*height)
+    if not is_valid_module_polygon(p): return ModuleDetectionQuality(detection,False,"invalid_polygon")\n    a=_area(p); f=a/(width*height)
     if a<=1e-9: return ModuleDetectionQuality(detection,False,"degenerate_polygon")
     if f<minimum_area_fraction: return ModuleDetectionQuality(detection,False,"too_small")
     if f>maximum_area_fraction: return ModuleDetectionQuality(detection,False,"too_large")
@@ -43,5 +43,5 @@ def filter_module_detections(detections:tuple[ModuleDetection,...],width:int,hei
     valid.sort(key=lambda d:(-d.confidence,_center(d.polygon_px)))
     kept=[]
     for d in valid:
-        if all(_bbox_iou(d.polygon_px,k.polygon_px)<duplicate_iou for k in kept): kept.append(d)
+        if all(convex_polygon_iou(d.polygon_px,k.polygon_px)<duplicate_iou for k in kept): kept.append(d)
     return tuple(kept)
