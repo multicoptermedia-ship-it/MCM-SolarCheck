@@ -12,7 +12,11 @@ def _point_segment_distance(p,line):
  return hypot(x-(line.x1+t*dx),y-(line.y1+t*dy))
 
 def _side_supported(a,b,lines,angle,tolerance):
- return any(_angle_difference(line.angle_deg,angle)<=12 and _point_segment_distance(a,line)<=tolerance and _point_segment_distance(b,line)<=tolerance for line in lines)
+ # A side may be represented by several collinear Hough fragments. Requiring one
+ # segment to span both corners creates false negatives at legitimate joins.
+ candidates=[line for line in lines if _angle_difference(line.angle_deg,angle)<=12]
+ return (any(_point_segment_distance(a,line)<=tolerance for line in candidates) and
+         any(_point_segment_distance(b,line)<=tolerance for line in candidates))
 
 def filter_cells_by_finite_support(cells:tuple[ModuleDetection,...],families:tuple[GridLineFamily,...],lines:tuple[StructuralLine,...],*,tolerance_px:float=12)->tuple[ModuleDetection,...]:
  """Keep cells whose four sides are each backed by an observed finite segment."""
