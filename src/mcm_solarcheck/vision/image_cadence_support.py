@@ -1,6 +1,5 @@
 """Independent module-size intervals derived from image detector geometry."""
 from __future__ import annotations
-from math import hypot
 from mcm_solarcheck.vision.detection import ModuleDetection
 
 def image_module_intervals(detections:tuple[ModuleDetection,...],axis_angle_deg:float)->tuple[float,...]:
