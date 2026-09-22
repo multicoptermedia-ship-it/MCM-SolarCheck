@@ -6,7 +6,7 @@ import json, sqlite3
 from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS image_frames(project_id TEXT NOT NULL REFERENCES proj
 CREATE TABLE IF NOT EXISTS thermal_frames(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,frame_id TEXT NOT NULL,source_file TEXT NOT NULL,timestamp_utc TEXT,camera_make TEXT,camera_model TEXT,width INTEGER,height INTEGER,latitude REAL,longitude REAL,altitude_m REAL,rtk_status TEXT,rtk_std_lat_m REAL,rtk_std_lon_m REAL,rtk_std_height_m REAL,rtk_correction_age_s REAL,rtk_altitude_type TEXT,thermal_source TEXT NOT NULL,quality_grade TEXT,raw_min INTEGER,raw_max INTEGER,raw_mean REAL,raw_median REAL,raw_p95 REAL,raw_p99 REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,frame_id));
 CREATE TABLE IF NOT EXISTS image_pairs(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,pair_id TEXT NOT NULL,rgb_frame_id TEXT NOT NULL,thermal_frame_id TEXT NOT NULL,confidence REAL NOT NULL,method TEXT NOT NULL,distance_m REAL,time_delta_s REAL,PRIMARY KEY(project_id,pair_id),FOREIGN KEY(project_id,rgb_frame_id) REFERENCES image_frames(project_id,frame_id) ON DELETE CASCADE,FOREIGN KEY(project_id,thermal_frame_id) REFERENCES thermal_frames(project_id,frame_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS pv_modules(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,module_id TEXT NOT NULL,frame_id TEXT NOT NULL,polygon_json TEXT NOT NULL,detection_confidence REAL,detector TEXT NOT NULL,latitude REAL,longitude REAL,altitude_m REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,module_id));
+CREATE TABLE IF NOT EXISTS module_identity_links(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,frame_id TEXT NOT NULL,local_module_id TEXT NOT NULL,physical_module_id TEXT NOT NULL,status TEXT NOT NULL,normalized_distance REAL,PRIMARY KEY(project_id,frame_id,local_module_id));
+CREATE INDEX IF NOT EXISTS idx_module_identity_physical ON module_identity_links(project_id,physical_module_id);
 CREATE TABLE IF NOT EXISTS findings(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,finding_id TEXT NOT NULL,thermal_frame_id TEXT NOT NULL,pixel_x INTEGER NOT NULL,pixel_y INTEGER NOT NULL,finding_type TEXT NOT NULL,confidence REAL,raw_value INTEGER,raw_delta_from_median REAL,temperature_c REAL,module_id TEXT,latitude REAL,longitude REAL,altitude_m REAL,reviewer_status TEXT NOT NULL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,finding_id),FOREIGN KEY(project_id,thermal_frame_id) REFERENCES thermal_frames(project_id,frame_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS finding_sensor_links(project_id TEXT NOT NULL,finding_id TEXT NOT NULL,rgb_frame_id TEXT NOT NULL,pair_id TEXT,pair_confidence REAL,rgb_pixel_x REAL,rgb_pixel_y REAL,transform_method TEXT NOT NULL,transform_validated INTEGER NOT NULL CHECK(transform_validated IN (0,1)),transform_error_px REAL,status TEXT NOT NULL,candidates_json TEXT NOT NULL DEFAULT '[]',PRIMARY KEY(project_id,finding_id),FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS finding_reviews(review_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL,finding_id TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('confirmed','rejected','unclear')),reviewer TEXT NOT NULL,reviewed_at_utc TEXT NOT NULL,note TEXT,FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
@@ -79,6 +81,22 @@ class ProjectDatabase:
     def save_modules(self,project_id,modules):
         cols=('project_id','module_id','frame_id','polygon_json','detection_confidence','detector','latitude','longitude','altitude_m','metadata_json');sql=_upsert('pv_modules',cols,('project_id','module_id'))
         with self.connect() as db:db.executemany(sql,[(project_id,m.module_id,m.frame_id,json.dumps(m.polygon_px),m.detection_confidence,m.detector,m.position.latitude if m.position else None,m.position.longitude if m.position else None,m.position.altitude_m if m.position else None,json.dumps(m.metadata,ensure_ascii=False)) for m in modules])
+    def save_module_identity_assignments(self,project_id,assignments):
+        cols=('project_id','frame_id','local_module_id','physical_module_id','status','normalized_distance');sql=_upsert('module_identity_links',cols,('project_id','frame_id','local_module_id'))
+        rows=[(project_id,a.observation.frame_id,a.observation.local_id,a.module_id,a.status,a.normalized_distance) for a in assignments if a.module_id is not None]
+        with self.connect() as db:
+            if rows:db.executemany(sql,rows)
+    def save_modules_with_identities(self,project_id,modules,assignments):
+        modules=tuple(modules);assignments=tuple(assignments)
+        module_keys={(m.frame_id,m.module_id) for m in modules};assignment_keys={(a.observation.frame_id,a.observation.local_id) for a in assignments}
+        if not assignment_keys.issubset(module_keys):raise ValueError('identity assignment does not reference persisted module')
+        mcols=('project_id','module_id','frame_id','polygon_json','detection_confidence','detector','latitude','longitude','altitude_m','metadata_json');msql=_upsert('pv_modules',mcols,('project_id','module_id'))
+        icols=('project_id','frame_id','local_module_id','physical_module_id','status','normalized_distance');isql=_upsert('module_identity_links',icols,('project_id','frame_id','local_module_id'))
+        mrows=[(project_id,m.module_id,m.frame_id,json.dumps(m.polygon_px),m.detection_confidence,m.detector,m.position.latitude if m.position else None,m.position.longitude if m.position else None,m.position.altitude_m if m.position else None,json.dumps(m.metadata,ensure_ascii=False)) for m in modules]
+        irows=[(project_id,a.observation.frame_id,a.observation.local_id,a.module_id,a.status,a.normalized_distance) for a in assignments if a.module_id is not None]
+        with self.connect() as db:
+            if mrows:db.executemany(msql,mrows)
+            if irows:db.executemany(isql,irows)
     def save_finding_sensor_link(self,project_id:str,finding:Finding)->None:
         values=self._sensor_link_values(project_id,finding)
         if values is None:raise ValueError('finding has no cross-sensor linkage metadata')
