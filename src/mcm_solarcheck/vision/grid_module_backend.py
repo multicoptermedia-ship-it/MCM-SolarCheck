@@ -1,11 +1,19 @@
 """Grid-backed PV module detector using the established structural feature stack."""
 from __future__ import annotations
 from pathlib import Path
+from dataclasses import dataclass
 import cv2
 from mcm_solarcheck.pairing.structural_features import detect_structural_lines
 from mcm_solarcheck.pairing.grid_lines import extract_grid_line_families
 from mcm_solarcheck.vision.grid_module_detector import grid_module_detections
 from mcm_solarcheck.vision.grid_cell_support import filter_cells_by_finite_support
+
+@dataclass(frozen=True)
+class GridModuleDiagnostics:
+    raw_candidates:int
+    supported_candidates:int
+    structural_lines:int
+    family_sizes:tuple[int,...]
 
 class GridModuleDetector:
     name="structural_grid_v1"
@@ -13,16 +21,22 @@ class GridModuleDetector:
         if max_dimension<=0: raise ValueError("max_dimension must be positive")
         self.max_dimension=max_dimension
 
-    def detect(self,source_file:Path):
+    def detect_with_diagnostics(self,source_file:Path):
         image=cv2.imread(str(source_file),cv2.IMREAD_COLOR)
-        if image is None:return ()
+        if image is None:return (),GridModuleDiagnostics(0,0,0,())
         h,w=image.shape[:2]
         scale=min(1.0,self.max_dimension/max(h,w))
         small=cv2.resize(image,None,fx=scale,fy=scale,interpolation=cv2.INTER_AREA) if scale<1 else image
         lines=detect_structural_lines(small,max_dimension=self.max_dimension,min_length_fraction=.08)
         families=extract_grid_line_families(lines)
-        detections=grid_module_detections(families,small.shape[1],small.shape[0],margin_px=2)
-        detections=filter_cells_by_finite_support(detections,families,lines)
-        if scale==1:return detections
+        raw=grid_module_detections(families,small.shape[1],small.shape[0],margin_px=2)
+        detections=filter_cells_by_finite_support(raw,families,lines)
+        diagnostics=GridModuleDiagnostics(len(raw),len(detections),len(lines),tuple(len(f.lines) for f in families))
+        if scale==1:return detections,diagnostics
         from mcm_solarcheck.vision.detection import ModuleDetection
-        return tuple(ModuleDetection(tuple((x/scale,y/scale) for x,y in d.polygon_px),d.confidence,d.class_name) for d in detections)
+        scaled=tuple(ModuleDetection(tuple((x/scale,y/scale) for x,y in d.polygon_px),d.confidence,d.class_name) for d in detections)
+        return scaled,diagnostics
+
+    def detect(self,source_file:Path):
+        detections,_=self.detect_with_diagnostics(source_file)
+        return detections

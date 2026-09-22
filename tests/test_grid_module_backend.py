@@ -17,3 +17,13 @@ def test_grid_family_extraction_on_fixture_lines():
 
 def test_grid_backend_missing_file_fails_closed(tmp_path):
  assert GridModuleDetector().detect(tmp_path/"missing.jpg")==()
+
+
+def test_grid_backend_exposes_finite_support_diagnostics(tmp_path,monkeypatch):
+ im=np.full((600,800,3),230,np.uint8);p=tmp_path/"grid-diagnostics.jpg";cv2.imwrite(str(p),im)
+ lines=tuple(StructuralLine(x,50,x,550,500,90) for x in (100,250,400,550))+tuple(StructuralLine(50,y,750,y,700,0) for y in (100,300,500))
+ monkeypatch.setattr("mcm_solarcheck.vision.grid_module_backend.detect_structural_lines",lambda *a,**k:lines)
+ detections,q=GridModuleDetector(max_dimension=800).detect_with_diagnostics(p)
+ assert len(detections)==6
+ assert q.raw_candidates==6 and q.supported_candidates==6
+ assert q.structural_lines==7 and sorted(q.family_sizes)==[3,4]
