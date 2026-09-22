@@ -27,3 +27,24 @@ def assess_grid_cadence(family:GridLineFamily,*,minimum_gaps:int=4,relative_tole
     near=sum(abs(g/m-1)<=relative_tolerance for g in gaps)
     if near/len(gaps)<.6:return GridCadence(False,"irregular_spacing",m)
     return GridCadence(True,"single_scale_only",m,1)
+
+
+def select_supported_cadence_multiple(family:GridLineFamily,support_intervals,*,maximum_multiple:int=12,relative_tolerance:float=.18)->GridCadence:
+    """Select a larger module cadence only from independent interval evidence.
+
+    support_intervals are distances measured by a separate image/geometry cue; grid gaps
+    themselves may establish the base scale but can never vote for a larger multiple.
+    """
+    base=assess_grid_cadence(family,relative_tolerance=relative_tolerance)
+    if not base.accepted or base.median_gap_px is None:return base
+    values=[float(v) for v in support_intervals if float(v)>0]
+    if len(values)<2:return GridCadence(False,"insufficient_independent_support",base.median_gap_px)
+    votes={}
+    for v in values:
+        k=round(v/base.median_gap_px)
+        if 2<=k<=maximum_multiple and abs(v/(base.median_gap_px*k)-1)<=relative_tolerance:votes[k]=votes.get(k,0)+1
+    if not votes:return GridCadence(False,"no_larger_supported_cadence",base.median_gap_px)
+    ranked=sorted(votes.items(),key=lambda x:(-x[1],x[0]))
+    if ranked[0][1]<2:return GridCadence(False,"insufficient_independent_support",base.median_gap_px)
+    if len(ranked)>1 and ranked[1][1]==ranked[0][1]:return GridCadence(False,"ambiguous_cadence",base.median_gap_px)
+    return GridCadence(True,"independently_supported",base.median_gap_px,ranked[0][0])
