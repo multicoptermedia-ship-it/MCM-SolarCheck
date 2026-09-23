@@ -33,6 +33,12 @@ class InspectionReportDataService:
                 pair=db.execute('SELECT rgb_frame_id,confidence,method FROM image_pairs WHERE project_id=? AND thermal_frame_id=? ORDER BY confidence DESC,pair_id LIMIT 1',(project_id,finding.thermal_frame_id)).fetchone()
                 review=db.execute("SELECT reviewer,note FROM finding_reviews WHERE project_id=? AND finding_id=? AND status='confirmed' ORDER BY review_id DESC LIMIT 1",(project_id,finding.finding_id)).fetchone()
                 rows.append(ReportFinding(finding,pair['rgb_frame_id'] if pair else None,pair['confidence'] if pair else None,pair['method'] if pair else None,review['note'] if review else None,review['reviewer'] if review else None))
-        # Celsius evidence is report-valid only when every confirmed finding has calibrated data.
-        validated=bool(confirmed) and all(item.temperature_c is not None for item in confirmed)
+        # A numeric Celsius value alone is not proof of calibration. Persisted
+        # provenance must explicitly identify validated provider output.
+        validated=bool(confirmed) and all(
+            item.temperature_c is not None
+            and item.temperature_status == 'calibrated'
+            and bool(item.temperature_provider and item.temperature_provider.strip())
+            for item in confirmed
+        )
         return InspectionReportData(project_id,project['name'],summary,tuple(rows),validated)
