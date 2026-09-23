@@ -6,6 +6,7 @@ silently converted or estimated.
 """
 from __future__ import annotations
 from dataclasses import dataclass
+import json
 from .sqlite import ProjectDatabase
 
 @dataclass(frozen=True)
@@ -47,6 +48,8 @@ class FindingRecord:
     transform_validated: bool | None = None
     transform_error_px: float | None = None
     cross_sensor_status: str | None = None
+    temperature_status: str | None = None
+    temperature_provider: str | None = None
 
 @dataclass(frozen=True)
 class ModuleIdentityRecord:
@@ -82,7 +85,7 @@ class InspectionQueries:
                       f.temperature_c,f.reviewer_status,f.latitude,f.longitude,f.altitude_m,
                       l.rgb_frame_id,l.pair_id,l.pair_confidence,l.rgb_pixel_x,l.rgb_pixel_y,
                       l.transform_method,l.transform_validated,l.transform_error_px,
-                      l.status AS cross_sensor_status
+                      l.status AS cross_sensor_status,f.metadata_json
                FROM findings f LEFT JOIN finding_sensor_links l
                  ON l.project_id=f.project_id AND l.finding_id=f.finding_id
                WHERE f.project_id=?'''
@@ -93,6 +96,9 @@ class InspectionQueries:
         records=[]
         for row in rows:
             values=dict(row)
+            metadata=json.loads(values.pop('metadata_json') or '{}')
+            values['temperature_status']=metadata.get('temperature_status')
+            values['temperature_provider']=metadata.get('temperature_provider')
             if values['transform_validated'] is not None:values['transform_validated']=bool(values['transform_validated'])
             records.append(FindingRecord(**values))
         return tuple(records)
