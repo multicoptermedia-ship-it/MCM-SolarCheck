@@ -1,6 +1,6 @@
 """Require finite observed structural segments to support proposed PV grid cells."""
 from __future__ import annotations
-from math import hypot
+from math import hypot,cos,sin,radians
 from mcm_solarcheck.pairing.structural_features import StructuralLine,_angle_difference
 from mcm_solarcheck.pairing.grid_lines import GridLineFamily
 from mcm_solarcheck.vision.detection import ModuleDetection
@@ -43,3 +43,29 @@ def filter_cells_by_finite_support(cells:tuple[ModuleDetection,...],families:tup
   if len(p)!=4:continue
   if all(finite_support_sides(cell,families,lines,tolerance_px=tolerance_px)):out.append(cell)
  return tuple(out)
+
+
+def internal_lattice_support(cell:ModuleDetection,families:tuple[GridLineFamily,...],lines:tuple[StructuralLine,...],*,tolerance_px:float=12)->tuple[int,int]:
+ """Count distinct observed structural lines crossing the finite cell interior per grid axis.
+
+ This is diagnostic evidence only: it does not relax the four-side production gate.
+ """
+ if tolerance_px<=0:raise ValueError("tolerance_px must be positive")
+ if len(families)!=2 or len(cell.polygon_px)!=4:return (0,0)
+ p=cell.polygon_px
+ def axis_count(family):
+  normal=radians(family.angle_deg+90);nx,ny=cos(normal),sin(normal)
+  offsets=[x*nx+y*ny for x,y in p];lo,hi=min(offsets),max(offsets)
+  seen=[]
+  for line in lines:
+   if _angle_difference(line.angle_deg,family.angle_deg)>12:continue
+   mx=(line.x1+line.x2)/2;my=(line.y1+line.y2)/2;off=mx*nx+my*ny
+   if not lo+tolerance_px<off<hi-tolerance_px:continue
+   # Require the observed finite segment itself to enter the cell polygon bbox;
+   # an infinite extrapolation is not interior evidence.
+   minx,maxx=min(x for x,y in p)-tolerance_px,max(x for x,y in p)+tolerance_px
+   miny,maxy=min(y for x,y in p)-tolerance_px,max(y for x,y in p)+tolerance_px
+   if max(line.x1,line.x2)<minx or min(line.x1,line.x2)>maxx or max(line.y1,line.y2)<miny or min(line.y1,line.y2)>maxy:continue
+   if all(abs(off-v)>tolerance_px for v in seen):seen.append(off)
+  return len(seen)
+ return tuple(axis_count(f) for f in families)
