@@ -1,6 +1,6 @@
 """Require finite observed structural segments to support proposed PV grid cells."""
 from __future__ import annotations
-from math import hypot,cos,sin,radians
+from math import hypot,cos,sin,radians,isfinite
 from mcm_solarcheck.pairing.structural_features import StructuralLine,_angle_difference
 from mcm_solarcheck.pairing.grid_lines import GridLineFamily
 from mcm_solarcheck.vision.detection import ModuleDetection
@@ -25,7 +25,7 @@ def _side_supported(a,b,lines,angle,tolerance):
 
 def finite_support_sides(cell:ModuleDetection,families:tuple[GridLineFamily,...],lines:tuple[StructuralLine,...],*,tolerance_px:float=12)->tuple[bool,bool,bool,bool]:
  """Return observed finite support for the four ordered cell sides."""
- if tolerance_px<=0:raise ValueError("tolerance_px must be positive")
+ if not isfinite(float(tolerance_px)) or tolerance_px<=0:raise ValueError("tolerance_px must be finite and positive")
  if len(families)!=2 or len(cell.polygon_px)!=4:return (False,False,False,False)
  p=cell.polygon_px;a,b=families
  return (_side_supported(p[0],p[1],lines,b.angle_deg,tolerance_px),
@@ -35,7 +35,7 @@ def finite_support_sides(cell:ModuleDetection,families:tuple[GridLineFamily,...]
 
 def filter_cells_by_finite_support(cells:tuple[ModuleDetection,...],families:tuple[GridLineFamily,...],lines:tuple[StructuralLine,...],*,tolerance_px:float=12)->tuple[ModuleDetection,...]:
  """Keep cells whose four sides are each backed by an observed finite segment."""
- if tolerance_px<=0:raise ValueError("tolerance_px must be positive")
+ if not isfinite(float(tolerance_px)) or tolerance_px<=0:raise ValueError("tolerance_px must be finite and positive")
  if len(families)!=2:return ()
  out=[];a,b=families
  for cell in cells:
@@ -50,7 +50,7 @@ def internal_lattice_support(cell:ModuleDetection,families:tuple[GridLineFamily,
 
  This is diagnostic evidence only: it does not relax the four-side production gate.
  """
- if tolerance_px<=0:raise ValueError("tolerance_px must be positive")
+ if not isfinite(float(tolerance_px)) or tolerance_px<=0:raise ValueError("tolerance_px must be finite and positive")
  if len(families)!=2 or len(cell.polygon_px)!=4:return (0,0)
  p=cell.polygon_px
  def axis_count(family):
