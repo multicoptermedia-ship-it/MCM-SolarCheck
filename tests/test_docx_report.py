@@ -18,3 +18,13 @@ def test_docx_renderer_names_module_and_keeps_gps_optional(tmp_path):
     assert 'M-0042' in text
     assert 'Latitude' in text and 'Longitude' in text
     assert text.count('Not available')>=3
+
+
+def test_docx_renderer_includes_review_priority_without_calling_it_severity(tmp_path):
+    evidence=ReportEvidence('F-3','thermal_anomaly_candidate','M-0042','T-3',None,21000,600.0,45.0,None,None,'Inspector','Check module','review',.85)
+    model=InspectionReportModel('P','PV Thermal Inspection Report','Plant','review_complete','Validated Celsius evidence.',(evidence,),())
+    path=render_docx(model,tmp_path/'priority-report.docx')
+    doc=Document(path);text='\n'.join(c.text for t in doc.tables for r in t.rows for c in r.cells)
+    assert 'Review priority' in text and 'review' in text
+    assert 'Priority score' in text and '0.85' in text
+    assert 'Severity' not in text
