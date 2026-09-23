@@ -2,9 +2,11 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from mcm_solarcheck.pairing.grid_lines import GridLineFamily
+from mcm_solarcheck.pairing.structural_features import StructuralLine
 from mcm_solarcheck.vision.detection import ModuleDetection
-from mcm_solarcheck.vision.grid_cadence import GridCadence,select_supported_cadence_multiple
+from mcm_solarcheck.vision.grid_cadence import GridCadence,select_supported_cadence_multiple,supported_cadence_multiples
 from mcm_solarcheck.vision.image_cadence_support import image_module_intervals
+from mcm_solarcheck.vision.cadence_candidate_evidence import enumerate_cadence_candidate_evidence,select_uniquely_supported_candidate
 
 @dataclass(frozen=True)
 class CadenceGateResult:
@@ -23,3 +25,45 @@ def assess_module_cadence(families:tuple[GridLineFamily,...],image_support:tuple
     axes=tuple(select_supported_cadence_multiple(f,image_module_intervals(image_support,f.angle_deg+90.0)) for f in families)
     if not all(a.accepted and (a.dominant_multiple or 1)>=2 for a in axes):return CadenceGateResult(False,axes,"cadence_not_confirmed")
     return CadenceGateResult(True,axes,"accepted")
+
+
+def assess_ambiguous_module_cadence(
+    families:tuple[GridLineFamily,...],
+    image_support:tuple[ModuleDetection,...],
+    lines:tuple[StructuralLine,...],
+    width:int,
+    height:int,
+    *,
+    minimum_iou:float=.20,
+)->CadenceGateResult:
+    """Resolve only image-supported cadence ties with unique finite lattice evidence."""
+    primary=assess_module_cadence(families,image_support)
+    if primary.accepted:return primary
+    if primary.reason!="cadence_not_confirmed" or len(families)!=2 or not image_support:
+        return primary
+    options=tuple(
+        supported_cadence_multiples(
+            family,image_module_intervals(image_support,family.angle_deg+90.0)
+        )
+        for family in families
+    )
+    if not all(options):
+        return CadenceGateResult(False,primary.axes,"cadence_candidates_not_confirmed")
+    evidence=enumerate_cadence_candidate_evidence(
+        families,(options[0],options[1]),image_support,lines,width,height,
+        minimum_iou=minimum_iou,
+    )
+    resolved=select_uniquely_supported_candidate(evidence)
+    if not resolved.accepted or resolved.candidate is None:
+        return CadenceGateResult(False,primary.axes,resolved.reason)
+    bases=tuple(
+        select_supported_cadence_multiple(
+            family,
+            (float(a.median_gap_px)*multiple,)*2,
+        )
+        for family,a,multiple in zip(families,primary.axes,resolved.candidate.multiples)
+        if a.median_gap_px is not None
+    )
+    if len(bases)!=2 or not all(a.accepted for a in bases):
+        return CadenceGateResult(False,primary.axes,"resolved_cadence_invalid")
+    return CadenceGateResult(True,bases,"accepted_by_unique_lattice_evidence")
