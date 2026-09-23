@@ -73,3 +73,27 @@ def cadence_line_subsets(family:GridLineFamily,multiple:int)->tuple[GridLineFami
         chosen=tuple(line for line in lines if round((line.offset_px-origin)/base.median_gap_px)%multiple==phase)
         if len(chosen)>=2:out.append(GridLineFamily(family.angle_deg,chosen))
     return tuple(out)
+
+
+def supported_cadence_multiples(
+    family:GridLineFamily,
+    support_intervals,
+    *,
+    maximum_multiple:int=12,
+    relative_tolerance:float=.18,
+    minimum_votes:int=2,
+)->tuple[int,...]:
+    """Return every independently supported larger cadence for diagnostics.
+
+    Unlike select_supported_cadence_multiple this deliberately preserves ties.
+    """
+    base=assess_grid_cadence(family,relative_tolerance=relative_tolerance)
+    if not base.accepted or base.median_gap_px is None:return ()
+    values=[float(v) for v in support_intervals if float(v)>0]
+    if len(values)<minimum_votes:return ()
+    votes={}
+    for v in values:
+        k=round(v/base.median_gap_px)
+        if 2<=k<=maximum_multiple and abs(v/(base.median_gap_px*k)-1)<=relative_tolerance:
+            votes[k]=votes.get(k,0)+1
+    return tuple(sorted(k for k,count in votes.items() if count>=minimum_votes))
