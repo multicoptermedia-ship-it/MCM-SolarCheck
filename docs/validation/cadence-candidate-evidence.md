@@ -47,3 +47,14 @@ Production module generation still has a stricter final requirement than the dia
 The development observations for M3T frames 0055, 0056 and 0061 above remain diagnostic evidence for the ambiguity rules. They are not labeled accuracy measurements and must not be presented as a post-change end-to-end benchmark. A fresh post-change image run is required before recording new detector counts. FDach remains outside development scope and reserved as holdout.
 
 For Phase 5 closure, no threshold is relaxed to force a positive result. 0056 and tied 0061 evidence are expected to remain closed; 0055 may proceed only if the complete current production chain, including four-side finite support, independently validates the resulting cells.
+
+
+## Phase 5 completion
+
+Phase 5 is closed on repository head `16e612f535651cdd82d666c8cea5759be280645b` with CI run #260 passing the complete repository test matrix.
+
+The final detector contract is covered in both directions: ambiguous, malformed, unsupported, or incompletely finite-supported geometry fails closed; a valid accepted path is allowed to reach image fusion only after the four-side finite-support filter has retained the generated cell. The positive-path regression test also verifies that the configured independent-image IoU is preserved at fusion.
+
+The M3T 0055/0056/0061 controls remain safety controls rather than accuracy labels. Their current reproduced outcome is zero accepted modules for all three, with no threshold relaxation. The repository utility `scripts/validate_cadence_controls.py` provides the canonical package-level rerun entry point for future co-located control images.
+
+No FDach holdout data was used for development or Phase 5 closure.
