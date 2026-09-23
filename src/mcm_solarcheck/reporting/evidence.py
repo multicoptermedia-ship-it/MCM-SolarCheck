@@ -21,11 +21,14 @@ class EvidenceImagePlan:
     cross_sensor_status:str|None=None
     transform_error_px:float|None=None
     module_id:str|None=None
+    service_location_status:str='module_unresolved'
     def __post_init__(self):
         x,y=self.thermal_pixel
         if x<0 or y<0:raise ValueError('thermal pixel must be non-negative')
         if self.rgb_marker is not None and self.rgb_source is None:raise ValueError('RGB marker requires an RGB source image')
         if self.pairing_confidence is not None and not 0.0<=self.pairing_confidence<=1.0:raise ValueError('pairing confidence must be between 0 and 1')
+        expected='module_resolved' if self.module_id is not None and self.module_id.strip() else 'module_unresolved'
+        object.__setattr__(self,'service_location_status',expected)
 
 @dataclass(frozen=True)
 class EvidenceImageSet:
