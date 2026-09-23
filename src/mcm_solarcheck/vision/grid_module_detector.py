@@ -13,8 +13,11 @@ def _intersection(a,b):
 
 def grid_module_detections(families:tuple[GridLineFamily,...],width:int,height:int,*,margin_px:float=8,expected_gaps_px:tuple[float,float]|None=None,gap_relative_tolerance:float=.18)->tuple[ModuleDetection,...]:
     """Return only complete adjacent grid cells whose corners lie in the image."""
-    if len(families)!=2 or width<=0 or height<=0:return ()
-    if expected_gaps_px is not None and (len(expected_gaps_px)!=2 or any(g<=0 for g in expected_gaps_px)):return ()
+    if len(families)!=2 or type(width) is not int or type(height) is not int or width<=0 or height<=0:return ()
+    if not isfinite(float(margin_px)) or margin_px<0:return ()
+    if not isfinite(float(gap_relative_tolerance)) or not 0<=gap_relative_tolerance<.5:return ()
+    if expected_gaps_px is not None and (len(expected_gaps_px)!=2 or any(not isfinite(float(g)) or g<=0 for g in expected_gaps_px)):return ()
+    if any(not isfinite(float(line.offset_px)) for family in families for line in family.lines):return ()
     a,b=families
     if len(a.lines)<2 or len(b.lines)<2:return ()
     la=sorted(a.lines,key=lambda x:x.offset_px);lb=sorted(b.lines,key=lambda x:x.offset_px);out=[]
