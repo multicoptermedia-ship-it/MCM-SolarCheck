@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from math import isfinite
 
 from mcm_solarcheck.domain.models import Finding
+from mcm_solarcheck.thermal.temperature_provenance import has_validated_celsius
 
 
 @dataclass(frozen=True)
@@ -24,9 +25,11 @@ def prioritize_finding(finding: Finding) -> FindingPriority:
     """Return an auditable review priority without inventing missing evidence."""
     if finding.temperature_c is None:
         return FindingPriority(finding.finding_id, "unrated", None, "calibrated_temperature_required")
-    if finding.metadata.get("temperature_status") != "calibrated" or not finding.metadata.get("temperature_provider", "").strip():
+    status=finding.metadata.get("temperature_status")
+    provider=finding.metadata.get("temperature_provider")
+    if status != "calibrated" or not provider or not provider.strip():
         return FindingPriority(finding.finding_id, "unrated", None, "temperature_provenance_required")
-    if not isfinite(float(finding.temperature_c)):
+    if not has_validated_celsius(finding.temperature_c, status, provider):
         return FindingPriority(finding.finding_id, "unrated", None, "invalid_temperature")
     if finding.confidence is None:
         return FindingPriority(finding.finding_id, "unrated", None, "confidence_required")
