@@ -32,3 +32,18 @@ These observations are validation fixtures, not permission to weaken any thresho
 
 
 Candidate evidence is treated as an internal trust boundary. Malformed multiplier options, non-finite or out-of-range IoU values, inconsistent matched-cell counts, mismatched cell provenance, impossible outer-support counts, and malformed internal-lattice counts fail closed rather than participating in disambiguation.
+
+
+## Phase 5 closure checks
+
+The cadence safety path is regression-tested through repository head `bb39b8ac322d220207b7cc1c61b1ea86179aebeb` (CI run #256). The complete test matrix passed on that head.
+
+The validated trust-boundary behavior now includes strict positive-integer image dimensions, finite quadrilateral candidate polygons, semantically consistent repeated-lattice flags and raw support counts, valid cadence multipliers/phases, finite positive cadence gaps, and in-range resolved phase indices. Malformed evidence fails closed.
+
+Production module generation still has a stricter final requirement than the diagnostic repeated-lattice predicate: after cadence/phase resolution, generated cells pass `filter_cells_by_finite_support`, which requires finite support on all four outer sides. If that filter removes every cell, the detector returns no modules before image fusion. Independent image detections therefore cannot recreate grid cells rejected by finite-support validation.
+
+### Real-image controls and scope
+
+The development observations for M3T frames 0055, 0056 and 0061 above remain diagnostic evidence for the ambiguity rules. They are not labeled accuracy measurements and must not be presented as a post-change end-to-end benchmark. A fresh post-change image run is required before recording new detector counts. FDach remains outside development scope and reserved as holdout.
+
+For Phase 5 closure, no threshold is relaxed to force a positive result. 0056 and tied 0061 evidence are expected to remain closed; 0055 may proceed only if the complete current production chain, including four-side finite support, independently validates the resulting cells.
