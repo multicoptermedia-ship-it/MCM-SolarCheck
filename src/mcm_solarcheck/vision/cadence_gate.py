@@ -1,6 +1,7 @@
 """Fail-closed gate that lets independent image geometry confirm grid cadence."""
 from __future__ import annotations
 from dataclasses import dataclass
+from math import isfinite
 from mcm_solarcheck.pairing.grid_lines import GridLineFamily
 from mcm_solarcheck.pairing.structural_features import StructuralLine
 from mcm_solarcheck.vision.detection import ModuleDetection
@@ -44,9 +45,9 @@ def assess_ambiguous_module_cadence(
         return primary
     if not any(axis.reason=="ambiguous_cadence" for axis in primary.axes):
         return primary
-    if width<=0 or height<=0:
+    if type(width) is not int or type(height) is not int or width<=0 or height<=0:
         return CadenceGateResult(False,primary.axes,"invalid_image_dimensions")
-    if not 0.0<=minimum_iou<=1.0:
+    if not isfinite(float(minimum_iou)) or not 0.0<=minimum_iou<=1.0:
         return CadenceGateResult(False,primary.axes,"invalid_minimum_iou")
     options=tuple(
         supported_cadence_multiples(
