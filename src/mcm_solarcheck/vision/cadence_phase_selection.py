@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from mcm_solarcheck.pairing.grid_lines import GridLineFamily
 from mcm_solarcheck.vision.detection import ModuleDetection
-from mcm_solarcheck.vision.grid_cadence import cadence_line_subsets
+from mcm_solarcheck.vision.grid_cadence import cadence_line_subsets,assess_grid_cadence
 from mcm_solarcheck.vision.grid_module_detector import grid_module_detections
 from mcm_solarcheck.vision.polygon_geometry import convex_polygon_iou
 
@@ -16,10 +16,13 @@ class CadencePhaseSelection:
 
 def select_cadence_phase(families:tuple[GridLineFamily,...],multiples:tuple[int,int],support:tuple[ModuleDetection,...],width:int,height:int,*,minimum_iou:float=.20,ambiguity_margin:float=.05)->CadencePhaseSelection:
     if len(families)!=2 or not support:return CadencePhaseSelection(False,(),0.0,"insufficient_evidence")
+    bases=tuple(assess_grid_cadence(f) for f in families)
+    if not all(b.accepted and b.median_gap_px for b in bases):return CadencePhaseSelection(False,(),0.0,"base_cadence_required")
+    expected=tuple(float(b.median_gap_px)*m for b,m in zip(bases,multiples))
     candidates=[]
     for a in cadence_line_subsets(families[0],multiples[0]):
       for b in cadence_line_subsets(families[1],multiples[1]):
-        cells=grid_module_detections((a,b),width,height,margin_px=2)
+        cells=grid_module_detections((a,b),width,height,margin_px=2,expected_gaps_px=expected)
         hits=[max((convex_polygon_iou(cell.polygon_px,s.polygon_px) for s in support),default=0.0) for cell in cells]
         matched=[v for v in hits if v>=minimum_iou]
         score=sum(matched)

@@ -11,14 +11,17 @@ def _intersection(a,b):
     if abs(det)<1e-6:return None
     return ((a.offset_px*n2[1]-n1[1]*b.offset_px)/det,(n1[0]*b.offset_px-a.offset_px*n2[0])/det)
 
-def grid_module_detections(families:tuple[GridLineFamily,...],width:int,height:int,*,margin_px:float=8)->tuple[ModuleDetection,...]:
+def grid_module_detections(families:tuple[GridLineFamily,...],width:int,height:int,*,margin_px:float=8,expected_gaps_px:tuple[float,float]|None=None,gap_relative_tolerance:float=.18)->tuple[ModuleDetection,...]:
     """Return only complete adjacent grid cells whose corners lie in the image."""
     if len(families)!=2 or width<=0 or height<=0:return ()
+    if expected_gaps_px is not None and (len(expected_gaps_px)!=2 or any(g<=0 for g in expected_gaps_px)):return ()
     a,b=families
     if len(a.lines)<2 or len(b.lines)<2:return ()
     la=sorted(a.lines,key=lambda x:x.offset_px);lb=sorted(b.lines,key=lambda x:x.offset_px);out=[]
     for i in range(len(la)-1):
+      if expected_gaps_px is not None and abs(abs(la[i+1].offset_px-la[i].offset_px)/expected_gaps_px[0]-1)>gap_relative_tolerance:continue
       for j in range(len(lb)-1):
+        if expected_gaps_px is not None and abs(abs(lb[j+1].offset_px-lb[j].offset_px)/expected_gaps_px[1]-1)>gap_relative_tolerance:continue
         pts=(_intersection(la[i],lb[j]),_intersection(la[i+1],lb[j]),_intersection(la[i+1],lb[j+1]),_intersection(la[i],lb[j+1]))
         if any(p is None for p in pts):continue
         poly=tuple(pts)
