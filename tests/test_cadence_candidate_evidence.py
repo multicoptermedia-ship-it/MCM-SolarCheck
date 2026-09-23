@@ -172,3 +172,16 @@ def test_disambiguation_rejects_boolean_internal_lattice_count():
  wrong=CadenceCellEvidence((3,4),(0,0),candidate.cells[0].polygon_px,.3,2,(True,1),True)
  candidate=CadenceCandidateEvidence((3,4),(0,0),1,.3,(wrong,))
  assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
+
+
+def test_disambiguation_rejects_false_positive_repeated_lattice_flag():
+ candidate=evidence((3,4),(0,0))
+ wrong=CadenceCellEvidence((3,4),(0,0),candidate.cells[0].polygon_px,.3,0,(1,1),True)
+ candidate=CadenceCandidateEvidence((3,4),(0,0),1,.3,(wrong,))
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
+
+def test_disambiguation_rejects_false_negative_repeated_lattice_flag():
+ candidate=evidence((3,4),(0,0))
+ wrong=CadenceCellEvidence((3,4),(0,0),candidate.cells[0].polygon_px,.3,2,(1,1),False)
+ candidate=CadenceCandidateEvidence((3,4),(0,0),1,.3,(wrong,))
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
