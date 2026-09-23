@@ -68,3 +68,32 @@ def enumerate_cadence_candidate_evidence(
                     ))
     out.sort(key=lambda c:(-c.matched_cells,-c.iou_score,c.multiples,c.phases))
     return tuple(out)
+
+
+@dataclass(frozen=True)
+class CadenceDisambiguation:
+    accepted:bool
+    candidate:CadenceCandidateEvidence|None
+    reason:str
+
+def select_uniquely_supported_candidate(
+    candidates:tuple[CadenceCandidateEvidence,...],
+)->CadenceDisambiguation:
+    """Accept only when repeated finite lattice evidence uniquely identifies one geometry.
+
+    This helper is deliberately stricter than diagnostic ordering: IoU or matched-cell
+    count can rank candidates for inspection, but neither may break a lattice tie.
+    """
+    supported=tuple(
+        candidate for candidate in candidates
+        if any(cell.repeated_lattice for cell in candidate.cells)
+    )
+    if not supported:
+        return CadenceDisambiguation(False,None,"repeated_lattice_support_required")
+    geometries={candidate.multiples for candidate in supported}
+    if len(geometries)!=1:
+        return CadenceDisambiguation(False,None,"ambiguous_lattice_supported_cadence")
+    same_geometry=tuple(candidate for candidate in supported if candidate.multiples==next(iter(geometries)))
+    if len(same_geometry)!=1:
+        return CadenceDisambiguation(False,None,"ambiguous_lattice_supported_phase")
+    return CadenceDisambiguation(True,same_geometry[0],"accepted")
