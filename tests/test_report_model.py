@@ -77,3 +77,15 @@ def test_report_priority_reason_is_auditable():
 def test_unrated_report_explains_missing_calibration():
     data=InspectionReportData('P','Plant',summary(),(ReportFinding(finding(module_id='M-0042'),None,None,None,'Checked','Inspector'),),False)
     assert build_report_model(data).evidence[0].priority_reason=='calibrated_temperature_required'
+
+
+def test_confirmed_finding_without_module_emits_localization_warning():
+    data=InspectionReportData('P','Plant',summary(),(ReportFinding(finding(),None,None,None,'Checked','Inspector'),),False)
+    report=build_report_model(data)
+    assert any('no resolved physical module' in warning for warning in report.warnings)
+
+
+def test_resolved_module_does_not_emit_localization_warning():
+    data=InspectionReportData('P','Plant',summary(),(ReportFinding(finding(module_id='M-0042'),None,None,None,'Checked','Inspector'),),False)
+    report=build_report_model(data)
+    assert not any('no resolved physical module' in warning for warning in report.warnings)
