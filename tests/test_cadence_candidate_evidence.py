@@ -51,3 +51,13 @@ def test_disambiguation_rejects_competing_phases_of_same_cadence():
 def test_disambiguation_rejects_iou_only_candidate():
     result=select_uniquely_supported_candidate((evidence((7,3),(0,0),False,.8),))
     assert not result.accepted and result.reason=="repeated_lattice_support_required"
+
+
+def test_disambiguation_deduplicates_same_geometry_and_phase():
+ result=select_uniquely_supported_candidate((
+   evidence((6,10),(0,1),True,.3),
+   evidence((6,10),(0,1),True,.4),
+ ))
+ assert result.accepted
+ assert result.candidate.phases==(0,1)
+ assert result.candidate.iou_score==.4
