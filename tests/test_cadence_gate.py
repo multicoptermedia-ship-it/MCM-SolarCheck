@@ -124,3 +124,18 @@ def test_fallback_rejects_out_of_range_resolved_phase_at_gate(monkeypatch):
  candidate=type('Candidate',(),{'multiples':(3,4),'phases':(99,0)})()
  families,support,_=_ambiguity_setup(monkeypatch,gate,candidate)
  assert gate.assess_ambiguous_module_cadence(families,support,(),100,100).reason=='resolved_phase_out_of_range'
+
+
+def test_fallback_rejects_noninteger_image_dimensions(monkeypatch):
+ import mcm_solarcheck.vision.cadence_gate as gate
+ candidate=type('Candidate',(),{'multiples':(3,4),'phases':(0,0)})()
+ families,support,_=_ambiguity_setup(monkeypatch,gate,candidate)
+ assert gate.assess_ambiguous_module_cadence(families,support,(),100.0,100).reason=='invalid_image_dimensions'
+ assert gate.assess_ambiguous_module_cadence(families,support,(),True,100).reason=='invalid_image_dimensions'
+
+def test_fallback_rejects_nonfinite_iou_threshold(monkeypatch):
+ import mcm_solarcheck.vision.cadence_gate as gate
+ candidate=type('Candidate',(),{'multiples':(3,4),'phases':(0,0)})()
+ families,support,_=_ambiguity_setup(monkeypatch,gate,candidate)
+ assert gate.assess_ambiguous_module_cadence(families,support,(),100,100,minimum_iou=float('nan')).reason=='invalid_minimum_iou'
+ assert gate.assess_ambiguous_module_cadence(families,support,(),100,100,minimum_iou=float('inf')).reason=='invalid_minimum_iou'
