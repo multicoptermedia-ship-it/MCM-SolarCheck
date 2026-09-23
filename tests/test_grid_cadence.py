@@ -69,3 +69,27 @@ def test_supported_multiples_preserve_independent_vote_ties():
 def test_supported_multiples_require_repeated_independent_votes():
     f=fam((0,10,20,30,40,50))
     assert supported_cadence_multiples(f,(30,40))==()
+
+
+def test_cadence_rejects_nonfinite_line_offsets():
+ assert assess_grid_cadence(fam((0,10,20,30,float('nan'),50))).reason=='invalid_line_offsets'
+
+def test_cadence_rejects_boolean_minimum_gaps():
+ assert assess_grid_cadence(fam((0,10,20,30,40,50)),minimum_gaps=True).reason=='invalid_parameters'
+
+def test_supported_cadence_rejects_nonfinite_independent_support():
+ q=select_supported_cadence_multiple(fam((0,10,20,30,40,50)),(30,float('nan'),30))
+ assert not q.accepted and q.reason=='invalid_independent_support'
+
+def test_supported_cadence_rejects_invalid_maximum_multiple():
+ q=select_supported_cadence_multiple(fam((0,10,20,30,40,50)),(30,30),maximum_multiple=1)
+ assert not q.accepted and q.reason=='invalid_parameters'
+
+def test_cadence_subsets_reject_boolean_multiple():
+ assert cadence_line_subsets(fam((0,10,20,30,40,50)),True)==()
+
+def test_supported_multiple_enumeration_rejects_invalid_vote_count():
+ assert supported_cadence_multiples(fam((0,10,20,30,40,50)),(30,30),minimum_votes=1)==()
+
+def test_supported_multiple_enumeration_rejects_nonfinite_support():
+ assert supported_cadence_multiples(fam((0,10,20,30,40,50)),(30,float('inf'),30))==()
