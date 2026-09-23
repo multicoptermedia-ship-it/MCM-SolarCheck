@@ -18,6 +18,8 @@ class CadenceConfirmedModuleDetector:
     name="cadence_confirmed_pv_module_v1"
     def __init__(self,*,max_dimension:int=900,minimum_iou:float=.20):self.max_dimension=max_dimension;self.minimum_iou=minimum_iou;self.image_detector=OpenCVModuleDetector()
     def detect(self,source_file:Path)->tuple[ModuleDetection,...]:
+        if type(self.max_dimension) is not int or self.max_dimension<=0:return ()
+        if not isfinite(float(self.minimum_iou)) or not 0.0<=self.minimum_iou<=1.0:return ()
         image=cv2.imread(str(source_file),cv2.IMREAD_COLOR)
         if image is None:return ()
         h,w=image.shape[:2];scale=min(1.0,self.max_dimension/max(h,w));small=cv2.resize(image,None,fx=scale,fy=scale,interpolation=cv2.INTER_AREA) if scale<1 else image
@@ -32,15 +34,16 @@ class CadenceConfirmedModuleDetector:
         multiples=tuple(a.dominant_multiple for a in gate.axes)
         if gate.phases is None:
             phase=select_cadence_phase(families,multiples,support,small.shape[1],small.shape[0],minimum_iou=self.minimum_iou)
-            if not phase.accepted:return ()
+            if not phase.accepted or len(phase.families)!=2:return ()
             selected_families=phase.families
         else:
             subsets=tuple(cadence_line_subsets(f,m) for f,m in zip(families,multiples))
-            if len(gate.phases)!=2 or len(subsets)!=2:return ()
-            if any(p<0 or p>=len(s) for s,p in zip(subsets,gate.phases)):return ()
+            if type(gate.phases) is not tuple or len(gate.phases)!=2 or len(subsets)!=2:return ()
+            if any(type(p) is not int or p<0 or p>=len(s) for s,p in zip(subsets,gate.phases)):return ()
             selected_families=tuple(s[p] for s,p in zip(subsets,gate.phases))
         expected=tuple(float(a.median_gap_px)*int(a.dominant_multiple) for a in gate.axes)
         cells=grid_module_detections(selected_families,small.shape[1],small.shape[0],margin_px=2,expected_gaps_px=expected)
         cells=filter_cells_by_finite_support(cells,selected_families,lines)
+        if not cells:return ()
         if scale<1:cells=tuple(ModuleDetection(tuple((x/scale,y/scale) for x,y in d.polygon_px),d.confidence,d.class_name) for d in cells)
         return fuse_module_detections(cells,support_full,minimum_iou=self.minimum_iou)
