@@ -13,9 +13,13 @@ class CadenceGateResult:
     reason:str
 
 def assess_module_cadence(families:tuple[GridLineFamily,...],image_support:tuple[ModuleDetection,...])->CadenceGateResult:
-    """Require both grid axes to have independently supported larger cadence."""
+    """Require both grid axes to have independently supported larger cadence.
+
+    Grid-line offsets vary along the family normal, so image module spans must be
+    projected onto that normal rather than along the line direction itself.
+    """
     if len(families)!=2:return CadenceGateResult(False,(),"two_grid_families_required")
     if not image_support:return CadenceGateResult(False,(),"independent_image_support_required")
-    axes=tuple(select_supported_cadence_multiple(f,image_module_intervals(image_support,f.angle_deg)) for f in families)
+    axes=tuple(select_supported_cadence_multiple(f,image_module_intervals(image_support,f.angle_deg+90.0)) for f in families)
     if not all(a.accepted and (a.dominant_multiple or 1)>=2 for a in axes):return CadenceGateResult(False,axes,"cadence_not_confirmed")
     return CadenceGateResult(True,axes,"accepted")
