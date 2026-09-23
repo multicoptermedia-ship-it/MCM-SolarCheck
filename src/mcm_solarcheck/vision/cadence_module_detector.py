@@ -8,6 +8,7 @@ from mcm_solarcheck.vision.opencv_module_detector import OpenCVModuleDetector
 from mcm_solarcheck.vision.cadence_gate import assess_ambiguous_module_cadence
 from mcm_solarcheck.vision.cadence_phase_selection import select_cadence_phase
 from mcm_solarcheck.vision.grid_module_detector import grid_module_detections
+from mcm_solarcheck.vision.grid_cadence import cadence_line_subsets
 from mcm_solarcheck.vision.grid_cell_support import filter_cells_by_finite_support
 from mcm_solarcheck.vision.module_fusion import fuse_module_detections
 from mcm_solarcheck.vision.detection import ModuleDetection
@@ -25,10 +26,17 @@ class CadenceConfirmedModuleDetector:
         gate=assess_ambiguous_module_cadence(families,support,lines,small.shape[1],small.shape[0],minimum_iou=self.minimum_iou)
         if not gate.accepted:return ()
         multiples=tuple(int(a.dominant_multiple) for a in gate.axes)
-        phase=select_cadence_phase(families,multiples,support,small.shape[1],small.shape[0],minimum_iou=self.minimum_iou)
-        if not phase.accepted:return ()
+        if gate.phases is None:
+            phase=select_cadence_phase(families,multiples,support,small.shape[1],small.shape[0],minimum_iou=self.minimum_iou)
+            if not phase.accepted:return ()
+            selected_families=phase.families
+        else:
+            subsets=tuple(cadence_line_subsets(f,m) for f,m in zip(families,multiples))
+            try:selected_families=tuple(s[p] for s,p in zip(subsets,gate.phases))
+            except IndexError:return ()
+            if len(selected_families)!=2:return ()
         expected=tuple(float(a.median_gap_px)*int(a.dominant_multiple) for a in gate.axes)
-        cells=grid_module_detections(phase.families,small.shape[1],small.shape[0],margin_px=2,expected_gaps_px=expected)
-        cells=filter_cells_by_finite_support(cells,phase.families,lines)
+        cells=grid_module_detections(selected_families,small.shape[1],small.shape[0],margin_px=2,expected_gaps_px=expected)
+        cells=filter_cells_by_finite_support(cells,selected_families,lines)
         if scale<1:cells=tuple(ModuleDetection(tuple((x/scale,y/scale) for x,y in d.polygon_px),d.confidence,d.class_name) for d in cells)
         return fuse_module_detections(cells,support_full,minimum_iou=self.minimum_iou)
