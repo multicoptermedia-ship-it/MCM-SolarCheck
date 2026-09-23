@@ -11,7 +11,7 @@ def test_candidate_report_is_diagnostic_and_measures_finite_evidence():
     support=(cell(0,0,30,30),)
     lines=(
       StructuralLine(0,0,30,0,30,0),StructuralLine(0,0,0,30,30,90),
-      StructuralLine(0,10,30,10,30,0),StructuralLine(10,0,10,30,30,90),
+      StructuralLine(0,15,30,15,30,0),StructuralLine(15,0,15,30,30,90),
     )
     q=enumerate_cadence_candidate_evidence(fs,((3,),(3,)),support,lines,100,100)
     assert q and q[0].multiples==(3,3) and q[0].matched_cells>=1
