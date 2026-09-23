@@ -25,6 +25,10 @@ class ReportEvidence:
     priority_reason:str='calibrated_temperature_required'
     service_location_status:str='module_unresolved'
 
+    def __post_init__(self)->None:
+        expected='module_resolved' if self.module_id is not None and self.module_id.strip() else 'module_unresolved'
+        object.__setattr__(self,'service_location_status',expected)
+
 @dataclass(frozen=True)
 class InspectionReportModel:
     project_id:str
