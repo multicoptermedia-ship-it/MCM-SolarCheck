@@ -61,3 +61,62 @@ def test_disambiguation_deduplicates_same_geometry_and_phase():
  assert result.accepted
  assert result.candidate.phases==(0,1)
  assert result.candidate.iou_score==.4
+
+
+def test_enumeration_rejects_invalid_iou_thresholds():
+ fs=(fam(0,(0,10,20,30,40)),fam(90,(0,-10,-20,-30,-40)))
+ support=(cell(0,0,20,20),)
+ assert enumerate_cadence_candidate_evidence(fs,((2,),(2,)),support,(),100,100,minimum_iou=-.1)==()
+ assert enumerate_cadence_candidate_evidence(fs,((2,),(2,)),support,(),100,100,minimum_iou=float('nan'))==()
+
+def test_enumeration_rejects_empty_multiplier_axis():
+ fs=(fam(0,(0,10,20,30,40)),fam(90,(0,-10,-20,-30,-40)))
+ assert enumerate_cadence_candidate_evidence(fs,((),(2,)),(cell(0,0,20,20),),(),100,100)==()
+
+def test_enumeration_rejects_noninteger_multiplier():
+ fs=(fam(0,(0,10,20,30,40)),fam(90,(0,-10,-20,-30,-40)))
+ assert enumerate_cadence_candidate_evidence(fs,((2.0,),(2,)),(cell(0,0,20,20),),(),100,100)==()
+
+def test_enumeration_rejects_duplicate_multiplier_options():
+ fs=(fam(0,(0,10,20,30,40)),fam(90,(0,-10,-20,-30,-40)))
+ assert enumerate_cadence_candidate_evidence(fs,((2,2),(2,)),(cell(0,0,20,20),),(),100,100)==()
+
+def test_disambiguation_rejects_mismatched_matched_cell_count():
+ candidate=evidence((3,4),(0,0))
+ candidate=CadenceCandidateEvidence(candidate.multiples,candidate.phases,2,candidate.iou_score,candidate.cells)
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
+
+def test_disambiguation_rejects_cell_provenance_mismatch():
+ candidate=evidence((3,4),(0,0))
+ wrong=CadenceCellEvidence((4,4),(0,0),candidate.cells[0].polygon_px,.3,2,(1,1),True)
+ candidate=CadenceCandidateEvidence((3,4),(0,0),1,.3,(wrong,))
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
+
+def test_disambiguation_rejects_nonfinite_iou_score():
+ candidate=evidence((3,4),(0,0))
+ candidate=CadenceCandidateEvidence(candidate.multiples,candidate.phases,1,float('nan'),candidate.cells)
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
+
+def test_disambiguation_rejects_cell_iou_outside_probability_range():
+ candidate=evidence((3,4),(0,0))
+ wrong=CadenceCellEvidence((3,4),(0,0),candidate.cells[0].polygon_px,1.1,2,(1,1),True)
+ candidate=CadenceCandidateEvidence((3,4),(0,0),1,1.1,(wrong,))
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
+
+def test_disambiguation_rejects_impossible_outer_support_count():
+ candidate=evidence((3,4),(0,0))
+ wrong=CadenceCellEvidence((3,4),(0,0),candidate.cells[0].polygon_px,.3,5,(1,1),True)
+ candidate=CadenceCandidateEvidence((3,4),(0,0),1,.3,(wrong,))
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
+
+def test_disambiguation_rejects_invalid_internal_lattice_shape():
+ candidate=evidence((3,4),(0,0))
+ wrong=CadenceCellEvidence((3,4),(0,0),candidate.cells[0].polygon_px,.3,2,(1,),True)
+ candidate=CadenceCandidateEvidence((3,4),(0,0),1,.3,(wrong,))
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
+
+def test_disambiguation_rejects_negative_internal_lattice_count():
+ candidate=evidence((3,4),(0,0))
+ wrong=CadenceCellEvidence((3,4),(0,0),candidate.cells[0].polygon_px,.3,2,(-1,1),True)
+ candidate=CadenceCandidateEvidence((3,4),(0,0),1,.3,(wrong,))
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
