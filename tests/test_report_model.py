@@ -101,3 +101,9 @@ def test_report_marks_missing_module_as_unresolved_service_location():
     data=InspectionReportData('P','Plant',summary(),(ReportFinding(finding(),None,None,None,'Checked','Inspector'),),False)
     evidence=build_report_model(data).evidence[0]
     assert evidence.service_location_status=='module_unresolved'
+
+
+def test_report_evidence_cannot_claim_resolved_without_module():
+    from mcm_solarcheck.reporting.model import ReportEvidence
+    evidence=ReportEvidence('F-X','candidate',None,'T-X',None,None,None,None,None,None,None,None,service_location_status='module_resolved')
+    assert evidence.service_location_status=='module_unresolved'
