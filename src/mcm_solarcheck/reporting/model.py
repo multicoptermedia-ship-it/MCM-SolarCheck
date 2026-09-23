@@ -57,6 +57,7 @@ def build_report_model(data:InspectionReportData)->InspectionReportModel:
         priority_level=priority(item).level,
         priority_score=priority(item).score,
     ) for item in data.confirmed_findings)
+    evidence=tuple(sorted(evidence,key=lambda item:(item.priority_level!='review',-(item.priority_score if item.priority_score is not None else -1.0),item.module_id is None,item.module_id or '',item.finding_id)))
     warnings=[]
     if not data.temperature_evidence_validated:
         warnings.append('Radiometric Celsius conversion has not been validated for all confirmed findings; raw sensor values must not be presented as degrees Celsius.')
