@@ -13,6 +13,7 @@ class CadenceGateResult:
     accepted:bool
     axes:tuple[GridCadence,...]
     reason:str
+    phases:tuple[int,int]|None=None
 
 def assess_module_cadence(families:tuple[GridLineFamily,...],image_support:tuple[ModuleDetection,...])->CadenceGateResult:
     """Require both grid axes to have independently supported larger cadence.
@@ -63,4 +64,4 @@ def assess_ambiguous_module_cadence(
         GridCadence(True,"uniquely_lattice_supported",float(base.median_gap_px),multiple)
         for base,multiple in zip(bases,resolved.candidate.multiples)
     )
-    return CadenceGateResult(True,axes,"accepted_by_unique_lattice_evidence")
+    return CadenceGateResult(True,axes,"accepted_by_unique_lattice_evidence",resolved.candidate.phases)
