@@ -5,7 +5,7 @@ import cv2
 from mcm_solarcheck.pairing.structural_features import detect_structural_lines
 from mcm_solarcheck.pairing.grid_lines import extract_grid_line_families
 from mcm_solarcheck.vision.opencv_module_detector import OpenCVModuleDetector
-from mcm_solarcheck.vision.cadence_gate import assess_module_cadence
+from mcm_solarcheck.vision.cadence_gate import assess_ambiguous_module_cadence
 from mcm_solarcheck.vision.cadence_phase_selection import select_cadence_phase
 from mcm_solarcheck.vision.grid_module_detector import grid_module_detections
 from mcm_solarcheck.vision.grid_cell_support import filter_cells_by_finite_support
@@ -22,7 +22,7 @@ class CadenceConfirmedModuleDetector:
         lines=detect_structural_lines(small,max_dimension=self.max_dimension,min_length_fraction=.08);families=extract_grid_line_families(lines)
         support_full=self.image_detector.detect(source_file)
         support=tuple(ModuleDetection(tuple((x*scale,y*scale) for x,y in d.polygon_px),d.confidence,d.class_name) for d in support_full)
-        gate=assess_module_cadence(families,support)
+        gate=assess_ambiguous_module_cadence(families,support,lines,small.shape[1],small.shape[0],minimum_iou=self.minimum_iou)
         if not gate.accepted:return ()
         multiples=tuple(int(a.dominant_multiple) for a in gate.axes)
         phase=select_cadence_phase(families,multiples,support,small.shape[1],small.shape[0],minimum_iou=self.minimum_iou)
