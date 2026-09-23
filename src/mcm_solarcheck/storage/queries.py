@@ -68,7 +68,16 @@ class InspectionQueries:
             if project is None:raise KeyError(f'Unknown project: {project_id}')
             def count(table:str)->int:return int(db.execute(f'SELECT COUNT(*) FROM {table} WHERE project_id=?',(project_id,)).fetchone()[0])
             statuses={row['reviewer_status']:int(row['n']) for row in db.execute('SELECT reviewer_status, COUNT(*) AS n FROM findings WHERE project_id=? GROUP BY reviewer_status',(project_id,))}
-            calibrated=int(db.execute('SELECT COUNT(*) FROM findings WHERE project_id=? AND temperature_c IS NOT NULL',(project_id,)).fetchone()[0])
+            calibrated=0
+            for row in db.execute('SELECT temperature_c, metadata_json FROM findings WHERE project_id=?',(project_id,)):
+                if row['temperature_c'] is None:
+                    continue
+                try:
+                    metadata=json.loads(row['metadata_json'] or '{}')
+                except (TypeError,json.JSONDecodeError):
+                    continue
+                if isinstance(metadata,dict) and metadata.get('temperature_status')=='calibrated' and str(metadata.get('temperature_provider') or '').strip():
+                    calibrated+=1
             return InspectionSummary(project_id,count('image_frames'),count('thermal_frames'),count('image_pairs'),count('pv_modules'),count('findings'),statuses.get('unreviewed',0),statuses.get('confirmed',0),statuses.get('rejected',0),statuses.get('unclear',0),calibrated)
     def module_identities(self,project_id:str,*,physical_module_id:str|None=None)->tuple[ModuleIdentityRecord,...]:
         sql='SELECT frame_id,local_module_id,physical_module_id,status,normalized_distance FROM module_identity_links WHERE project_id=?'
@@ -96,7 +105,12 @@ class InspectionQueries:
         records=[]
         for row in rows:
             values=dict(row)
-            metadata=json.loads(values.pop('metadata_json') or '{}')
+            try:
+                metadata=json.loads(values.pop('metadata_json') or '{}')
+            except (TypeError,json.JSONDecodeError):
+                metadata={}
+            if not isinstance(metadata,dict):
+                metadata={}
             values['temperature_status']=metadata.get('temperature_status')
             values['temperature_provider']=metadata.get('temperature_provider')
             if values['transform_validated'] is not None:values['transform_validated']=bool(values['transform_validated'])
