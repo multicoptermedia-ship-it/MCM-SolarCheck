@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isfinite
 from .data import InspectionReportData
+from mcm_solarcheck.domain.models import Finding
+from mcm_solarcheck.review.prioritization import prioritize_finding
 
 @dataclass(frozen=True)
 class ReportEvidence:
@@ -18,6 +20,8 @@ class ReportEvidence:
     longitude:float|None
     reviewer:str|None
     review_note:str|None
+    priority_level:str='unrated'
+    priority_score:float|None=None
 
 @dataclass(frozen=True)
 class InspectionReportModel:
@@ -33,6 +37,10 @@ def build_report_model(data:InspectionReportData)->InspectionReportModel:
     """Translate persisted evidence into a renderer-independent report contract."""
     def valid_gps(latitude,longitude):
         return latitude is not None and longitude is not None and isfinite(float(latitude)) and isfinite(float(longitude)) and -90<=latitude<=90 and -180<=longitude<=180
+    def priority(item):
+        record=item.finding
+        finding=Finding(record.finding_id,record.thermal_frame_id,record.pixel_x,record.pixel_y,record.finding_type,record.confidence,record.raw_value,record.raw_delta_from_median,record.temperature_c,record.module_id)
+        return prioritize_finding(finding)
     evidence=tuple(ReportEvidence(
         finding_id=item.finding.finding_id,
         classification=item.finding.finding_type,
@@ -46,6 +54,8 @@ def build_report_model(data:InspectionReportData)->InspectionReportModel:
         longitude=item.finding.longitude if valid_gps(item.finding.latitude,item.finding.longitude) else None,
         reviewer=item.reviewer,
         review_note=item.review_note,
+        priority_level=priority(item).level,
+        priority_score=priority(item).score,
     ) for item in data.confirmed_findings)
     warnings=[]
     if not data.temperature_evidence_validated:
