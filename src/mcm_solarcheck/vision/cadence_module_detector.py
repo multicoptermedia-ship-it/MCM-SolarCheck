@@ -1,6 +1,7 @@
 """Cadence-aware confirmed detector: grid geometry may only survive independent image evidence."""
 from __future__ import annotations
 from pathlib import Path
+from math import isfinite
 import cv2
 from mcm_solarcheck.pairing.structural_features import detect_structural_lines
 from mcm_solarcheck.pairing.grid_lines import extract_grid_line_families
@@ -25,7 +26,10 @@ class CadenceConfirmedModuleDetector:
         support=tuple(ModuleDetection(tuple((x*scale,y*scale) for x,y in d.polygon_px),d.confidence,d.class_name) for d in support_full)
         gate=assess_ambiguous_module_cadence(families,support,lines,small.shape[1],small.shape[0],minimum_iou=self.minimum_iou)
         if not gate.accepted:return ()
-        multiples=tuple(int(a.dominant_multiple) for a in gate.axes)
+        if len(gate.axes)!=2:return ()
+        if any(type(a.dominant_multiple) is not int or a.dominant_multiple<2 for a in gate.axes):return ()
+        if any(a.median_gap_px is None or not isfinite(float(a.median_gap_px)) or a.median_gap_px<=0 for a in gate.axes):return ()
+        multiples=tuple(a.dominant_multiple for a in gate.axes)
         if gate.phases is None:
             phase=select_cadence_phase(families,multiples,support,small.shape[1],small.shape[0],minimum_iou=self.minimum_iou)
             if not phase.accepted:return ()
