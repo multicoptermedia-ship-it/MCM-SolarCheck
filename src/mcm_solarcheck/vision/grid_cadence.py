@@ -2,6 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from statistics import median
+from math import isfinite
 from mcm_solarcheck.pairing.grid_lines import GridLineFamily
 
 @dataclass(frozen=True)
@@ -18,7 +19,8 @@ def assess_grid_cadence(family:GridLineFamily,*,minimum_gaps:int=4,relative_tole
     from a single spacing scale; a larger repeated cadence must be demonstrated later by
     independent image/geometry evidence.
     """
-    if minimum_gaps<2 or not 0<relative_tolerance<.5:return GridCadence(False,"invalid_parameters")
+    if type(minimum_gaps) is not int or minimum_gaps<2 or not isfinite(float(relative_tolerance)) or not 0<relative_tolerance<.5:return GridCadence(False,"invalid_parameters")
+    if any(not isfinite(float(line.offset_px)) for line in family.lines):return GridCadence(False,"invalid_line_offsets")
     ordered=tuple(sorted(family.lines,key=lambda line:line.offset_px))
     gaps=[ordered[i+1].offset_px-ordered[i].offset_px for i in range(len(ordered)-1)]
     gaps=[g for g in gaps if g>1e-9]
@@ -47,9 +49,12 @@ def select_supported_cadence_multiple(family:GridLineFamily,support_intervals,*,
     support_intervals are distances measured by a separate image/geometry cue; grid gaps
     themselves may establish the base scale but can never vote for a larger multiple.
     """
+    if type(maximum_multiple) is not int or maximum_multiple<2 or not isfinite(float(relative_tolerance)) or not 0<relative_tolerance<.5:return GridCadence(False,"invalid_parameters")
     base=assess_grid_cadence(family,relative_tolerance=relative_tolerance)
     if not base.accepted or base.median_gap_px is None:return base
-    values=[float(v) for v in support_intervals if float(v)>0]
+    raw=tuple(support_intervals)
+    if any(not isfinite(float(v)) for v in raw):return GridCadence(False,"invalid_independent_support",base.median_gap_px)
+    values=[float(v) for v in raw if float(v)>0]
     if len(values)<2:return GridCadence(False,"insufficient_independent_support",base.median_gap_px)
     votes={}
     for v in values:
@@ -64,7 +69,7 @@ def select_supported_cadence_multiple(family:GridLineFamily,support_intervals,*,
 
 def cadence_line_subsets(family:GridLineFamily,multiple:int)->tuple[GridLineFamily,...]:
     """Return every possible phase for a confirmed cadence without guessing alignment."""
-    if multiple<2 or len(family.lines)<2:return ()
+    if type(multiple) is not int or multiple<2 or len(family.lines)<2:return ()
     lines=tuple(sorted(family.lines,key=lambda x:x.offset_px))
     base=assess_grid_cadence(family)
     if not base.accepted or base.median_gap_px is None:return ()
@@ -87,9 +92,12 @@ def supported_cadence_multiples(
 
     Unlike select_supported_cadence_multiple this deliberately preserves ties.
     """
+    if type(maximum_multiple) is not int or maximum_multiple<2 or type(minimum_votes) is not int or minimum_votes<2 or not isfinite(float(relative_tolerance)) or not 0<relative_tolerance<.5:return ()
     base=assess_grid_cadence(family,relative_tolerance=relative_tolerance)
     if not base.accepted or base.median_gap_px is None:return ()
-    values=[float(v) for v in support_intervals if float(v)>0]
+    raw=tuple(support_intervals)
+    if any(not isfinite(float(v)) for v in raw):return ()
+    values=[float(v) for v in raw if float(v)>0]
     if len(values)<minimum_votes:return ()
     votes={}
     for v in values:
