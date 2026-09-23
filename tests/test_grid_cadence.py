@@ -43,3 +43,9 @@ def test_missing_grid_lines_preserve_base_lattice():
 def test_lattice_does_not_invent_smaller_subharmonic():
  q=assess_grid_cadence(fam((0,20,40,60,80,100)))
  assert q.accepted and abs(q.median_gap_px-20)<1e-9
+
+
+def test_cadence_phases_follow_lattice_coordinates_when_lines_are_missing():
+ f=fam((0,10,30,40,60,70))
+ q=cadence_line_subsets(f,3)
+ assert tuple(tuple(x.offset_px for x in s.lines) for s in q)==((0,30,60),(10,40,70))
