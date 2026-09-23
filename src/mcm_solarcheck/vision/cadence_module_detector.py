@@ -32,9 +32,9 @@ class CadenceConfirmedModuleDetector:
             selected_families=phase.families
         else:
             subsets=tuple(cadence_line_subsets(f,m) for f,m in zip(families,multiples))
-            try:selected_families=tuple(s[p] for s,p in zip(subsets,gate.phases))
-            except IndexError:return ()
-            if len(selected_families)!=2:return ()
+            if len(gate.phases)!=2 or len(subsets)!=2:return ()
+            if any(p<0 or p>=len(s) for s,p in zip(subsets,gate.phases)):return ()
+            selected_families=tuple(s[p] for s,p in zip(subsets,gate.phases))
         expected=tuple(float(a.median_gap_px)*int(a.dominant_multiple) for a in gate.axes)
         cells=grid_module_detections(selected_families,small.shape[1],small.shape[0],margin_px=2,expected_gaps_px=expected)
         cells=filter_cells_by_finite_support(cells,selected_families,lines)
