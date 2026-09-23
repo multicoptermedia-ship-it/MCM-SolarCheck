@@ -34,12 +34,15 @@ class YoloAdapter:
     provider: str
     model_version: str
     class_map: DatasetClassMap
+    modality: str
 
     def __post_init__(self) -> None:
         if not self.provider.strip():
             raise ValueError("YOLO provider must not be empty")
         if not self.model_version.strip():
             raise ValueError("YOLO model version must not be empty")
+        if self.modality not in {"thermal", "rgb"}:
+            raise ValueError("YOLO modality must be thermal or rgb")
 
     def adapt(self, detection: YoloDetection) -> DefectClassification:
         canonical=self.class_map.normalize(detection.class_name)
@@ -48,6 +51,7 @@ class YoloAdapter:
             detection.confidence,
             self.provider.strip(),
             self.model_version.strip(),
+            self.modality,
         )
 
     def adapt_best(self, detections: tuple[YoloDetection, ...]) -> DefectClassification | None:
