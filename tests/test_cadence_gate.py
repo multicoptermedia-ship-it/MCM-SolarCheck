@@ -37,6 +37,7 @@ def test_lattice_resolution_never_synthesizes_independent_votes(monkeypatch):
  monkeypatch.setattr(gate,'supported_cadence_multiples',lambda *a,**k:(3,4))
  class Candidate:
   multiples=(3,4)
+  phases=(1,2)
  class Resolution:
   accepted=True
   candidate=Candidate()
@@ -45,4 +46,5 @@ def test_lattice_resolution_never_synthesizes_independent_votes(monkeypatch):
  result=gate.assess_ambiguous_module_cadence(families,support,(),100,100)
  assert result.accepted
  assert tuple(a.dominant_multiple for a in result.axes)==(3,4)
+ assert result.phases==(1,2)
  assert all(a.reason=='uniquely_lattice_supported' for a in result.axes)
