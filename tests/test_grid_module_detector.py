@@ -22,7 +22,7 @@ def test_rotated_grid_intersection_uses_line_normal_offsets():
  from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
  a=GridLineFamily(45,(GridLine(45,0,1,100),GridLine(45,10,1,100)))
  b=GridLineFamily(135,(GridLine(135,0,1,100),GridLine(135,10,1,100)))
- d=grid_module_detections((a,b),100,100,margin_px=-20)
+ d=grid_module_detections((a,b),100,100,margin_px=0)
  assert len(d)==1
  p=d[0].polygon_px
  assert max(abs(x) for x,y in p)<15 and max(abs(y) for x,y in p)<15
