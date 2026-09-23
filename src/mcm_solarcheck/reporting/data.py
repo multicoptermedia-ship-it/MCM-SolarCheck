@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from mcm_solarcheck.storage.queries import FindingRecord, InspectionQueries, InspectionSummary
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
+from mcm_solarcheck.thermal.temperature_provenance import has_validated_celsius
 
 @dataclass(frozen=True)
 class ReportFinding:
@@ -36,9 +37,7 @@ class InspectionReportDataService:
         # A numeric Celsius value alone is not proof of calibration. Persisted
         # provenance must explicitly identify validated provider output.
         validated=bool(confirmed) and all(
-            item.temperature_c is not None
-            and item.temperature_status == 'calibrated'
-            and bool(item.temperature_provider and item.temperature_provider.strip())
+            has_validated_celsius(item.temperature_c, item.temperature_status, item.temperature_provider)
             for item in confirmed
         )
         return InspectionReportData(project_id,project['name'],summary,tuple(rows),validated)
