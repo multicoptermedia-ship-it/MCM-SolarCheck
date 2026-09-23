@@ -26,6 +26,8 @@ class DefectClassification:
             raise ValueError("classification provider must not be empty")
         if not isfinite(float(self.confidence)) or not 0.0 <= self.confidence <= 1.0:
             raise ValueError("classification confidence must be finite and between 0 and 1")
+        if self.model_version is not None and not self.model_version.strip():
+            raise ValueError("classification model version must not be blank")
         if self.modality is not None and self.modality not in {"thermal", "rgb"}:
             raise ValueError("classification modality must be thermal or rgb")
 
