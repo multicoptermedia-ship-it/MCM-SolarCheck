@@ -37,3 +37,12 @@ def test_docx_renderer_explains_priority_basis(tmp_path):
     doc=Document(path);text='\n'.join(c.text for t in doc.tables for r in t.rows for c in r.cells)
     assert 'Priority basis' in text
     assert 'calibrated_temperature_required' in text
+
+
+def test_docx_renderer_shows_module_service_location_status(tmp_path):
+    evidence=ReportEvidence('F-5','thermal_anomaly_candidate','M-0042','T-5',None,21000,600.0,None,None,None,'Inspector','Replace module')
+    model=InspectionReportModel('P','PV Thermal Inspection Report','Plant','review_complete','No calibrated temperature claim.',(evidence,),())
+    path=render_docx(model,tmp_path/'service-location.docx')
+    doc=Document(path);text='\n'.join(c.text for t in doc.tables for r in t.rows for c in r.cells)
+    assert 'Service location' in text
+    assert 'module_unresolved' in text
