@@ -5,7 +5,7 @@ from mcm_solarcheck.review.yolo_adapter import YoloAdapter, YoloDetection
 
 
 def _adapter():
-    return YoloAdapter("yolo-pv-thermal", "v1", DEFAULT_THERMAL_CLASS_MAP)
+    return YoloAdapter("yolo-pv-thermal", "v1", DEFAULT_THERMAL_CLASS_MAP, "thermal")
 
 
 def test_yolo_detection_maps_to_advisory_classification():
@@ -14,6 +14,7 @@ def test_yolo_detection_maps_to_advisory_classification():
     assert result.confidence == .87
     assert result.provider == "yolo-pv-thermal"
     assert result.model_version == "v1"
+    assert result.modality == "thermal"
 
 
 def test_best_detection_ignores_unknown_external_class():
@@ -51,3 +52,9 @@ def test_yolo_detection_rejects_invalid_confidence(confidence):
 def test_yolo_detection_rejects_invalid_boxes(box):
     with pytest.raises(ValueError):
         YoloDetection("hotspot", .5, box)
+
+
+@pytest.mark.parametrize("modality", ["", "mixed", "infrared"])
+def test_yolo_adapter_requires_explicit_supported_modality(modality):
+    with pytest.raises(ValueError):
+        YoloAdapter("model", "v1", DEFAULT_THERMAL_CLASS_MAP, modality)
