@@ -69,3 +69,14 @@ def internal_lattice_support(cell:ModuleDetection,families:tuple[GridLineFamily,
    if all(abs(off-v)>tolerance_px for v in seen):seen.append(off)
   return len(seen)
  return tuple(axis_count(f) for f in families)
+
+
+def has_repeated_lattice_evidence(cell:ModuleDetection,families:tuple[GridLineFamily,...],lines:tuple[StructuralLine,...],*,tolerance_px:float=12)->bool:
+ """Require finite interior grid evidence on both axes plus at least one observed boundary.
+
+ This is a conservative evidence predicate, not a replacement for independent image
+ support or unique cadence/phase validation.
+ """
+ sides=finite_support_sides(cell,families,lines,tolerance_px=tolerance_px)
+ interior=internal_lattice_support(cell,families,lines,tolerance_px=tolerance_px)
+ return any(sides) and all(count>=1 for count in interior)

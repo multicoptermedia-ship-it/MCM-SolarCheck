@@ -1,7 +1,7 @@
 from mcm_solarcheck.pairing.structural_features import StructuralLine
 from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
 from mcm_solarcheck.vision.detection import ModuleDetection
-from mcm_solarcheck.vision.grid_cell_support import filter_cells_by_finite_support,finite_support_sides,internal_lattice_support
+from mcm_solarcheck.vision.grid_cell_support import filter_cells_by_finite_support,finite_support_sides,internal_lattice_support,has_repeated_lattice_evidence
 
 def test_requires_all_four_finite_sides():
  a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)))
@@ -52,3 +52,12 @@ def test_internal_lattice_support_rejects_extrapolated_segments():
  cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
  lines=(StructuralLine(100,20,120,20,20,0),StructuralLine(20,100,20,120,20,90))
  assert internal_lattice_support(cell,(a,b),lines,tolerance_px=1)==(0,0)
+
+
+def test_repeated_lattice_evidence_requires_boundary_and_both_axes():
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ good=(StructuralLine(10,10,10,30,20,90),StructuralLine(10,20,30,20,20,0),StructuralLine(20,10,20,30,20,90))
+ assert has_repeated_lattice_evidence(cell,(a,b),good,tolerance_px=1)
+ assert not has_repeated_lattice_evidence(cell,(a,b),good[:2],tolerance_px=1)
+ assert not has_repeated_lattice_evidence(cell,(a,b),good[1:],tolerance_px=1)
