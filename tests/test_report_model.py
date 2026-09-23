@@ -43,3 +43,18 @@ def test_report_model_omits_invalid_optional_gps():
     evidence=build_report_model(data).evidence[0]
     assert evidence.module_id=='M-0042'
     assert evidence.latitude is None and evidence.longitude is None
+
+
+def test_report_evidence_carries_conservative_review_priority():
+    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042'),None,None,None,'Checked','Inspector'),),True)
+    evidence=build_report_model(data).evidence[0]
+    assert evidence.module_id=='M-0042'
+    assert evidence.priority_level=='review'
+    assert evidence.priority_score==.9
+
+
+def test_uncalibrated_report_evidence_stays_unrated():
+    data=InspectionReportData('P','Plant',summary(),(ReportFinding(finding(module_id='M-0042'),None,None,None,'Checked','Inspector'),),False)
+    evidence=build_report_model(data).evidence[0]
+    assert evidence.priority_level=='unrated'
+    assert evidence.priority_score is None
