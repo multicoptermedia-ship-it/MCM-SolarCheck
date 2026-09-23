@@ -34,6 +34,10 @@ def test_lattice_resolution_never_synthesizes_independent_votes(monkeypatch):
  import mcm_solarcheck.vision.cadence_gate as gate
  families=(fam(0,(0,10,20,30,40,50,60)),fam(90,(0,10,20,30,40,50,60)))
  support=(mod(30,40),mod(40,30))
+ monkeypatch.setattr(gate,'assess_module_cadence',lambda *a,**k:gate.CadenceGateResult(False,(
+  gate.GridCadence(False,'ambiguous_cadence',10.0,None),
+  gate.GridCadence(False,'ambiguous_cadence',10.0,None),
+ ),'cadence_not_confirmed'))
  monkeypatch.setattr(gate,'supported_cadence_multiples',lambda *a,**k:(3,4))
  class Candidate:
   multiples=(3,4)
