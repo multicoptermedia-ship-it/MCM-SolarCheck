@@ -111,6 +111,7 @@ def select_uniquely_supported_candidate(
             and type(cell.repeated_lattice) is bool
             and len(cell.internal_lattice)==2
             and all(type(v) is int and v>=0 for v in cell.internal_lattice)
+            and cell.repeated_lattice==(cell.outer_support>=1 and all(v>=1 for v in cell.internal_lattice))
             for cell in candidate.cells
         )
     )
