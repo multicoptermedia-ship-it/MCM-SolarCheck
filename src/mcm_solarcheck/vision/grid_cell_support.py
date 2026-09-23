@@ -23,6 +23,16 @@ def _side_supported(a,b,lines,angle,tolerance):
  return (any(_point_segment_distance(a,line)<=tolerance for line in candidates) and
          any(_point_segment_distance(b,line)<=tolerance for line in candidates))
 
+def finite_support_sides(cell:ModuleDetection,families:tuple[GridLineFamily,...],lines:tuple[StructuralLine,...],*,tolerance_px:float=12)->tuple[bool,bool,bool,bool]:
+ """Return observed finite support for the four ordered cell sides."""
+ if tolerance_px<=0:raise ValueError("tolerance_px must be positive")
+ if len(families)!=2 or len(cell.polygon_px)!=4:return (False,False,False,False)
+ p=cell.polygon_px;a,b=families
+ return (_side_supported(p[0],p[1],lines,b.angle_deg,tolerance_px),
+         _side_supported(p[2],p[3],lines,b.angle_deg,tolerance_px),
+         _side_supported(p[1],p[2],lines,a.angle_deg,tolerance_px),
+         _side_supported(p[3],p[0],lines,a.angle_deg,tolerance_px))
+
 def filter_cells_by_finite_support(cells:tuple[ModuleDetection,...],families:tuple[GridLineFamily,...],lines:tuple[StructuralLine,...],*,tolerance_px:float=12)->tuple[ModuleDetection,...]:
  """Keep cells whose four sides are each backed by an observed finite segment."""
  if tolerance_px<=0:raise ValueError("tolerance_px must be positive")
@@ -31,11 +41,5 @@ def filter_cells_by_finite_support(cells:tuple[ModuleDetection,...],families:tup
  for cell in cells:
   p=cell.polygon_px
   if len(p)!=4:continue
-  # grid_module_detections orders sides 0-1 and 2-3 along family B,
-  # while sides 1-2 and 3-0 lie along family A.
-  if (_side_supported(p[0],p[1],lines,b.angle_deg,tolerance_px) and
-      _side_supported(p[2],p[3],lines,b.angle_deg,tolerance_px) and
-      _side_supported(p[1],p[2],lines,a.angle_deg,tolerance_px) and
-      _side_supported(p[3],p[0],lines,a.angle_deg,tolerance_px)):
-   out.append(cell)
+  if all(finite_support_sides(cell,families,lines,tolerance_px=tolerance_px)):out.append(cell)
  return tuple(out)
