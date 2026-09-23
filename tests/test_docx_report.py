@@ -45,4 +45,4 @@ def test_docx_renderer_shows_module_service_location_status(tmp_path):
     path=render_docx(model,tmp_path/'service-location.docx')
     doc=Document(path);text='\n'.join(c.text for t in doc.tables for r in t.rows for c in r.cells)
     assert 'Service location' in text
-    assert 'module_unresolved' in text
+    assert 'module_resolved' in text
