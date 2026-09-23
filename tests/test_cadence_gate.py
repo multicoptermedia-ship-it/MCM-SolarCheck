@@ -48,3 +48,14 @@ def test_lattice_resolution_never_synthesizes_independent_votes(monkeypatch):
  assert tuple(a.dominant_multiple for a in result.axes)==(3,4)
  assert result.phases==(1,2)
  assert all(a.reason=='uniquely_lattice_supported' for a in result.axes)
+
+
+def test_ambiguity_fallback_is_not_used_for_nonambiguous_rejection(monkeypatch):
+ import mcm_solarcheck.vision.cadence_gate as gate
+ families=(fam(0,(0,10,20,30,40,50)),fam(90,(0,10,20,30,40,50)))
+ support=(mod(30,20),)
+ primary=gate.assess_module_cadence(families,support)
+ assert not primary.accepted
+ assert not any(axis.reason=='ambiguous_cadence' for axis in primary.axes)
+ monkeypatch.setattr(gate,'supported_cadence_multiples',lambda *a,**k:(_ for _ in ()).throw(AssertionError('fallback must not run')))
+ assert gate.assess_ambiguous_module_cadence(families,support,(),100,100)==primary
