@@ -1,5 +1,5 @@
 from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
-from mcm_solarcheck.vision.grid_cadence import assess_grid_cadence,select_supported_cadence_multiple,cadence_line_subsets
+from mcm_solarcheck.vision.grid_cadence import assess_grid_cadence,select_supported_cadence_multiple,cadence_line_subsets,supported_cadence_multiples
 
 def fam(offsets):return GridLineFamily(0,tuple(GridLine(0,x,1,10) for x in offsets))
 
@@ -60,3 +60,12 @@ def test_cadence_is_invariant_to_family_line_order():
 def test_equal_lattice_fit_prefers_smallest_observed_base_gap():
  q=assess_grid_cadence(fam((0,10,30,60,100,150)))
  assert q.accepted and abs(q.median_gap_px-10)<1e-9
+
+
+def test_supported_multiples_preserve_independent_vote_ties():
+    f=fam((0,10,20,30,40,50))
+    assert supported_cadence_multiples(f,(30,31,40,39))==(3,4)
+
+def test_supported_multiples_require_repeated_independent_votes():
+    f=fam((0,10,20,30,40,50))
+    assert supported_cadence_multiples(f,(30,40))==()
