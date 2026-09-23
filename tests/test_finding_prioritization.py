@@ -16,25 +16,25 @@ def test_raw_radiometric_values_never_become_severity():
 
 
 def test_nonfinite_temperature_fails_closed():
-    result=prioritize_finding(finding(temperature_c=float("nan"),confidence=.9))
+    result=prioritize_finding(finding(temperature_c=float("nan"),confidence=.9,metadata={"temperature_status":"calibrated","temperature_provider":"reference"}))
     assert result.level=="unrated"
     assert result.reason=="invalid_temperature"
 
 
 def test_missing_confidence_remains_unrated():
-    result=prioritize_finding(finding(temperature_c=55.0))
+    result=prioritize_finding(finding(temperature_c=55.0,metadata={"temperature_status":"calibrated","temperature_provider":"reference"}))
     assert result.level=="unrated"
     assert result.reason=="confidence_required"
 
 
 def test_invalid_confidence_fails_closed():
-    result=prioritize_finding(finding(temperature_c=55.0,confidence=1.1))
+    result=prioritize_finding(finding(temperature_c=55.0,confidence=1.1,metadata={"temperature_status":"calibrated","temperature_provider":"reference"}))
     assert result.level=="unrated"
     assert result.reason=="invalid_confidence"
 
 
 def test_calibrated_evidence_is_review_priority_not_defect_severity():
-    result=prioritize_finding(finding(temperature_c=55.0,confidence=.8))
+    result=prioritize_finding(finding(temperature_c=55.0,confidence=.8,metadata={"temperature_status":"calibrated","temperature_provider":"reference"}))
     assert result.level=="review"
     assert result.score==.8
     assert result.reason=="calibrated_evidence_available"
@@ -43,13 +43,20 @@ def test_calibrated_evidence_is_review_priority_not_defect_severity():
 def test_priority_order_is_deterministic_and_review_first():
     results=prioritize_findings((
         finding(finding_id="F-3",temperature_c=None,confidence=.99),
-        finding(finding_id="F-2",temperature_c=50.0,confidence=.7),
-        finding(finding_id="F-1",temperature_c=50.0,confidence=.9),
+        finding(finding_id="F-2",temperature_c=50.0,confidence=.7,metadata={"temperature_status":"calibrated","temperature_provider":"reference"}),
+        finding(finding_id="F-1",temperature_c=50.0,confidence=.9,metadata={"temperature_status":"calibrated","temperature_provider":"reference"}),
     ))
     assert [item.finding_id for item in results]==["F-1","F-2","F-3"]
 
 
 def test_equal_priority_uses_finding_id_not_input_order():
-    a=finding(finding_id="F-B",temperature_c=50.0,confidence=.8)
-    b=finding(finding_id="F-A",temperature_c=50.0,confidence=.8)
+    a=finding(finding_id="F-B",temperature_c=50.0,confidence=.8,metadata={"temperature_status":"calibrated","temperature_provider":"reference"})
+    b=finding(finding_id="F-A",temperature_c=50.0,confidence=.8,metadata={"temperature_status":"calibrated","temperature_provider":"reference"})
     assert [x.finding_id for x in prioritize_findings((a,b))]==["F-A","F-B"]
+
+
+def test_numeric_celsius_without_provenance_cannot_raise_review_priority():
+    result=prioritize_finding(finding(temperature_c=55.0,confidence=.95))
+    assert result.level=="unrated"
+    assert result.score is None
+    assert result.reason=="temperature_provenance_required"
