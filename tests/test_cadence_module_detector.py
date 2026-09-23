@@ -194,3 +194,36 @@ def test_detector_rejects_nonpositive_axis_gap(monkeypatch,tmp_path):
  from mcm_solarcheck.vision.grid_cadence import GridCadence
  axes=(GridCadence(True,'test',0.0,3),GridCadence(True,'test',10.0,4))
  assert _detector_gate_case(monkeypatch,tmp_path,axes)==()
+
+
+def test_detector_positive_path_requires_finite_support_before_fusion(monkeypatch,tmp_path):
+ import numpy as np,cv2
+ import mcm_solarcheck.vision.cadence_module_detector as module
+ from mcm_solarcheck.vision.cadence_gate import CadenceGateResult
+ from mcm_solarcheck.vision.grid_cadence import GridCadence
+ from mcm_solarcheck.vision.cadence_phase_selection import CadencePhaseSelection
+ from mcm_solarcheck.pairing.grid_lines import GridLineFamily
+ from mcm_solarcheck.vision.detection import ModuleDetection
+ path=tmp_path/'positive-path.jpg';cv2.imwrite(str(path),np.zeros((40,40,3),dtype=np.uint8))
+ families=(GridLineFamily(0,()),GridLineFamily(90,()))
+ cell=ModuleDetection(((5,5),(5,25),(25,25),(25,5)),.8)
+ support=(ModuleDetection(((5,5),(5,25),(25,25),(25,5)),.9),)
+ monkeypatch.setattr(module,'detect_structural_lines',lambda *a,**k:())
+ monkeypatch.setattr(module,'extract_grid_line_families',lambda lines:families)
+ detector=CadenceConfirmedModuleDetector();monkeypatch.setattr(detector.image_detector,'detect',lambda path:support)
+ axes=(GridCadence(True,'test',10.0,3),GridCadence(True,'test',10.0,4))
+ monkeypatch.setattr(module,'assess_ambiguous_module_cadence',lambda *a,**k:CadenceGateResult(True,axes,'accepted'))
+ monkeypatch.setattr(module,'select_cadence_phase',lambda *a,**k:CadencePhaseSelection(True,families,1.0,'accepted'))
+ monkeypatch.setattr(module,'grid_module_detections',lambda *a,**k:(cell,))
+ order=[]
+ def finite(cells,*a,**k):
+  order.append('finite')
+  return cells
+ def fuse(primary,image_support,*,minimum_iou):
+  order.append('fuse')
+  assert primary==(cell,) and image_support==support and minimum_iou==.20
+  return primary
+ monkeypatch.setattr(module,'filter_cells_by_finite_support',finite)
+ monkeypatch.setattr(module,'fuse_module_detections',fuse)
+ assert detector.detect(path)==(cell,)
+ assert order==['finite','fuse']
