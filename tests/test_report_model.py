@@ -19,7 +19,7 @@ def test_report_model_marks_pending_review():
     assert report.inspection_status=='review_incomplete';assert any('2 finding(s) remain unreviewed' in w for w in report.warnings)
 
 def test_report_model_accepts_explicit_validated_celsius_evidence():
-    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5),'V-1',0.99,'sequence','Confirmed','Inspector'),),True)
+    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042'),'V-1',0.99,'sequence','Confirmed','Inspector'),),True)
     report=build_report_model(data)
     assert report.evidence[0].temperature_c==42.5;assert report.warnings==();assert 'validated celsius' in report.temperature_statement.lower()
 
