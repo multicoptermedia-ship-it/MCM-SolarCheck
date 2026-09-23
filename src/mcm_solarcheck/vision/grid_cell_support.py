@@ -12,9 +12,14 @@ def _point_segment_distance(p,line):
  return hypot(x-(line.x1+t*dx),y-(line.y1+t*dy))
 
 def _side_supported(a,b,lines,angle,tolerance):
- # A side may be represented by several collinear Hough fragments. Requiring one
- # segment to span both corners creates false negatives at legitimate joins.
- candidates=[line for line in lines if _angle_difference(line.angle_deg,angle)<=12]
+ # Fragmented support is valid only when both endpoint-supporting fragments lie
+ # close to the same expected finite side, not merely somewhere near each corner.
+ dx=b[0]-a[0];dy=b[1]-a[1];length=hypot(dx,dy)
+ if length<=1e-9:return False
+ def line_distance(p):
+  return abs(dy*(p[0]-a[0])-dx*(p[1]-a[1]))/length
+ candidates=[line for line in lines if _angle_difference(line.angle_deg,angle)<=12 and
+             line_distance((line.x1,line.y1))<=tolerance and line_distance((line.x2,line.y2))<=tolerance]
  return (any(_point_segment_distance(a,line)<=tolerance for line in candidates) and
          any(_point_segment_distance(b,line)<=tolerance for line in candidates))
 
