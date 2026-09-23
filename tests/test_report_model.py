@@ -110,7 +110,7 @@ def test_report_evidence_cannot_claim_resolved_without_module():
 
 
 def test_report_priority_fails_closed_for_unproven_celsius_value():
-    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042',temperature_status='calibrated',temperature_provider='reference'),None,None,None,'Checked','Inspector'),),False)
+    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042'),None,None,None,'Checked','Inspector'),),False)
     evidence=build_report_model(data).evidence[0]
     assert evidence.priority_level=='unrated'
     assert evidence.priority_score is None
