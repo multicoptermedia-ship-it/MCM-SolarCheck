@@ -48,3 +48,11 @@ def test_invalid_classifier_confidence_fails_closed(confidence):
 def test_classifier_requires_auditable_identity(label, provider):
     with pytest.raises(ValueError):
         DefectClassification(label, .5, provider)
+
+
+def test_classification_modality_is_auditable_and_restricted():
+    suggestion=DefectClassification("hotspot_candidate", .8, "fixture-model", "1.0", "thermal")
+    classified=attach_classification_suggestion(_finding(), suggestion)
+    assert classified.metadata["classification_modality"] == "thermal"
+    with pytest.raises(ValueError):
+        DefectClassification("hotspot_candidate", .8, "fixture-model", "1.0", "mixed")
