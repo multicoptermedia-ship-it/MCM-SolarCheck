@@ -23,6 +23,7 @@ class ReportEvidence:
     priority_level:str='unrated'
     priority_score:float|None=None
     priority_reason:str='calibrated_temperature_required'
+    service_location_status:str='module_unresolved'
 
 @dataclass(frozen=True)
 class InspectionReportModel:
@@ -58,6 +59,7 @@ def build_report_model(data:InspectionReportData)->InspectionReportModel:
         priority_level=priority(item).level,
         priority_score=priority(item).score,
         priority_reason=priority(item).reason,
+        service_location_status='module_resolved' if item.finding.module_id is not None and item.finding.module_id.strip() else 'module_unresolved',
     ) for item in data.confirmed_findings)
     evidence=tuple(sorted(evidence,key=lambda item:(item.priority_level!='review',-(item.priority_score if item.priority_score is not None else -1.0),item.module_id is None,item.module_id or '',item.finding_id)))
     unresolved=sum(1 for item in evidence if item.module_id is None or not item.module_id.strip())
