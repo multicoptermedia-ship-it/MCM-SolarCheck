@@ -49,3 +49,9 @@ def test_cadence_phases_follow_lattice_coordinates_when_lines_are_missing():
  f=fam((0,10,30,40,60,70))
  q=cadence_line_subsets(f,3)
  assert tuple(tuple(x.offset_px for x in s.lines) for s in q)==((0,30,60),(10,40,70))
+
+
+def test_cadence_is_invariant_to_family_line_order():
+ forward=assess_grid_cadence(fam((0,10,20,30,40,50)))
+ reverse=assess_grid_cadence(fam((50,40,30,20,10,0)))
+ assert reverse.accepted and reverse.median_gap_px==forward.median_gap_px

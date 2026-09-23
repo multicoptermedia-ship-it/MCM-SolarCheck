@@ -19,7 +19,8 @@ def assess_grid_cadence(family:GridLineFamily,*,minimum_gaps:int=4,relative_tole
     independent image/geometry evidence.
     """
     if minimum_gaps<2 or not 0<relative_tolerance<.5:return GridCadence(False,"invalid_parameters")
-    gaps=[family.lines[i+1].offset_px-family.lines[i].offset_px for i in range(len(family.lines)-1)]
+    ordered=tuple(sorted(family.lines,key=lambda line:line.offset_px))
+    gaps=[ordered[i+1].offset_px-ordered[i].offset_px for i in range(len(ordered)-1)]
     gaps=[g for g in gaps if g>1e-9]
     if len(gaps)<minimum_gaps:return GridCadence(False,"insufficient_gaps")
     # Missing Hough lines legitimately turn one base interval into 2x/3x gaps.
