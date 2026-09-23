@@ -36,7 +36,7 @@ Candidate evidence is treated as an internal trust boundary. Malformed multiplie
 
 ## Phase 5 closure checks
 
-The cadence safety path is regression-tested through repository head `bb39b8ac322d220207b7cc1c61b1ea86179aebeb` (CI run #256). The complete test matrix passed on that head.
+The cadence safety path is regression-tested through repository head `18d5e5ceffc85184d3e815d9a862132c169a6c45` (CI run #257). The complete test matrix passed on that head.
 
 The validated trust-boundary behavior now includes strict positive-integer image dimensions, finite quadrilateral candidate polygons, semantically consistent repeated-lattice flags and raw support counts, valid cadence multipliers/phases, finite positive cadence gaps, and in-range resolved phase indices. Malformed evidence fails closed.
 
