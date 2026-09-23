@@ -93,7 +93,12 @@ def select_uniquely_supported_candidate(
     geometries={candidate.multiples for candidate in supported}
     if len(geometries)!=1:
         return CadenceDisambiguation(False,None,"ambiguous_lattice_supported_cadence")
-    same_geometry=tuple(candidate for candidate in supported if candidate.multiples==next(iter(geometries)))
-    if len(same_geometry)!=1:
+    geometry=next(iter(geometries))
+    same_geometry=tuple(candidate for candidate in supported if candidate.multiples==geometry)
+    phases={candidate.phases for candidate in same_geometry}
+    if len(phases)!=1:
         return CadenceDisambiguation(False,None,"ambiguous_lattice_supported_phase")
-    return CadenceDisambiguation(True,same_geometry[0],"accepted")
+    # Multiple measured records for the same geometry/phase are equivalent evidence,
+    # not a second phase. Keep deterministic diagnostic ordering.
+    chosen=max(same_geometry,key=lambda candidate:(candidate.matched_cells,candidate.iou_score))
+    return CadenceDisambiguation(True,chosen,"accepted")
