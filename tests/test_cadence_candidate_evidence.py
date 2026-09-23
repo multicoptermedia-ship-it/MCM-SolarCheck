@@ -33,7 +33,9 @@ def test_candidate_report_does_not_invent_subharmonic_multiples():
 
 
 def evidence(multiples,phases,repeated=True,iou=.3):
-    item=CadenceCellEvidence(multiples,phases,((0,0),(0,30),(30,30),(30,0)),iou,2,(1,1),repeated)
+    outer=2 if repeated else 0
+    lattice=(1,1) if repeated else (0,0)
+    item=CadenceCellEvidence(multiples,phases,((0,0),(0,30),(30,30),(30,0)),iou,outer,lattice,repeated)
     return CadenceCandidateEvidence(multiples,phases,1,iou,(item,))
 
 def test_disambiguation_accepts_one_unique_lattice_supported_geometry_and_phase():
