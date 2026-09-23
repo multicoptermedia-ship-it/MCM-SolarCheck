@@ -1,7 +1,7 @@
 from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
 from mcm_solarcheck.pairing.structural_features import StructuralLine
 from mcm_solarcheck.vision.detection import ModuleDetection
-from mcm_solarcheck.vision.cadence_candidate_evidence import enumerate_cadence_candidate_evidence
+from mcm_solarcheck.vision.cadence_candidate_evidence import (CadenceCandidateEvidence,CadenceCellEvidence,enumerate_cadence_candidate_evidence,select_uniquely_supported_candidate)
 
 def fam(angle,offsets):return GridLineFamily(angle,tuple(GridLine(angle,x,1,100) for x in offsets))
 def cell(x0,y0,x1,y1):return ModuleDetection(((x0,y0),(x0,y1),(x1,y1),(x1,y0)),.9)
@@ -30,3 +30,24 @@ def test_candidate_report_does_not_invent_subharmonic_multiples():
     fs=(fam(0,(0,10,20,30)),fam(90,(0,-10,-20,-30)))
     support=(cell(0,0,20,20),)
     assert enumerate_cadence_candidate_evidence(fs,((1,),(2,)),support,(),100,100)==()
+
+
+def evidence(multiples,phases,repeated=True,iou=.3):
+    item=CadenceCellEvidence(multiples,phases,((0,0),(0,30),(30,30),(30,0)),iou,2,(1,1),repeated)
+    return CadenceCandidateEvidence(multiples,phases,1,iou,(item,))
+
+def test_disambiguation_accepts_one_unique_lattice_supported_geometry_and_phase():
+    result=select_uniquely_supported_candidate((evidence((6,10),(0,1)),evidence((4,10),(3,7),False,.4)))
+    assert result.accepted and result.candidate.multiples==(6,10)
+
+def test_disambiguation_rejects_competing_lattice_supported_cadences():
+    result=select_uniquely_supported_candidate((evidence((3,4),(1,0)),evidence((4,4),(0,0))))
+    assert not result.accepted and result.reason=="ambiguous_lattice_supported_cadence"
+
+def test_disambiguation_rejects_competing_phases_of_same_cadence():
+    result=select_uniquely_supported_candidate((evidence((4,4),(0,0)),evidence((4,4),(1,0))))
+    assert not result.accepted and result.reason=="ambiguous_lattice_supported_phase"
+
+def test_disambiguation_rejects_iou_only_candidate():
+    result=select_uniquely_supported_candidate((evidence((7,3),(0,0),False,.8),))
+    assert not result.accepted and result.reason=="repeated_lattice_support_required"
