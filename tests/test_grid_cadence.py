@@ -55,3 +55,8 @@ def test_cadence_is_invariant_to_family_line_order():
  forward=assess_grid_cadence(fam((0,10,20,30,40,50)))
  reverse=assess_grid_cadence(fam((50,40,30,20,10,0)))
  assert reverse.accepted and reverse.median_gap_px==forward.median_gap_px
+
+
+def test_equal_lattice_fit_prefers_smallest_observed_base_gap():
+ q=assess_grid_cadence(fam((0,10,30,60,100,150)))
+ assert q.accepted and abs(q.median_gap_px-10)<1e-9

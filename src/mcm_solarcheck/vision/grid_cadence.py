@@ -35,10 +35,10 @@ def assess_grid_cadence(family:GridLineFamily,*,minimum_gaps:int=4,relative_tole
                 error=abs(gap/(base*multiple)-1)
                 if error<=relative_tolerance:errors.append(error)
         coverage=len(errors)/len(gaps)
-        if coverage>=.7:candidates.append((len(errors),-sum(errors)/len(errors),base))
+        if coverage>=.7:candidates.append((len(errors),-sum(errors)/len(errors),-base))
     if not candidates:return GridCadence(False,"irregular_spacing",median(gaps))
-    _,_,base=max(candidates)
-    return GridCadence(True,"lattice_scale_only",base,1)
+    _,_,negative_base=max(candidates)
+    return GridCadence(True,"lattice_scale_only",-negative_base,1)
 
 
 def select_supported_cadence_multiple(family:GridLineFamily,support_intervals,*,maximum_multiple:int=12,relative_tolerance:float=.18)->GridCadence:
