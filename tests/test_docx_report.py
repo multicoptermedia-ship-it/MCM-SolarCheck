@@ -28,3 +28,12 @@ def test_docx_renderer_includes_review_priority_without_calling_it_severity(tmp_
     assert 'Review priority' in text and 'review' in text
     assert 'Priority score' in text and '0.85' in text
     assert 'Severity' not in text
+
+
+def test_docx_renderer_explains_priority_basis(tmp_path):
+    evidence=ReportEvidence('F-4','thermal_anomaly_candidate','M-0042','T-4',None,21000,600.0,None,None,None,'Inspector','Check module','unrated',None,'calibrated_temperature_required')
+    model=InspectionReportModel('P','PV Thermal Inspection Report','Plant','review_complete','No calibrated temperature claim.',(evidence,),())
+    path=render_docx(model,tmp_path/'priority-basis.docx')
+    doc=Document(path);text='\n'.join(c.text for t in doc.tables for r in t.rows for c in r.cells)
+    assert 'Priority basis' in text
+    assert 'calibrated_temperature_required' in text
