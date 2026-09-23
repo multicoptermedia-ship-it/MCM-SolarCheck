@@ -31,3 +31,15 @@ def test_module_identity_does_not_require_absolute_gps():
 def test_blank_module_id_is_unresolved():
     result=localize_finding(finding(module_id="  "))
     assert result.status=="module_unresolved"
+
+
+def test_invalid_frame_gps_is_not_reported_as_location_evidence():
+    result=localize_finding(finding(module_id="M-0042",position=Position(95.0,7.0)))
+    assert result.status=="module_resolved"
+    assert result.gps_scope=="none"
+
+
+def test_nonfinite_frame_gps_is_not_reported_as_location_evidence():
+    result=localize_finding(finding(module_id="M-0042",position=Position(float("nan"),7.0)))
+    assert result.status=="module_resolved"
+    assert result.gps_scope=="none"
