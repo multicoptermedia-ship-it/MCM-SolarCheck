@@ -28,3 +28,21 @@ def test_ambiguous_gate_preserves_primary_success():
  support=(mod(30,20),mod(30,20))
  families=(fam(0,(0,10,20,30,40,50)),fam(90,(0,10,20,30,40,50)))
  assert assess_ambiguous_module_cadence(families,support,(),100,100)==assess_module_cadence(families,support)
+
+
+def test_lattice_resolution_never_synthesizes_independent_votes(monkeypatch):
+ import mcm_solarcheck.vision.cadence_gate as gate
+ families=(fam(0,(0,10,20,30,40,50,60)),fam(90,(0,10,20,30,40,50,60)))
+ support=(mod(30,40),mod(40,30))
+ monkeypatch.setattr(gate,'supported_cadence_multiples',lambda *a,**k:(3,4))
+ class Candidate:
+  multiples=(3,4)
+ class Resolution:
+  accepted=True
+  candidate=Candidate()
+ monkeypatch.setattr(gate,'enumerate_cadence_candidate_evidence',lambda *a,**k:(object(),))
+ monkeypatch.setattr(gate,'select_uniquely_supported_candidate',lambda evidence:Resolution())
+ result=gate.assess_ambiguous_module_cadence(families,support,(),100,100)
+ assert result.accepted
+ assert tuple(a.dominant_multiple for a in result.axes)==(3,4)
+ assert all(a.reason=='uniquely_lattice_supported' for a in result.axes)
