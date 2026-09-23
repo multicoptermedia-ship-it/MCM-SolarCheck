@@ -1,6 +1,7 @@
 """Vendor-neutral report model independent from DOCX/PDF rendering."""
 from __future__ import annotations
 from dataclasses import dataclass
+from math import isfinite
 from .data import InspectionReportData
 
 @dataclass(frozen=True)
@@ -30,6 +31,8 @@ class InspectionReportModel:
 
 def build_report_model(data:InspectionReportData)->InspectionReportModel:
     """Translate persisted evidence into a renderer-independent report contract."""
+    def valid_gps(latitude,longitude):
+        return latitude is not None and longitude is not None and isfinite(float(latitude)) and isfinite(float(longitude)) and -90<=latitude<=90 and -180<=longitude<=180
     evidence=tuple(ReportEvidence(
         finding_id=item.finding.finding_id,
         classification=item.finding.finding_type,
@@ -39,8 +42,8 @@ def build_report_model(data:InspectionReportData)->InspectionReportModel:
         raw_value=item.finding.raw_value,
         raw_delta_from_median=item.finding.raw_delta_from_median,
         temperature_c=item.finding.temperature_c,
-        latitude=item.finding.latitude,
-        longitude=item.finding.longitude,
+        latitude=item.finding.latitude if valid_gps(item.finding.latitude,item.finding.longitude) else None,
+        longitude=item.finding.longitude if valid_gps(item.finding.latitude,item.finding.longitude) else None,
         reviewer=item.reviewer,
         review_note=item.review_note,
     ) for item in data.confirmed_findings)
