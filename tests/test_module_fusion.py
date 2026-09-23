@@ -23,3 +23,8 @@ def test_missing_support_fails_closed_by_default():
 
 def test_invalid_threshold_rejected():
  with pytest.raises(ValueError):fuse_module_detections((),(),minimum_iou=2)
+
+
+def test_nonfinite_threshold_rejected():
+ with pytest.raises(ValueError):fuse_module_detections((),(),minimum_iou=float('nan'))
+ with pytest.raises(ValueError):fuse_module_detections((),(),minimum_iou=float('inf'))
