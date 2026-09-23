@@ -187,3 +187,22 @@ def test_disambiguation_rejects_false_negative_repeated_lattice_flag():
  wrong=CadenceCellEvidence((3,4),(0,0),candidate.cells[0].polygon_px,.3,2,(1,1),False)
  candidate=CadenceCandidateEvidence((3,4),(0,0),1,.3,(wrong,))
  assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
+
+
+def test_enumeration_rejects_noninteger_image_dimensions():
+ fs=(fam(0,(0,10,20,30,40)),fam(90,(0,-10,-20,-30,-40)))
+ support=(cell(0,0,20,20),)
+ assert enumerate_cadence_candidate_evidence(fs,((2,),(2,)),support,(),100.0,100)==()
+ assert enumerate_cadence_candidate_evidence(fs,((2,),(2,)),support,(),True,100)==()
+
+def test_disambiguation_rejects_nonfinite_polygon_coordinate():
+ candidate=evidence((3,4),(0,0))
+ wrong=CadenceCellEvidence((3,4),(0,0),((0,0),(0,30),(float('nan'),30),(30,0)),.3,2,(1,1),True)
+ candidate=CadenceCandidateEvidence((3,4),(0,0),1,.3,(wrong,))
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
+
+def test_disambiguation_rejects_nonquadrilateral_polygon():
+ candidate=evidence((3,4),(0,0))
+ wrong=CadenceCellEvidence((3,4),(0,0),((0,0),(0,30),(30,30)),.3,2,(1,1),True)
+ candidate=CadenceCandidateEvidence((3,4),(0,0),1,.3,(wrong,))
+ assert select_uniquely_supported_candidate((candidate,)).reason=='invalid_candidate_evidence'
