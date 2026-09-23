@@ -73,3 +73,33 @@ def test_detector_rejects_negative_resolved_phase(monkeypatch,tmp_path):
  monkeypatch.setattr(module,'assess_ambiguous_module_cadence',lambda *a,**k:CadenceGateResult(True,axes,'accepted_by_unique_lattice_evidence',(-1,0)))
  monkeypatch.setattr(module,'grid_module_detections',lambda *a,**k:(_ for _ in ()).throw(AssertionError('invalid phase must fail closed')))
  assert detector.detect(path)==()
+
+
+def _detector_gate_case(monkeypatch,tmp_path,axes):
+ import numpy as np
+ import cv2
+ import mcm_solarcheck.vision.cadence_module_detector as module
+ from mcm_solarcheck.vision.cadence_gate import CadenceGateResult
+ path=tmp_path/'gate-case.jpg';cv2.imwrite(str(path),np.zeros((40,40,3),dtype=np.uint8))
+ monkeypatch.setattr(module,'detect_structural_lines',lambda *a,**k:())
+ monkeypatch.setattr(module,'extract_grid_line_families',lambda lines:())
+ detector=CadenceConfirmedModuleDetector()
+ monkeypatch.setattr(detector.image_detector,'detect',lambda path:())
+ monkeypatch.setattr(module,'assess_ambiguous_module_cadence',lambda *a,**k:CadenceGateResult(True,axes,'accepted'))
+ monkeypatch.setattr(module,'select_cadence_phase',lambda *a,**k:(_ for _ in ()).throw(AssertionError('invalid gate geometry must fail closed')))
+ return detector.detect(path)
+
+def test_detector_rejects_accepted_gate_with_wrong_axis_count(monkeypatch,tmp_path):
+ from mcm_solarcheck.vision.grid_cadence import GridCadence
+ axes=(GridCadence(True,'test',10.0,3),)
+ assert _detector_gate_case(monkeypatch,tmp_path,axes)==()
+
+def test_detector_rejects_accepted_gate_with_invalid_multiple(monkeypatch,tmp_path):
+ from mcm_solarcheck.vision.grid_cadence import GridCadence
+ axes=(GridCadence(True,'test',10.0,1),GridCadence(True,'test',10.0,4))
+ assert _detector_gate_case(monkeypatch,tmp_path,axes)==()
+
+def test_detector_rejects_accepted_gate_with_nonfinite_gap(monkeypatch,tmp_path):
+ from mcm_solarcheck.vision.grid_cadence import GridCadence
+ axes=(GridCadence(True,'test',float('nan'),3),GridCadence(True,'test',10.0,4))
+ assert _detector_gate_case(monkeypatch,tmp_path,axes)==()
