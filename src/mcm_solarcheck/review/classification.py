@@ -17,6 +17,7 @@ class DefectClassification:
     confidence: float
     provider: str
     model_version: str | None = None
+    modality: str | None = None
 
     def __post_init__(self) -> None:
         if not self.label.strip():
@@ -25,6 +26,8 @@ class DefectClassification:
             raise ValueError("classification provider must not be empty")
         if not isfinite(float(self.confidence)) or not 0.0 <= self.confidence <= 1.0:
             raise ValueError("classification confidence must be finite and between 0 and 1")
+        if self.modality is not None and self.modality not in {"thermal", "rgb"}:
+            raise ValueError("classification modality must be thermal or rgb")
 
 
 class DefectClassifier(Protocol):
@@ -50,4 +53,6 @@ def attach_classification_suggestion(
     })
     if suggestion.model_version:
         metadata["classification_model_version"] = suggestion.model_version.strip()
+    if suggestion.modality:
+        metadata["classification_modality"] = suggestion.modality
     return replace(finding, metadata=metadata)
