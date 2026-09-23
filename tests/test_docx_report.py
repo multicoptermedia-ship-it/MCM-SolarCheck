@@ -16,7 +16,7 @@ def test_docx_renderer_names_module_and_keeps_gps_optional(tmp_path):
     path=render_docx(model,tmp_path/'module-report.docx')
     doc=Document(path);text='\n'.join(c.text for t in doc.tables for r in t.rows for c in r.cells)
     assert 'M-0042' in text
-    assert 'Latitude' in text and 'Longitude' in text
+    assert 'Frame GPS latitude' in text and 'Frame GPS longitude' in text
     assert text.count('Not available')>=3
 
 
@@ -46,3 +46,13 @@ def test_docx_renderer_shows_module_service_location_status(tmp_path):
     doc=Document(path);text='\n'.join(c.text for t in doc.tables for r in t.rows for c in r.cells)
     assert 'Service location' in text
     assert 'module_resolved' in text
+
+
+def test_docx_never_labels_frame_gps_as_module_or_hotspot_coordinate(tmp_path):
+    evidence=ReportEvidence('F-6','thermal_anomaly_candidate','M-0042','T-6',None,21000,600.0,None,51.0,6.5,'Inspector','Check module')
+    model=InspectionReportModel('P','PV Thermal Inspection Report','Plant','review_complete','No calibrated temperature claim.',(evidence,),())
+    path=render_docx(model,tmp_path/'gps-scope.docx')
+    doc=Document(path);text='\n'.join(c.text for t in doc.tables for r in t.rows for c in r.cells)
+    assert 'Frame GPS latitude' in text and 'Frame GPS longitude' in text
+    assert 'Module GPS' not in text
+    assert 'Hotspot GPS' not in text
