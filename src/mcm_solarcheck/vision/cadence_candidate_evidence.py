@@ -2,6 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from itertools import product
+from math import isfinite
 from mcm_solarcheck.pairing.grid_lines import GridLineFamily
 from mcm_solarcheck.pairing.structural_features import StructuralLine
 from mcm_solarcheck.vision.detection import ModuleDetection
@@ -40,6 +41,10 @@ def enumerate_cadence_candidate_evidence(
 )->tuple[CadenceCandidateEvidence,...]:
     """Measure every independently supported candidate; never accept or alter a gate."""
     if len(families)!=2 or len(multiple_options)!=2 or not support or width<=0 or height<=0:return ()
+    if not isfinite(float(minimum_iou)) or not 0.0<=minimum_iou<=1.0:return ()
+    if any(not options for options in multiple_options):return ()
+    if any(type(m) is not int or m<2 for options in multiple_options for m in options):return ()
+    if any(len(set(options))!=len(options) for options in multiple_options):return ()
     bases=tuple(assess_grid_cadence(f) for f in families)
     if not all(b.accepted and b.median_gap_px for b in bases):return ()
     out=[]
@@ -84,8 +89,29 @@ def select_uniquely_supported_candidate(
     This helper is deliberately stricter than diagnostic ordering: IoU or matched-cell
     count can rank candidates for inspection, but neither may break a lattice tie.
     """
-    supported=tuple(
+    valid=tuple(
         candidate for candidate in candidates
+        if len(candidate.multiples)==2
+        and len(candidate.phases)==2
+        and candidate.matched_cells==len(candidate.cells)
+        and candidate.matched_cells>0
+        and isfinite(float(candidate.iou_score))
+        and candidate.iou_score>=0
+        and all(
+            cell.multiples==candidate.multiples
+            and cell.phases==candidate.phases
+            and isfinite(float(cell.best_iou))
+            and 0.0<=cell.best_iou<=1.0
+            and 0<=cell.outer_support<=4
+            and len(cell.internal_lattice)==2
+            and all(type(v) is int and v>=0 for v in cell.internal_lattice)
+            for cell in candidate.cells
+        )
+    )
+    if len(valid)!=len(candidates):
+        return CadenceDisambiguation(False,None,"invalid_candidate_evidence")
+    supported=tuple(
+        candidate for candidate in valid
         if any(cell.repeated_lattice for cell in candidate.cells)
     )
     if not supported:
