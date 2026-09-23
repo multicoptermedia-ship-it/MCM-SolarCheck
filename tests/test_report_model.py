@@ -58,3 +58,11 @@ def test_uncalibrated_report_evidence_stays_unrated():
     evidence=build_report_model(data).evidence[0]
     assert evidence.priority_level=='unrated'
     assert evidence.priority_score is None
+
+
+def test_report_orders_reviewable_evidence_before_unrated():
+    high=ReportFinding(finding(50.0,module_id='M-2'),None,None,None,'Checked','Inspector')
+    low=ReportFinding(finding(module_id='M-1'),None,None,None,'Checked','Inspector')
+    data=InspectionReportData('P','Plant',summary(confirmed=2,calibrated=1),(low,high),False)
+    report=build_report_model(data)
+    assert [item.module_id for item in report.evidence]==['M-2','M-1']
