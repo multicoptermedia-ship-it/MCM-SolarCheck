@@ -11,3 +11,18 @@ def test_rgb_marker_requires_rgb_source():
 
 def test_invalid_pairing_confidence_is_rejected():
     with pytest.raises(ValueError):plan_evidence_images(finding_id='F-1',thermal_source='T.JPG',pixel_x=1,pixel_y=2,pairing_confidence=1.1)
+
+
+def test_image_evidence_without_module_is_explicitly_unresolved():
+    plan=plan_evidence_images(finding_id='F-2',thermal_source='T.JPG',pixel_x=1,pixel_y=2)
+    assert plan.service_location_status=='module_unresolved'
+
+
+def test_image_evidence_derives_resolved_status_from_module():
+    plan=EvidenceImagePlan('F-3',Path('T.JPG'),(1,2),module_id='M-0042')
+    assert plan.service_location_status=='module_resolved'
+
+
+def test_image_evidence_cannot_claim_resolution_without_module():
+    plan=EvidenceImagePlan('F-4',Path('T.JPG'),(1,2),service_location_status='module_resolved')
+    assert plan.service_location_status=='module_unresolved'
