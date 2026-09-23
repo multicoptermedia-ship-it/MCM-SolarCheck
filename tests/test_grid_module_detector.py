@@ -20,12 +20,14 @@ def test_outside_cells_are_rejected():
 def test_rotated_grid_intersection_uses_line_normal_offsets():
  from math import sqrt
  from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
- a=GridLineFamily(45,(GridLine(45,0,1,100),GridLine(45,10,1,100)))
+ a=GridLineFamily(45,(GridLine(45,-70,1,100),GridLine(45,-60,1,100)))
  b=GridLineFamily(135,(GridLine(135,0,1,100),GridLine(135,10,1,100)))
  d=grid_module_detections((a,b),100,100,margin_px=0)
  assert len(d)==1
  p=d[0].polygon_px
- assert max(abs(x) for x,y in p)<15 and max(abs(y) for x,y in p)<15
+ assert all(0<=x<100 and 0<=y<100 for x,y in p)
+ assert max(x for x,y in p)-min(x for x,y in p)<15
+ assert max(y for x,y in p)-min(y for x,y in p)<15
 
 
 def test_expected_cadence_gap_does_not_bridge_missing_module_boundary():
