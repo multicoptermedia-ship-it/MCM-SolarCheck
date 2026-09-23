@@ -46,7 +46,7 @@ def test_report_model_omits_invalid_optional_gps():
 
 
 def test_report_evidence_carries_conservative_review_priority():
-    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042'),None,None,None,'Checked','Inspector'),),True)
+    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042',temperature_status='calibrated',temperature_provider='reference'),None,None,None,'Checked','Inspector'),),True)
     evidence=build_report_model(data).evidence[0]
     assert evidence.module_id=='M-0042'
     assert evidence.priority_level=='review'
@@ -69,7 +69,7 @@ def test_report_orders_reviewable_evidence_before_unrated():
 
 
 def test_report_priority_reason_is_auditable():
-    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042'),None,None,None,'Checked','Inspector'),),True)
+    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042',temperature_status='calibrated',temperature_provider='reference'),None,None,None,'Checked','Inspector'),),True)
     evidence=build_report_model(data).evidence[0]
     assert evidence.priority_reason=='calibrated_evidence_available'
 
@@ -110,7 +110,7 @@ def test_report_evidence_cannot_claim_resolved_without_module():
 
 
 def test_report_priority_fails_closed_for_unproven_celsius_value():
-    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042'),None,None,None,'Checked','Inspector'),),False)
+    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042',temperature_status='calibrated',temperature_provider='reference'),None,None,None,'Checked','Inspector'),),False)
     evidence=build_report_model(data).evidence[0]
     assert evidence.priority_level=='unrated'
     assert evidence.priority_score is None
