@@ -22,6 +22,7 @@ class ReportEvidence:
     review_note:str|None
     priority_level:str='unrated'
     priority_score:float|None=None
+    priority_reason:str='calibrated_temperature_required'
 
 @dataclass(frozen=True)
 class InspectionReportModel:
@@ -56,6 +57,7 @@ def build_report_model(data:InspectionReportData)->InspectionReportModel:
         review_note=item.review_note,
         priority_level=priority(item).level,
         priority_score=priority(item).score,
+        priority_reason=priority(item).reason,
     ) for item in data.confirmed_findings)
     evidence=tuple(sorted(evidence,key=lambda item:(item.priority_level!='review',-(item.priority_score if item.priority_score is not None else -1.0),item.module_id is None,item.module_id or '',item.finding_id)))
     warnings=[]
