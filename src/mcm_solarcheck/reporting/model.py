@@ -60,9 +60,12 @@ def build_report_model(data:InspectionReportData)->InspectionReportModel:
         priority_reason=priority(item).reason,
     ) for item in data.confirmed_findings)
     evidence=tuple(sorted(evidence,key=lambda item:(item.priority_level!='review',-(item.priority_score if item.priority_score is not None else -1.0),item.module_id is None,item.module_id or '',item.finding_id)))
+    unresolved=sum(1 for item in evidence if item.module_id is None or not item.module_id.strip())
     warnings=[]
     if not data.temperature_evidence_validated:
         warnings.append('Radiometric Celsius conversion has not been validated for all confirmed findings; raw sensor values must not be presented as degrees Celsius.')
+    if unresolved:
+        warnings.append(f'{unresolved} confirmed finding(s) have no resolved physical module and require manual localization.')
     if data.summary.unreviewed_findings:
         warnings.append(f'{data.summary.unreviewed_findings} finding(s) remain unreviewed and are excluded from confirmed evidence.')
     status='review_complete' if data.summary.unreviewed_findings==0 else 'review_incomplete'
