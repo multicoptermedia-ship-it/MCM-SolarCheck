@@ -93,16 +93,22 @@ def select_uniquely_supported_candidate(
         candidate for candidate in candidates
         if len(candidate.multiples)==2
         and len(candidate.phases)==2
+        and type(candidate.matched_cells) is int
         and candidate.matched_cells==len(candidate.cells)
         and candidate.matched_cells>0
         and isfinite(float(candidate.iou_score))
         and candidate.iou_score>=0
+        and abs(candidate.iou_score-sum(cell.best_iou for cell in candidate.cells))<=1e-9
+        and all(type(m) is int and m>=2 for m in candidate.multiples)
+        and all(type(p) is int and p>=0 for p in candidate.phases)
         and all(
             cell.multiples==candidate.multiples
             and cell.phases==candidate.phases
             and isfinite(float(cell.best_iou))
             and 0.0<=cell.best_iou<=1.0
+            and type(cell.outer_support) is int
             and 0<=cell.outer_support<=4
+            and type(cell.repeated_lattice) is bool
             and len(cell.internal_lattice)==2
             and all(type(v) is int and v>=0 for v in cell.internal_lattice)
             for cell in candidate.cells
