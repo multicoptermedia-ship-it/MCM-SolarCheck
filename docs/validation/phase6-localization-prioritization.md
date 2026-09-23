@@ -38,3 +38,19 @@ Temperature validation in report data uses the same provenance rule as prioritiz
 CI run #309 on commit `d5eb70da451ea018af14928c7853ca4ec09fffda` passed this closure regression on the project test matrix. The preceding mixed-provenance regression commit `472e25cd72393474440e156da6cdfb55d3fed4ea` is also part of the tested branch history.
 
 This keeps the operational workflow aligned with module replacement: identify the affected module, retain auditable source evidence, order review conservatively, and leave the final finding decision to expert review.
+
+
+## Final closure gate
+
+Phase 6 is closed on the following tested invariants:
+
+- the physical PV module remains the primary service location;
+- frame GPS/RTK remains optional provenance and cannot resolve a module by itself;
+- cross-sensor localization remains fail-closed unless geometry is validated and unambiguous;
+- raw radiometric values never become Celsius or severity implicitly;
+- validated Celsius evidence has one shared contract: finite value, `temperature_status=calibrated`, and a non-empty provider;
+- storage summaries, report validation, and review prioritization use that same provenance contract;
+- malformed or non-object persisted metadata fails closed rather than creating calibration evidence;
+- review priority is an ordering aid only; human review remains the final finding decision.
+
+The final provenance regression head `ef43e864c2136c31b6ed9e506872a1c00ca07b7f` passed CI run #317. Runs #313 through #316 also passed while introducing and propagating the shared Celsius provenance validator. Together with the end-to-end closure regression from #309, these runs form the Phase 6 closure gate.
