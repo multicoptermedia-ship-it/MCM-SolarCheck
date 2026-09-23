@@ -103,7 +103,9 @@ def select_uniquely_supported_candidate(
         and all(type(m) is int and m>=2 for m in candidate.multiples)
         and all(type(p) is int and p>=0 for p in candidate.phases)
         and all(
-            cell.multiples==candidate.multiples
+            len(cell.polygon_px)==4
+            and all(len(point)==2 and all(isfinite(float(v)) for v in point) for point in cell.polygon_px)
+            and cell.multiples==candidate.multiples
             and cell.phases==candidate.phases
             and isfinite(float(cell.best_iou))
             and 0.0<=cell.best_iou<=1.0
