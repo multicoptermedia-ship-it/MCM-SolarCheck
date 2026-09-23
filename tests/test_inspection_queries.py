@@ -87,3 +87,11 @@ def test_non_object_temperature_metadata_fails_closed(tmp_path):
     record=next(item for item in queries.findings("P-1") if item.finding_id=="F-LIST")
     assert record.temperature_status is None
     assert record.temperature_provider is None
+
+
+def test_nonfinite_provenanced_celsius_is_not_counted_as_calibrated(tmp_path):
+    db=_fixture_db(tmp_path)
+    db.save_findings("P-1", (
+        Finding("F-NAN", "T-0001", 50, 60, temperature_c=float("nan"), metadata={"temperature_status":"calibrated","temperature_provider":"reference"}),
+    ))
+    assert InspectionQueries(db).summary("P-1").calibrated_findings == 0
