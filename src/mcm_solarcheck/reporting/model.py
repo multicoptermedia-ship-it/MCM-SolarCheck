@@ -43,11 +43,26 @@ def build_report_model(data:InspectionReportData)->InspectionReportModel:
     """Translate persisted evidence into a renderer-independent report contract."""
     def valid_gps(latitude,longitude):
         return latitude is not None and longitude is not None and isfinite(float(latitude)) and isfinite(float(longitude)) and -90<=latitude<=90 and -180<=longitude<=180
-    def priority(item):
+    def to_evidence(item):
         record=item.finding
-        finding=Finding(record.finding_id,record.thermal_frame_id,record.pixel_x,record.pixel_y,record.finding_type,record.confidence,record.raw_value,record.raw_delta_from_median,record.temperature_c,record.module_id)
-        return prioritize_finding(finding)
-    evidence=tuple(ReportEvidence(
+        finding=Finding(
+            finding_id=record.finding_id,
+            thermal_frame_id=record.thermal_frame_id,
+            pixel_x=record.pixel_x,
+            pixel_y=record.pixel_y,
+            finding_type=record.finding_type,
+            confidence=record.confidence,
+            raw_value=record.raw_value,
+            raw_delta_from_median=record.raw_delta_from_median,
+            temperature_c=record.temperature_c,
+            module_id=record.module_id,
+            metadata={
+                'temperature_status': record.temperature_status or '',
+                'temperature_provider': record.temperature_provider or '',
+            },
+        )
+        priority=prioritize_finding(finding)
+        return ReportEvidence(
         finding_id=item.finding.finding_id,
         classification=item.finding.finding_type,
         module_id=item.finding.module_id,
@@ -60,11 +75,11 @@ def build_report_model(data:InspectionReportData)->InspectionReportModel:
         longitude=item.finding.longitude if valid_gps(item.finding.latitude,item.finding.longitude) else None,
         reviewer=item.reviewer,
         review_note=item.review_note,
-        priority_level=priority(item).level,
-        priority_score=priority(item).score,
-        priority_reason=priority(item).reason,
-        service_location_status='module_resolved' if item.finding.module_id is not None and item.finding.module_id.strip() else 'module_unresolved',
-    ) for item in data.confirmed_findings)
+        priority_level=priority.level,
+        priority_score=priority.score,
+        priority_reason=priority.reason,
+    )
+    evidence=tuple(to_evidence(item) for item in data.confirmed_findings)
     evidence=tuple(sorted(evidence,key=lambda item:(item.priority_level!='review',-(item.priority_score if item.priority_score is not None else -1.0),item.module_id is None,item.module_id or '',item.finding_id)))
     unresolved=sum(1 for item in evidence if item.module_id is None or not item.module_id.strip())
     warnings=[]
