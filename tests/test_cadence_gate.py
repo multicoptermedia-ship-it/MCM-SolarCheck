@@ -1,6 +1,6 @@
 from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
 from mcm_solarcheck.vision.detection import ModuleDetection
-from mcm_solarcheck.vision.cadence_gate import assess_module_cadence
+from mcm_solarcheck.vision.cadence_gate import assess_module_cadence,assess_ambiguous_module_cadence
 
 def fam(angle,offsets):return GridLineFamily(angle,tuple(GridLine(angle,x,1,10) for x in offsets))
 def mod(w,h):return ModuleDetection(((0,0),(w,0),(w,h),(0,h)),.8)
@@ -15,3 +15,16 @@ def test_missing_image_support_fails_closed():
 def test_one_unconfirmed_axis_rejects_gate():
  q=assess_module_cadence((fam(0,(0,10,20,30,40,50)),fam(90,(0,10,20,30,40,50))),(mod(30,10),mod(30,10)))
  assert not q.accepted and q.reason=='cadence_not_confirmed'
+
+
+def test_ambiguous_gate_does_not_relax_without_lattice_evidence():
+ q=assess_ambiguous_module_cadence(
+   (fam(0,(0,10,20,30,40,50,60)),fam(90,(0,10,20,30,40,50,60))),
+   (mod(30,40),mod(40,30)),(),100,100,
+ )
+ assert not q.accepted
+
+def test_ambiguous_gate_preserves_primary_success():
+ support=(mod(30,20),mod(30,20))
+ families=(fam(0,(0,10,20,30,40,50)),fam(90,(0,10,20,30,40,50)))
+ assert assess_ambiguous_module_cadence(families,support,(),100,100)==assess_module_cadence(families,support)
