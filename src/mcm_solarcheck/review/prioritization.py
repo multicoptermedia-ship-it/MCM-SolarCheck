@@ -34,3 +34,16 @@ def prioritize_finding(finding: Finding) -> FindingPriority:
     # Until a validated thermal severity model is introduced, calibrated
     # temperature is retained as evidence but does not imply a defect threshold.
     return FindingPriority(finding.finding_id, "review", float(finding.confidence), "calibrated_evidence_available")
+
+
+def prioritize_findings(findings: tuple[Finding, ...]) -> tuple[FindingPriority, ...]:
+    """Return deterministic review order without turning raw evidence into severity."""
+    priorities = tuple(prioritize_finding(finding) for finding in findings)
+    return tuple(sorted(
+        priorities,
+        key=lambda item: (
+            item.level != "review",
+            -(item.score if item.score is not None else -1.0),
+            item.finding_id,
+        ),
+    ))
