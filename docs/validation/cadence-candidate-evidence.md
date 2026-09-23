@@ -17,9 +17,9 @@ The real-data workflow is: enumerate plausible multiplier pairs, compare support
 
 ## Conservative ambiguity resolution
 
-The production detector now invokes the ambiguity-aware gate, but the original gate remains the first decision path. The fallback is entered only after a cadence-not-confirmed result.
+The production detector now invokes the ambiguity-aware gate, but the original gate remains the first decision path. The fallback is entered only after a cadence-not-confirmed result with at least one axis explicitly classified as `ambiguous_cadence`; missing or merely insufficient support cannot enter the fallback.
 
-The fallback preserves every independently supported multiplier with at least two votes, enumerates phase/cell evidence, and accepts only when repeated finite lattice evidence identifies exactly one multiplier pair and exactly one phase. IoU ranking and matched-cell count cannot break a lattice tie.
+The fallback preserves every independently supported multiplier with at least two votes, enumerates phase/cell evidence, and accepts only when repeated finite lattice evidence identifies exactly one multiplier pair and exactly one phase. IoU ranking and matched-cell count cannot break a lattice tie. The selected candidate must also be one of the enumerated records, retain independently voted multipliers, and carry a valid in-range phase. That phase is propagated into module-cell generation and is not reselected by an IoU-only phase pass.
 
 Observed M3T validation cases motivating these invariants:
 
@@ -29,3 +29,6 @@ Observed M3T validation cases motivating these invariants:
 - 0057, 0058, and 0060 do not establish robust two-axis candidate sets; 0059 does not establish two grid families.
 
 These observations are validation fixtures, not permission to weaken any threshold. Missing, tied, or contradictory evidence remains a rejection.
+
+
+Candidate evidence is treated as an internal trust boundary. Malformed multiplier options, non-finite or out-of-range IoU values, inconsistent matched-cell counts, mismatched cell provenance, impossible outer-support counts, and malformed internal-lattice counts fail closed rather than participating in disambiguation.
