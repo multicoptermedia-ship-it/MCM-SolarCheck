@@ -53,3 +53,37 @@ def test_unknown_project_summary_fails_explicitly(tmp_path):
         pass
     else:
         raise AssertionError("unknown project must not return an empty summary")
+
+
+def test_summary_counts_only_provenanced_celsius_as_calibrated(tmp_path):
+    db=_fixture_db(tmp_path)
+    db.save_findings("P-1", (
+        Finding("F-CAL", "T-0001", 50, 60, temperature_c=42.5, metadata={"temperature_status":"calibrated","temperature_provider":"reference"}),
+        Finding("F-NUM", "T-0001", 70, 80, temperature_c=43.0),
+        Finding("F-STATUS", "T-0001", 90, 100, temperature_c=44.0, metadata={"temperature_status":"calibrated"}),
+    ))
+    assert InspectionQueries(db).summary("P-1").calibrated_findings == 1
+
+
+def test_malformed_temperature_metadata_fails_closed(tmp_path):
+    db=_fixture_db(tmp_path)
+    db.save_findings("P-1", (Finding("F-BAD", "T-0001", 50, 60, temperature_c=42.5),))
+    with db.connect() as conn:
+        conn.execute("UPDATE findings SET metadata_json=? WHERE project_id=? AND finding_id=?", ("{broken", "P-1", "F-BAD"))
+    queries=InspectionQueries(db)
+    assert queries.summary("P-1").calibrated_findings == 0
+    record=next(item for item in queries.findings("P-1") if item.finding_id=="F-BAD")
+    assert record.temperature_status is None
+    assert record.temperature_provider is None
+
+
+def test_non_object_temperature_metadata_fails_closed(tmp_path):
+    db=_fixture_db(tmp_path)
+    db.save_findings("P-1", (Finding("F-LIST", "T-0001", 50, 60, temperature_c=42.5),))
+    with db.connect() as conn:
+        conn.execute("UPDATE findings SET metadata_json=? WHERE project_id=? AND finding_id=?", ('["calibrated"]', "P-1", "F-LIST"))
+    queries=InspectionQueries(db)
+    assert queries.summary("P-1").calibrated_findings == 0
+    record=next(item for item in queries.findings("P-1") if item.finding_id=="F-LIST")
+    assert record.temperature_status is None
+    assert record.temperature_provider is None
