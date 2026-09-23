@@ -61,3 +61,21 @@ def test_repeated_lattice_evidence_requires_boundary_and_both_axes():
  assert has_repeated_lattice_evidence(cell,(a,b),good,tolerance_px=1)
  assert not has_repeated_lattice_evidence(cell,(a,b),good[:2],tolerance_px=1)
  assert not has_repeated_lattice_evidence(cell,(a,b),good[1:],tolerance_px=1)
+
+
+def test_finite_support_rejects_nonfinite_tolerance():
+ import pytest
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ with pytest.raises(ValueError):finite_support_sides(cell,(a,b),(),tolerance_px=float('nan'))
+
+def test_filter_rejects_infinite_tolerance():
+ import pytest
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ with pytest.raises(ValueError):filter_cells_by_finite_support((),(a,b),(),tolerance_px=float('inf'))
+
+def test_internal_lattice_rejects_nonfinite_tolerance():
+ import pytest
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ with pytest.raises(ValueError):internal_lattice_support(cell,(a,b),(),tolerance_px=float('nan'))
