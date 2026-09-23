@@ -167,3 +167,30 @@ def test_detector_never_fuses_after_finite_support_removes_all_cells(monkeypatch
  monkeypatch.setattr(module,'filter_cells_by_finite_support',lambda *a,**k:())
  monkeypatch.setattr(module,'fuse_module_detections',lambda *a,**k:(_ for _ in ()).throw(AssertionError('image support must not recreate rejected cells')))
  assert detector.detect(path)==()
+
+
+def test_detector_rejects_out_of_range_resolved_phase(monkeypatch,tmp_path):
+ import numpy as np,cv2
+ import mcm_solarcheck.vision.cadence_module_detector as module
+ from mcm_solarcheck.vision.cadence_gate import CadenceGateResult
+ from mcm_solarcheck.vision.grid_cadence import GridCadence
+ from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
+ path=tmp_path/'phase-range.jpg';cv2.imwrite(str(path),np.zeros((80,80,3),dtype=np.uint8))
+ families=(GridLineFamily(0,tuple(GridLine(0,x,1,10) for x in range(0,80,10))),GridLineFamily(90,tuple(GridLine(90,x,1,10) for x in range(0,80,10))))
+ monkeypatch.setattr(module,'detect_structural_lines',lambda *a,**k:())
+ monkeypatch.setattr(module,'extract_grid_line_families',lambda lines:families)
+ detector=CadenceConfirmedModuleDetector();monkeypatch.setattr(detector.image_detector,'detect',lambda path:())
+ axes=(GridCadence(True,'test',10.0,3),GridCadence(True,'test',10.0,4))
+ monkeypatch.setattr(module,'assess_ambiguous_module_cadence',lambda *a,**k:CadenceGateResult(True,axes,'accepted',(99,0)))
+ monkeypatch.setattr(module,'grid_module_detections',lambda *a,**k:(_ for _ in ()).throw(AssertionError('out-of-range phase')))
+ assert detector.detect(path)==()
+
+def test_detector_rejects_boolean_axis_multiple(monkeypatch,tmp_path):
+ from mcm_solarcheck.vision.grid_cadence import GridCadence
+ axes=(GridCadence(True,'test',10.0,True),GridCadence(True,'test',10.0,4))
+ assert _detector_gate_case(monkeypatch,tmp_path,axes)==()
+
+def test_detector_rejects_nonpositive_axis_gap(monkeypatch,tmp_path):
+ from mcm_solarcheck.vision.grid_cadence import GridCadence
+ axes=(GridCadence(True,'test',0.0,3),GridCadence(True,'test',10.0,4))
+ assert _detector_gate_case(monkeypatch,tmp_path,axes)==()
