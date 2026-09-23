@@ -1,6 +1,7 @@
 """Select a unique two-axis cadence phase using independent image evidence."""
 from __future__ import annotations
 from dataclasses import dataclass
+from math import isfinite
 from mcm_solarcheck.pairing.grid_lines import GridLineFamily
 from mcm_solarcheck.vision.detection import ModuleDetection
 from mcm_solarcheck.vision.grid_cadence import cadence_line_subsets,assess_grid_cadence
@@ -16,6 +17,10 @@ class CadencePhaseSelection:
 
 def select_cadence_phase(families:tuple[GridLineFamily,...],multiples:tuple[int,int],support:tuple[ModuleDetection,...],width:int,height:int,*,minimum_iou:float=.20,ambiguity_margin:float=.05)->CadencePhaseSelection:
     if len(families)!=2 or not support:return CadencePhaseSelection(False,(),0.0,"insufficient_evidence")
+    if len(multiples)!=2 or any(type(m) is not int or m<2 for m in multiples):return CadencePhaseSelection(False,(),0.0,"invalid_multiples")
+    if type(width) is not int or type(height) is not int or width<=0 or height<=0:return CadencePhaseSelection(False,(),0.0,"invalid_dimensions")
+    if not isfinite(float(minimum_iou)) or not 0.0<=minimum_iou<=1.0:return CadencePhaseSelection(False,(),0.0,"invalid_minimum_iou")
+    if not isfinite(float(ambiguity_margin)) or ambiguity_margin<0:return CadencePhaseSelection(False,(),0.0,"invalid_ambiguity_margin")
     bases=tuple(assess_grid_cadence(f) for f in families)
     if not all(b.accepted and b.median_gap_px for b in bases):return CadencePhaseSelection(False,(),0.0,"base_cadence_required")
     expected=tuple(float(b.median_gap_px)*m for b,m in zip(bases,multiples))
