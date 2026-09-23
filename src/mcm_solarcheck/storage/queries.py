@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from .sqlite import ProjectDatabase
+from mcm_solarcheck.thermal.temperature_provenance import has_validated_celsius
 
 @dataclass(frozen=True)
 class InspectionSummary:
@@ -76,7 +77,7 @@ class InspectionQueries:
                     metadata=json.loads(row['metadata_json'] or '{}')
                 except (TypeError,json.JSONDecodeError):
                     continue
-                if isinstance(metadata,dict) and metadata.get('temperature_status')=='calibrated' and str(metadata.get('temperature_provider') or '').strip():
+                if isinstance(metadata,dict) and has_validated_celsius(row['temperature_c'],metadata.get('temperature_status'),metadata.get('temperature_provider')):
                     calibrated+=1
             return InspectionSummary(project_id,count('image_frames'),count('thermal_frames'),count('image_pairs'),count('pv_modules'),count('findings'),statuses.get('unreviewed',0),statuses.get('confirmed',0),statuses.get('rejected',0),statuses.get('unclear',0),calibrated)
     def module_identities(self,project_id:str,*,physical_module_id:str|None=None)->tuple[ModuleIdentityRecord,...]:
