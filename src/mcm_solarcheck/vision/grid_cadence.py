@@ -22,11 +22,22 @@ def assess_grid_cadence(family:GridLineFamily,*,minimum_gaps:int=4,relative_tole
     gaps=[family.lines[i+1].offset_px-family.lines[i].offset_px for i in range(len(family.lines)-1)]
     gaps=[g for g in gaps if g>1e-9]
     if len(gaps)<minimum_gaps:return GridCadence(False,"insufficient_gaps")
-    m=median(gaps)
-    if m<=0:return GridCadence(False,"invalid_spacing")
-    near=sum(abs(g/m-1)<=relative_tolerance for g in gaps)
-    if near/len(gaps)<.6:return GridCadence(False,"irregular_spacing",m)
-    return GridCadence(True,"single_scale_only",m,1)
+    # Missing Hough lines legitimately turn one base interval into 2x/3x gaps.
+    # Test observed gaps themselves as base candidates; never invent a subharmonic.
+    candidates=[]
+    for base in gaps:
+        if base<=1e-9:continue
+        errors=[]
+        for gap in gaps:
+            multiple=round(gap/base)
+            if 1<=multiple<=12:
+                error=abs(gap/(base*multiple)-1)
+                if error<=relative_tolerance:errors.append(error)
+        coverage=len(errors)/len(gaps)
+        if coverage>=.7:candidates.append((len(errors),-sum(errors)/len(errors),base))
+    if not candidates:return GridCadence(False,"irregular_spacing",median(gaps))
+    _,_,base=max(candidates)
+    return GridCadence(True,"lattice_scale_only",base,1)
 
 
 def select_supported_cadence_multiple(family:GridLineFamily,support_intervals,*,maximum_multiple:int=12,relative_tolerance:float=.18)->GridCadence:

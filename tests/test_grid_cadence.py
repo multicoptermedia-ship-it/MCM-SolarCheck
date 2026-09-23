@@ -5,7 +5,7 @@ def fam(offsets):return GridLineFamily(0,tuple(GridLine(0,x,1,10) for x in offse
 
 def test_regular_cell_cadence_is_not_mistaken_for_module_boundary_cadence():
  q=assess_grid_cadence(fam((0,10,20,30,40,50)))
- assert q.accepted and q.reason=='single_scale_only' and q.dominant_multiple==1
+ assert q.accepted and q.reason=='lattice_scale_only' and q.dominant_multiple==1
 
 def test_irregular_spacing_fails_closed():
  assert not assess_grid_cadence(fam((0,10,31,44,80,95))).accepted
@@ -34,3 +34,12 @@ def test_cadence_subsets_preserve_all_alignment_phases():
 def test_invalid_or_unusable_multiple_returns_no_subsets():
  assert cadence_line_subsets(fam((0,10,20)),1)==()
  assert cadence_line_subsets(fam((0,10)),3)==()
+
+
+def test_missing_grid_lines_preserve_base_lattice():
+ q=assess_grid_cadence(fam((0,10,30,40,70,80)))
+ assert q.accepted and abs(q.median_gap_px-10)<1e-9
+
+def test_lattice_does_not_invent_smaller_subharmonic():
+ q=assess_grid_cadence(fam((0,20,40,60,80,100)))
+ assert q.accepted and abs(q.median_gap_px-20)<1e-9
