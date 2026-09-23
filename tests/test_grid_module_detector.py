@@ -32,3 +32,25 @@ def test_expected_cadence_gap_does_not_bridge_missing_module_boundary():
  d=grid_module_detections((fam(0,(100,130,190)),fam(90,(-100,-130,-160))),500,500,expected_gaps_px=(30,30))
  assert len(d)==2
  assert all(max(x for x,y in item.polygon_px)-min(x for x,y in item.polygon_px)<40 for item in d)
+
+
+def test_invalid_grid_dimensions_fail_closed():
+ assert grid_module_detections((fam(0,(10,20)),fam(90,(-10,-20))),100.0,100)==()
+ assert grid_module_detections((fam(0,(10,20)),fam(90,(-10,-20))),100,0)==()
+
+def test_invalid_grid_margin_fails_closed():
+ fs=(fam(0,(10,20)),fam(90,(-10,-20)))
+ assert grid_module_detections(fs,100,100,margin_px=-1)==()
+ assert grid_module_detections(fs,100,100,margin_px=float('nan'))==()
+
+def test_invalid_gap_tolerance_fails_closed():
+ fs=(fam(0,(10,20)),fam(90,(-10,-20)))
+ assert grid_module_detections(fs,100,100,gap_relative_tolerance=-.1)==()
+ assert grid_module_detections(fs,100,100,gap_relative_tolerance=float('inf'))==()
+
+def test_nonfinite_expected_gap_fails_closed():
+ fs=(fam(0,(10,20)),fam(90,(-10,-20)))
+ assert grid_module_detections(fs,100,100,expected_gaps_px=(10,float('nan')))==()
+
+def test_nonfinite_grid_line_offset_fails_closed():
+ assert grid_module_detections((fam(0,(10,float('inf'))),fam(90,(-10,-20))),100,100)==()
