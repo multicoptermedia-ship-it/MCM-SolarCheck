@@ -8,3 +8,13 @@ def test_docx_renderer_keeps_missing_temperature_explicit(tmp_path):
     doc=Document(path);text='\n'.join(p.text for p in doc.paragraphs)+'\n'+'\n'.join(c.text for t in doc.tables for r in t.rows for c in r.cells)
     assert 'F-1' in text;assert '20000' in text;assert 'Temperature [°C]' in text;assert 'Not available' in text
     assert 'Radiometric Celsius conversion is not validated.' in text
+
+
+def test_docx_renderer_names_module_and_keeps_gps_optional(tmp_path):
+    evidence=ReportEvidence('F-2','thermal_anomaly_candidate','M-0042','T-2',None,21000,600.0,None,None,None,'Inspector','Replace module')
+    model=InspectionReportModel('P','PV Thermal Inspection Report','Plant','review_complete','No calibrated temperature claim.',(evidence,),())
+    path=render_docx(model,tmp_path/'module-report.docx')
+    doc=Document(path);text='\n'.join(c.text for t in doc.tables for r in t.rows for c in r.cells)
+    assert 'M-0042' in text
+    assert 'Latitude' in text and 'Longitude' in text
+    assert text.count('Not available')>=3
