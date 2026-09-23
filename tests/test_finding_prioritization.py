@@ -1,5 +1,5 @@
 from mcm_solarcheck.domain.models import Finding
-from mcm_solarcheck.review.prioritization import prioritize_finding
+from mcm_solarcheck.review.prioritization import prioritize_finding,prioritize_findings
 
 
 def finding(**changes):
@@ -38,3 +38,18 @@ def test_calibrated_evidence_is_review_priority_not_defect_severity():
     assert result.level=="review"
     assert result.score==.8
     assert result.reason=="calibrated_evidence_available"
+
+
+def test_priority_order_is_deterministic_and_review_first():
+    results=prioritize_findings((
+        finding(finding_id="F-3",temperature_c=None,confidence=.99),
+        finding(finding_id="F-2",temperature_c=50.0,confidence=.7),
+        finding(finding_id="F-1",temperature_c=50.0,confidence=.9),
+    ))
+    assert [item.finding_id for item in results]==["F-1","F-2","F-3"]
+
+
+def test_equal_priority_uses_finding_id_not_input_order():
+    a=finding(finding_id="F-B",temperature_c=50.0,confidence=.8)
+    b=finding(finding_id="F-A",temperature_c=50.0,confidence=.8)
+    assert [x.finding_id for x in prioritize_findings((a,b))]==["F-A","F-B"]
