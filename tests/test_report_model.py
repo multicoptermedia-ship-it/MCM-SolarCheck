@@ -36,3 +36,10 @@ def test_report_model_does_not_require_gps_when_module_is_known():
     evidence=build_report_model(data).evidence[0]
     assert evidence.module_id=='M-0042'
     assert evidence.latitude is None and evidence.longitude is None
+
+
+def test_report_model_omits_invalid_optional_gps():
+    data=InspectionReportData('P','Plant',summary(),(ReportFinding(finding(module_id='M-0042',latitude=95.0,longitude=6.5),None,None,None,'Checked','Inspector'),),False)
+    evidence=build_report_model(data).evidence[0]
+    assert evidence.module_id=='M-0042'
+    assert evidence.latitude is None and evidence.longitude is None
