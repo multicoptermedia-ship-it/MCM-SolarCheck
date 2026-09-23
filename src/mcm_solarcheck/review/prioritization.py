@@ -24,6 +24,8 @@ def prioritize_finding(finding: Finding) -> FindingPriority:
     """Return an auditable review priority without inventing missing evidence."""
     if finding.temperature_c is None:
         return FindingPriority(finding.finding_id, "unrated", None, "calibrated_temperature_required")
+    if finding.metadata.get("temperature_status") != "calibrated" or not finding.metadata.get("temperature_provider", "").strip():
+        return FindingPriority(finding.finding_id, "unrated", None, "temperature_provenance_required")
     if not isfinite(float(finding.temperature_c)):
         return FindingPriority(finding.finding_id, "unrated", None, "invalid_temperature")
     if finding.confidence is None:
