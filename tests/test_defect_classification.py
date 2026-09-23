@@ -58,7 +58,7 @@ def test_classification_modality_is_auditable_and_restricted():
         DefectClassification("hotspot_candidate", .8, "fixture-model", "1.0", "mixed")
 
 
-@pytest.mark.parametrize("version", ["", " ", "\\t"])
+@pytest.mark.parametrize("version", ["", " ", "\t"])
 def test_blank_model_version_fails_closed(version):
     with pytest.raises(ValueError):
         DefectClassification("hotspot_candidate", .8, "fixture-model", version, "thermal")
