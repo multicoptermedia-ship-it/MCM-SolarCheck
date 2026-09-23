@@ -22,7 +22,7 @@ def render_docx(model:InspectionReportModel,output_path:str|Path,*,rendered_evid
     for index,item in enumerate(model.evidence,1):
         doc.add_heading(f'Finding {index}: {item.finding_id}',level=2)
         table=doc.add_table(rows=0,cols=2)
-        fields=(('Classification',item.classification),('Module',item.module_id),('Review priority',item.priority_level),('Priority score',item.priority_score),('Thermal frame',item.thermal_frame_id),('RGB frame',item.rgb_frame_id),('Raw sensor value',item.raw_value),('Raw delta from median',item.raw_delta_from_median),('Temperature [°C]',item.temperature_c),('Latitude',item.latitude),('Longitude',item.longitude),('Reviewer',item.reviewer),('Review note',item.review_note))
+        fields=(('Classification',item.classification),('Module',item.module_id),('Review priority',item.priority_level),('Priority score',item.priority_score),('Priority basis',item.priority_reason),('Thermal frame',item.thermal_frame_id),('RGB frame',item.rgb_frame_id),('Raw sensor value',item.raw_value),('Raw delta from median',item.raw_delta_from_median),('Temperature [°C]',item.temperature_c),('Latitude',item.latitude),('Longitude',item.longitude),('Reviewer',item.reviewer),('Review note',item.review_note))
         for label,value in fields:
             cells=table.add_row().cells;cells[0].text=label;cells[1].text='Not available' if value is None else str(value)
         rendered=evidence_by_id.get(item.finding_id)
