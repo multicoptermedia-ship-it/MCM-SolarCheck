@@ -40,7 +40,8 @@ def enumerate_cadence_candidate_evidence(
     minimum_iou:float=.20,
 )->tuple[CadenceCandidateEvidence,...]:
     """Measure every independently supported candidate; never accept or alter a gate."""
-    if len(families)!=2 or len(multiple_options)!=2 or not support or width<=0 or height<=0:return ()
+    if len(families)!=2 or len(multiple_options)!=2 or not support:return ()
+    if type(width) is not int or type(height) is not int or width<=0 or height<=0:return ()
     if not isfinite(float(minimum_iou)) or not 0.0<=minimum_iou<=1.0:return ()
     if any(not options for options in multiple_options):return ()
     if any(type(m) is not int or m<2 for options in multiple_options for m in options):return ()
