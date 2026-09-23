@@ -42,6 +42,8 @@ def assess_ambiguous_module_cadence(
     if primary.accepted:return primary
     if primary.reason!="cadence_not_confirmed" or len(families)!=2 or not image_support:
         return primary
+    if not any(axis.reason=="ambiguous_cadence" for axis in primary.axes):
+        return primary
     options=tuple(
         supported_cadence_multiples(
             family,image_module_intervals(image_support,family.angle_deg+90.0)
