@@ -1,5 +1,6 @@
 """Conservative fusion of independent PV-module detector evidence."""
 from __future__ import annotations
+from math import isfinite
 from mcm_solarcheck.vision.detection import ModuleDetection
 from mcm_solarcheck.vision.polygon_geometry import convex_polygon_iou
 
@@ -9,7 +10,7 @@ def fuse_module_detections(primary:tuple[ModuleDetection,...],support:tuple[Modu
     No union is performed: support detections can confirm geometry but cannot create
     a physical module by themselves.
     """
-    if not 0<=minimum_iou<=1:raise ValueError("minimum_iou must be between 0 and 1")
+    if not isfinite(float(minimum_iou)) or not 0<=minimum_iou<=1:raise ValueError("minimum_iou must be finite and between 0 and 1")
     if not support:return primary if allow_primary_without_support else ()
     out=[]
     for p in primary:
