@@ -89,3 +89,15 @@ def test_resolved_module_does_not_emit_localization_warning():
     data=InspectionReportData('P','Plant',summary(),(ReportFinding(finding(module_id='M-0042'),None,None,None,'Checked','Inspector'),),False)
     report=build_report_model(data)
     assert not any('no resolved physical module' in warning for warning in report.warnings)
+
+
+def test_report_marks_resolved_module_as_service_location():
+    data=InspectionReportData('P','Plant',summary(),(ReportFinding(finding(module_id='M-0042'),None,None,None,'Checked','Inspector'),),False)
+    evidence=build_report_model(data).evidence[0]
+    assert evidence.service_location_status=='module_resolved'
+
+
+def test_report_marks_missing_module_as_unresolved_service_location():
+    data=InspectionReportData('P','Plant',summary(),(ReportFinding(finding(),None,None,None,'Checked','Inspector'),),False)
+    evidence=build_report_model(data).evidence[0]
+    assert evidence.service_location_status=='module_unresolved'
