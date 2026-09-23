@@ -66,3 +66,14 @@ def test_report_orders_reviewable_evidence_before_unrated():
     data=InspectionReportData('P','Plant',summary(confirmed=2,calibrated=1),(low,high),False)
     report=build_report_model(data)
     assert [item.module_id for item in report.evidence]==['M-2','M-1']
+
+
+def test_report_priority_reason_is_auditable():
+    data=InspectionReportData('P','Plant',summary(calibrated=1),(ReportFinding(finding(42.5,module_id='M-0042'),None,None,None,'Checked','Inspector'),),True)
+    evidence=build_report_model(data).evidence[0]
+    assert evidence.priority_reason=='calibrated_evidence_available'
+
+
+def test_unrated_report_explains_missing_calibration():
+    data=InspectionReportData('P','Plant',summary(),(ReportFinding(finding(module_id='M-0042'),None,None,None,'Checked','Inspector'),),False)
+    assert build_report_model(data).evidence[0].priority_reason=='calibrated_temperature_required'
