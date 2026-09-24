@@ -6,7 +6,7 @@ import json, sqlite3
 from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
@@ -20,6 +20,8 @@ CREATE INDEX IF NOT EXISTS idx_module_identity_physical ON module_identity_links
 CREATE TABLE IF NOT EXISTS findings(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,finding_id TEXT NOT NULL,thermal_frame_id TEXT NOT NULL,pixel_x INTEGER NOT NULL,pixel_y INTEGER NOT NULL,finding_type TEXT NOT NULL,confidence REAL,raw_value INTEGER,raw_delta_from_median REAL,temperature_c REAL,module_id TEXT,latitude REAL,longitude REAL,altitude_m REAL,reviewer_status TEXT NOT NULL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,finding_id),FOREIGN KEY(project_id,thermal_frame_id) REFERENCES thermal_frames(project_id,frame_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS finding_sensor_links(project_id TEXT NOT NULL,finding_id TEXT NOT NULL,rgb_frame_id TEXT NOT NULL,pair_id TEXT,pair_confidence REAL,rgb_pixel_x REAL,rgb_pixel_y REAL,transform_method TEXT NOT NULL,transform_validated INTEGER NOT NULL CHECK(transform_validated IN (0,1)),transform_error_px REAL,status TEXT NOT NULL,candidates_json TEXT NOT NULL DEFAULT '[]',PRIMARY KEY(project_id,finding_id),FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS finding_reviews(review_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL,finding_id TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('confirmed','rejected','unclear')),reviewer TEXT NOT NULL,reviewed_at_utc TEXT NOT NULL,note TEXT,FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS training_samples(sample_id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,source_frame_id TEXT NOT NULL,source_file TEXT NOT NULL,modality TEXT NOT NULL CHECK(modality IN ('thermal','rgb')),content_sha256 TEXT NOT NULL,label_status TEXT NOT NULL,rights_status TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS idx_training_samples_project ON training_samples(project_id,modality,label_status,rights_status);
 CREATE INDEX IF NOT EXISTS idx_findings_frame ON findings(project_id,thermal_frame_id); CREATE INDEX IF NOT EXISTS idx_reviews_finding ON finding_reviews(project_id,finding_id); CREATE INDEX IF NOT EXISTS idx_sensor_links_rgb ON finding_sensor_links(project_id,rgb_frame_id);
 """
 
@@ -122,3 +124,18 @@ class ProjectDatabase:
             cur=db.execute('UPDATE findings SET reviewer_status=? WHERE project_id=? AND finding_id=?',(review.status.value,project_id,review.finding_id))
             if cur.rowcount!=1:raise KeyError(f'Unknown finding: {project_id}/{review.finding_id}')
             db.execute('INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc,note) VALUES (?,?,?,?,?,?)',(project_id,review.finding_id,review.status.value,review.reviewer,review.reviewed_at_utc.isoformat(),review.note))
+
+    def save_training_samples(self,project_id,samples):
+        cols=('sample_id','project_id','source_frame_id','source_file','modality','content_sha256','label_status','rights_status')
+        sql=_upsert('training_samples',cols,('sample_id',))
+        rows=[(s.sample_id,project_id,s.source_frame_id,s.source_file,s.modality,s.content_sha256,s.label_status,s.rights_status) for s in samples]
+        with self.connect() as db:
+            if rows:db.executemany(sql,rows)
+
+    def training_samples(self,project_id,*,trainable_only=False):
+        sql='SELECT sample_id,source_frame_id,source_file,modality,content_sha256,label_status,rights_status FROM training_samples WHERE project_id=?'
+        params=[project_id]
+        if trainable_only:
+            sql+=" AND label_status='human_reviewed' AND rights_status='approved'"
+        sql+=' ORDER BY source_frame_id,sample_id'
+        with self.connect() as db:return tuple(dict(row) for row in db.execute(sql,tuple(params)).fetchall())
