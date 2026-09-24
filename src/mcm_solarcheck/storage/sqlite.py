@@ -71,6 +71,10 @@ class ProjectDatabase:
         sample=index_m3t_training_sample(frame.frame_id, frame.source_file, modality)
         return (sample.sample_id,project_id,sample.source_frame_id,sample.source_file,sample.modality,sample.content_sha256,sample.label_status,sample.rights_status)
     def _save_training_frame(self,db,project_id,frame,modality):
+        # Persistence tests and legacy projects may reference source paths that
+        # are not locally available. Project persistence must still succeed;
+        # corpus intake occurs only when the actual image bytes are present.
+        if not Path(frame.source_file).is_file():return
         cols=('sample_id','project_id','source_frame_id','source_file','modality','content_sha256','label_status','rights_status')
         db.execute(_upsert('training_samples',cols,('sample_id',)),self._training_sample_values(project_id,frame,modality))
     def save_thermal_frame(self,project_id,frame,quality):
