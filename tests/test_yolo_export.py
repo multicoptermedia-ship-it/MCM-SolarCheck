@@ -31,7 +31,7 @@ def test_yolo_manifest_is_deterministic_and_preserves_provenance(tmp_path):
     b=build_yolo_detection_manifest(_snapshot(),{"hotspot":0},{"thermal:abc":(400,200)})
     assert a==b
     row=a["rows"][0]
-    assert row["content_sha256"]=="abc"
+    assert row["content_sha256"]==digest
     assert row["representation"]=="rendered_rgb"
     write_yolo_detection_dataset(a,tmp_path/"yolo")
     assert (tmp_path/"yolo"/"manifest.json").is_file()
