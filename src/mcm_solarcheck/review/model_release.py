@@ -26,7 +26,7 @@ def create_model_release(validation: TrainedModelValidation) -> ModelRelease:
 def attach_release_provenance(finding, release: ModelRelease, *, dataset_id: str, snapshot_id: str):
     """Bind advisory evidence to the exact validated release lineage."""
     from dataclasses import replace
-    if not dataset_id.strip() or not snapshot_id.strip():
+    if not isinstance(dataset_id,str) or not dataset_id.strip() or not isinstance(snapshot_id,str) or not snapshot_id.strip():
         raise ValueError("release dataset and snapshot ids must not be empty")
     metadata=dict(finding.metadata)
     metadata.update({
