@@ -18,3 +18,47 @@ def yolo_detection_line(defect_class: str, class_ids: dict[str,int], box_xyxy, w
     cx=((x1+x2)/2)/width; cy=((y1+y2)/2)/height
     bw=(x2-x1)/width; bh=(y2-y1)/height
     return f"{class_id} {cx:.10f} {cy:.10f} {bw:.10f} {bh:.10f}"
+
+
+def build_yolo_detection_manifest(snapshot, class_ids: dict[str,int], dimensions: dict[str,tuple[int,int]]) -> dict:
+    """Build a deterministic YOLO-ready manifest without copying source images."""
+    import json
+    from .training_export import build_spatial_training_index
+    rows=[]
+    for row in build_spatial_training_index(snapshot,"detection"):
+        sample_id=row["sample_id"]
+        if sample_id not in dimensions:
+            raise ValueError(f"missing source dimensions for YOLO sample: {sample_id}")
+        width,height=dimensions[sample_id]
+        label=yolo_detection_line(row["defect_class"],class_ids,row["box_xyxy"],width,height)
+        rows.append({
+            "sample_id":sample_id,
+            "source_file":row["source_file"],
+            "content_sha256":row["content_sha256"],
+            "modality":row["modality"],
+            "representation":row["representation"],
+            "split":row["split"],
+            "label":label,
+        })
+    rows.sort(key=lambda x:(x["split"],x["sample_id"],x["label"]))
+    return {"task":"detection","format":"yolo","class_ids":dict(sorted(class_ids.items())),"rows":rows}
+
+
+def write_yolo_detection_dataset(manifest: dict, destination) -> None:
+    """Write deterministic labels/split lists; source images remain external and hashed."""
+    from pathlib import Path
+    import json
+    root=Path(destination)
+    root.mkdir(parents=True,exist_ok=True)
+    rows=manifest["rows"]
+    for split in ("train","validation","test"):
+        split_rows=[r for r in rows if r["split"]==split]
+        (root/f"{split}.txt").write_text("".join(f'{r["source_file"]}\n' for r in split_rows),encoding="utf-8")
+    labels=root/"labels"; labels.mkdir(exist_ok=True)
+    for row in rows:
+        (labels/f'{row["sample_id"].replace(":","_")}.txt').write_text(row["label"]+"\n",encoding="utf-8")
+    encoded=json.dumps(manifest,sort_keys=True,separators=(",",":"),ensure_ascii=False)
+    target=root/"manifest.json"
+    if target.exists() and target.read_text(encoding="utf-8")!=encoded:
+        raise FileExistsError("refusing to overwrite YOLO dataset manifest with different content")
+    target.write_text(encoded,encoding="utf-8")
