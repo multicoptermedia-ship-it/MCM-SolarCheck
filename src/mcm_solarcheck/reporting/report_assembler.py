@@ -5,6 +5,7 @@ from mcm_solarcheck.reporting.data import InspectionReportDataService
 from mcm_solarcheck.reporting.model import build_report_model
 from mcm_solarcheck.reporting.report_model import InspectionReport, ModuleReportDetail, ReportImage, ThermalMeasurement
 from mcm_solarcheck.thermal.temperature_provenance import has_validated_celsius
+from mcm_solarcheck.reporting.report_assets import build_detail_assets
 
 
 def _address(*parts: str | None) -> str | None:
@@ -12,7 +13,7 @@ def _address(*parts: str | None) -> str | None:
     return ", ".join(values) if values else None
 
 
-def assemble_inspection_report(database, project_id: str, report_id: str, inspection_started_at: datetime, *, release_status: str="draft") -> InspectionReport:
+def assemble_inspection_report(database, project_id: str, report_id: str, inspection_started_at: datetime, *, release_status: str="draft", asset_dir=None) -> InspectionReport:
     """Use project master data once; only human-confirmed evidence becomes a defect detail."""
     profile=database.project_profile(project_id)
     if profile is None:
@@ -30,12 +31,20 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
             measurement=ThermalMeasurement(source.temperature_c,None,source.temperature_provider,True)
         thermal_path=thermal_paths.get(item.thermal_frame_id)
         rgb_path=rgb_paths.get(item.rgb_frame_id) if item.rgb_frame_id else None
+        rgb_geometry=thermal_geometry="full_frame"
+        if asset_dir is not None:
+            assets=build_detail_assets(database,project_id,item.finding_id,item.module_id,asset_dir)
+            by_modality={asset.modality:asset for asset in assets}
+            if "rgb" in by_modality:
+                rgb_path=str(by_modality["rgb"].path); rgb_geometry=by_modality["rgb"].geometry_source
+            if "thermal" in by_modality:
+                thermal_path=str(by_modality["thermal"].path); thermal_geometry=by_modality["thermal"].geometry_source
         return ModuleReportDetail(
             module_id=item.module_id,
             finding_label=item.classification,
             review_status="confirmed",
-            rgb_image=ReportImage(item.rgb_frame_id,rgb_path,"rgb") if item.rgb_frame_id and rgb_path else None,
-            thermal_image=ReportImage(item.thermal_frame_id,thermal_path,"thermal") if thermal_path else None,
+            rgb_image=ReportImage(item.rgb_frame_id,rgb_path,"rgb",rgb_geometry) if item.rgb_frame_id and rgb_path else None,
+            thermal_image=ReportImage(item.thermal_frame_id,thermal_path,"thermal",thermal_geometry) if thermal_path else None,
             manual_inspection_required=False,
             thermal_measurement=measurement,
         )
