@@ -7,7 +7,7 @@ from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS findings(project_id TEXT NOT NULL REFERENCES projects
 CREATE TABLE IF NOT EXISTS finding_sensor_links(project_id TEXT NOT NULL,finding_id TEXT NOT NULL,rgb_frame_id TEXT NOT NULL,pair_id TEXT,pair_confidence REAL,rgb_pixel_x REAL,rgb_pixel_y REAL,transform_method TEXT NOT NULL,transform_validated INTEGER NOT NULL CHECK(transform_validated IN (0,1)),transform_error_px REAL,status TEXT NOT NULL,candidates_json TEXT NOT NULL DEFAULT '[]',PRIMARY KEY(project_id,finding_id),FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS finding_reviews(review_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL,finding_id TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('confirmed','rejected','unclear')),reviewer TEXT NOT NULL,reviewed_at_utc TEXT NOT NULL,note TEXT,FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS training_samples(sample_id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,source_frame_id TEXT NOT NULL,source_file TEXT NOT NULL,modality TEXT NOT NULL CHECK(modality IN ('thermal','rgb')),content_sha256 TEXT NOT NULL,label_status TEXT NOT NULL,rights_status TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS training_labels(label_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,source_frame_id TEXT NOT NULL,module_id TEXT,finding_id TEXT,defect_class TEXT NOT NULL,reviewer TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS training_labels(label_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,source_frame_id TEXT NOT NULL,module_id TEXT,finding_id TEXT,defect_class TEXT NOT NULL,reviewer TEXT NOT NULL,supersedes_label_id INTEGER REFERENCES training_labels(label_id),note TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
 CREATE INDEX IF NOT EXISTS idx_training_labels_frame ON training_labels(project_id,source_frame_id);
 CREATE INDEX IF NOT EXISTS idx_training_samples_project ON training_samples(project_id,modality,label_status,rights_status);
 CREATE INDEX IF NOT EXISTS idx_findings_frame ON findings(project_id,thermal_frame_id); CREATE INDEX IF NOT EXISTS idx_reviews_finding ON finding_reviews(project_id,finding_id); CREATE INDEX IF NOT EXISTS idx_sensor_links_rgb ON finding_sensor_links(project_id,rgb_frame_id);
@@ -172,11 +172,16 @@ class ProjectDatabase:
         with self.connect() as db:
             sample=db.execute('SELECT 1 FROM training_samples WHERE project_id=? AND source_frame_id=?',(project_id,label.source_frame_id)).fetchone()
             if sample is None:raise KeyError(f'No training sample for frame: {project_id}/{label.source_frame_id}')
-            db.execute('INSERT INTO training_labels(project_id,source_frame_id,module_id,finding_id,defect_class,reviewer) VALUES (?,?,?,?,?,?)',(project_id,label.source_frame_id,label.module_id,label.finding_id,label.defect_class.value,label.reviewer))
+            if label.supersedes_label_id is not None:
+                previous=db.execute('SELECT project_id,source_frame_id,module_id,finding_id FROM training_labels WHERE label_id=?',(label.supersedes_label_id,)).fetchone()
+                if previous is None:raise KeyError(f'Unknown superseded training label: {label.supersedes_label_id}')
+                if previous['project_id']!=project_id or previous['source_frame_id']!=label.source_frame_id:raise ValueError('ground-truth correction must stay on the same project/frame')
+                if previous['module_id']!=label.module_id or previous['finding_id']!=label.finding_id:raise ValueError('ground-truth correction must preserve its physical reference')
+            db.execute('INSERT INTO training_labels(project_id,source_frame_id,module_id,finding_id,defect_class,reviewer,supersedes_label_id,note) VALUES (?,?,?,?,?,?,?,?)',(project_id,label.source_frame_id,label.module_id,label.finding_id,label.defect_class.value,label.reviewer,label.supersedes_label_id,label.note))
             db.execute("UPDATE training_samples SET label_status='human_reviewed' WHERE project_id=? AND source_frame_id=?",(project_id,label.source_frame_id))
 
     def ground_truth(self,project_id,source_frame_id=None):
-        sql='SELECT source_frame_id,module_id,finding_id,defect_class,reviewer FROM training_labels WHERE project_id=?'
+        sql='SELECT label_id,source_frame_id,module_id,finding_id,defect_class,reviewer,supersedes_label_id,note FROM training_labels WHERE project_id=?'
         params=[project_id]
         if source_frame_id is not None:sql+=' AND source_frame_id=?';params.append(source_frame_id)
         sql+=' ORDER BY label_id'
