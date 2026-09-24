@@ -1,6 +1,8 @@
 import pytest
 
-from mcm_solarcheck.review.model_validation import ModelAcceptancePolicy, ModelValidationSummary
+from mcm_solarcheck.review.model_validation import (
+    ModelAcceptancePolicy, ModelValidationSummary, evaluate_model,
+)
 
 
 def test_representative_m3t_validation_can_pass_explicit_gate():
@@ -31,3 +33,20 @@ def test_validation_summary_rejects_impossible_counts():
 def test_validation_requires_named_human_reviewer():
     with pytest.raises(ValueError):
         ModelValidationSummary(10, 5, 4, 0, True, " ")
+
+
+def test_validation_decision_explains_all_failed_conditions():
+    summary=ModelValidationSummary(10, 2, 1, 4, False, "reviewer")
+    decision=evaluate_model(summary)
+    assert decision.accepted is False
+    assert "validation imagery is not representative M3T data" in decision.reasons
+    assert "insufficient validation samples" in decision.reasons
+    assert "insufficient defect samples" in decision.reasons
+    assert "defect recall below acceptance threshold" in decision.reasons
+    assert "false-positive rate above acceptance threshold" in decision.reasons
+
+
+def test_validation_decision_is_accepted_without_failure_reasons():
+    decision=evaluate_model(ModelValidationSummary(40, 10, 8, 4, True, "reviewer"))
+    assert decision.accepted is True
+    assert decision.reasons == ()
