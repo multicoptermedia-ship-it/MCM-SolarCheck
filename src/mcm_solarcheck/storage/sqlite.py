@@ -7,11 +7,11 @@ from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS projects(project_id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS projects(project_id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS project_profiles(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,customer_name TEXT NOT NULL,site_name TEXT NOT NULL,site_street TEXT NOT NULL,site_postal_code TEXT NOT NULL,site_city TEXT NOT NULL,inspector TEXT NOT NULL,customer_contact TEXT,customer_street TEXT,customer_postal_code TEXT,customer_city TEXT,customer_email TEXT,customer_phone TEXT,customer_reference TEXT,order_reference TEXT);
 CREATE TABLE IF NOT EXISTS image_frames(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,frame_id TEXT NOT NULL,source_file TEXT NOT NULL,timestamp_utc TEXT,camera_make TEXT,camera_model TEXT,width INTEGER,height INTEGER,latitude REAL,longitude REAL,altitude_m REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,frame_id));
 CREATE TABLE IF NOT EXISTS thermal_frames(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,frame_id TEXT NOT NULL,source_file TEXT NOT NULL,timestamp_utc TEXT,camera_make TEXT,camera_model TEXT,width INTEGER,height INTEGER,latitude REAL,longitude REAL,altitude_m REAL,rtk_status TEXT,rtk_std_lat_m REAL,rtk_std_lon_m REAL,rtk_std_height_m REAL,rtk_correction_age_s REAL,rtk_altitude_type TEXT,thermal_source TEXT NOT NULL,quality_grade TEXT,raw_min INTEGER,raw_max INTEGER,raw_mean REAL,raw_median REAL,raw_p95 REAL,raw_p99 REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,frame_id));
 CREATE TABLE IF NOT EXISTS image_pairs(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,pair_id TEXT NOT NULL,rgb_frame_id TEXT NOT NULL,thermal_frame_id TEXT NOT NULL,confidence REAL NOT NULL,method TEXT NOT NULL,distance_m REAL,time_delta_s REAL,PRIMARY KEY(project_id,pair_id),FOREIGN KEY(project_id,rgb_frame_id) REFERENCES image_frames(project_id,frame_id) ON DELETE CASCADE,FOREIGN KEY(project_id,thermal_frame_id) REFERENCES thermal_frames(project_id,frame_id) ON DELETE CASCADE);
@@ -97,12 +97,22 @@ class ProjectDatabase:
                 if version == 11:
                     _migrate_11_to_12(db)
                     version=12
-                if version != SCHEMA_VERSION:
+                if version == 12:\n                    _migrate_12_to_13(db)\n                    version=13\n                if version != SCHEMA_VERSION:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
             db.executescript(_SCHEMA);db.execute('INSERT INTO schema_info(version) VALUES (?)',(SCHEMA_VERSION,))
     def create_project(self,project_id:str,name:str)->None:
         with self.connect() as db:db.execute("INSERT INTO projects(project_id,name) VALUES (?,?) ON CONFLICT(project_id) DO UPDATE SET name=excluded.name",(project_id,name))
+    def save_project_profile(self,project_id,profile)->None:
+        cols=('project_id','customer_name','site_name','site_street','site_postal_code','site_city','inspector','customer_contact','customer_street','customer_postal_code','customer_city','customer_email','customer_phone','customer_reference','order_reference')
+        values=(project_id,profile.customer_name,profile.site_name,profile.site_street,profile.site_postal_code,profile.site_city,profile.inspector,profile.customer_contact,profile.customer_street,profile.customer_postal_code,profile.customer_city,profile.customer_email,profile.customer_phone,profile.customer_reference,profile.order_reference)
+        with self.connect() as db:db.execute(_upsert('project_profiles',cols,('project_id',)),values)
+    def project_profile(self,project_id):
+        from mcm_solarcheck.domain.project_profile import ProjectProfile
+        with self.connect() as db:row=db.execute("SELECT * FROM project_profiles WHERE project_id=?",(project_id,)).fetchone()
+        if row is None:return None
+        keys=('customer_name','site_name','site_street','site_postal_code','site_city','inspector','customer_contact','customer_street','customer_postal_code','customer_city','customer_email','customer_phone','customer_reference','order_reference')
+        return ProjectProfile(**{key:row[key] for key in keys})
     def _save_thermal_frame(self,db,project_id,frame,quality):
         s=quality.statistics;p=frame.position;cols=('project_id','frame_id','source_file','timestamp_utc','camera_make','camera_model','width','height','latitude','longitude','altitude_m','rtk_status','rtk_std_lat_m','rtk_std_lon_m','rtk_std_height_m','rtk_correction_age_s','rtk_altitude_type','thermal_source','quality_grade','raw_min','raw_max','raw_mean','raw_median','raw_p95','raw_p99','metadata_json')
         db.execute(_upsert('thermal_frames',cols,('project_id','frame_id')),(project_id,frame.frame_id,str(frame.source_file),frame.timestamp_utc.isoformat() if frame.timestamp_utc else None,frame.camera_make,frame.camera_model,frame.thermal_width,frame.thermal_height,p.latitude if p else None,p.longitude if p else None,p.altitude_m if p else None,frame.rtk.status,frame.rtk.std_lat_m,frame.rtk.std_lon_m,frame.rtk.std_height_m,frame.rtk.correction_age_s,frame.rtk.altitude_type,frame.thermal_source,quality.grade.value,s.minimum,s.maximum,s.mean,s.median,s.p95,s.p99,json.dumps(frame.metadata,ensure_ascii=False)))
