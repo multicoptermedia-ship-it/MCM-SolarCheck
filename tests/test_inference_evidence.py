@@ -5,8 +5,10 @@ from mcm_solarcheck.review.defect_classes import DEFAULT_THERMAL_CLASS_MAP
 from mcm_solarcheck.review.inference_evidence import (
     ModuleInferenceEvidence,
     attach_yolo_module_suggestion,
+    attach_manifest_provenance,
 )
 from mcm_solarcheck.review.yolo_adapter import YoloAdapter, YoloDetection
+from mcm_solarcheck.review.model_manifest import ModelManifest
 
 
 def _adapter(modality="thermal"):
@@ -67,3 +69,29 @@ def test_unlocalized_finding_cannot_receive_module_model_evidence():
 def test_invalid_module_crop_fails_closed(crop):
     with pytest.raises(ValueError):
         ModuleInferenceEvidence("M-1", "T-1", "thermal", crop)
+
+
+def test_manifest_provenance_is_attached_after_model_suggestion():
+    classified=attach_yolo_module_suggestion(
+        _finding(), detection=YoloDetection("hotspot", .91),
+        adapter=_adapter(), evidence=_evidence(),
+    )
+    manifest=ModelManifest("fixture-yolo", "v1", "thermal", "pv-dataset-r1", "CC-BY-4.0", "a"*64)
+    result=attach_manifest_provenance(classified, manifest)
+    assert result.metadata["classification_dataset"] == "pv-dataset-r1"
+    assert result.metadata["classification_license"] == "CC-BY-4.0"
+    assert result.metadata["classification_weights_sha256"] == "a"*64
+
+
+@pytest.mark.parametrize("manifest", [
+    ModelManifest("other", "v1", "thermal", "dataset", "license"),
+    ModelManifest("fixture-yolo", "v2", "thermal", "dataset", "license"),
+    ModelManifest("fixture-yolo", "v1", "rgb", "dataset", "license"),
+])
+def test_mismatched_manifest_cannot_claim_model_provenance(manifest):
+    classified=attach_yolo_module_suggestion(
+        _finding(), detection=YoloDetection("hotspot", .91),
+        adapter=_adapter(), evidence=_evidence(),
+    )
+    with pytest.raises(ValueError):
+        attach_manifest_provenance(classified, manifest)
