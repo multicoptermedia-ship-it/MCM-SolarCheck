@@ -28,9 +28,16 @@ match to our M3T thermal workflow.
 
 Source: https://huggingface.co/datasets/MisakaMikoto128/PV-HSD-2025
 
-**Status:** research candidate only. Before importing weights we still require the
-exact downloadable weight artifact, its own licence/provenance, checksum and a
-small M3T validation set.
+**Status:** research/validation candidate only. The upstream README explicitly
+states that the dataset and model resources are for academic research and that
+commercial use requires author permission. This restriction takes precedence
+over conflicting platform-level licence metadata for our intake decision.
+
+A concrete small-model artifact is published as
+`yolov8-p1-weights/pvhsd2025-yolov8s-p1.pt` (21,405,579 bytes), SHA-256
+`f466bcc39afeed1389df40a487398bd6ca9137dbf649642f9a557ef63ec98bca`.
+It may be used for controlled technical validation only until commercial model
+and dataset rights are documented.
 
 ### pv-defect-detection-yolo — thermal hotspot/diode reference
 
