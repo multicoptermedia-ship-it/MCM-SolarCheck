@@ -49,5 +49,5 @@ def render_odt(report: InspectionReport, destination: str | Path) -> Path:
     for item in report.equipment: _p(doc.text,f"Prüfmittel: {item.name}; ID: {item.identifier or '—'}; Kalibrierreferenz: {item.calibration_reference or '—'}")
     if report.provenance:
         _p(doc.text,f"Software: {report.provenance.software_version}"); _p(doc.text,f"Datenprovenienz: {report.provenance.evidence_statement}")
-    destination.parent.mkdir(parents=True,exist_ok=True); doc.save(str(destination),addsufix=False)
+    destination.parent.mkdir(parents=True,exist_ok=True); doc.save(str(destination),addsuffix=False)
     return destination
