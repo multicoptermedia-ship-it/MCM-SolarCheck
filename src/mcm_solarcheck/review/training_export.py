@@ -31,3 +31,22 @@ def build_training_index(snapshot) -> tuple[dict, ...]:
         })
     assert_no_group_leakage(assignments)
     return tuple(rows)
+
+
+def build_spatial_training_index(snapshot, task: str) -> tuple[dict, ...]:
+    """Export only labels with reviewed geometry suitable for a spatial task."""
+    if task not in {"detection","segmentation"}:
+        raise ValueError("spatial training task must be detection or segmentation")
+    manifest=json.loads(snapshot.manifest_json)
+    geometries={g["label_id"]:g for g in manifest.get("geometries",())}
+    rows=[]
+    for row,label in zip(build_training_index(snapshot),manifest["labels"]):
+        geometry=geometries.get(label["label_id"])
+        if geometry is None:
+            raise ValueError("spatial training label has no reviewed geometry")
+        if task=="detection" and geometry.get("box_xyxy") is None:
+            raise ValueError("detection label has no reviewed bounding box")
+        if task=="segmentation" and geometry.get("polygon_px") is None:
+            raise ValueError("segmentation label has no reviewed polygon")
+        rows.append({**row,"representation":geometry["representation"],"box_xyxy":geometry.get("box_xyxy"),"polygon_px":geometry.get("polygon_px")})
+    return tuple(rows)
