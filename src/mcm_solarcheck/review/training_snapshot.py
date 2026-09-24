@@ -15,7 +15,7 @@ class TrainingSnapshot:
 
 def build_training_snapshot(database, project_id: str) -> TrainingSnapshot:
     samples=database.training_samples(project_id,trainable_only=True)
-    labels=database.ground_truth(project_id)
+    labels=database.ground_truth(project_id)\n    geometries=database.training_geometries(project_id) if hasattr(database,"training_geometries") else ()
     trainable_frames={s["source_frame_id"] for s in samples}
     latest={}
     for label in labels:
@@ -25,7 +25,7 @@ def build_training_snapshot(database, project_id: str) -> TrainingSnapshot:
     manifest={
         "project_id":project_id,
         "samples":sorted(samples,key=lambda x:x["sample_id"]),
-        "labels":sorted(latest.values(),key=lambda x:(x["source_frame_id"],x["module_id"] or "",x["finding_id"] or "")),
+        "labels":sorted(latest.values(),key=lambda x:(x["source_frame_id"],x["module_id"] or "",x["finding_id"] or "")),\n        "geometries":sorted(geometries,key=lambda x:(x["source_frame_id"],x["label_id"])),
     }
     encoded=json.dumps(manifest,sort_keys=True,separators=(",",":"),ensure_ascii=False)
     return TrainingSnapshot(sha256(encoded.encode()).hexdigest(),len(samples),len(latest),encoded)
