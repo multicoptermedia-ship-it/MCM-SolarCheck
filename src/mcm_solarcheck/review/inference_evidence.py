@@ -7,6 +7,7 @@ from math import isfinite
 from mcm_solarcheck.domain.models import Finding
 
 from .classification import attach_classification_suggestion
+from .model_manifest import ModelManifest
 from .yolo_adapter import YoloAdapter, YoloDetection
 
 
@@ -51,3 +52,24 @@ def attach_yolo_module_suggestion(
     })
     from dataclasses import replace
     return replace(classified, metadata=metadata)
+
+
+def attach_manifest_provenance(finding: Finding, manifest: ModelManifest) -> Finding:
+    """Persist model/dataset provenance alongside an advisory suggestion."""
+    from dataclasses import replace
+
+    if finding.metadata.get("classification_provider") != manifest.provider.strip():
+        raise ValueError("model manifest provider must match classification provider")
+    if finding.metadata.get("classification_model_version") != manifest.model_version.strip():
+        raise ValueError("model manifest version must match classification model version")
+    if finding.metadata.get("classification_modality") != manifest.modality:
+        raise ValueError("model manifest modality must match classification modality")
+
+    metadata=dict(finding.metadata)
+    metadata.update({
+        "classification_dataset": manifest.dataset.strip(),
+        "classification_license": manifest.license_id.strip(),
+    })
+    if manifest.weights_sha256:
+        metadata["classification_weights_sha256"]=manifest.weights_sha256.strip().casefold()
+    return replace(finding, metadata=metadata)
