@@ -20,3 +20,20 @@ def test_training_index_carries_provenance_label_and_stable_split(tmp_path):
     assert row["modality"]=="thermal"
     assert len(row["content_sha256"])==64
     assert row["split"] in {"train","validation","test"}
+
+
+def test_same_inspection_group_forces_same_split_across_modules(tmp_path):
+    db=ProjectDatabase(tmp_path/"p.sqlite"); db.initialize(); db.create_project("P","Project")
+    samples=[]
+    for frame_id,payload in (("T1",b"a"),("T2",b"b")):
+        image=tmp_path/(frame_id+".jpg"); image.write_bytes(payload)
+        samples.append(index_m3t_training_sample(frame_id,image,"thermal"))
+    db.save_training_samples("P",samples)
+    db.save_ground_truth("P",GroundTruthLabel("T1","alice",DefectClass.NORMAL,module_id="M1",inspection_group_id="flight-2026-09-24"))
+    db.save_ground_truth("P",GroundTruthLabel("T2","alice",DefectClass.NORMAL,module_id="M2",inspection_group_id="flight-2026-09-24"))
+    db.approve_training_frame("P","T1",rights_approved=True)
+    db.approve_training_frame("P","T2",rights_approved=True)
+    rows=build_training_index(build_training_snapshot(db,"P"))
+    assert len(rows)==2
+    assert rows[0]["split"]==rows[1]["split"]
+    assert {r["module_id"] for r in rows}=={"M1","M2"}
