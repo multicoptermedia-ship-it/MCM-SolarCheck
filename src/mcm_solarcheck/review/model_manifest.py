@@ -12,6 +12,8 @@ class ModelManifest:
     dataset: str
     license_id: str
     weights_sha256: str | None = None
+    preprocessing: str | None = None
+    backend: str | None = None
 
     def __post_init__(self) -> None:
         for name,value in (
@@ -22,6 +24,9 @@ class ModelManifest:
                 raise ValueError(f"{name} must not be empty")
         if self.modality not in {"thermal", "rgb"}:
             raise ValueError("model modality must be thermal or rgb")
+        for name,value in (("preprocessing",self.preprocessing),("backend",self.backend)):
+            if value is not None and not value.strip():
+                raise ValueError(f"{name} must not be blank")
         if self.weights_sha256 is not None:
             digest=self.weights_sha256.strip().casefold()
             if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
