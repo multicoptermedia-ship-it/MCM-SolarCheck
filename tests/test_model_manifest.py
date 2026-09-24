@@ -54,3 +54,20 @@ def test_weight_verification_requires_recorded_digest(tmp_path):
     manifest=ModelManifest("pv-yolo", "v1", "thermal", "dataset", "license")
     with pytest.raises(ValueError):
         verify_weights_sha256(manifest, weights)
+
+
+def test_model_manifest_can_record_preprocessing_and_backend():
+    manifest=ModelManifest(
+        "pv-yolo", "v1", "thermal", "dataset", "license",
+        preprocessing="radiometric-rjpeg-render-v1", backend="ultralytics-8.x",
+    )
+    assert manifest.preprocessing == "radiometric-rjpeg-render-v1"
+    assert manifest.backend == "ultralytics-8.x"
+
+
+@pytest.mark.parametrize("field", ["preprocessing", "backend"])
+def test_optional_runtime_provenance_cannot_be_blank(field):
+    values=dict(provider="pv-yolo", model_version="v1", modality="thermal",
+                dataset="dataset", license_id="license", **{field: " "})
+    with pytest.raises(ValueError):
+        ModelManifest(**values)
