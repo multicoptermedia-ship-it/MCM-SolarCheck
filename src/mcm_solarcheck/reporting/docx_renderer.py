@@ -1,0 +1,84 @@
+"""Editable DOCX renderer for the neutral Phase 9 inspection report contract."""
+from __future__ import annotations
+from pathlib import Path
+from docx import Document
+from docx.enum.section import WD_SECTION
+from docx.shared import Mm, Pt
+from .report_model import InspectionReport
+
+
+REPORT_STANDARD_WORDING="Prüfbericht – Aufbau unter Berücksichtigung der DIN IEC/TS 62446-3 (VDE V 0126-23-3):2018-04"
+
+
+def _value(value: object | None) -> str:
+    return "—" if value is None or value=="" else str(value)
+
+
+def render_docx(report: InspectionReport, destination: str | Path, *, banner_path: str | Path | None=None) -> Path:
+    """Render an editable customer report without changing evidence semantics."""
+    destination=Path(destination)
+    document=Document()
+    section=document.sections[0]
+    section.page_width=Mm(210); section.page_height=Mm(297)
+    section.top_margin=Mm(16); section.bottom_margin=Mm(16)
+    section.left_margin=Mm(18); section.right_margin=Mm(18)
+    normal=document.styles["Normal"]; normal.font.name="Arial"; normal.font.size=Pt(9)
+
+    if banner_path is not None:
+        banner=Path(banner_path)
+        if not banner.is_file(): raise FileNotFoundError(banner)
+        document.add_picture(str(banner),width=Mm(174))
+    document.add_heading("MCM-SolarCheck",0)
+    document.add_paragraph(REPORT_STANDARD_WORDING)
+    document.add_paragraph(f"Bericht: {report.report_id}")
+    document.add_paragraph(f"Kunde: {report.customer_name}")
+    document.add_paragraph(f"Anlage: {report.site_name}")
+    document.add_paragraph(f"Standort: {_value(report.site_address)}")
+    document.add_page_break()
+
+    document.add_heading("Übersicht",level=1)
+    table=document.add_table(rows=0,cols=2)
+    for label,value in (
+        ("Kunde",report.customer_name),("Anlage",report.site_name),
+        ("Prüfbeginn",report.inspection_started_at.isoformat()),("Prüfer",report.inspector),
+        ("PV-Module geprüft",report.total_modules),("Module mit dokumentiertem Befund",report.conspicuous_modules),
+        ("Manuelle Prüfung erforderlich",report.manual_review_modules),
+        ("Ohne dokumentierten Befund",report.modules_without_documented_finding),
+    ):
+        cells=table.add_row().cells; cells[0].text=label; cells[1].text=_value(value)
+    if report.irradiance:
+        irr=report.irradiance
+        document.add_paragraph(f"Einstrahlung: Mittel {irr.mean_w_m2:g} W/m²; Min {_value(irr.minimum_w_m2)}; Max {_value(irr.maximum_w_m2)}; Quelle: {irr.source}")
+    else:
+        document.add_paragraph("Einstrahlung: nicht dokumentiert.")
+    for image,label in ((report.overview_rgb,"RGB-Übersicht"),(report.overview_thermal,"Thermal-Übersicht")):
+        if image and Path(image.path).is_file():
+            document.add_paragraph(label)
+            document.add_picture(image.path,width=Mm(82))
+
+    document.add_heading("Detailbefunde",level=1)
+    if not report.details: document.add_paragraph("Keine freigegebenen Detailbefunde.")
+    for detail in report.details:
+        document.add_heading(f"Modul {detail.module_id}",level=2)
+        document.add_paragraph(f"Befund: {detail.finding_label} | Review: {detail.review_status}")
+        if detail.thermal_measurement:
+            m=detail.thermal_measurement
+            delta="" if m.delta_t_c is None else f"; ΔT {m.delta_t_c:g} °C"
+            document.add_paragraph(f"Radiometrisch validiert: {m.temperature_c:g} °C{delta}; Quelle: {m.provider}")
+        images=document.add_table(rows=1,cols=2).cells
+        for cell,img,label in ((images[0],detail.rgb_image,"RGB"),(images[1],detail.thermal_image,"Thermal")):
+            cell.text=label
+            if img and Path(img.path).is_file():
+                cell.paragraphs[0].add_run().add_picture(img.path,width=Mm(76))
+
+    document.add_heading("Zusammenfassung und Freigabe",level=1)
+    document.add_paragraph(f"Prüfer: {report.inspector}")
+    document.add_paragraph(f"Freigabestatus: {report.release_status}")
+    for item in report.equipment:
+        document.add_paragraph(f"Prüfmittel: {item.name}; ID: {_value(item.identifier)}; Kalibrierreferenz: {_value(item.calibration_reference)}")
+    if report.provenance:
+        document.add_paragraph(f"Software: {report.provenance.software_version}")
+        document.add_paragraph(f"Datenprovenienz: {report.provenance.evidence_statement}")
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    document.save(destination)
+    return destination
