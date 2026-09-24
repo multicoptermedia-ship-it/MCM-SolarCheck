@@ -32,3 +32,16 @@ def test_released_report_fails_closed_on_unreviewed_finding(tmp_path):
         sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,reviewer_status,metadata_json) VALUES('P1','F1','T1',1,2,'hotspot_candidate','unreviewed','{}')")
     with pytest.raises(ValueError,match="reviewed findings"):
         assemble_inspection_report(db,"P1","R1",datetime(2026,9,24,12,tzinfo=timezone.utc),release_status="released")
+
+
+def test_multiple_confirmed_findings_on_same_module_count_once(tmp_path):
+    db=_db(tmp_path)
+    db.save_modules("P1",(PVModule("M1","T1",((0,0),(1,0),(1,1)),0.9,"test"),))
+    with db.connect() as sql:
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,thermal_source,metadata_json) VALUES('P1','T1','t.jpg','test','{}')")
+        for finding_id,kind in (("F1","hotspot_candidate"),("F2","open_circuit_candidate")):
+            sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P1',?,?,1,2,?,'M1','confirmed','{}')",(finding_id,"T1",kind))
+            sql.execute("INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc) VALUES('P1',?,'confirmed','Inspector','2026-09-24T12:00:00+00:00')",(finding_id,))
+    report=assemble_inspection_report(db,"P1","R1",datetime(2026,9,24,12,tzinfo=timezone.utc))
+    assert len(report.details)==2
+    assert report.conspicuous_modules==1
