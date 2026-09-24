@@ -47,5 +47,6 @@ def attach_release_provenance(finding, release: ModelRelease, *, dataset_id: str
         "classification_weights_sha256":release.weights_sha256,
         "classification_dataset_id":dataset_id,
         "classification_snapshot_id":snapshot_id,
+        "classification_evaluation_id":release.evaluation_id,
     })
     return replace(finding,metadata=metadata)
