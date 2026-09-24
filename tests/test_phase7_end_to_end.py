@@ -35,7 +35,7 @@ def test_phase7_reviewed_data_to_validated_advisory_to_human_decision(tmp_path):
     validation=TrainedModelValidation(artifact,ModelValidationDecision(True,()),"validation-inspector")
     release=create_model_release(validation)
 
-    class_map=DatasetClassMap({"hotspot":DefectClass.THERMAL_HOTSPOT_CANDIDATE})
+    class_map=DatasetClassMap("mcm-e2e",{"hotspot":DefectClass.THERMAL_HOTSPOT_CANDIDATE})
     adapter=YoloAdapter("mcm-trained",release.release_id,class_map,"thermal")
     manifest=ModelManifest("mcm-trained",release.release_id,"thermal","MCM reviewed corpus","internal-reviewed-data",artifact.weights_sha256,"rendered_rgb","controlled-test")
     finding=Finding("F1","T1",10,10,module_id="M1")
