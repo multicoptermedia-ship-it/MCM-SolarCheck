@@ -50,15 +50,27 @@ def write_yolo_detection_dataset(manifest: dict, destination) -> None:
     import json
     root=Path(destination)
     root.mkdir(parents=True,exist_ok=True)
-    rows=manifest["rows"]\n    names=[r["sample_id"].replace(":","_") for r in rows]\n    if len(names)!=len(set(names)):\n        raise ValueError("YOLO label filename collision after sample-id normalization")
+    rows=manifest["rows"]
+    names=[r["sample_id"].replace(":","_") for r in rows]
+    if len(names)!=len(set(names)):
+        raise ValueError("YOLO label filename collision after sample-id normalization")
     for split in ("train","validation","test"):
         split_rows=[r for r in rows if r["split"]==split]
-        (root/f"{split}.txt").write_text("".join(f'{r["source_file"]}\n' for r in split_rows),encoding="utf-8")
+        (root/f"{split}.txt").write_text("".join(f'{r["source_file"]}
+' for r in split_rows),encoding="utf-8")
     labels=root/"labels"; labels.mkdir(exist_ok=True)
     for row in rows:
-        (labels/f'{row["sample_id"].replace(":","_")}.txt').write_text(row["label"]+"\n",encoding="utf-8")
+        (labels/f'{row["sample_id"].replace(":","_")}.txt').write_text(row["label"]+"
+",encoding="utf-8")
     encoded=json.dumps(manifest,sort_keys=True,separators=(",",":"),ensure_ascii=False)
-    for row in rows:\n        source=Path(row["source_file"])\n        if not source.is_file():\n            raise FileNotFoundError(f"YOLO source is unavailable: {source}")\n        from hashlib import sha256\n        if sha256(source.read_bytes()).hexdigest()!=row["content_sha256"]:\n            raise ValueError(f"YOLO source SHA-256 changed: {source}")\n    target=root/"manifest.json"
+    for row in rows:
+        source=Path(row["source_file"])
+        if not source.is_file():
+            raise FileNotFoundError(f"YOLO source is unavailable: {source}")
+        from hashlib import sha256
+        if sha256(source.read_bytes()).hexdigest()!=row["content_sha256"]:
+            raise ValueError(f"YOLO source SHA-256 changed: {source}")
+    target=root/"manifest.json"
     if target.exists() and target.read_text(encoding="utf-8")!=encoded:
         raise FileExistsError("refusing to overwrite YOLO dataset manifest with different content")
     target.write_text(encoded,encoding="utf-8")
