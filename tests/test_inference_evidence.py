@@ -19,8 +19,10 @@ def _finding(module_id="M-0042", frame_id="T-1"):
     return Finding("F-1", frame_id, 10, 20, module_id=module_id)
 
 
-def _evidence(module_id="M-0042", frame_id="T-1", modality="thermal"):
-    return ModuleInferenceEvidence(module_id, frame_id, modality, (1, 2, 101, 202))
+def _evidence(module_id="M-0042", frame_id="T-1", modality="thermal", paired_thermal_frame_id=None):
+    return ModuleInferenceEvidence(
+        module_id, frame_id, modality, (1, 2, 101, 202), paired_thermal_frame_id
+    )
 
 
 def test_yolo_suggestion_retains_module_crop_provenance():
@@ -95,3 +97,30 @@ def test_mismatched_manifest_cannot_claim_model_provenance(manifest):
     )
     with pytest.raises(ValueError):
         attach_manifest_provenance(classified, manifest)
+
+
+def test_rgb_evidence_resolves_through_explicit_image_pair_identity():
+    result=attach_yolo_module_suggestion(
+        _finding(frame_id="T-1"),
+        detection=YoloDetection("hotspot", .8),
+        adapter=_adapter("rgb"),
+        evidence=_evidence("M-0042", "RGB-7", "rgb", "T-1"),
+    )
+    assert result.metadata["classification_source_frame_id"] == "RGB-7"
+    assert result.metadata["classification_paired_thermal_frame_id"] == "T-1"
+    assert result.metadata["classification_modality"] == "rgb"
+
+
+def test_rgb_evidence_without_pair_identity_fails_closed():
+    with pytest.raises(ValueError):
+        _evidence("M-0042", "RGB-7", "rgb")
+
+
+def test_rgb_evidence_cannot_attach_to_different_thermal_pair():
+    with pytest.raises(ValueError):
+        attach_yolo_module_suggestion(
+            _finding(frame_id="T-1"),
+            detection=YoloDetection("hotspot", .8),
+            adapter=_adapter("rgb"),
+            evidence=_evidence("M-0042", "RGB-7", "rgb", "T-9"),
+        )
