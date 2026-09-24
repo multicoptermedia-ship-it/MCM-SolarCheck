@@ -73,6 +73,13 @@ class InspectionReport:
     total_modules: int
     conspicuous_modules: int
     manual_review_modules: int
+    site_address: str | None = None
+    customer_contact: str | None = None
+    customer_address: str | None = None
+    customer_email: str | None = None
+    customer_phone: str | None = None
+    customer_reference: str | None = None
+    order_reference: str | None = None
     irradiance: IrradianceSummary | None = None
     overview_rgb: ReportImage | None = None
     overview_thermal: ReportImage | None = None
@@ -81,6 +88,8 @@ class InspectionReport:
 
     def __post_init__(self) -> None:
         for n,v in (("report_id",self.report_id),("project_id",self.project_id),("customer_name",self.customer_name),("site_name",self.site_name),("inspector",self.inspector)): _text(n,v)
+        if not isinstance(self.inspection_started_at,datetime):
+            raise ValueError("inspection_started_at must be a datetime")
         if self.inspection_started_at.tzinfo is None:
             raise ValueError("inspection timestamp must be timezone-aware")
         for n,v in (("total_modules",self.total_modules),("conspicuous_modules",self.conspicuous_modules),("manual_review_modules",self.manual_review_modules)):
