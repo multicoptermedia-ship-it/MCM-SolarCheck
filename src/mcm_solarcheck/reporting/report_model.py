@@ -32,6 +32,27 @@ class IrradianceSummary:
 
 
 @dataclass(frozen=True)
+class EquipmentRecord:
+    name: str
+    identifier: str | None = None
+    calibration_reference: str | None = None
+
+    def __post_init__(self) -> None:
+        _text("equipment name", self.name)
+        for n,v in (("identifier",self.identifier),("calibration_reference",self.calibration_reference)):
+            if v is not None: _text(n,v)
+
+
+@dataclass(frozen=True)
+class ReportProvenance:
+    software_version: str
+    evidence_statement: str
+
+    def __post_init__(self) -> None:
+        _text("software_version",self.software_version); _text("evidence_statement",self.evidence_statement)
+
+
+@dataclass(frozen=True)
 class ReportImage:
     source_frame_id: str
     path: str
@@ -81,6 +102,8 @@ class InspectionReport:
     customer_reference: str | None = None
     order_reference: str | None = None
     irradiance: IrradianceSummary | None = None
+    equipment: tuple[EquipmentRecord,...] = field(default_factory=tuple)
+    provenance: ReportProvenance | None = None
     overview_rgb: ReportImage | None = None
     overview_thermal: ReportImage | None = None
     details: tuple[ModuleReportDetail,...] = field(default_factory=tuple)
