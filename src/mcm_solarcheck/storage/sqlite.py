@@ -76,6 +76,19 @@ def _migrate_11_to_12(db:sqlite3.Connection)->None:
     db.execute("UPDATE schema_info SET version=12")
 
 
+def _migrate_12_to_13(db:sqlite3.Connection)->None:
+    """Add project/customer profile used by GUI and reports."""
+    db.execute("""CREATE TABLE project_profiles(
+        project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,
+        customer_name TEXT NOT NULL, site_name TEXT NOT NULL, site_street TEXT NOT NULL,
+        site_postal_code TEXT NOT NULL, site_city TEXT NOT NULL, inspector TEXT NOT NULL,
+        customer_contact TEXT, customer_street TEXT, customer_postal_code TEXT,
+        customer_city TEXT, customer_email TEXT, customer_phone TEXT,
+        customer_reference TEXT, order_reference TEXT
+    )""")
+    db.execute("UPDATE schema_info SET version=13")
+
+
 class ProjectDatabase:
     def __init__(self,path:str|Path)->None:self.path=Path(path)
     @contextmanager
