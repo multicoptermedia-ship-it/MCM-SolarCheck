@@ -82,4 +82,8 @@ def attach_manifest_provenance(finding: Finding, manifest: ModelManifest) -> Fin
     })
     if manifest.weights_sha256:
         metadata["classification_weights_sha256"]=manifest.weights_sha256.strip().casefold()
+    if manifest.preprocessing:
+        metadata["classification_preprocessing"]=manifest.preprocessing.strip()
+    if manifest.backend:
+        metadata["classification_backend"]=manifest.backend.strip()
     return replace(finding, metadata=metadata)
