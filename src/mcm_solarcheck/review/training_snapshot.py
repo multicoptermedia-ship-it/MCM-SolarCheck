@@ -23,7 +23,7 @@ def build_training_snapshot(database, project_id: str) -> TrainingSnapshot:
         if label["source_frame_id"] in trainable_frames:
             key=(label["source_frame_id"],label["module_id"],label["finding_id"])
             latest[key]=label
-    manifest={
+    latest_label_ids={label["label_id"] for label in latest.values()}\n    geometries=tuple(g for g in geometries if g["label_id"] in latest_label_ids)\n    manifest={
         "project_id":project_id,
         "samples":sorted(samples,key=lambda x:x["sample_id"]),
         "labels":sorted(latest.values(),key=lambda x:(x["source_frame_id"],x["module_id"] or "",x["finding_id"] or "")),
