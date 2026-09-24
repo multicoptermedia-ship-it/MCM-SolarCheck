@@ -63,3 +63,29 @@ class ModelAcceptancePolicy:
             and summary.recall >= self.min_recall
             and summary.false_positive_rate <= self.max_false_positive_rate
         )
+
+
+@dataclass(frozen=True)
+class ModelValidationDecision:
+    accepted: bool
+    reasons: tuple[str, ...]
+
+
+def evaluate_model(
+    summary: ModelValidationSummary,
+    policy: ModelAcceptancePolicy | None = None,
+) -> ModelValidationDecision:
+    """Explain every failed acceptance condition for audit and UI display."""
+    policy=policy or ModelAcceptancePolicy()
+    reasons=[]
+    if not summary.representative_m3t:
+        reasons.append("validation imagery is not representative M3T data")
+    if summary.sample_count < policy.min_samples:
+        reasons.append("insufficient validation samples")
+    if summary.defect_sample_count < policy.min_defect_samples:
+        reasons.append("insufficient defect samples")
+    if summary.recall is None or summary.recall < policy.min_recall:
+        reasons.append("defect recall below acceptance threshold")
+    if summary.false_positive_rate > policy.max_false_positive_rate:
+        reasons.append("false-positive rate above acceptance threshold")
+    return ModelValidationDecision(not reasons, tuple(reasons))
