@@ -29,3 +29,16 @@ def build_training_snapshot(database, project_id: str) -> TrainingSnapshot:
     }
     encoded=json.dumps(manifest,sort_keys=True,separators=(",",":"),ensure_ascii=False)
     return TrainingSnapshot(sha256(encoded.encode()).hexdigest(),len(samples),len(latest),encoded)
+
+
+def write_training_snapshot(snapshot: TrainingSnapshot, destination) -> None:
+    """Write immutable snapshot manifest, refusing silent replacement."""
+    from pathlib import Path
+    path=Path(destination)
+    if path.exists():
+        existing=path.read_text(encoding="utf-8")
+        if existing != snapshot.manifest_json:
+            raise FileExistsError(f"refusing to overwrite training snapshot: {path}")
+        return
+    path.parent.mkdir(parents=True,exist_ok=True)
+    path.write_text(snapshot.manifest_json,encoding="utf-8")
