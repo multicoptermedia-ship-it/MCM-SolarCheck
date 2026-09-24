@@ -45,3 +45,12 @@ class ReviewedGeometry:
         if self.polygon_px is not None:
             tasks.add("segmentation")
         return frozenset(tasks)
+
+
+def require_geometry_for_task(value: ReviewedGeometry, task: str) -> ReviewedGeometry:
+    """Fail closed when reviewed geometry cannot support the requested trainer task."""
+    if task not in {"detection","segmentation"}:
+        raise ValueError("training geometry task must be detection or segmentation")
+    if task not in value.task_support:
+        raise ValueError(f"reviewed geometry does not support {task}")
+    return value
