@@ -17,7 +17,7 @@ def test_export_boundary_rejects_extension_mismatch(tmp_path):
         export_report(_report(),tmp_path/"report.pdf",format="docx")
 
 
-def test_odt_banner_is_not_silently_dropped(tmp_path):
-    banner=tmp_path/"banner.png"; banner.write_bytes(b"placeholder")
-    with pytest.raises(ValueError,match="not implemented"):
-        export_report(_report(),tmp_path/"report.odt",banner_path=banner)
+def test_all_formats_reject_missing_banner(tmp_path):
+    for suffix in ("docx","odt","pdf"):
+        with pytest.raises(FileNotFoundError):
+            export_report(_report(),tmp_path/f"report.{suffix}",banner_path=tmp_path/"missing.png")
