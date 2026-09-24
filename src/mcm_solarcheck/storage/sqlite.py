@@ -97,7 +97,10 @@ class ProjectDatabase:
                 if version == 11:
                     _migrate_11_to_12(db)
                     version=12
-                if version == 12:\n                    _migrate_12_to_13(db)\n                    version=13\n                if version != SCHEMA_VERSION:
+                if version == 12:
+                    _migrate_12_to_13(db)
+                    version=13
+                if version != SCHEMA_VERSION:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
             db.executescript(_SCHEMA);db.execute('INSERT INTO schema_info(version) VALUES (?)',(SCHEMA_VERSION,))
