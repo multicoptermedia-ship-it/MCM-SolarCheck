@@ -180,6 +180,8 @@ class ProjectDatabase:
 
     def approve_training_frame(self,project_id,source_frame_id,*,rights_approved=False):
         with self.connect() as db:
+            label=db.execute('SELECT 1 FROM training_labels WHERE project_id=? AND source_frame_id=? LIMIT 1',(project_id,source_frame_id)).fetchone()
+            if label is None:raise ValueError('training frame requires human ground truth before approval')
             values=['human_reviewed']
             sql="UPDATE training_samples SET label_status=?"
             if rights_approved:
@@ -205,6 +207,10 @@ class ProjectDatabase:
                 if previous is None:raise KeyError(f'Unknown superseded training label: {label.supersedes_label_id}')
                 if previous['project_id']!=project_id or previous['source_frame_id']!=label.source_frame_id:raise ValueError('ground-truth correction must stay on the same project/frame')
                 if previous['module_id']!=label.module_id or previous['finding_id']!=label.finding_id:raise ValueError('ground-truth correction must preserve its physical reference')
+                newer=db.execute('SELECT 1 FROM training_labels WHERE supersedes_label_id=? LIMIT 1',(label.supersedes_label_id,)).fetchone()
+                if newer is not None:raise ValueError('ground-truth correction must supersede the current label head')
+                prior_group=db.execute('SELECT inspection_group_id FROM training_labels WHERE label_id=?',(label.supersedes_label_id,)).fetchone()['inspection_group_id']
+                if prior_group!=label.inspection_group_id:raise ValueError('ground-truth correction must preserve inspection group')
             db.execute('INSERT INTO training_labels(project_id,source_frame_id,module_id,finding_id,defect_class,reviewer,supersedes_label_id,note,inspection_group_id) VALUES (?,?,?,?,?,?,?,?,?)',(project_id,label.source_frame_id,label.module_id,label.finding_id,label.defect_class.value,label.reviewer,label.supersedes_label_id,label.note,label.inspection_group_id))
             db.execute("UPDATE training_samples SET label_status='human_reviewed' WHERE project_id=? AND source_frame_id=?",(project_id,label.source_frame_id))
 
