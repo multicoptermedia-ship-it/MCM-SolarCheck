@@ -43,3 +43,16 @@ def _tolist(value: object) -> list:
     if not isinstance(value, list):
         raise ValueError("Ultralytics box field cannot be converted to a list")
     return value
+
+
+def infer_ultralytics(model: object, image: object, *, confidence: float = 0.25) -> tuple[YoloDetection, ...]:
+    """Run an injected Ultralytics-compatible model and normalize one image result."""
+    if not 0.0 <= float(confidence) <= 1.0:
+        raise ValueError("inference confidence must be between 0 and 1")
+    predict=getattr(model, "predict", None)
+    if not callable(predict):
+        raise ValueError("model must expose a callable predict method")
+    results=predict(source=image, conf=float(confidence), verbose=False)
+    if not isinstance(results, (list, tuple)) or len(results) != 1:
+        raise ValueError("single-image inference must return exactly one result")
+    return detections_from_ultralytics(results[0])
