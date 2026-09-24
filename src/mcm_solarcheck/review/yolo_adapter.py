@@ -54,13 +54,18 @@ class YoloAdapter:
             self.modality,
         )
 
-    def adapt_best(self, detections: tuple[YoloDetection, ...]) -> DefectClassification | None:
-        """Return deterministic highest-confidence known suggestion."""
-        known=[
+    def select_best(self, detections: tuple[YoloDetection, ...]) -> YoloDetection | None:
+        """Select the strongest defect detection; normal/unknown are not defects."""
+        defects=[
             d for d in detections
-            if self.class_map.normalize(d.class_name) != DefectClass.UNKNOWN
+            if self.class_map.normalize(d.class_name)
+            not in {DefectClass.UNKNOWN, DefectClass.NORMAL}
         ]
-        if not known:
+        if not defects:
             return None
-        best=sorted(known,key=lambda d:(-d.confidence,d.class_name.casefold()))[0]
-        return self.adapt(best)
+        return sorted(defects,key=lambda d:(-d.confidence,d.class_name.casefold()))[0]
+
+    def adapt_best(self, detections: tuple[YoloDetection, ...]) -> DefectClassification | None:
+        """Return deterministic highest-confidence defect suggestion."""
+        best=self.select_best(detections)
+        return None if best is None else self.adapt(best)
