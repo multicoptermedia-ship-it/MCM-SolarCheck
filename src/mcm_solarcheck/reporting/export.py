@@ -15,6 +15,4 @@ def export_report(report: InspectionReport, destination: str | Path, *, format: 
     if selected not in _FORMATS: raise ValueError(f"unsupported report format: {selected or '<missing>'}")
     if destination.suffix.lower()!=f".{selected}": raise ValueError("destination extension must match report format")
     renderer=_FORMATS[selected]
-    if selected in {"docx","pdf"}: return renderer(report,destination,banner_path=banner_path)
-    if banner_path is not None: raise ValueError("ODT banner embedding is not implemented; refusing silent omission")
-    return renderer(report,destination)
+    return renderer(report,destination,banner_path=banner_path)
