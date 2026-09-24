@@ -5,6 +5,7 @@ from pathlib import Path
 import json, sqlite3
 from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
+from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
 SCHEMA_VERSION = 7
 _SCHEMA = """
@@ -66,17 +67,28 @@ class ProjectDatabase:
         cols=('project_id','finding_id','rgb_frame_id','pair_id','pair_confidence','rgb_pixel_x','rgb_pixel_y','transform_method','transform_validated','transform_error_px','status','candidates_json');sql=_upsert('finding_sensor_links',cols,('project_id','finding_id'))
         rows=[v for f in findings if (v:=self._sensor_link_values(project_id,f)) is not None]
         if rows:db.executemany(sql,rows)
+    def _training_sample_values(self,project_id,frame,modality):
+        sample=index_m3t_training_sample(frame.frame_id, frame.source_file, modality)
+        return (sample.sample_id,project_id,sample.source_frame_id,sample.source_file,sample.modality,sample.content_sha256,sample.label_status,sample.rights_status)
+    def _save_training_frame(self,db,project_id,frame,modality):
+        cols=('sample_id','project_id','source_frame_id','source_file','modality','content_sha256','label_status','rights_status')
+        db.execute(_upsert('training_samples',cols,('sample_id',)),self._training_sample_values(project_id,frame,modality))
     def save_thermal_frame(self,project_id,frame,quality):
-        with self.connect() as db:self._save_thermal_frame(db,project_id,frame,quality)
+        with self.connect() as db:
+            self._save_thermal_frame(db,project_id,frame,quality)
+            self._save_training_frame(db,project_id,frame,'thermal')
     def save_findings(self,project_id,findings):
         findings=tuple(findings)
         with self.connect() as db:self._save_findings(db,project_id,findings);self._save_sensor_links(db,project_id,findings)
     def save_thermal_result(self,project_id,frame,quality,findings):
         findings=tuple(findings)
-        with self.connect() as db:self._save_thermal_frame(db,project_id,frame,quality);self._save_findings(db,project_id,findings);self._save_sensor_links(db,project_id,findings)
+        with self.connect() as db:self._save_thermal_frame(db,project_id,frame,quality);self._save_training_frame(db,project_id,frame,'thermal');self._save_findings(db,project_id,findings);self._save_sensor_links(db,project_id,findings)
     def save_image_frames(self,project_id,frames):
         cols=('project_id','frame_id','source_file','timestamp_utc','camera_make','camera_model','width','height','latitude','longitude','altitude_m','metadata_json');sql=_upsert('image_frames',cols,('project_id','frame_id'))
-        with self.connect() as db:db.executemany(sql,[(project_id,f.frame_id,str(f.source_file),f.timestamp_utc.isoformat() if f.timestamp_utc else None,f.camera_make,f.camera_model,f.width,f.height,f.position.latitude if f.position else None,f.position.longitude if f.position else None,f.position.altitude_m if f.position else None,json.dumps(f.metadata,ensure_ascii=False)) for f in frames])
+        frames=tuple(frames)
+        with self.connect() as db:
+            db.executemany(sql,[(project_id,f.frame_id,str(f.source_file),f.timestamp_utc.isoformat() if f.timestamp_utc else None,f.camera_make,f.camera_model,f.width,f.height,f.position.latitude if f.position else None,f.position.longitude if f.position else None,f.position.altitude_m if f.position else None,json.dumps(f.metadata,ensure_ascii=False)) for f in frames])
+            for frame in frames:self._save_training_frame(db,project_id,frame,'rgb')
     def save_pairs(self,project_id,pairs):
         cols=('project_id','pair_id','rgb_frame_id','thermal_frame_id','confidence','method','distance_m','time_delta_s');sql=_upsert('image_pairs',cols,('project_id','pair_id'))
         with self.connect() as db:db.executemany(sql,[(project_id,p.pair_id,p.rgb_frame_id,p.thermal_frame_id,p.confidence,p.method,p.distance_m,p.time_delta_s) for p in pairs])
