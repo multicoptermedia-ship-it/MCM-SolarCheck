@@ -56,8 +56,7 @@ def write_yolo_detection_dataset(manifest: dict, destination) -> None:
         raise ValueError("YOLO label filename collision after sample-id normalization")
     for split in ("train","validation","test"):
         split_rows=[r for r in rows if r["split"]==split]
-        (root/f"{split}.txt").write_text("".join(f'{r["source_file"]}
-' for r in split_rows),encoding="utf-8")
+        (root/f"{split}.txt").write_text("".join(str(r["source_file"]) + chr(10) for r in split_rows),encoding="utf-8")
     labels=root/"labels"; labels.mkdir(exist_ok=True)
     for row in rows:
         (labels/f'{row["sample_id"].replace(":","_")}.txt').write_text(row["label"]+"
