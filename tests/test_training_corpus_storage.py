@@ -33,7 +33,8 @@ def test_training_corpus_preserves_same_content_source_occurrences(tmp_path):
         index_m3t_training_sample("T-1", a, "thermal"),
         index_m3t_training_sample("T-2", b, "thermal"),
     ])
-    assert len(db.training_samples("P1")) == 2\n    assert len({row["sample_id"] for row in db.training_samples("P1")}) == 1
+    assert len(db.training_samples("P1")) == 2
+    assert len({row["sample_id"] for row in db.training_samples("P1")}) == 1
 
 
 def test_human_review_can_promote_frame_without_silently_granting_rights(tmp_path):
