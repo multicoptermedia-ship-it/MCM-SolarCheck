@@ -41,3 +41,18 @@ def index_m3t_training_sample(frame_id: str, source_file: str | Path, modality: 
         modality=modality,
         content_sha256=digest,
     )
+
+
+def approve_training_sample(
+    sample: TrainingSample,
+    *,
+    human_reviewed: bool,
+    rights_approved: bool,
+) -> TrainingSample:
+    """Promote corpus evidence only through explicit independent gates."""
+    from dataclasses import replace
+    return replace(
+        sample,
+        label_status="human_reviewed" if human_reviewed else sample.label_status,
+        rights_status="approved" if rights_approved else sample.rights_status,
+    )
