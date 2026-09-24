@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from mcm_solarcheck.reporting.data import InspectionReportDataService
 from mcm_solarcheck.reporting.model import build_report_model
-from mcm_solarcheck.reporting.report_model import InspectionReport, ModuleReportDetail, ThermalMeasurement
+from mcm_solarcheck.reporting.report_model import InspectionReport, ModuleReportDetail, ReportImage, ThermalMeasurement
 from mcm_solarcheck.thermal.temperature_provenance import has_validated_celsius
 
 
@@ -20,15 +20,22 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
     data=InspectionReportDataService(database).build(project_id)
     evidence_model=build_report_model(data)
     provenance_by_finding={item.finding.finding_id:item.finding for item in data.confirmed_findings}
+    with database.connect() as sql:
+        thermal_paths={row['frame_id']:row['source_file'] for row in sql.execute('SELECT frame_id,source_file FROM thermal_frames WHERE project_id=?',(project_id,))}
+        rgb_paths={row['frame_id']:row['source_file'] for row in sql.execute('SELECT frame_id,source_file FROM image_frames WHERE project_id=?',(project_id,))}
     def detail(item):
         source=provenance_by_finding[item.finding_id]
         measurement=None
         if has_validated_celsius(source.temperature_c,source.temperature_status,source.temperature_provider):
             measurement=ThermalMeasurement(source.temperature_c,None,source.temperature_provider,True)
+        thermal_path=thermal_paths.get(item.thermal_frame_id)
+        rgb_path=rgb_paths.get(item.rgb_frame_id) if item.rgb_frame_id else None
         return ModuleReportDetail(
             module_id=item.module_id,
             finding_label=item.classification,
             review_status="confirmed",
+            rgb_image=ReportImage(item.rgb_frame_id,rgb_path,"rgb") if item.rgb_frame_id and rgb_path else None,
+            thermal_image=ReportImage(item.thermal_frame_id,thermal_path,"thermal") if thermal_path else None,
             manual_inspection_required=False,
             thermal_measurement=measurement,
         )
