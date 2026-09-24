@@ -169,3 +169,18 @@ def test_phase9_thermal_measurement_requires_validated_provenance():
 def test_phase9_irradiance_requires_explicit_source_and_sane_range():
     with pytest.raises(ValueError): IrradianceSummary(750,"   ")
     with pytest.raises(ValueError): IrradianceSummary(650,"sensor",700,800)
+
+
+def test_unclear_manual_detail_can_omit_defect_label():
+    detail=ModuleReportDetail("M-9",None,"unclear",manual_inspection_required=True)
+    assert detail.finding_label is None
+
+
+def test_confirmed_detail_cannot_omit_defect_label():
+    with pytest.raises(ValueError,match="requires a finding label"):
+        ModuleReportDetail("M-9",None,"confirmed")
+
+
+def test_unclear_without_label_requires_manual_inspection():
+    with pytest.raises(ValueError,match="requires manual inspection"):
+        ModuleReportDetail("M-9",None,"unclear")
