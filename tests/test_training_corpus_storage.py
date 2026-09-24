@@ -24,7 +24,7 @@ def test_training_corpus_roundtrip_and_trainable_filter(tmp_path):
     assert trainable[0]["sample_id"] == pending.sample_id
 
 
-def test_training_corpus_deduplicates_same_content(tmp_path):
+def test_training_corpus_preserves_same_content_source_occurrences(tmp_path):
     db=ProjectDatabase(tmp_path / "project.sqlite")
     db.initialize(); db.create_project("P1", "Project")
     a=tmp_path/"a.jpg"; b=tmp_path/"b.jpg"
@@ -33,7 +33,7 @@ def test_training_corpus_deduplicates_same_content(tmp_path):
         index_m3t_training_sample("T-1", a, "thermal"),
         index_m3t_training_sample("T-2", b, "thermal"),
     ])
-    assert len(db.training_samples("P1")) == 1
+    assert len(db.training_samples("P1")) == 2\n    assert len({row["sample_id"] for row in db.training_samples("P1")}) == 1
 
 
 def test_human_review_can_promote_frame_without_silently_granting_rights(tmp_path):
