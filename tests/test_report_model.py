@@ -120,7 +120,7 @@ def test_report_priority_fails_closed_for_unproven_celsius_value():
 # Phase 9 neutral customer-report contract
 from datetime import datetime, timezone
 import pytest
-from mcm_solarcheck.reporting.report_model import InspectionReport, IrradianceSummary, ModuleReportDetail, ReportImage
+from mcm_solarcheck.reporting.report_model import EquipmentRecord, InspectionReport, IrradianceSummary, ModuleReportDetail, ReportImage, ReportProvenance
 
 
 def test_phase9_report_contract_carries_reviewed_summary():
@@ -144,3 +144,16 @@ def test_phase9_irradiance_requires_provenance():
 def test_phase9_report_rejects_impossible_counts():
     with pytest.raises(ValueError,match='counts'):
         InspectionReport('R','P','C','S',datetime.now(timezone.utc),'I',10,11,1)
+
+
+def test_phase9_equipment_and_provenance_are_explicit():
+    equipment=EquipmentRecord("DJI M3T","SN-123","CAL-2026")
+    provenance=ReportProvenance("0.9.0","Human-reviewed findings only")
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0,equipment=(equipment,),provenance=provenance)
+    assert report.equipment[0].calibration_reference=="CAL-2026"
+    assert report.provenance.evidence_statement=="Human-reviewed findings only"
+
+
+def test_phase9_rejects_non_datetime_timestamp():
+    with pytest.raises(ValueError,match="must be a datetime"):
+        InspectionReport("R","P","Customer","Site","2026-09-24","Inspector",10,0,0)
