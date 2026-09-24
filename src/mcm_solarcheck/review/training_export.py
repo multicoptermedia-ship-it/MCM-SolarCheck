@@ -19,7 +19,8 @@ def build_training_index(snapshot) -> tuple[dict, ...]:
         split=split_for_group(group_id)
         assignments.append((group_id,split))
         rows.append({
-            "label_id":label["label_id"],\n            "sample_id":sample["sample_id"],
+            "label_id":label["label_id"],
+            "sample_id":sample["sample_id"],
             "source_file":sample["source_file"],
             "modality":sample["modality"],
             "content_sha256":sample["content_sha256"],
