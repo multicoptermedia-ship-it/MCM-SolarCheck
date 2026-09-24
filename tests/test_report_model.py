@@ -115,3 +115,32 @@ def test_report_priority_fails_closed_for_unproven_celsius_value():
     assert evidence.priority_level=='unrated'
     assert evidence.priority_score is None
     assert evidence.priority_reason=='temperature_provenance_required'
+
+
+# Phase 9 neutral customer-report contract
+from datetime import datetime, timezone
+import pytest
+from mcm_solarcheck.reporting.report_model import InspectionReport, IrradianceSummary, ModuleReportDetail, ReportImage
+
+
+def test_phase9_report_contract_carries_reviewed_summary():
+    rgb=ReportImage('R1','rgb.jpg','rgb'); thermal=ReportImage('T1','thermal.jpg','thermal')
+    detail=ModuleReportDetail('M-023','thermal_hotspot_candidate','confirmed',rgb,thermal)
+    report=InspectionReport('REP-1','P1','Customer','Site',datetime(2026,9,24,12,tzinfo=timezone.utc),'Inspector',850,12,5,IrradianceSummary(750,'on-site sensor',700,810),rgb,thermal,(detail,),'reviewed')
+    assert report.modules_without_documented_finding==838
+    assert report.details[0].module_id=='M-023'
+
+
+def test_phase9_customer_detail_rejects_unreviewed_ai_suggestion():
+    with pytest.raises(ValueError,match='reviewed'):
+        ModuleReportDetail('M1','hotspot_candidate','unreviewed')
+
+
+def test_phase9_irradiance_requires_provenance():
+    with pytest.raises(ValueError,match='source'):
+        IrradianceSummary(700,' ')
+
+
+def test_phase9_report_rejects_impossible_counts():
+    with pytest.raises(ValueError,match='counts'):
+        InspectionReport('R','P','C','S',datetime.now(timezone.utc),'I',10,11,1)
