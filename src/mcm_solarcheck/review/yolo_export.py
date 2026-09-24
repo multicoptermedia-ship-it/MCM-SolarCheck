@@ -59,8 +59,7 @@ def write_yolo_detection_dataset(manifest: dict, destination) -> None:
         (root/f"{split}.txt").write_text("".join(str(r["source_file"]) + chr(10) for r in split_rows),encoding="utf-8")
     labels=root/"labels"; labels.mkdir(exist_ok=True)
     for row in rows:
-        (labels/f'{row["sample_id"].replace(":","_")}.txt').write_text(row["label"]+"
-",encoding="utf-8")
+        (labels/f'{row["sample_id"].replace(":","_")}.txt').write_text(row["label"]+chr(10),encoding="utf-8")
     encoded=json.dumps(manifest,sort_keys=True,separators=(",",":"),ensure_ascii=False)
     for row in rows:
         source=Path(row["source_file"])
