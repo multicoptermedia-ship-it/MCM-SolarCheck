@@ -83,7 +83,7 @@ class ReportImage:
 @dataclass(frozen=True)
 class ModuleReportDetail:
     module_id: str
-    finding_label: str
+    finding_label: str | None
     review_status: str
     rgb_image: ReportImage | None = None
     thermal_image: ReportImage | None = None
@@ -91,7 +91,12 @@ class ModuleReportDetail:
     thermal_measurement: ThermalMeasurement | None = None
 
     def __post_init__(self) -> None:
-        _text("module_id",self.module_id); _text("finding_label",self.finding_label)
+        _text("module_id",self.module_id)
+        if self.finding_label is not None: _text("finding_label",self.finding_label)
+        if self.review_status=="confirmed" and self.finding_label is None:
+            raise ValueError("confirmed customer detail requires a finding label")
+        if self.review_status=="unclear" and self.finding_label is None and not self.manual_inspection_required:
+            raise ValueError("unclear detail without finding label requires manual inspection")
         if self.review_status not in {"confirmed","unclear"}:
             raise ValueError("customer detail requires a reviewed confirmed/unclear status")
         if not isinstance(self.manual_inspection_required,bool):
