@@ -13,7 +13,7 @@ def build_training_index(snapshot) -> tuple[dict, ...]:
         sample=samples.get(label["source_frame_id"])
         if sample is None:
             raise ValueError("ground truth references sample outside snapshot")
-        group_id=label["module_id"] or label["finding_id"]
+        group_id=label.get("inspection_group_id") or label["module_id"] or label["finding_id"]
         if not group_id:
             raise ValueError("training label has no leakage group")
         split=split_for_group(group_id)
@@ -25,6 +25,7 @@ def build_training_index(snapshot) -> tuple[dict, ...]:
             "content_sha256":sample["content_sha256"],
             "module_id":label["module_id"],
             "finding_id":label["finding_id"],
+            "inspection_group_id":label.get("inspection_group_id"),
             "defect_class":label["defect_class"],
             "split":split,
         })
