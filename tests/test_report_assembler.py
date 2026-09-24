@@ -45,3 +45,32 @@ def test_multiple_confirmed_findings_on_same_module_count_once(tmp_path):
     report=assemble_inspection_report(db,"P1","R1",datetime(2026,9,24,12,tzinfo=timezone.utc))
     assert len(report.details)==2
     assert report.conspicuous_modules==1
+
+
+def test_unclear_findings_on_same_module_create_one_manual_review_detail(tmp_path):
+    db=_db(tmp_path)
+    db.save_modules("P1",(PVModule("M1","T1",((0,0),(1,0),(1,1)),0.9,"test"),))
+    with db.connect() as sql:
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,thermal_source,metadata_json) VALUES('P1','T1','t.jpg','test','{}')")
+        for finding_id in ("U1","U2"):
+            sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P1',?,?,1,2,'hotspot_candidate','M1','unclear','{}')",(finding_id,"T1"))
+    report=assemble_inspection_report(db,"P1","R1",datetime(2026,9,24,12,tzinfo=timezone.utc))
+    assert report.manual_review_modules==1
+    assert len(report.details)==1
+    assert report.details[0].module_id=="M1"
+    assert report.details[0].finding_label is None
+    assert report.details[0].manual_inspection_required is True
+
+
+def test_unresolved_confirmed_finding_does_not_fake_module_count_and_blocks_release(tmp_path):
+    db=_db(tmp_path)
+    with db.connect() as sql:
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,thermal_source,metadata_json) VALUES('P1','T1','t.jpg','test','{}')")
+        sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,reviewer_status,metadata_json) VALUES('P1','F1','T1',1,2,'hotspot_candidate','confirmed','{}')")
+        sql.execute("INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc) VALUES('P1','F1','confirmed','Inspector','2026-09-24T12:00:00+00:00')")
+    draft=assemble_inspection_report(db,"P1","R1",datetime(2026,9,24,12,tzinfo=timezone.utc))
+    assert draft.conspicuous_modules==0
+    assert draft.manual_review_modules==0
+    assert draft.details==()
+    with pytest.raises(ValueError,match="resolved physical modules"):
+        assemble_inspection_report(db,"P1","R2",datetime(2026,9,24,12,tzinfo=timezone.utc),release_status="released")
