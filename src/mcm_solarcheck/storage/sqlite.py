@@ -235,6 +235,30 @@ class ProjectDatabase:
             db.execute('INSERT INTO training_labels(project_id,source_frame_id,module_id,finding_id,defect_class,reviewer,supersedes_label_id,note,inspection_group_id) VALUES (?,?,?,?,?,?,?,?,?)',(project_id,label.source_frame_id,label.module_id,label.finding_id,label.defect_class.value,label.reviewer,label.supersedes_label_id,label.note,label.inspection_group_id))
             db.execute("UPDATE training_samples SET label_status='human_reviewed' WHERE project_id=? AND source_frame_id=?",(project_id,label.source_frame_id))
 
+    def save_training_geometry(self,project_id,label_id,geometry):
+        from mcm_solarcheck.review.training_geometry import ReviewedGeometry
+        if not isinstance(geometry,ReviewedGeometry):raise ValueError('training geometry must be reviewed geometry')
+        with self.connect() as db:
+            label=db.execute('SELECT source_frame_id,reviewer FROM training_labels WHERE project_id=? AND label_id=?',(project_id,label_id)).fetchone()
+            if label is None:raise KeyError(f'Unknown training label: {project_id}/{label_id}')
+            if label['source_frame_id']!=geometry.source_frame_id:raise ValueError('training geometry must match ground-truth source frame')
+            if label['reviewer']!=geometry.reviewer:raise ValueError('training geometry reviewer must match ground-truth reviewer')
+            db.execute('INSERT INTO training_geometries(project_id,label_id,source_frame_id,reviewer,representation,box_json,polygon_json) VALUES (?,?,?,?,?,?,?)',(project_id,label_id,geometry.source_frame_id,geometry.reviewer,geometry.representation,json.dumps(geometry.box_xyxy) if geometry.box_xyxy is not None else None,json.dumps(geometry.polygon_px) if geometry.polygon_px is not None else None))
+
+    def training_geometries(self,project_id,source_frame_id=None):
+        sql='SELECT geometry_id,label_id,source_frame_id,reviewer,representation,box_json,polygon_json FROM training_geometries WHERE project_id=?'
+        params=[project_id]
+        if source_frame_id is not None:sql+=' AND source_frame_id=?';params.append(source_frame_id)
+        sql+=' ORDER BY geometry_id'
+        with self.connect() as db:
+            rows=[]
+            for row in db.execute(sql,tuple(params)).fetchall():
+                value=dict(row)
+                value['box_xyxy']=None if value.pop('box_json') is None else tuple(json.loads(row['box_json']))
+                value['polygon_px']=None if value.pop('polygon_json') is None else tuple(tuple(p) for p in json.loads(row['polygon_json']))
+                rows.append(value)
+            return tuple(rows)
+
     def ground_truth(self,project_id,source_frame_id=None):
         sql='SELECT label_id,source_frame_id,module_id,finding_id,defect_class,reviewer,supersedes_label_id,note,inspection_group_id FROM training_labels WHERE project_id=?'
         params=[project_id]
