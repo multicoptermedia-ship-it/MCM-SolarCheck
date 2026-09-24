@@ -1,6 +1,8 @@
 import pytest
 
-from mcm_solarcheck.review.model_manifest import ModelManifest
+from hashlib import sha256
+
+from mcm_solarcheck.review.model_manifest import ModelManifest, verify_weights_sha256
 
 
 def test_model_manifest_records_external_model_provenance():
@@ -29,3 +31,26 @@ def test_model_manifest_restricts_modality(modality):
 def test_model_manifest_rejects_invalid_weight_digest(digest):
     with pytest.raises(ValueError):
         ModelManifest("pv-yolo", "v1", "thermal", "dataset", "license", digest)
+
+
+def test_weight_artifact_digest_is_verified(tmp_path):
+    weights=tmp_path / "model.pt"
+    weights.write_bytes(b"fixture-weights")
+    digest=sha256(b"fixture-weights").hexdigest()
+    manifest=ModelManifest("pv-yolo", "v1", "thermal", "dataset", "license", digest)
+    assert verify_weights_sha256(manifest, weights) is True
+
+
+def test_weight_artifact_digest_mismatch_fails_verification(tmp_path):
+    weights=tmp_path / "model.pt"
+    weights.write_bytes(b"unexpected")
+    manifest=ModelManifest("pv-yolo", "v1", "thermal", "dataset", "license", "a"*64)
+    assert verify_weights_sha256(manifest, weights) is False
+
+
+def test_weight_verification_requires_recorded_digest(tmp_path):
+    weights=tmp_path / "model.pt"
+    weights.write_bytes(b"fixture")
+    manifest=ModelManifest("pv-yolo", "v1", "thermal", "dataset", "license")
+    with pytest.raises(ValueError):
+        verify_weights_sha256(manifest, weights)
