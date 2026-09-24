@@ -23,7 +23,7 @@ def test_v11_database_migrates_to_v12_and_preserves_corpus(tmp_path):
         """)
     db.initialize()
     with db.connect() as check:
-        assert check.execute("SELECT version FROM schema_info").fetchone()[0]==12
+        assert check.execute("SELECT version FROM schema_info").fetchone()[0]==13
         assert check.execute("SELECT COUNT(*) FROM training_samples").fetchone()[0]==1
         assert check.execute("SELECT COUNT(*) FROM training_geometries").fetchone()[0]==0
 
