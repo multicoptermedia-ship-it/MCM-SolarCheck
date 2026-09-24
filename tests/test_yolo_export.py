@@ -19,16 +19,21 @@ import json
 from types import SimpleNamespace
 
 
-def _snapshot():
-    manifest={"samples":[{"sample_id":"thermal:abc","source_frame_id":"T1","source_file":"t.jpg","modality":"thermal","content_sha256":"abc"}],
+def _snapshot(source_file="t.jpg", content_sha256="abc"):
+    manifest={"samples":[{"sample_id":"thermal:abc","source_frame_id":"T1","source_file":str(source_file),"modality":"thermal","content_sha256":content_sha256}],
       "labels":[{"label_id":1,"source_frame_id":"T1","module_id":"M1","finding_id":None,"inspection_group_id":"flight-1","defect_class":"hotspot"}],
       "geometries":[{"label_id":1,"source_frame_id":"T1","reviewer":"alice","representation":"rendered_rgb","box_xyxy":[100,50,300,150],"polygon_px":None}]}
     return SimpleNamespace(manifest_json=json.dumps(manifest))
 
 
 def test_yolo_manifest_is_deterministic_and_preserves_provenance(tmp_path):
-    a=build_yolo_detection_manifest(_snapshot(),{"hotspot":0},{"thermal:abc":(400,200)})
-    b=build_yolo_detection_manifest(_snapshot(),{"hotspot":0},{"thermal:abc":(400,200)})
+    from hashlib import sha256
+    source=tmp_path/"t.jpg"
+    source.write_bytes(b"thermal")
+    digest=sha256(b"thermal").hexdigest()
+    snapshot=_snapshot(source,digest)
+    a=build_yolo_detection_manifest(snapshot,{"hotspot":0},{"thermal:abc":(400,200)})
+    b=build_yolo_detection_manifest(snapshot,{"hotspot":0},{"thermal:abc":(400,200)})
     assert a==b
     row=a["rows"][0]
     assert row["content_sha256"]==digest
