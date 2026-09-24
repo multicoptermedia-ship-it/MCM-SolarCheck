@@ -32,7 +32,12 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
             manual_inspection_required=False,
             thermal_measurement=measurement,
         )
-    details=tuple(detail(item) for item in evidence_model.evidence if item.module_id is not None and item.module_id.strip())
+    details=list(detail(item) for item in evidence_model.evidence if item.module_id is not None and item.module_id.strip())
+    unclear=InspectionReportDataService(database).queries.findings(project_id,reviewer_status="unclear")
+    unclear_module_ids={item.module_id.strip() for item in unclear if item.module_id is not None and item.module_id.strip()}
+    for module_id in sorted(unclear_module_ids):
+        details.append(ModuleReportDetail(module_id=module_id,finding_label=None,review_status="unclear",manual_inspection_required=True))
+    details=tuple(details)
     resolved_module_ids={item.module_id.strip() for item in evidence_model.evidence if item.module_id is not None and item.module_id.strip()}
     unresolved=sum(1 for item in evidence_model.evidence if item.module_id is None or not item.module_id.strip())
     if release_status=="released" and (data.summary.unreviewed_findings or unresolved):
@@ -46,7 +51,7 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
         inspector=profile.inspector,
         total_modules=data.summary.pv_modules,
         conspicuous_modules=len(resolved_module_ids),
-        manual_review_modules=data.summary.unclear_findings + unresolved,
+        manual_review_modules=len(unclear_module_ids),
         site_address=_address(profile.site_street,profile.site_postal_code,profile.site_city),
         customer_contact=profile.customer_contact,
         customer_address=_address(profile.customer_street,profile.customer_postal_code,profile.customer_city),
