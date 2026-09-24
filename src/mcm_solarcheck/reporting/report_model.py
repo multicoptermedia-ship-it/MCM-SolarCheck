@@ -73,11 +73,13 @@ class ReportImage:
     source_frame_id: str
     path: str
     modality: str
+    geometry_source: str = "full_frame"
 
     def __post_init__(self) -> None:
         _text("source_frame_id",self.source_frame_id); _text("path",self.path)
         if self.modality not in {"rgb","thermal"}:
             raise ValueError("report image modality must be rgb or thermal")
+        _text("geometry_source",self.geometry_source)
 
 
 @dataclass(frozen=True)
