@@ -1,5 +1,5 @@
 import pytest
-from mcm_solarcheck.review.training_geometry import ReviewedGeometry, require_geometry_for_task
+from mcm_solarcheck.review.training_geometry import ReviewedGeometry, require_geometry_for_task, validate_geometry_bounds
 
 
 def test_reviewed_box_supports_detection():
@@ -43,3 +43,23 @@ def test_segmentation_task_rejects_box_only_geometry():
     value=ReviewedGeometry("T1","inspector","rendered_rgb",box_xyxy=(1,1,10,10))
     with pytest.raises(ValueError,match="does not support segmentation"):
         require_geometry_for_task(value,"segmentation")
+
+
+def test_geometry_bounds_accept_exact_source_extent():
+    value=ReviewedGeometry("T1","inspector","rendered_rgb",box_xyxy=(0,0,640,512))
+    assert validate_geometry_bounds(value,640,512) is value
+
+
+@pytest.mark.parametrize("box",[
+    (-1,0,10,10),(0,-1,10,10),(0,0,641,10),(0,0,10,513)
+])
+def test_geometry_bounds_reject_out_of_image_box(box):
+    value=ReviewedGeometry("T1","inspector","rendered_rgb",box_xyxy=box)
+    with pytest.raises(ValueError,match="outside source image bounds"):
+        validate_geometry_bounds(value,640,512)
+
+
+def test_geometry_bounds_reject_out_of_image_polygon():
+    value=ReviewedGeometry("T1","inspector","rendered_rgb",polygon_px=((1,1),(641,2),(3,4)))
+    with pytest.raises(ValueError,match="polygon lies outside"):
+        validate_geometry_bounds(value,640,512)
