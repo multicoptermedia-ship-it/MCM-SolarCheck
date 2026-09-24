@@ -26,7 +26,7 @@ class ModelValidationSummary:
             raise ValueError("matched defects cannot exceed defect samples")
         if self.false_positive_count > self.sample_count:
             raise ValueError("false positives cannot exceed total samples")
-        if not self.reviewer.strip():
+        if not isinstance(self.reviewer,str) or not self.reviewer.strip():
             raise ValueError("validation reviewer must not be empty")
 
     @property
