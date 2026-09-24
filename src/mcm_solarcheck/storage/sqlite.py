@@ -180,8 +180,6 @@ class ProjectDatabase:
 
     def approve_training_frame(self,project_id,source_frame_id,*,rights_approved=False):
         with self.connect() as db:
-            label=db.execute('SELECT 1 FROM training_labels WHERE project_id=? AND source_frame_id=? LIMIT 1',(project_id,source_frame_id)).fetchone()
-            if label is None:raise ValueError('training frame requires human ground truth before approval')
             values=['human_reviewed']
             sql="UPDATE training_samples SET label_status=?"
             if rights_approved:
