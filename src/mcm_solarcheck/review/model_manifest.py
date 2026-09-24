@@ -26,3 +26,21 @@ class ModelManifest:
             digest=self.weights_sha256.strip().casefold()
             if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
                 raise ValueError("weights_sha256 must be a 64-character hexadecimal SHA-256")
+
+
+def verify_weights_sha256(manifest: ModelManifest, path: object) -> bool:
+    """Verify an external weight artifact against its recorded immutable digest."""
+    from hashlib import sha256
+    from pathlib import Path
+
+    if manifest.weights_sha256 is None:
+        raise ValueError("model manifest has no weights SHA-256")
+    weight_path=Path(path)
+    if not weight_path.is_file():
+        raise ValueError("model weights file does not exist")
+
+    digest=sha256()
+    with weight_path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest() == manifest.weights_sha256.strip().casefold()
