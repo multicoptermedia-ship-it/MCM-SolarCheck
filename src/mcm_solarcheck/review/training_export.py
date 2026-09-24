@@ -20,6 +20,7 @@ def build_training_index(snapshot) -> tuple[dict, ...]:
         assignments.append((group_id,split))
         rows.append({
             "label_id":label["label_id"],
+            "source_frame_id":label["source_frame_id"],
             "sample_id":sample["sample_id"],
             "source_file":sample["source_file"],
             "modality":sample["modality"],
