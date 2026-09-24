@@ -53,6 +53,22 @@ class ReportProvenance:
 
 
 @dataclass(frozen=True)
+class ThermalMeasurement:
+    temperature_c: float
+    delta_t_c: float | None
+    provider: str
+    provenance_validated: bool
+
+    def __post_init__(self) -> None:
+        _text("provider",self.provider)
+        values=(self.temperature_c,) if self.delta_t_c is None else (self.temperature_c,self.delta_t_c)
+        if any(isinstance(v,bool) or not isinstance(v,(int,float)) or not isfinite(float(v)) for v in values):
+            raise ValueError("thermal measurements must be finite numbers")
+        if self.provenance_validated is not True:
+            raise ValueError("Celsius report values require validated radiometric provenance")
+
+
+@dataclass(frozen=True)
 class ReportImage:
     source_frame_id: str
     path: str
@@ -72,6 +88,7 @@ class ModuleReportDetail:
     rgb_image: ReportImage | None = None
     thermal_image: ReportImage | None = None
     manual_inspection_required: bool = False
+    thermal_measurement: ThermalMeasurement | None = None
 
     def __post_init__(self) -> None:
         _text("module_id",self.module_id); _text("finding_label",self.finding_label)
