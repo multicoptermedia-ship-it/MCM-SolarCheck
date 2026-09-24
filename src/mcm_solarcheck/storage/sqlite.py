@@ -144,6 +144,16 @@ class ProjectDatabase:
         with self.connect() as db:
             if rows:db.executemany(sql,rows)
 
+    def approve_training_frame(self,project_id,source_frame_id,*,rights_approved=False):
+        with self.connect() as db:
+            values=['human_reviewed']
+            sql="UPDATE training_samples SET label_status=?"
+            if rights_approved:
+                sql+=", rights_status='approved'"
+            sql+=" WHERE project_id=? AND source_frame_id=?"
+            values.extend((project_id,source_frame_id))
+            cur=db.execute(sql,tuple(values))
+            if cur.rowcount < 1:raise KeyError(f'Unknown training frame: {project_id}/{source_frame_id}')
     def training_samples(self,project_id,*,trainable_only=False):
         sql='SELECT sample_id,source_frame_id,source_file,modality,content_sha256,label_status,rights_status FROM training_samples WHERE project_id=?'
         params=[project_id]
