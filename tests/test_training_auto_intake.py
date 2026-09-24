@@ -29,3 +29,10 @@ def test_imported_rgb_frames_are_automatically_indexed(tmp_path):
     db.save_image_frames("P",[ImageFrame(frame_id="R1",source_file=image)])
     rows=db.training_samples("P")
     assert [(r["source_frame_id"],r["modality"]) for r in rows] == [("R1","rgb")]
+
+
+def test_missing_source_does_not_break_project_persistence(tmp_path):
+    db=ProjectDatabase(tmp_path/"p.sqlite"); db.initialize(); db.create_project("P","Project")
+    frame=ImageFrame(frame_id="R-missing",source_file=tmp_path/"not-present.jpg")
+    db.save_image_frames("P",[frame])
+    assert db.training_samples("P") == ()
