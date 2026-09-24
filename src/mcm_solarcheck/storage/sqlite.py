@@ -7,7 +7,7 @@ from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS finding_sensor_links(project_id TEXT NOT NULL,finding
 CREATE TABLE IF NOT EXISTS finding_reviews(review_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL,finding_id TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('confirmed','rejected','unclear')),reviewer TEXT NOT NULL,reviewed_at_utc TEXT NOT NULL,note TEXT,FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS training_samples(sample_id TEXT NOT NULL,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,source_frame_id TEXT NOT NULL,source_file TEXT NOT NULL,modality TEXT NOT NULL CHECK(modality IN ('thermal','rgb')),content_sha256 TEXT NOT NULL,label_status TEXT NOT NULL,rights_status TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(project_id,source_frame_id,modality));
 CREATE TABLE IF NOT EXISTS training_labels(label_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,source_frame_id TEXT NOT NULL,module_id TEXT,finding_id TEXT,defect_class TEXT NOT NULL,reviewer TEXT NOT NULL,supersedes_label_id INTEGER REFERENCES training_labels(label_id),note TEXT,inspection_group_id TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS training_geometries(geometry_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,label_id INTEGER NOT NULL UNIQUE REFERENCES training_labels(label_id) ON DELETE CASCADE,source_frame_id TEXT NOT NULL,reviewer TEXT NOT NULL,representation TEXT NOT NULL CHECK(representation IN ('rendered_rgb','grayscale_8bit')),box_json TEXT,polygon_json TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,CHECK(box_json IS NOT NULL OR polygon_json IS NOT NULL));
+CREATE INDEX IF NOT EXISTS idx_training_geometries_frame ON training_geometries(project_id,source_frame_id);
 CREATE INDEX IF NOT EXISTS idx_training_labels_frame ON training_labels(project_id,source_frame_id);
 CREATE INDEX IF NOT EXISTS idx_training_samples_project ON training_samples(project_id,modality,label_status,rights_status);
 CREATE INDEX IF NOT EXISTS idx_findings_frame ON findings(project_id,thermal_frame_id); CREATE INDEX IF NOT EXISTS idx_reviews_finding ON finding_reviews(project_id,finding_id); CREATE INDEX IF NOT EXISTS idx_sensor_links_rgb ON finding_sensor_links(project_id,rgb_frame_id);
@@ -56,6 +58,24 @@ def _migrate_10_to_11(db:sqlite3.Connection)->None:
     db.execute("UPDATE schema_info SET version=11")
 
 
+def _migrate_11_to_12(db:sqlite3.Connection)->None:
+    """Add reviewed training geometry without altering existing ground truth."""
+    db.execute("""CREATE TABLE training_geometries(
+        geometry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+        label_id INTEGER NOT NULL UNIQUE REFERENCES training_labels(label_id) ON DELETE CASCADE,
+        source_frame_id TEXT NOT NULL,
+        reviewer TEXT NOT NULL,
+        representation TEXT NOT NULL CHECK(representation IN ('rendered_rgb','grayscale_8bit')),
+        box_json TEXT,
+        polygon_json TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CHECK(box_json IS NOT NULL OR polygon_json IS NOT NULL)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_training_geometries_frame ON training_geometries(project_id,source_frame_id)")
+    db.execute("UPDATE schema_info SET version=12")
+
+
 class ProjectDatabase:
     def __init__(self,path:str|Path)->None:self.path=Path(path)
     @contextmanager
@@ -73,7 +93,10 @@ class ProjectDatabase:
                 version=None if row is None else row['version']
                 if version == 10:
                     _migrate_10_to_11(db)
-                    return
+                    version=11
+                if version == 11:
+                    _migrate_11_to_12(db)
+                    version=12
                 if version != SCHEMA_VERSION:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
