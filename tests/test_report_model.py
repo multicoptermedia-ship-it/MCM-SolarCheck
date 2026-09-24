@@ -120,7 +120,7 @@ def test_report_priority_fails_closed_for_unproven_celsius_value():
 # Phase 9 neutral customer-report contract
 from datetime import datetime, timezone
 import pytest
-from mcm_solarcheck.reporting.report_model import EquipmentRecord, InspectionReport, IrradianceSummary, ModuleReportDetail, ReportImage, ReportProvenance
+from mcm_solarcheck.reporting.report_model import EquipmentRecord, InspectionReport, IrradianceSummary, ModuleReportDetail, ReportImage, ReportProvenance, ThermalMeasurement
 
 
 def test_phase9_report_contract_carries_reviewed_summary():
@@ -157,3 +157,15 @@ def test_phase9_equipment_and_provenance_are_explicit():
 def test_phase9_rejects_non_datetime_timestamp():
     with pytest.raises(ValueError,match="must be a datetime"):
         InspectionReport("R","P","Customer","Site","2026-09-24","Inspector",10,0,0)
+
+
+def test_phase9_thermal_measurement_requires_validated_provenance():
+    with pytest.raises(ValueError,match="validated radiometric provenance"):
+        ThermalMeasurement(61.2,12.4,"raw metadata",False)
+    value=ThermalMeasurement(61.2,12.4,"validated radiometric provider",True)
+    assert value.delta_t_c==12.4
+
+
+def test_phase9_irradiance_requires_explicit_source_and_sane_range():
+    with pytest.raises(ValueError): IrradianceSummary(750,"   ")
+    with pytest.raises(ValueError): IrradianceSummary(650,"sensor",700,800)
