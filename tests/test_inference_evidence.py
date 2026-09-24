@@ -124,3 +124,17 @@ def test_rgb_evidence_cannot_attach_to_different_thermal_pair():
             adapter=_adapter("rgb"),
             evidence=_evidence("M-0042", "RGB-7", "rgb", "T-9"),
         )
+
+
+def test_manifest_runtime_provenance_is_persisted():
+    classified=attach_yolo_module_suggestion(
+        _finding(), detection=YoloDetection("hotspot", .91),
+        adapter=_adapter(), evidence=_evidence(),
+    )
+    manifest=ModelManifest(
+        "fixture-yolo", "v1", "thermal", "pv-dataset-r1", "Apache-2.0",
+        preprocessing="thermal-render-v1", backend="ultralytics-8.x",
+    )
+    result=attach_manifest_provenance(classified, manifest)
+    assert result.metadata["classification_preprocessing"] == "thermal-render-v1"
+    assert result.metadata["classification_backend"] == "ultralytics-8.x"
