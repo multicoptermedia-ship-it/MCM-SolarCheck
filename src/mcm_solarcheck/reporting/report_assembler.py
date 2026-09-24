@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from mcm_solarcheck.reporting.data import InspectionReportDataService
 from mcm_solarcheck.reporting.model import build_report_model
-from mcm_solarcheck.reporting.report_model import InspectionReport, ModuleReportDetail
+from mcm_solarcheck.reporting.report_model import InspectionReport, ModuleReportDetail, ThermalMeasurement
+from mcm_solarcheck.thermal.temperature_provenance import has_validated_celsius
 
 
 def _address(*parts: str | None) -> str | None:
@@ -18,16 +19,20 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
         raise ValueError("project profile is required before report assembly")
     data=InspectionReportDataService(database).build(project_id)
     evidence_model=build_report_model(data)
-    details=tuple(
-        ModuleReportDetail(
+    provenance_by_finding={item.finding.finding_id:item.finding for item in data.confirmed_findings}
+    def detail(item):
+        source=provenance_by_finding[item.finding_id]
+        measurement=None
+        if has_validated_celsius(source.temperature_c,source.temperature_status,source.temperature_provider):
+            measurement=ThermalMeasurement(source.temperature_c,None,source.temperature_provider,True)
+        return ModuleReportDetail(
             module_id=item.module_id,
             finding_label=item.classification,
             review_status="confirmed",
             manual_inspection_required=False,
+            thermal_measurement=measurement,
         )
-        for item in evidence_model.evidence
-        if item.module_id is not None and item.module_id.strip()
-    )
+    details=tuple(detail(item) for item in evidence_model.evidence if item.module_id is not None and item.module_id.strip())
     unresolved=sum(1 for item in evidence_model.evidence if item.module_id is None or not item.module_id.strip())
     if release_status=="released" and (data.summary.unreviewed_findings or unresolved):
         raise ValueError("released report requires reviewed findings and resolved physical modules")
