@@ -20,13 +20,13 @@ class DefectClassification:
     modality: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.label.strip():
+        if not isinstance(self.label,str) or not self.label.strip():
             raise ValueError("classification label must not be empty")
-        if not self.provider.strip():
+        if not isinstance(self.provider,str) or not self.provider.strip():
             raise ValueError("classification provider must not be empty")
         if not isfinite(float(self.confidence)) or not 0.0 <= self.confidence <= 1.0:
             raise ValueError("classification confidence must be finite and between 0 and 1")
-        if self.model_version is not None and not self.model_version.strip():
+        if self.model_version is not None and (not isinstance(self.model_version,str) or not self.model_version.strip()):
             raise ValueError("classification model version must not be blank")
         if self.modality is not None and self.modality not in {"thermal", "rgb"}:
             raise ValueError("classification modality must be thermal or rgb")
