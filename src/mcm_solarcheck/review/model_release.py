@@ -13,14 +13,26 @@ class ModelRelease:
     run_id: str
     weights_sha256: str
     evaluator: str
+    evaluation_id: str | None = None
 
 
-def create_model_release(validation: TrainedModelValidation) -> ModelRelease:
+def create_model_release(validation: TrainedModelValidation, *, training_run=None, evaluation=None) -> ModelRelease:
     require_trained_model_validation(validation)
     artifact=validation.artifact
-    payload={"run_id":artifact.run_id,"weights_sha256":artifact.weights_sha256.lower(),"evaluator":validation.evaluator.strip()}
+    evaluation_id=None
+    if training_run is not None or evaluation is not None:
+        if training_run is None or evaluation is None:
+            raise ValueError("training run and independent evaluation must be supplied together")
+        from .evaluation_lineage import require_independent_evaluation
+        require_independent_evaluation(training_run,evaluation)
+        if artifact.run_id != training_run.run_id:
+            raise ValueError("validated artifact does not match training run")
+        if validation.decision.accepted != evaluation.summary.representative_m3t:
+            raise ValueError("accepted release requires representative independent evaluation")
+        evaluation_id=evaluation.evaluation_set.evaluation_id
+    payload={"run_id":artifact.run_id,"weights_sha256":artifact.weights_sha256.lower(),"evaluator":validation.evaluator.strip(),"evaluation_id":evaluation_id}
     encoded=json.dumps(payload,sort_keys=True,separators=(",",":"))
-    return ModelRelease(sha256(encoded.encode()).hexdigest(),artifact.run_id,artifact.weights_sha256.lower(),validation.evaluator.strip())
+    return ModelRelease(sha256(encoded.encode()).hexdigest(),artifact.run_id,artifact.weights_sha256.lower(),validation.evaluator.strip(),evaluation_id)
 
 
 def attach_release_provenance(finding, release: ModelRelease, *, dataset_id: str, snapshot_id: str):
