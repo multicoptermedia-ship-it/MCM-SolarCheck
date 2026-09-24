@@ -33,6 +33,7 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
             thermal_measurement=measurement,
         )
     details=tuple(detail(item) for item in evidence_model.evidence if item.module_id is not None and item.module_id.strip())
+    resolved_module_ids={item.module_id.strip() for item in evidence_model.evidence if item.module_id is not None and item.module_id.strip()}
     unresolved=sum(1 for item in evidence_model.evidence if item.module_id is None or not item.module_id.strip())
     if release_status=="released" and (data.summary.unreviewed_findings or unresolved):
         raise ValueError("released report requires reviewed findings and resolved physical modules")
@@ -44,7 +45,7 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
         inspection_started_at=inspection_started_at,
         inspector=profile.inspector,
         total_modules=data.summary.pv_modules,
-        conspicuous_modules=data.summary.confirmed_findings,
+        conspicuous_modules=len(resolved_module_ids),
         manual_review_modules=data.summary.unclear_findings + unresolved,
         site_address=_address(profile.site_street,profile.site_postal_code,profile.site_city),
         customer_contact=profile.customer_contact,
