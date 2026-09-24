@@ -30,7 +30,10 @@ def _verify_row(row: dict) -> None:
 
 def build_dataset(snapshot) -> DatasetBuild:
     rows=build_training_index(snapshot)
-    for row in rows:_verify_row(row)
+    if not rows:raise ValueError("training dataset must contain at least one reviewed, rights-approved sample")
+    for row in rows:
+        if row["defect_class"]=="unknown":raise ValueError("unknown ground truth cannot enter a training dataset")
+        _verify_row(row)
     manifest={
         "snapshot_id":snapshot.snapshot_id,
         "split_policy":{"strategy":"inspection_or_physical_group_sha256","train":80,"validation":10,"test":10},
