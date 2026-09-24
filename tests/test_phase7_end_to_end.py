@@ -28,7 +28,7 @@ def test_phase7_reviewed_data_to_validated_advisory_to_human_decision(tmp_path):
     dataset=build_dataset(snapshot)
     assert snapshot.sample_count==1 and dataset.sample_count==1
 
-    run=TrainingRun(dataset.dataset_id,snapshot.snapshot_id,"controlled-test-trainer","1","rendered_rgb",{"epochs":1})
+    run=TrainingRun(dataset.dataset_id,snapshot.snapshot_id,"controlled-test-trainer","1","rendered_rgb",{"epochs":1,"seed":42})
     def trainer(_dataset,_run):
         weights=tmp_path/"model.pt"; weights.write_bytes(b"validated-weights"); return weights
     artifact=execute_training(dataset,run,trainer=trainer)
