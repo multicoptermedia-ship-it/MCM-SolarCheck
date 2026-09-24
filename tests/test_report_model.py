@@ -126,7 +126,7 @@ from mcm_solarcheck.reporting.report_model import InspectionReport, IrradianceSu
 def test_phase9_report_contract_carries_reviewed_summary():
     rgb=ReportImage('R1','rgb.jpg','rgb'); thermal=ReportImage('T1','thermal.jpg','thermal')
     detail=ModuleReportDetail('M-023','thermal_hotspot_candidate','confirmed',rgb,thermal)
-    report=InspectionReport('REP-1','P1','Customer','Site',datetime(2026,9,24,12,tzinfo=timezone.utc),'Inspector',850,12,5,IrradianceSummary(750,'on-site sensor',700,810),rgb,thermal,(detail,),'reviewed')
+    report=InspectionReport('REP-1','P1','Customer','Site',datetime(2026,9,24,12,tzinfo=timezone.utc),'Inspector',850,12,5,irradiance=IrradianceSummary(750,'on-site sensor',700,810),overview_rgb=rgb,overview_thermal=thermal,details=(detail,),release_status='reviewed')
     assert report.modules_without_documented_finding==838
     assert report.details[0].module_id=='M-023'
 
