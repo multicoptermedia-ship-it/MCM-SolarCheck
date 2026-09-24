@@ -58,3 +58,16 @@ def test_yolo_detection_rejects_invalid_boxes(box):
 def test_yolo_adapter_requires_explicit_supported_modality(modality):
     with pytest.raises(ValueError):
         YoloAdapter("model", "v1", DEFAULT_THERMAL_CLASS_MAP, modality)
+
+
+def test_normal_detection_cannot_mask_lower_confidence_defect():
+    result=_adapter().adapt_best((
+        YoloDetection("normal", .99),
+        YoloDetection("cell hotspot", .81),
+    ))
+    assert result is not None
+    assert result.label == "cell_hotspot_candidate"
+
+
+def test_normal_only_produces_no_defect_suggestion():
+    assert _adapter().adapt_best((YoloDetection("normal", .99),)) is None
