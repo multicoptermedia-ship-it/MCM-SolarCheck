@@ -28,4 +28,5 @@ def detail_presentation(detail: ModuleReportDetail) -> DetailPresentation:
         delta="" if m.delta_t_c is None else f"; ΔT {m.delta_t_c:g} °C"
         temperature=f"Radiometrisch validiert: {m.temperature_c:g} °C{delta}; Quelle: {m.provider}"
     manual="Manuelle Prüfung erforderlich." if detail.manual_inspection_required else None
-    return DetailPresentation(f"Modul {detail.module_id}",detail.finding_label,detail.review_status,temperature,manual)
+    finding=detail.finding_label or "Kein bestätigter Befund – manuelle Prüfung erforderlich"
+    return DetailPresentation(f"Modul {detail.module_id}",finding,detail.review_status,temperature,manual)
