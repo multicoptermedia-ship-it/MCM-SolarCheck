@@ -32,6 +32,30 @@ def _upsert(table:str, columns:tuple[str,...], conflict:tuple[str,...])->str:
     names=','.join(columns); marks=','.join('?' for _ in columns); updates=','.join(f'{c}=excluded.{c}' for c in columns if c not in conflict)
     return f"INSERT INTO {table}({names}) VALUES ({marks}) ON CONFLICT({','.join(conflict)}) DO UPDATE SET {updates}"
 
+def _migrate_10_to_11(db:sqlite3.Connection)->None:
+    """Preserve v10 corpus rows while changing source identity semantics."""
+    db.execute("ALTER TABLE training_samples RENAME TO training_samples_v10")
+    db.execute("""CREATE TABLE training_samples(
+        sample_id TEXT NOT NULL,
+        project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+        source_frame_id TEXT NOT NULL,
+        source_file TEXT NOT NULL,
+        modality TEXT NOT NULL CHECK(modality IN ('thermal','rgb')),
+        content_sha256 TEXT NOT NULL,
+        label_status TEXT NOT NULL,
+        rights_status TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(project_id,source_frame_id,modality)
+    )""")
+    db.execute("""INSERT INTO training_samples
+        (sample_id,project_id,source_frame_id,source_file,modality,content_sha256,label_status,rights_status,created_at)
+        SELECT sample_id,project_id,source_frame_id,source_file,modality,content_sha256,label_status,rights_status,created_at
+        FROM training_samples_v10""")
+    db.execute("DROP TABLE training_samples_v10")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_training_samples_project ON training_samples(project_id,modality,label_status,rights_status)")
+    db.execute("UPDATE schema_info SET version=11")
+
+
 class ProjectDatabase:
     def __init__(self,path:str|Path)->None:self.path=Path(path)
     @contextmanager
@@ -46,8 +70,12 @@ class ProjectDatabase:
             if tables:
                 if 'schema_info' not in tables:raise RuntimeError('Unversioned non-empty database; refusing to modify it')
                 row=db.execute('SELECT version FROM schema_info LIMIT 1').fetchone()
-                if row is None or row['version']!=SCHEMA_VERSION:
-                    version=None if row is None else row['version'];raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
+                version=None if row is None else row['version']
+                if version == 10:
+                    _migrate_10_to_11(db)
+                    return
+                if version != SCHEMA_VERSION:
+                    raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
             db.executescript(_SCHEMA);db.execute('INSERT INTO schema_info(version) VALUES (?)',(SCHEMA_VERSION,))
     def create_project(self,project_id:str,name:str)->None:
