@@ -1,6 +1,6 @@
 import pytest
 
-from mcm_solarcheck.review.ultralytics_bridge import detections_from_ultralytics
+from mcm_solarcheck.review.ultralytics_bridge import detections_from_ultralytics, infer_ultralytics
 
 
 class _Tensor:
@@ -46,3 +46,33 @@ def test_ultralytics_bridge_rejects_misaligned_box_fields():
     result.boxes=_Boxes([1, 1], [.8], [[1, 2, 3, 4]])
     with pytest.raises(ValueError):
         detections_from_ultralytics(result)
+
+
+class _Model:
+    def __init__(self):
+        self.kwargs=None
+    def predict(self, **kwargs):
+        self.kwargs=kwargs
+        return [_Result()]
+
+
+def test_inference_boundary_passes_explicit_threshold_and_disables_verbose_output():
+    model=_Model()
+    detections=infer_ultralytics(model, object(), confidence=.42)
+    assert detections[0].class_name == "hotspot"
+    assert model.kwargs["conf"] == .42
+    assert model.kwargs["verbose"] is False
+
+
+@pytest.mark.parametrize("confidence", [-.1, 1.1])
+def test_inference_boundary_rejects_invalid_threshold(confidence):
+    with pytest.raises(ValueError):
+        infer_ultralytics(_Model(), object(), confidence=confidence)
+
+
+def test_inference_boundary_requires_exactly_one_result():
+    class EmptyModel:
+        def predict(self, **kwargs):
+            return []
+    with pytest.raises(ValueError):
+        infer_ultralytics(EmptyModel(), object())
