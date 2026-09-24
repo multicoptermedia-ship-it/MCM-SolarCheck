@@ -1,5 +1,5 @@
 import pytest
-from mcm_solarcheck.review.training_geometry import ReviewedGeometry
+from mcm_solarcheck.review.training_geometry import ReviewedGeometry, require_geometry_for_task
 
 
 def test_reviewed_box_supports_detection():
@@ -31,3 +31,15 @@ def test_invalid_geometry_fails_closed(kwargs):
 def test_raw_radiometric_geometry_is_not_training_geometry():
     with pytest.raises(ValueError,match="rendered representation"):
         ReviewedGeometry("T1","inspector","radiometric_raw",box_xyxy=(1,1,10,10))
+
+
+def test_detection_task_rejects_polygon_only_geometry():
+    value=ReviewedGeometry("T1","inspector","rendered_rgb",polygon_px=((1,1),(10,1),(5,9)))
+    with pytest.raises(ValueError,match="does not support detection"):
+        require_geometry_for_task(value,"detection")
+
+
+def test_segmentation_task_rejects_box_only_geometry():
+    value=ReviewedGeometry("T1","inspector","rendered_rgb",box_xyxy=(1,1,10,10))
+    with pytest.raises(ValueError,match="does not support segmentation"):
+        require_geometry_for_task(value,"segmentation")
