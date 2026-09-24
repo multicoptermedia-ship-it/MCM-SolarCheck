@@ -36,4 +36,4 @@ Die KI-Erkennung ist als Assistenzsystem zu behandeln. Eine automatische Klassif
 
 ## Status
 
-Initiales Architektur-/Projektgerüst. Das Repository wird schrittweise um eine produktionsfähige Desktop-Anwendung, Testdaten, Modelle und Installationspakete erweitert.
+Die Import-, Radiometrie-, Lokalisierungs-/Priorisierungs- und Phase-7-Modell-/Trainingsdatenverträge sind testgestützt aufgebaut. Phase 7 hält Modellklassifikation ausdrücklich als überprüfbare Empfehlung: Trainingsdaten benötigen menschliche Ground Truth und Rechtefreigabe, Modellartefakte bleiben über Dataset/Snapshot/Weights nachvollziehbar und die fachkundige Prüfung bleibt die maßgebliche Befundentscheidung. Das Repository wird weiter zur produktionsfähigen Desktop-Anwendung, zu validierten Modellen und Installationspaketen ausgebaut.
