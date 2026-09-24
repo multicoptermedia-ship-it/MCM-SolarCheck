@@ -18,6 +18,15 @@ class TrainingRun:
         for name,value in (("dataset_id",self.dataset_id),("snapshot_id",self.snapshot_id),("trainer",self.trainer),("trainer_version",self.trainer_version),("preprocessing",self.preprocessing)):
             if not isinstance(value,str) or not value.strip():
                 raise ValueError(f"{name} must not be empty")
+        if not isinstance(self.parameters,dict):
+            raise ValueError("training parameters must be a dictionary")
+        seed=self.parameters.get("seed")
+        if not isinstance(seed,int) or isinstance(seed,bool) or seed < 0:
+            raise ValueError("training parameters must include a non-negative integer seed")
+        try:
+            json.dumps(self.parameters,sort_keys=True,separators=(",",":"),ensure_ascii=False,allow_nan=False)
+        except (TypeError,ValueError) as exc:
+            raise ValueError("training parameters must be finite JSON-serializable values") from exc
 
     @property
     def run_id(self) -> str:
