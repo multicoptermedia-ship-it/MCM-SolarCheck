@@ -5,6 +5,7 @@ from docx import Document
 from docx.enum.section import WD_SECTION
 from docx.shared import Mm, Pt
 from .report_model import InspectionReport
+from .presentation import detail_presentation, irradiance_text
 
 
 REPORT_STANDARD_WORDING="Prüfbericht – Aufbau unter Berücksichtigung der DIN IEC/TS 62446-3 (VDE V 0126-23-3):2018-04"
@@ -46,11 +47,7 @@ def render_docx(report: InspectionReport, destination: str | Path, *, banner_pat
         ("Ohne dokumentierten Befund",report.modules_without_documented_finding),
     ):
         cells=table.add_row().cells; cells[0].text=label; cells[1].text=_value(value)
-    if report.irradiance:
-        irr=report.irradiance
-        document.add_paragraph(f"Einstrahlung: Mittel {irr.mean_w_m2:g} W/m²; Min {_value(irr.minimum_w_m2)}; Max {_value(irr.maximum_w_m2)}; Quelle: {irr.source}")
-    else:
-        document.add_paragraph("Einstrahlung: nicht dokumentiert.")
+    document.add_paragraph(irradiance_text(report))
     for image,label in ((report.overview_rgb,"RGB-Übersicht"),(report.overview_thermal,"Thermal-Übersicht")):
         if image and Path(image.path).is_file():
             document.add_paragraph(label)
@@ -59,12 +56,11 @@ def render_docx(report: InspectionReport, destination: str | Path, *, banner_pat
     document.add_heading("Detailbefunde",level=1)
     if not report.details: document.add_paragraph("Keine freigegebenen Detailbefunde.")
     for detail in report.details:
-        document.add_heading(f"Modul {detail.module_id}",level=2)
-        document.add_paragraph(f"Befund: {detail.finding_label} | Review: {detail.review_status}")
-        if detail.thermal_measurement:
-            m=detail.thermal_measurement
-            delta="" if m.delta_t_c is None else f"; ΔT {m.delta_t_c:g} °C"
-            document.add_paragraph(f"Radiometrisch validiert: {m.temperature_c:g} °C{delta}; Quelle: {m.provider}")
+        view=detail_presentation(detail)
+        document.add_heading(view.heading,level=2)
+        document.add_paragraph(f"Befund: {view.finding} | Review: {view.review}")
+        if view.temperature: document.add_paragraph(view.temperature)
+        if view.manual_inspection: document.add_paragraph(view.manual_inspection)
         images=document.add_table(rows=1,cols=2).cells
         for cell,img,label in ((images[0],detail.rgb_image,"RGB"),(images[1],detail.thermal_image,"Thermal")):
             cell.text=label
