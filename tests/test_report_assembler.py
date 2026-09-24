@@ -74,3 +74,20 @@ def test_unresolved_confirmed_finding_does_not_fake_module_count_and_blocks_rele
     assert draft.details==()
     with pytest.raises(ValueError,match="resolved physical modules"):
         assemble_inspection_report(db,"P1","R2",datetime(2026,9,24,12,tzinfo=timezone.utc),release_status="released")
+
+
+def test_assembler_attaches_only_persisted_paired_rgb_and_thermal_sources(tmp_path):
+    db=_db(tmp_path)
+    db.save_modules("P1",(PVModule("M1","T1",((0,0),(1,0),(1,1)),0.9,"test"),))
+    with db.connect() as sql:
+        sql.execute("INSERT INTO image_frames(project_id,frame_id,source_file,metadata_json) VALUES('P1','R1','rgb.jpg','{}')")
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,thermal_source,metadata_json) VALUES('P1','T1','thermal.jpg','test','{}')")
+        sql.execute("INSERT INTO image_pairs(project_id,pair_id,rgb_frame_id,thermal_frame_id,confidence,method) VALUES('P1','PAIR1','R1','T1',0.95,'timestamp')")
+        sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P1','F1','T1',1,2,'hotspot_candidate','M1','confirmed','{}')")
+        sql.execute("INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc) VALUES('P1','F1','confirmed','Inspector','2026-09-24T12:00:00+00:00')")
+    detail=assemble_inspection_report(db,"P1","REP",datetime(2026,9,24,12,tzinfo=timezone.utc)).details[0]
+    assert detail.thermal_image.path=="thermal.jpg"
+    assert detail.thermal_image.source_frame_id=="T1"
+    assert detail.rgb_image.path=="rgb.jpg"
+    assert detail.rgb_image.source_frame_id=="R1"
+    assert detail.rgb_image.modality=="rgb" and detail.thermal_image.modality=="thermal"
