@@ -31,7 +31,9 @@ def render_pdf(report: InspectionReport, destination: str | Path, *, banner_path
               Paragraph(f"Anlage: {report.site_name}",styles["BodyText"]),Paragraph(f"Standort: {report.site_address or '—'}",styles["BodyText"]),PageBreak(),
               Paragraph("Übersicht",styles["Heading1"])]
     rows=[
-        ["Kunde",report.customer_name],["Anlage",report.site_name],["Prüfbeginn",report.inspection_started_at.isoformat()],
+        ["Kunde",report.customer_name],["Kundenkontakt",report.customer_contact or "—"],["Kundenanschrift",report.customer_address or "—"],
+        ["Kunden-E-Mail",report.customer_email or "—"],["Kundentelefon",report.customer_phone or "—"],["Kundenreferenz",report.customer_reference or "—"],["Auftragsreferenz",report.order_reference or "—"],
+        ["Anlage",report.site_name],["Prüfbeginn",report.inspection_started_at.isoformat()],
         ["Prüfer",report.inspector],["PV-Module geprüft",str(report.total_modules)],
         ["Module mit dokumentiertem Befund",str(report.conspicuous_modules)],["Manuelle Prüfung erforderlich",str(report.manual_review_modules)],
         ["Ohne dokumentierten Befund",str(report.modules_without_documented_finding)],
