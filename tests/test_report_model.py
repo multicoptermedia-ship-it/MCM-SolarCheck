@@ -318,3 +318,17 @@ def test_phase9_operator_optional_fields_reject_blank_values():
         kwargs={field:" "}
         with pytest.raises(ValueError):
             OperatorSnapshot("Operator GmbH","Werkstr. 1","office@example.invalid",**kwargs)
+
+
+def test_phase9_report_rejects_blank_site_address():
+    with pytest.raises(ValueError,match="site_address"):
+        InspectionReport("R","P","Customer","Site",datetime.now(timezone.utc),"Inspector",10,0,0,site_address=" ")
+
+
+def test_phase9_operator_preserves_optional_identity_values():
+    operator=OperatorSnapshot("Operator GmbH","Werkstr. 1","office@example.invalid",phone="+49 123",website="https://example.invalid",tax_id="12/345/67890",vat_id="DE123456789",logo_path="logo.png")
+    assert operator.phone=="+49 123"
+    assert operator.website=="https://example.invalid"
+    assert operator.tax_id=="12/345/67890"
+    assert operator.vat_id=="DE123456789"
+    assert operator.logo_path=="logo.png"
