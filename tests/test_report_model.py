@@ -184,3 +184,30 @@ def test_confirmed_detail_cannot_omit_defect_label():
 def test_unclear_without_label_requires_manual_inspection():
     with pytest.raises(ValueError,match="requires manual inspection"):
         ModuleReportDetail("M-9",None,"unclear")
+
+
+def test_phase9_report_rejects_naive_timestamp():
+    with pytest.raises(ValueError,match="timezone-aware"):
+        InspectionReport("R","P","C","S",datetime(2026,9,24,12),"I",10,0,0)
+
+
+def test_phase9_report_rejects_manual_review_count_above_total():
+    with pytest.raises(ValueError,match="counts"):
+        InspectionReport("R","P","C","S",datetime.now(timezone.utc),"I",10,0,11)
+
+
+def test_phase9_report_image_requires_known_modality():
+    with pytest.raises(ValueError,match="rgb or thermal"):
+        ReportImage("F1","image.png","visible")
+
+
+def test_phase9_report_rejects_wrong_overview_modality():
+    thermal=ReportImage("T1","thermal.png","thermal")
+    with pytest.raises(ValueError,match="overview_rgb"):
+        InspectionReport("R","P","C","S",datetime.now(timezone.utc),"I",10,0,0,overview_rgb=thermal)
+
+
+def test_phase9_detail_rejects_wrong_image_slot_modality():
+    thermal=ReportImage("T1","thermal.png","thermal")
+    with pytest.raises(ValueError,match="rgb_image"):
+        ModuleReportDetail("M1","hotspot","confirmed",rgb_image=thermal)
