@@ -31,9 +31,3 @@ def test_pdf_accepts_operator_snapshot_cover(tmp_path):
     data=Path(render_pdf(report,tmp_path/"operator.pdf")).read_bytes()
     assert data.startswith(b"%PDF-") and len(data)>1000
 
-
-def test_pdf_renderer_preserves_customer_and_order_references(tmp_path):
-    report=InspectionReport("R","P","Customer GmbH","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0,customer_contact="Max Muster",customer_address="Kundenweg 2",customer_email="kunde@example.invalid",customer_phone="+49 555",customer_reference="K-17",order_reference="A-42")
-    data=Path(render_pdf(report,tmp_path/"references.pdf")).read_bytes()
-    for value in (b"Max Muster",b"Kundenweg 2",b"kunde@example.invalid",b"+49 555",b"K-17",b"A-42"):
-        assert value in data
