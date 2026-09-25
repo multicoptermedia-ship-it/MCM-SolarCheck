@@ -295,3 +295,11 @@ def test_phase9_provenance_requires_software_and_evidence_statement():
         ReportProvenance(" ","reviewed evidence")
     with pytest.raises(ValueError,match="evidence_statement"):
         ReportProvenance("1.0"," ")
+
+
+def test_phase9_report_requires_nonempty_core_identity():
+    base=("R","P","Customer","Site",datetime.now(timezone.utc),"Inspector")
+    for index in range(6):
+        values=list(base); values[index]=" "
+        with pytest.raises(ValueError):
+            InspectionReport(*values,10,0,0)
