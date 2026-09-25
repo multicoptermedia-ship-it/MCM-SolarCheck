@@ -311,3 +311,10 @@ def test_phase9_report_optional_customer_fields_reject_blank_values():
         kwargs={field:" "}
         with pytest.raises(ValueError):
             InspectionReport("R","P","Customer","Site",datetime.now(timezone.utc),"Inspector",10,0,0,**kwargs)
+
+
+def test_phase9_operator_optional_fields_reject_blank_values():
+    for field in ("phone","website","tax_id","vat_id","logo_path"):
+        kwargs={field:" "}
+        with pytest.raises(ValueError):
+            OperatorSnapshot("Operator GmbH","Werkstr. 1","office@example.invalid",**kwargs)
