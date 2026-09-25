@@ -153,6 +153,8 @@ class InspectionReport:
 
     def __post_init__(self) -> None:
         for n,v in (("report_id",self.report_id),("project_id",self.project_id),("customer_name",self.customer_name),("site_name",self.site_name),("inspector",self.inspector)): _text(n,v)
+        for n,v in (("site_address",self.site_address),("customer_contact",self.customer_contact),("customer_address",self.customer_address),("customer_email",self.customer_email),("customer_phone",self.customer_phone),("customer_reference",self.customer_reference),("order_reference",self.order_reference)):
+            if v is not None: _text(n,v)
         if not isinstance(self.inspection_started_at,datetime):
             raise ValueError("inspection_started_at must be a datetime")
         if self.inspection_started_at.tzinfo is None:
