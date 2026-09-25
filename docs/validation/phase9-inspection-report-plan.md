@@ -45,3 +45,10 @@ Cloud deployment should prefer demand-driven CPU/GPU workers and usage-metered t
 The Phase 9 implementation now has CI-backed coverage for the backend-neutral report contract, reviewed/unclear evidence separation, release guards, calibrated-temperature and irradiance provenance, source-image provenance, deterministic report assets, operator/customer identity snapshots, and the shared DOCX/ODT/PDF export boundary.
 
 The remaining close-out work is deliberately limited to integration verification and documentation. New renderer or model behavior should only be added when a concrete acceptance gap is identified; Phase 9 should not accumulate speculative edge-case behavior after the documented gates are satisfied.
+
+
+## Close-out gate
+
+Phase 9 is implementation-complete when the branch CI is green after the released-report integration checks. The close-out evidence covers the reviewed evidence boundary, release guards, image and temperature provenance, deterministic asset generation, identity snapshots, and successful DOCX/ODT/PDF export from the shared report contract.
+
+Further changes to report semantics should therefore start from a documented requirement or defect rather than extending Phase 9 speculatively. Licensed-standard conformity remains a separate validation activity; this close-out does not claim full DIN IEC/TS 62446-3 conformity.
