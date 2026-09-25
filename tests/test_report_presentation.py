@@ -17,3 +17,10 @@ def test_shared_irradiance_wording_never_implies_measurement_without_source():
     text=irradiance_text(report)
     assert "Quelle: DJI metadata / derived" in text
     assert "gemessen" not in text.lower()
+
+
+def test_manual_only_detail_separates_finding_from_review_instruction():
+    detail=ModuleReportDetail("M-9",None,"unclear",manual_inspection_required=True)
+    view=detail_presentation(detail)
+    assert view.finding=="Kein bestätigter Befund"
+    assert view.manual_inspection=="Manuelle Prüfung erforderlich."
