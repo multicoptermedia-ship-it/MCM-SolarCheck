@@ -66,3 +66,8 @@ def test_export_boundary_does_not_mutate_report(tmp_path,suffix):
 def test_export_boundary_returns_exact_destination_path(tmp_path,suffix):
     target=tmp_path/"delivery"/f"customer-report.{suffix}"
     assert export_report(_report(),target)==target
+
+
+def test_export_boundary_rejects_format_extension_mismatch_case_insensitively(tmp_path):
+    with pytest.raises(ValueError,match="extension"):
+        export_report(_report(),tmp_path/"report.PDF",format="DOCX")
