@@ -94,3 +94,25 @@ class ProjectWorkflowService:
             StageReadiness(WorkflowStage.EXPORT, not export_blockers, tuple(export_blockers)),
         )
         return ProjectWorkflowState(stages)
+
+
+@dataclass(frozen=True)
+class WorkflowResumePoint:
+    stage: WorkflowStage
+    blockers: tuple[str, ...] = ()
+
+
+def resume_point(state: ProjectWorkflowState) -> WorkflowResumePoint:
+    """Return the first stage that still needs work, without inventing UI state."""
+    order = (
+        WorkflowStage.IMPORT,
+        WorkflowStage.PROCESSING,
+        WorkflowStage.REVIEW,
+        WorkflowStage.REPORT,
+        WorkflowStage.EXPORT,
+    )
+    for stage in order:
+        readiness = state.readiness(stage)
+        if not readiness.ready:
+            return WorkflowResumePoint(stage, readiness.blockers)
+    return WorkflowResumePoint(WorkflowStage.EXPORT)
