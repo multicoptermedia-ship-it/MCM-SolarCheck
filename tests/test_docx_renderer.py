@@ -38,3 +38,11 @@ def test_docx_detail_marks_missing_images_explicitly(tmp_path):
     doc=Document(render_docx(report,tmp_path/"missing-image.docx"))
     text="\n".join(p.text for p in doc.paragraphs)+"\n"+"\n".join(cell.text for table in doc.tables for row in table.rows for cell in row.cells)
     assert text.count("Bild nicht verfügbar")>=2
+
+
+def test_docx_renderer_preserves_customer_and_order_references(tmp_path):
+    report=InspectionReport("R","P","Customer GmbH","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0,customer_contact="Max Muster",customer_address="Kundenweg 2",customer_email="kunde@example.invalid",customer_phone="+49 555",customer_reference="K-17",order_reference="A-42")
+    doc=Document(render_docx(report,tmp_path/"references.docx"))
+    text="\n".join(cell.text for table in doc.tables for row in table.rows for cell in row.cells)
+    for value in ("Max Muster","Kundenweg 2","kunde@example.invalid","+49 555","K-17","A-42"):
+        assert value in text
