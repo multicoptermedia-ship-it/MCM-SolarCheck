@@ -104,3 +104,18 @@ def test_export_boundary_preserves_timezone_aware_inspection_timestamp(tmp_path,
     assert report.inspection_started_at is started
     assert report.inspection_started_at.tzinfo is not None
     assert report.inspection_started_at.utcoffset()==started.utcoffset()
+
+
+@pytest.mark.parametrize("suffix",["docx","odt","pdf"])
+def test_released_report_exports_without_changing_release_contract(tmp_path,suffix):
+    report=InspectionReport(
+        "REL","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),
+        "Inspector",10,1,0,release_status="released"
+    )
+    target=tmp_path/"delivery"/f"released-report.{suffix}"
+    result=export_report(report,target)
+    assert result==target
+    assert target.is_file()
+    assert report.release_status=="released"
+    assert report.conspicuous_modules==1
+    assert report.manual_review_modules==0
