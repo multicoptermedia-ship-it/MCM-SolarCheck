@@ -351,3 +351,16 @@ def test_phase9_report_preserves_timezone_offset():
     report=InspectionReport("R","P","Customer","Site",started,"Inspector",10,0,0)
     assert report.inspection_started_at is started
     assert report.inspection_started_at.utcoffset()==timedelta(hours=2)
+
+
+def test_phase9_report_preserves_distinct_review_counts():
+    report=InspectionReport("R","P","Customer","Site",datetime.now(timezone.utc),"Inspector",100,7,11)
+    assert report.conspicuous_modules==7
+    assert report.manual_review_modules==11
+    assert report.modules_without_documented_finding==93
+
+
+def test_phase9_manual_review_count_does_not_change_documented_finding_count():
+    first=InspectionReport("R1","P","Customer","Site",datetime.now(timezone.utc),"Inspector",100,7,0)
+    second=InspectionReport("R2","P","Customer","Site",datetime.now(timezone.utc),"Inspector",100,7,20)
+    assert first.modules_without_documented_finding==second.modules_without_documented_finding==93
