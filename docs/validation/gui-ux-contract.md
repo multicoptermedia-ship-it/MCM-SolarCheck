@@ -416,3 +416,74 @@ The primary action is **Save project and continue**. Once saved, the guided flow
 moves to **Import images**. Report-data completeness remains visible from the
 project header/status area so it can be corrected later without repeating project
 creation.
+
+
+## Image import interaction contract
+
+After project creation, the guided primary action opens **Import images**. The
+import screen accepts the complete inspection image set together; the operator
+does not need separate RGB and thermal import workflows.
+
+### Source selection
+
+The main surface is a large, clear file drop/select area with:
+
+- **Select images** for explicit multi-file selection;
+- **Select folder** for a complete inspection directory;
+- drag-and-drop where supported by the platform.
+
+Online and offline editions should preserve the same conceptual interaction even
+if browser and desktop file-selection mechanics differ.
+
+Selection itself does not imply successful import. SolarCheck validates supported
+inputs and persists accepted evidence through the import/application boundary.
+
+### Recognition and import summary
+
+After import, show a concise summary sourced from import results/persisted data,
+for example:
+
+**652 images · 326 RGB · 326 thermal · 324 pairs · 4 items need attention**
+
+The exact categories are shown only when the backend can support them. Technical
+details stay collapsed by default; an **Items needing attention** area exposes
+unsupported files, parse failures, missing counterparts, or other actionable
+issues without overwhelming the normal path.
+
+Unpaired imagery is not silently discarded. The UI must distinguish accepted but
+unpaired evidence from files that failed import.
+
+### Inspection metadata verification
+
+After accepted imagery is persisted, show the inspection metadata derived from
+the image set for operator verification:
+
+- detected date/time range;
+- GPS availability/coverage;
+- missing or conflicting metadata warnings.
+
+Do not reduce a multi-image inspection to one invented timestamp or coordinate.
+The project/report layer may derive a suitable summary only according to an
+explicit domain rule. Source metadata and provenance remain authoritative.
+
+### Transition to processing
+
+When backend prerequisites are satisfied, **Start processing** becomes the
+prominent next action. Its enabled/blocked state is derived from the application
+workflow contract.
+
+If processing cannot start, keep the action visible and explain the blocker next
+to it. Issues that do not invalidate processing may remain warnings and must not
+be promoted to blockers without a domain rule.
+
+Starting processing uses the same guarded application-service execution path as
+other workflow actions. The UI then moves to the processing/progress view and
+does not mark processing complete until persisted evidence supports that state.
+
+### Re-entry
+
+Reopening the import screen for an existing project shows the persisted import
+summary rather than an empty picker. Adding/re-importing imagery must be treated
+as an explicit operation with defined downstream invalidation behavior before it
+is enabled for processed/reviewed projects; the GUI must not silently mix new
+source imagery into an already reviewed result.
