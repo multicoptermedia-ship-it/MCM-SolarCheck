@@ -80,3 +80,17 @@ def test_export_boundary_preserves_report_release_status(tmp_path,suffix):
     export_report(report,target)
     assert report.release_status=="reviewed"
     assert target.is_file()
+
+
+@pytest.mark.parametrize("suffix",["docx","odt","pdf"])
+def test_export_boundary_preserves_report_identity_fields(tmp_path,suffix):
+    report=InspectionReport(
+        "R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0,
+        site_address="Solarstr. 1",
+        customer_reference="CUST-42",
+        order_reference="ORD-99",
+    )
+    export_report(report,tmp_path/f"identity-report.{suffix}")
+    assert report.site_address=="Solarstr. 1"
+    assert report.customer_reference=="CUST-42"
+    assert report.order_reference=="ORD-99"
