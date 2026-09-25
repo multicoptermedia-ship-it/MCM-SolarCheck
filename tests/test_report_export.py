@@ -60,3 +60,9 @@ def test_export_boundary_does_not_mutate_report(tmp_path,suffix):
     before=repr(report)
     export_report(report,tmp_path/f"report.{suffix}")
     assert repr(report)==before
+
+
+@pytest.mark.parametrize("suffix",["docx","odt","pdf"])
+def test_export_boundary_returns_exact_destination_path(tmp_path,suffix):
+    target=tmp_path/"delivery"/f"customer-report.{suffix}"
+    assert export_report(_report(),target)==target
