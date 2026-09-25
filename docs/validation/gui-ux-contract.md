@@ -487,3 +487,47 @@ summary rather than an empty picker. Adding/re-importing imagery must be treated
 as an explicit operation with defined downstream invalidation behavior before it
 is enabled for processed/reviewed projects; the GUI must not silently mix new
 source imagery into an already reviewed result.
+
+
+## Optional geospatial background contract
+
+The plant viewer may show a georeferenced map/satellite background beneath the
+inspection orthomosaic to improve operator orientation in the surrounding site.
+
+The visual stack is:
+
+1. **Optional map/satellite background** — orientation only.
+2. **RGB orthomosaic** — inspection visual evidence.
+3. **Thermal comparison layer** — registered inspection thermal imagery.
+4. **Analysis overlay** — modules, findings, identities, and review state.
+
+The background is never inspection evidence and must not become a prerequisite
+for import, processing, review, reporting, or export.
+
+### Offline behavior
+
+SolarCheck's Windows offline edition must remain fully usable without an Internet
+connection. If no permitted local/cached background is available, the background
+layer is simply omitted and the inspection orthomosaic is shown against a neutral
+viewer background. This condition is not an error and must not block the
+workflow.
+
+The UI may expose a **Background map** layer toggle only when a usable source is
+available. It should not repeatedly prompt for connectivity during normal offline
+inspection work.
+
+Online map/satellite retrieval and any optional caching/offline packaging are
+separate adapter concerns. A concrete provider must not be embedded into the
+shared UX contract until its API terms, attribution requirements, licensing, and
+offline/cache rights have been reviewed.
+
+### Registration and transparency
+
+Where a background is available, its placement uses the project's geospatial
+reference. The viewer may provide orthomosaic opacity control to help the
+operator visually orient the plant against surrounding buildings, roads, and
+terrain.
+
+This visual comparison does not replace registration validation. A map
+background must not be used to claim inspection-coordinate accuracy beyond the
+validated project georeferencing.
