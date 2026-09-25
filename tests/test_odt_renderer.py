@@ -52,3 +52,18 @@ def test_odt_renderer_preserves_customer_and_order_references(tmp_path):
     text=_text(render_odt(report,tmp_path/"references.odt"))
     for value in ("Max Muster","Kundenweg 2","kunde@example.invalid","+49 555","K-17","A-42"):
         assert value in text
+
+
+def test_odt_manual_review_detail_keeps_finding_and_instruction_separate(tmp_path):
+    detail=ModuleReportDetail("M9",None,"unclear",manual_inspection_required=True)
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,1,details=(detail,))
+    text=_text(render_odt(report,tmp_path/"manual.odt"))
+    assert "Befund: Kein bestätigter Befund | Review: unclear" in text
+    assert "Manuelle Prüfung erforderlich." in text
+
+
+def test_odt_detail_preserves_cross_sensor_geometry_context(tmp_path):
+    detail=ModuleReportDetail("M1","hotspot","confirmed",rgb_image=ReportImage("R1",str(tmp_path/"missing.png"),"rgb","validated_cross_sensor:homography"))
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,1,0,details=(detail,))
+    text=_text(render_odt(report,tmp_path/"geometry.odt"))
+    assert "Lokalisierter Ausschnitt – validierte Sensorzuordnung" in text
