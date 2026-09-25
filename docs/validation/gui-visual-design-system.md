@@ -314,3 +314,93 @@ unsaved edits, the normal unsaved-change guard applies.
 
 Returning home does not close, delete, or reset the active project. Project
 closing is a distinct explicit command.
+
+
+## 9. Image-import workspace
+
+The import screen should make a potentially large inspection image set feel
+simple to add while keeping validation and provenance visible.
+
+### Page hierarchy
+
+The page header uses **Import images** as the title and a short instruction to
+select the complete inspection image set together.
+
+The central import surface provides:
+- a prominent **Select images** action;
+- **Select folder** where the platform supports it;
+- a large but restrained drag-and-drop target where supported.
+
+The drop target uses a neutral dashed/outlined treatment and a simple image/folder
+icon. It must not imply that files are already imported merely because they were
+dropped or selected.
+
+### Import activity
+
+After selection, the workspace changes from source selection to truthful import
+activity. Show a progress indicator only for measurable file validation/copying
+work; otherwise use an indeterminate activity indicator plus concrete processed
+item counts when available.
+
+The user can distinguish:
+**selected -> validating/importing -> persisted/accepted -> needs attention**.
+
+Closing or navigating away during an active import must follow the application
+operation guard rather than pretending the import completed.
+
+### Persisted summary
+
+After import, a compact summary band/cards show backend-derived counts such as:
+**images · RGB · thermal · pairs · needs attention**.
+
+The summary is visually secondary to the next workflow action. Counts with zero
+or unavailable meaning should not become decorative dashboard metrics.
+
+A primary **Start processing** action appears in the page header/action region.
+Its enabled/blocked state comes from the workflow service. When blocked, the
+reason is visible near the action.
+
+### Attention panel
+
+Unsupported files, parse failures, missing counterparts, and metadata conflicts
+appear in a dedicated **Needs attention** region. This is not styled as a single
+generic fatal error: items that can coexist with a valid import remain warnings
+or review items according to backend rules.
+
+Each row identifies the affected file/evidence and concise reason. Technical
+parser details may be expandable for diagnostics without overwhelming the normal
+workflow.
+
+Valid unpaired RGB or thermal evidence remains represented distinctly from
+invalid/failed files.
+
+### Metadata verification
+
+A compact verification section presents the imported evidence's date/time range
+and GPS coverage where trustworthy.
+
+Use range/coverage language for multi-image inspections rather than displaying a
+single invented inspection timestamp or coordinate. Missing/conflicting source
+metadata is explicitly marked.
+
+If a later implementation supports a manual correction/override, its visual
+treatment must clearly distinguish user-entered values from source metadata and
+preserve provenance.
+
+### Re-entry and changed source sets
+
+Returning to Import for an unchanged project shows the persisted import summary
+rather than an empty drop target as if no work had occurred.
+
+Adding/replacing imagery after downstream processing or review requires a
+separate explicit invalidation-aware flow. The normal import screen must not
+silently append source data into an already reviewed evidence set.
+
+### Visual relationship to the shell
+
+The import screen uses the light work surface and normal page header. It does not
+need the right contextual panel during ordinary selection/import; the center
+region should remain calm and wide.
+
+Detailed file/metadata inspection may open a contextual panel without changing
+the persisted import state.
