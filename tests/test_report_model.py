@@ -120,7 +120,7 @@ def test_report_priority_fails_closed_for_unproven_celsius_value():
 # Phase 9 neutral customer-report contract
 from datetime import datetime, timezone
 import pytest
-from mcm_solarcheck.reporting.report_model import EquipmentRecord, InspectionReport, IrradianceSummary, ModuleReportDetail, ReportImage, ReportProvenance, ThermalMeasurement
+from mcm_solarcheck.reporting.report_model import EquipmentRecord, InspectionReport, IrradianceSummary, ModuleReportDetail, OperatorSnapshot, ReportImage, ReportProvenance, ThermalMeasurement
 
 
 def test_phase9_report_contract_carries_reviewed_summary():
