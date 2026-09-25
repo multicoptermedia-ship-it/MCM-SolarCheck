@@ -94,3 +94,13 @@ def test_export_boundary_preserves_report_identity_fields(tmp_path,suffix):
     assert report.site_address=="Solarstr. 1"
     assert report.customer_reference=="CUST-42"
     assert report.order_reference=="ORD-99"
+
+
+@pytest.mark.parametrize("suffix",["docx","odt","pdf"])
+def test_export_boundary_preserves_timezone_aware_inspection_timestamp(tmp_path,suffix):
+    report=_report()
+    started=report.inspection_started_at
+    export_report(report,tmp_path/f"timestamp-report.{suffix}")
+    assert report.inspection_started_at is started
+    assert report.inspection_started_at.tzinfo is not None
+    assert report.inspection_started_at.utcoffset()==started.utcoffset()
