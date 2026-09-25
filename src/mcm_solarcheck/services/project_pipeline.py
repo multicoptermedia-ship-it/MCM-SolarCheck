@@ -7,7 +7,7 @@ from pathlib import Path
 
 from mcm_solarcheck.importers.project import ProjectImportResult, import_m3t_project
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
-from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAction, require_action
+from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, record_attempt, require_action
 
 
 @dataclass(frozen=True)
@@ -71,6 +71,16 @@ class ProjectApplicationService:
         """Reject an operation before side effects when its workflow gate is closed."""
         require_action(self.workflow.state(project_id), action)
 
-    def state(self, project_id: str):
+    def state(self, project_id: str) -> ProjectWorkflowState:
         """Expose the same persisted state used to guard operations."""
         return self.workflow.state(project_id)
+
+    def execute(self, project_id: str, action: WorkflowAction, operation):
+        """Guard, execute once, then re-derive state from persisted evidence."""
+        state_before = self.state(project_id)
+        require_action(state_before, action)
+        try:
+            result = operation()
+        except Exception as error:
+            return record_attempt(action, error), None, self.state(project_id)
+        return record_attempt(action), result, self.state(project_id)
