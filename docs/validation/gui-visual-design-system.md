@@ -404,3 +404,102 @@ region should remain calm and wide.
 
 Detailed file/metadata inspection may open a contextual panel without changing
 the persisted import state.
+
+
+## 10. Processing workspace
+
+The processing screen communicates long-running technical work without creating
+false precision or requiring users to read logs.
+
+### Overall stage rail
+
+A horizontal stage rail provides orientation across the persisted processing
+pipeline. Each stage uses a short label plus explicit state icon/text:
+**pending · active · completed · interrupted/failed**.
+
+Completed stages use a quiet confirmation treatment. The active stage receives
+the controlled brand accent. Failed/interrupted stages use semantic warning/error
+styling without recoloring the entire workspace.
+
+The stage rail reflects backend processing boundaries; it must not invent
+presentation-only stages merely to create a smoother-looking progress sequence.
+
+### Active-stage card
+
+The visual center is a large restrained card showing:
+- current stage name;
+- concise description of current work;
+- truthful progress presentation;
+- processed/total counters when meaningful;
+- elapsed runtime;
+- last known activity/heartbeat when supported.
+
+A numeric percentage is displayed only when the backend exposes a meaningful
+denominator. Otherwise use an indeterminate activity indicator. A frozen
+percentage alone must never be labelled **stuck**.
+
+When counters are available, prefer concrete information such as
+**1,572 / 2,316 modules** over decorative animation.
+
+### Overall progress
+
+If the backend can calculate a defensible overall progress measure, it may be
+shown separately from active-stage progress and clearly labelled. Do not derive
+overall percentage by assigning arbitrary equal weights to unequal processing
+stages.
+
+### Details and diagnostics
+
+Normal operation hides technical logs behind **Show details**. The expandable
+area may expose stage timings, technical messages, and diagnostic identifiers
+useful for support.
+
+Warnings that do not invalidate processing remain visually separate from a
+failed stage.
+
+### Interruption and recovery
+
+When persisted state indicates an interrupted/failed recoverable operation, the
+normal progress presentation is replaced by a recovery card explaining:
+- where processing stopped;
+- the last valid persisted boundary;
+- what source/derived data remains preserved.
+
+Available actions follow the previously defined semantics:
+
+**Continue** is the visually preferred recovery path when permitted.
+
+**Retry step** is a secondary action and states which failed/interrupted stage
+will be rerun.
+
+**Restart processing** is visually separated as a consequential maintenance
+action. Selecting it opens a confirmation that states exactly what will be
+rebuilt, invalidated, and preserved before execution.
+
+The UI must not offer a recovery action whose invalidation behavior is undefined
+for the concrete processing stage.
+
+### Human-review protection
+
+If a requested rebuild would invalidate evidence on which persisted human review
+depends, the recovery card must not reduce that situation to a generic
+confirmation dialog. The action remains blocked until the explicit
+migration/re-review workflow required by the backend/domain contract exists.
+
+### Leaving and returning
+
+Navigating to another permitted area does not imply cancellation. Returning to
+Processing reconstructs the screen from persisted operation/workflow state.
+
+Application or operating-system restart follows the same rule: after startup,
+SolarCheck rederives processing state and presents the appropriate active,
+completed, interrupted, or recovery view.
+
+### Completion transition
+
+When processing completes successfully, the page presents a concise persisted
+completion summary and promotes **Open plant overview** as the next primary
+action.
+
+No success state is shown solely because a client-side progress animation
+reached its end.
