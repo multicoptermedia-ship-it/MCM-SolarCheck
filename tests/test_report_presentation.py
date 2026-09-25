@@ -36,3 +36,15 @@ def test_image_context_does_not_overstate_full_frame_as_localized_crop():
 def test_validated_cross_sensor_context_is_explicit():
     detail=ModuleReportDetail("M-2","hotspot_candidate","confirmed",rgb_image=ReportImage("R2","rgb.png","rgb","validated_cross_sensor:homography"))
     assert detail_presentation(detail).rgb_context=="Lokalisierter Ausschnitt – validierte Sensorzuordnung"
+
+
+def test_unknown_image_geometry_is_reported_verbatim_without_claiming_validation():
+    detail=ModuleReportDetail("M-3","candidate","confirmed",thermal_image=ReportImage("T3","thermal.png","thermal","legacy-import"))
+    text=detail_presentation(detail).thermal_context
+    assert text=="Bildgeometrie: legacy-import"
+    assert "validiert" not in text.lower()
+
+
+def test_temperature_without_delta_remains_explicitly_validated():
+    detail=ModuleReportDetail("M-4","candidate","confirmed",thermal_measurement=ThermalMeasurement(47.3,None,"validated-provider",True))
+    assert detail_presentation(detail).temperature=="Radiometrisch validiert: 47.3 °C; Quelle: validated-provider"
