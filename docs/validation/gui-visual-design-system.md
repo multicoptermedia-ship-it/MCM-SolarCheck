@@ -847,3 +847,117 @@ report action.
 This visual completion message does not independently declare a report released
 or exportable; report/export readiness is rederived through the application
 workflow service.
+
+
+## 14. Report and export workspace
+
+The report/export experience is the final workflow workspace and remains a
+presentation over the frozen report/application contracts. It must not become a
+second report schema or a shortcut around review/release gates.
+
+### Report workspace hierarchy
+
+The page header uses **Report** and shows the persisted report lifecycle state
+where available: **Draft · Reviewed · Released**.
+
+Directly below, a compact readiness area summarizes backend-derived blockers
+that matter to report preparation/release, such as unresolved review work or
+unresolved physical module identity. Required project/report data completeness
+is shown when the corresponding domain/application validation exposes it; the
+GUI must not invent a new blocking rule.
+
+The primary action changes with authoritative state and permitted operations
+rather than using one permanently active **Create report** button.
+
+### Report preview
+
+A central document-style preview may present the report using the same
+authoritative report data/renderer boundary as export. It is a visual inspection
+surface, not an independently maintained report representation.
+
+The preview may provide page navigation, zoom, fit-page/fit-width, and navigation
+to finding/report sections. It must not silently rewrite report content.
+
+Selecting **Report details** from a module/review item should, where technically
+supported, open or focus the corresponding report context without changing
+review state.
+
+### Completeness and blockers
+
+Report readiness information uses concise grouped sections:
+- project/plant/operator information;
+- review completion;
+- physical module/finding identity;
+- evidence/provenance requirements;
+- other backend report validation.
+
+A completed-looking preview does not mean the report is released. Draft,
+reviewed, and released states remain visibly distinct.
+
+Blockers use explicit wording and a navigation action back to the place where
+the user can resolve them when such a place exists.
+
+### Release interaction
+
+Any explicit report review/release operation is visually separated from ordinary
+preview navigation. Consequential state transitions require clear confirmation
+when the backend contract calls for it.
+
+The GUI never labels a report **Released** before persistence succeeds.
+
+### Export workspace
+
+**Export** is available through both the header menu and workflow navigation and
+opens a compact export panel/workspace.
+
+The format choices are limited to formats actually supported by the existing
+export boundary: **DOCX · ODT · PDF**.
+
+The UI does not implement format-specific report semantics. Each format consumes
+the shared report model through its renderer.
+
+If export is blocked by the workflow/report gate, formats remain discoverable
+but unavailable and the concrete blocker is shown.
+
+### Export interaction
+
+A permitted export flow presents:
+1. authoritative report/release status;
+2. available output formats;
+3. destination/file-name selection according to platform conventions;
+4. **Export** as the primary action.
+
+The chosen extension and renderer must agree; invalid combinations are rejected
+by the application/export boundary rather than corrected silently by the UI.
+
+During generation, show bounded activity for the current export. Success is
+reported only after the output operation completes successfully.
+
+### Generated-output history
+
+Do not display a fabricated **Previous exports** history unless the backend
+actually persists authoritative output records. A filesystem file existing
+somewhere is not by itself a project-level export-history model.
+
+If persistent export history is added later, it must record enough provenance to
+distinguish report state/version, format, generation time, and output identity.
+
+### Relationship between Report and Export buttons
+
+Once the backend confirms the required upstream evaluation/review prerequisites,
+**Report** and **Export** become prominent workflow actions as previously
+defined.
+
+Their visibility does not imply identical semantics: **Report** is the
+report-oriented inspection/lifecycle workspace; **Export** is document output
+through supported renderers. Neither button bypasses the other's applicable
+backend gates.
+
+### Visual continuity
+
+Report pages use the same light neutral surfaces and corporate typography as the
+application, while preserving the renderer's actual document layout.
+
+The export panel remains compact; the report preview receives most of the
+workspace. MCM/SolarCheck green marks primary actions/focus, while thermal colors
+remain reserved for thermal evidence contained in the report.
