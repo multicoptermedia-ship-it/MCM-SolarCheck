@@ -192,3 +192,21 @@ def test_released_report_preserves_unclear_evidence_on_already_confirmed_module(
         and item.manual_inspection_required is True
         for item in report.details
     )
+
+
+def test_released_report_blocks_unreviewed_finding_even_when_same_module_has_confirmed_evidence(tmp_path):
+    db=_db(tmp_path)
+    db.save_modules("P1",(PVModule("M1","T1",((0,0),(1,0),(1,1)),0.9,"test"),))
+    with db.connect() as sql:
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,thermal_source,metadata_json) VALUES('P1','T1','t.jpg','test','{}')")
+        sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P1','F1','T1',1,2,'hotspot_candidate','M1','confirmed','{}')")
+        sql.execute("INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc) VALUES('P1','F1','confirmed','Inspector','2026-09-25T08:00:00+00:00')")
+        sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P1','U1','T1',3,4,'open_circuit_candidate','M1','unreviewed','{}')")
+    draft=assemble_inspection_report(db,"P1","D1",datetime(2026,9,25,8,tzinfo=timezone.utc))
+    assert draft.conspicuous_modules==1
+    assert len(draft.details)==1
+    assert draft.details[0].review_status=="confirmed"
+    with pytest.raises(ValueError,match="reviewed findings"):
+        assemble_inspection_report(
+            db,"P1","R1",datetime(2026,9,25,8,tzinfo=timezone.utc),release_status="released"
+        )
