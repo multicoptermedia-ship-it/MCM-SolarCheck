@@ -38,3 +38,10 @@ The operator identity is configuration, not hard-coded MCM branding. Settings wi
 The later online edition is a separate commerce/deployment layer: pay-per-use authorization precedes compute use, payment-provider data is isolated from inspection evidence, invoice records are exportable to an accounting workflow such as Fakturama, and customer delivery may include invoice e-mail. Payment never implies technical or human report approval.
 
 Cloud deployment should prefer demand-driven CPU/GPU workers and usage-metered temporary/object storage over permanently running compute or unnecessarily reserved storage. Provider-specific APIs must remain behind adapters. Project economics should meter compute time, temporary storage and transfer so pay-per-use pricing can be based on measured cost. Project data remains portable through the future project archive export/import; commerce and hosting must not create data lock-in.
+
+
+## Implementation status
+
+The Phase 9 implementation now has CI-backed coverage for the backend-neutral report contract, reviewed/unclear evidence separation, release guards, calibrated-temperature and irradiance provenance, source-image provenance, deterministic report assets, operator/customer identity snapshots, and the shared DOCX/ODT/PDF export boundary.
+
+The remaining close-out work is deliberately limited to integration verification and documentation. New renderer or model behavior should only be added when a concrete acceptance gap is identified; Phase 9 should not accumulate speculative edge-case behavior after the documented gates are satisfied.
