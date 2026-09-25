@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcm_solarcheck.services.workflow import (ProjectWorkflowService, WorkflowAction, WorkflowStage, action_availability, require_action, resume_point)
+from mcm_solarcheck.services.workflow import (ProjectWorkflowService, WorkflowAction, WorkflowAttempt, WorkflowStage, action_availability, record_attempt, require_action, resume_point)
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
 from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
 
@@ -212,3 +212,34 @@ def test_application_service_allows_action_only_after_persisted_prerequisite(tmp
     service = ProjectApplicationService(database)
 
     service.require("P1", WorkflowAction.EXPORT)
+
+
+def test_failed_attempt_does_not_advance_persisted_workflow(tmp_path):
+    database = _database(tmp_path)
+    service = ProjectApplicationService(database)
+    before = service.state("P1")
+
+    attempt = record_attempt(WorkflowAction.IMPORT, RuntimeError("source unavailable"))
+
+    after = service.state("P1")
+    assert attempt == WorkflowAttempt(WorkflowAction.IMPORT, False, "source unavailable")
+    assert after == before
+    assert after.readiness(WorkflowStage.IMPORT).ready is False
+
+
+def test_successful_attempt_alone_does_not_replace_persisted_evidence(tmp_path):
+    database = _database(tmp_path)
+    service = ProjectApplicationService(database)
+
+    attempt = record_attempt(WorkflowAction.IMPORT)
+
+    assert attempt == WorkflowAttempt(WorkflowAction.IMPORT, True)
+    assert service.state("P1").readiness(WorkflowStage.IMPORT).ready is False
+
+
+def test_failed_attempt_requires_action_and_error_contract():
+    with pytest.raises(ValueError, match="failed attempt requires"):
+        WorkflowAttempt(WorkflowAction.PROCESS, False, None)
+
+    with pytest.raises(ValueError, match="successful attempt must not carry"):
+        WorkflowAttempt(WorkflowAction.PROCESS, True, "unexpected")
