@@ -55,7 +55,8 @@ def render_odt(report: InspectionReport, destination: str | Path, *, banner_path
     if report.overview_rgb or report.overview_thermal:
         images=Table(name="overview-images"); row=TableRow()
         for label,item in (("RGB-Übersicht",report.overview_rgb),("Thermal-Übersicht",report.overview_thermal)):
-            cell=TableCell(); _image(doc,cell,item.path if item else None,label); row.addElement(cell)
+            context=view.rgb_context if label=="RGB" else view.thermal_context
+            cell=TableCell(); _image(doc,cell,item.path if item else None,label+(f" – {context}" if context else "")); row.addElement(cell)
         images.addElement(row); doc.text.addElement(images)
     doc.text.addElement(H(outlinelevel=1,text="Detailbefunde"))
     if not report.details: _p(doc.text,"Keine freigegebenen Detailbefunde.")
