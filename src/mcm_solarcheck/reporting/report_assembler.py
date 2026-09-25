@@ -18,7 +18,8 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
     profile=database.project_profile(project_id)
     if profile is None:
         raise ValueError("project profile is required before report assembly")
-    data=InspectionReportDataService(database).build(project_id)
+    service=InspectionReportDataService(database)
+    data=service.build(project_id)
     evidence_model=build_report_model(data)
     provenance_by_finding={item.finding.finding_id:item.finding for item in data.confirmed_findings}
     with database.connect() as sql:
@@ -49,7 +50,7 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
             thermal_measurement=measurement,
         )
     details=list(detail(item) for item in evidence_model.evidence if item.module_id is not None and item.module_id.strip())
-    unclear=InspectionReportDataService(database).queries.findings(project_id,reviewer_status="unclear")
+    unclear=service.queries.findings(project_id,reviewer_status="unclear")
     unclear_module_ids={item.module_id.strip() for item in unclear if item.module_id is not None and item.module_id.strip()}
     for module_id in sorted(unclear_module_ids):
         details.append(ModuleReportDetail(module_id=module_id,finding_label=None,review_status="unclear",manual_inspection_required=True))
