@@ -233,3 +233,33 @@ def test_phase9_report_requires_timezone_aware_timestamp():
     aware=datetime(2026,9,24,12,tzinfo=timezone.utc)
     report=InspectionReport("R","P","C","S",aware,"I",1,0,0)
     assert report.inspection_started_at.utcoffset() is not None
+
+
+def test_phase9_irradiance_rejects_negative_values():
+    for args in ((-1,"sensor"),(700,"sensor",-1,800),(700,"sensor",600,-1)):
+        with pytest.raises(ValueError,match="finite non-negative"):
+            IrradianceSummary(*args)
+
+
+def test_phase9_irradiance_rejects_mean_above_maximum():
+    with pytest.raises(ValueError,match="must not exceed maximum"):
+        IrradianceSummary(900,"sensor",700,800)
+
+
+def test_phase9_thermal_measurement_rejects_boolean_values():
+    with pytest.raises(ValueError,match="finite"):
+        ThermalMeasurement(True,None,"validated provider",True)
+    with pytest.raises(ValueError,match="finite"):
+        ThermalMeasurement(50.0,False,"validated provider",True)
+
+
+def test_phase9_report_image_requires_nonempty_geometry_provenance():
+    with pytest.raises(ValueError,match="geometry_source"):
+        ReportImage("F1","image.png","rgb"," ")
+
+
+def test_phase9_report_image_requires_nonempty_source_and_path():
+    with pytest.raises(ValueError,match="source_frame_id"):
+        ReportImage(" ","image.png","rgb")
+    with pytest.raises(ValueError,match="path"):
+        ReportImage("F1"," ","rgb")
