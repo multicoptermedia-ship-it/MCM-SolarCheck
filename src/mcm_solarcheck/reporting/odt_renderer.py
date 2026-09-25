@@ -44,7 +44,8 @@ def render_odt(report: InspectionReport, destination: str | Path, *, banner_path
     doc.text.addElement(H(outlinelevel=1,text="Übersicht"))
     table=Table(name="overview")
     for label,value in (
-        ("Kunde",report.customer_name),("Anlage",report.site_name),
+        ("Kunde",report.customer_name),("Kundenkontakt",report.customer_contact or "—"),("Kundenanschrift",report.customer_address or "—"),
+        ("Kunden-E-Mail",report.customer_email or "—"),("Kundentelefon",report.customer_phone or "—"),("Kundenreferenz",report.customer_reference or "—"),("Auftragsreferenz",report.order_reference or "—"),("Anlage",report.site_name),
         ("Prüfbeginn",report.inspection_started_at.isoformat()),("Prüfer",report.inspector),
         ("PV-Module geprüft",report.total_modules),("Module mit dokumentiertem Befund",report.conspicuous_modules),
         ("Manuelle Prüfung erforderlich",report.manual_review_modules),
