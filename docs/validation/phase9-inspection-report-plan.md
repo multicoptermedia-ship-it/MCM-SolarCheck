@@ -29,3 +29,12 @@ Build and validate the neutral report model: project/customer identity, inspecti
 ## Non-goals
 
 Phase 9 will not fabricate missing measurement values, promote unreviewed AI output into customer findings, infer electrical root causes, create absolute hotspot GPS positions, or embed satellite/basemap imagery in the report.
+
+
+## Follow-on architecture decisions
+
+The operator identity is configuration, not hard-coded MCM branding. Settings will provide an operator profile (company/contact/tax data and logo); customer-facing report generation will bind a snapshot so historical reports do not change when settings change.
+
+The later online edition is a separate commerce/deployment layer: pay-per-use authorization precedes compute use, payment-provider data is isolated from inspection evidence, invoice records are exportable to an accounting workflow such as Fakturama, and customer delivery may include invoice e-mail. Payment never implies technical or human report approval.
+
+Cloud deployment should prefer demand-driven CPU/GPU workers and usage-metered temporary/object storage over permanently running compute or unnecessarily reserved storage. Provider-specific APIs must remain behind adapters. Project economics should meter compute time, temporary storage and transfer so pay-per-use pricing can be based on measured cost. Project data remains portable through the future project archive export/import; commerce and hosting must not create data lock-in.
