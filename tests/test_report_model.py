@@ -273,3 +273,18 @@ def test_phase9_report_rejects_invalid_release_status():
 def test_phase9_detail_manual_flag_must_be_boolean():
     with pytest.raises(ValueError,match="must be boolean"):
         ModuleReportDetail("M1","candidate","unclear",manual_inspection_required=1)
+
+
+def test_phase9_operator_requires_core_identity_fields():
+    for kwargs in ({"company_name":" "},{"address":" "},{"email":" "}):
+        values={"company_name":"Operator GmbH","address":"Werkstr. 1","email":"office@example.invalid"}
+        values.update(kwargs)
+        with pytest.raises(ValueError):
+            OperatorSnapshot(**values)
+
+
+def test_phase9_equipment_rejects_blank_optional_identifiers():
+    with pytest.raises(ValueError,match="identifier"):
+        EquipmentRecord("Camera",identifier=" ")
+    with pytest.raises(ValueError,match="calibration_reference"):
+        EquipmentRecord("Camera",calibration_reference=" ")
