@@ -71,3 +71,12 @@ def test_export_boundary_returns_exact_destination_path(tmp_path,suffix):
 def test_export_boundary_rejects_format_extension_mismatch_case_insensitively(tmp_path):
     with pytest.raises(ValueError,match="extension"):
         export_report(_report(),tmp_path/"report.PDF",format="DOCX")
+
+
+@pytest.mark.parametrize("suffix",["docx","odt","pdf"])
+def test_export_boundary_preserves_report_release_status(tmp_path,suffix):
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0,release_status="reviewed")
+    target=tmp_path/f"reviewed-report.{suffix}"
+    export_report(report,target)
+    assert report.release_status=="reviewed"
+    assert target.is_file()
