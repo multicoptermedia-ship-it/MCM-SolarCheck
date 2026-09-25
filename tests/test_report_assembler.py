@@ -114,3 +114,33 @@ def test_report_snapshots_operator_branding(tmp_path):
     assert report.operator.company_name=="MCM Test GmbH"
     assert report.operator.address=="Werkstr. 1, 47500 Teststadt"
     assert report.operator.logo_path=="brand.png"
+
+
+def test_missing_crop_keeps_full_frame_provenance(tmp_path):
+    db=_db(tmp_path)
+    thermal=tmp_path/"thermal.png"
+    thermal.write_bytes(b"not-an-image")
+    db.save_modules("P1",(PVModule("M1","T1",((10,10),(30,10),(30,30),(10,30)),0.9,"test"),))
+    with db.connect() as sql:
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,width,height,thermal_source,metadata_json) VALUES('P1','T1',?,100,100,'test','{}')",(str(tmp_path/"missing.png"),))
+        sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P1','F1','T1',20,20,'hotspot_candidate','M1','confirmed','{}')")
+        sql.execute("INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc) VALUES('P1','F1','confirmed','Inspector','2026-09-25T08:00:00+00:00')")
+    detail=assemble_inspection_report(db,"P1","R1",datetime(2026,9,25,8,tzinfo=timezone.utc),asset_dir=tmp_path/"assets").details[0]
+    assert detail.thermal_image.path==str(tmp_path/"missing.png")
+    assert detail.thermal_image.geometry_source=="full_frame"
+    assert not (tmp_path/"assets").exists()
+
+
+def test_validated_crop_replaces_full_frame_with_geometry_provenance(tmp_path):
+    db=_db(tmp_path)
+    from PIL import Image
+    thermal=tmp_path/"thermal.png"
+    Image.new("RGB",(100,100)).save(thermal)
+    db.save_modules("P1",(PVModule("M1","T1",((10,10),(30,10),(30,30),(10,30)),0.9,"test"),))
+    with db.connect() as sql:
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,width,height,thermal_source,metadata_json) VALUES('P1','T1',?,100,100,'test','{}')",(str(thermal),))
+        sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P1','F1','T1',20,20,'hotspot_candidate','M1','confirmed','{}')")
+        sql.execute("INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc) VALUES('P1','F1','confirmed','Inspector','2026-09-25T08:00:00+00:00')")
+    detail=assemble_inspection_report(db,"P1","R1",datetime(2026,9,25,8,tzinfo=timezone.utc),asset_dir=tmp_path/"assets").details[0]
+    assert detail.thermal_image.path!=str(thermal)
+    assert detail.thermal_image.geometry_source=="persisted_module_polygon"
