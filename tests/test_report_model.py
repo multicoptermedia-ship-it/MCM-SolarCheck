@@ -118,7 +118,7 @@ def test_report_priority_fails_closed_for_unproven_celsius_value():
 
 
 # Phase 9 neutral customer-report contract
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import pytest
 from mcm_solarcheck.reporting.report_model import EquipmentRecord, InspectionReport, IrradianceSummary, ModuleReportDetail, OperatorSnapshot, ReportImage, ReportProvenance, ThermalMeasurement
 
@@ -344,3 +344,10 @@ def test_phase9_provenance_preserves_documented_values():
     provenance=ReportProvenance("1.2.3","Human-reviewed evidence only")
     assert provenance.software_version=="1.2.3"
     assert provenance.evidence_statement=="Human-reviewed evidence only"
+
+
+def test_phase9_report_preserves_timezone_offset():
+    started=datetime(2026,9,24,12,tzinfo=timezone(timedelta(hours=2)))
+    report=InspectionReport("R","P","Customer","Site",started,"Inspector",10,0,0)
+    assert report.inspection_started_at is started
+    assert report.inspection_started_at.utcoffset()==timedelta(hours=2)
