@@ -182,3 +182,81 @@ und spätere Diagnose-/Supportfunktionen können dort ebenfalls eingeordnet werd
 Konkrete Dialoge/Fehlermeldungen, Tastaturbedienung, Installation/Update der
 Windows-Offline-Version sowie gegebenenfalls Online-Anmeldung/Synchronisierung
 werden ergänzt, sobald die jeweiligen GUI- und Release-Verträge festgelegt sind.
+
+
+## 13. Orientierung in der Anwendung
+
+SolarCheck verwendet in allen Arbeitsbereichen denselben Rahmen. Oben befinden
+sich die bekannten Drop-down-Menüs **Projekt**, **Verarbeitung**, **Ansicht**,
+**Prüfung**, **Bericht**, **Export** und **Hilfe**. Links zeigt die
+Arbeitsnavigation den Ablauf **Projekt -> Import -> Verarbeitung -> Anlage ->
+Prüfung -> Bericht -> Export**.
+
+Ein deaktivierter Bereich bedeutet nicht, dass die Funktion fehlt. SolarCheck
+zeigt den Grund an, wenn zunächst ein vorheriger Arbeitsschritt abgeschlossen
+werden muss.
+
+Die große mittlere Fläche gehört der aktuellen Aufgabe. Bei der Anlagenprüfung
+steht dort das RGB-/Thermalbild im Vordergrund. Ein rechtes Detailfeld erscheint
+bei Bedarf, beispielsweise nach Auswahl eines Moduls, und kann wieder
+eingeklappt werden.
+
+## 14. Bericht prüfen und exportieren
+
+Nach Abschluss der erforderlichen Auswertung und Prüfung kann **Bericht** geöffnet
+werden. Der angezeigte Zustand unterscheidet zwischen Entwurf, geprüft und
+freigegeben, soweit dieser Zustand im Projekt bereits vorliegt.
+
+Noch offene Voraussetzungen werden oberhalb der Berichtansicht angezeigt. Eine
+vollständig aussehende Vorschau bedeutet nicht automatisch, dass der Bericht
+bereits freigegeben wurde.
+
+Über **Export** werden die von SolarCheck unterstützten Ausgabeformate
+**DOCX**, **ODT** und **PDF** gewählt. Ist ein Export noch nicht zulässig, zeigt
+SolarCheck den entsprechenden Grund an.
+
+Während der Dokumenterstellung bleibt der Export als laufender Vorgang
+gekennzeichnet. Erst nach erfolgreicher Erstellung meldet SolarCheck den Export
+als abgeschlossen.
+
+## 15. Bedienhinweise für die Anlagenprüfung
+
+Beim Wechsel zwischen **RGB**, **Thermal** und **Vergleich** bleiben der
+betrachtete Ausschnitt, die Vergrößerung und nach Möglichkeit das ausgewählte
+Modul erhalten.
+
+Im Vergleichsmodus befindet sich der Vergleichsgriff am rechten Rand der
+Bildfläche. Den Griff nach links ziehen, um die zweite Bildebene sichtbar zu
+machen. Anschließend kann die Trennlinie in beide Richtungen verschoben werden.
+
+Ein Klick auf ein Modul öffnet die kompakte Detailansicht. Dort können vorhandene
+Befunde, validierte Thermalwerte und der Reviewzustand eingesehen werden.
+Automatische Klassifikationen sind als Empfehlung gekennzeichnet; die
+menschliche Reviewentscheidung bleibt maßgeblich.
+
+Für die eigentliche Prüfung steht ein scrollbarer Befundbereich zur Verfügung.
+Die Auswahl einer Befundkarte markiert das zugehörige Modul in der
+Anlagenansicht und umgekehrt. Schwierige Fälle können in einer größeren
+Fokusansicht geprüft werden.
+
+## 16. Wiederherstellung nach unterbrochener Verarbeitung
+
+Wurde eine Verarbeitung unterbrochen, leitet SolarCheck die verfügbaren
+Wiederherstellungsaktionen aus dem gespeicherten Projektzustand ab.
+
+**Fortsetzen** verwendet nach Möglichkeit den letzten gültigen
+Verarbeitungspunkt. **Schritt erneut ausführen** wiederholt den betroffenen
+Schritt. **Verarbeitung neu starten** ist eine weitergehende
+Wiederherstellungsaktion und zeigt vor Ausführung an, welche abgeleiteten Daten
+neu aufgebaut werden.
+
+Importierte Originaldaten und menschliche Reviewentscheidungen werden nicht
+stillschweigend verworfen. Ist eine sichere Wiederherstellung für einen
+konkreten Zustand nicht definiert, bleibt die entsprechende Aktion gesperrt.
+
+## 17. Stand dieser Anleitung
+
+Diese Anleitung wird parallel zur SolarCheck-Oberfläche gepflegt. Abbildungen
+der tatsächlichen Anwendung werden ergänzt, sobald die implementierten
+Bildschirme ausreichend stabil sind. Konzeptgrafiken werden nicht als
+Screenshots der fertigen Anwendung ausgegeben.
