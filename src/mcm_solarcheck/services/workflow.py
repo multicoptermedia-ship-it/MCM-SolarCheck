@@ -73,6 +73,15 @@ class ProjectWorkflowService:
         report_blockers = []
         if summary.unreviewed_findings:
             report_blockers.append("unreviewed findings remain")
+        findings = self.queries.findings(project_id)
+        unresolved_reviewed = sum(
+            1
+            for item in findings
+            if item.reviewer_status in ("confirmed", "unclear")
+            and (item.module_id is None or not item.module_id.strip())
+        )
+        if unresolved_reviewed:
+            report_blockers.append("reviewed findings require resolved physical modules")
         if not has_processing:
             report_blockers.append("no processed modules or findings")
         export_blockers = list(report_blockers)
