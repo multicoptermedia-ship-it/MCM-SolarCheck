@@ -44,7 +44,8 @@ def render_docx(report: InspectionReport, destination: str | Path, *, banner_pat
     document.add_heading("Übersicht",level=1)
     table=document.add_table(rows=0,cols=2)
     for label,value in (
-        ("Kunde",report.customer_name),("Anlage",report.site_name),
+        ("Kunde",report.customer_name),("Kundenkontakt",report.customer_contact),("Kundenanschrift",report.customer_address),
+        ("Kunden-E-Mail",report.customer_email),("Kundentelefon",report.customer_phone),("Kundenreferenz",report.customer_reference),("Auftragsreferenz",report.order_reference),("Anlage",report.site_name),
         ("Prüfbeginn",report.inspection_started_at.isoformat()),("Prüfer",report.inspector),
         ("PV-Module geprüft",report.total_modules),("Module mit dokumentiertem Befund",report.conspicuous_modules),
         ("Manuelle Prüfung erforderlich",report.manual_review_modules),
