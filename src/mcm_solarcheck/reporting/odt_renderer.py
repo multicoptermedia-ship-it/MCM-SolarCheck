@@ -31,10 +31,13 @@ def _image(doc, parent, path: str | None, label: str):
 def render_odt(report: InspectionReport, destination: str | Path, *, banner_path: str | Path | None=None) -> Path:
     """Render editable ODT without introducing renderer-specific evidence logic."""
     destination=Path(destination); doc=OpenDocumentText()
+    if banner_path is None and report.operator and report.operator.logo_path: banner_path=report.operator.logo_path
     if banner_path is not None:
         if not Path(banner_path).is_file(): raise FileNotFoundError(banner_path)
         _image(doc,doc.text,str(banner_path),"")
-    doc.text.addElement(H(outlinelevel=1,text="MCM-SolarCheck"))
+    doc.text.addElement(H(outlinelevel=1,text=report.operator.company_name if report.operator else "MCM-SolarCheck"))
+    if report.operator:
+        _p(doc.text,report.operator.address); _p(doc.text," | ".join(v for v in (report.operator.email,report.operator.phone,report.operator.website) if v))
     _p(doc.text,REPORT_STANDARD_WORDING); _p(doc.text,f"Bericht: {report.report_id}")
     _p(doc.text,f"Kunde: {report.customer_name}"); _p(doc.text,f"Anlage: {report.site_name}")
     _p(doc.text,f"Standort: {report.site_address or '—'}")
