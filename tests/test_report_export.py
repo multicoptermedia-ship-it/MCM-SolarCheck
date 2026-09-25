@@ -52,3 +52,11 @@ def test_export_boundary_creates_parent_directories(tmp_path,suffix):
 def test_export_boundary_rejects_unknown_explicit_format(tmp_path):
     with pytest.raises(ValueError,match="unsupported report format"):
         export_report(_report(),tmp_path/"report.zip",format="zip")
+
+
+@pytest.mark.parametrize("suffix",["docx","odt","pdf"])
+def test_export_boundary_does_not_mutate_report(tmp_path,suffix):
+    report=_report()
+    before=repr(report)
+    export_report(report,tmp_path/f"report.{suffix}")
+    assert repr(report)==before
