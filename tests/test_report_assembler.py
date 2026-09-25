@@ -167,3 +167,28 @@ def test_confirmed_and_unclear_findings_on_same_module_keep_distinct_evidence_an
     assert len(unclear)==1 and unclear[0].module_id=="M1"
     assert unclear[0].finding_label is None
     assert unclear[0].manual_inspection_required is True
+
+
+def test_released_report_preserves_unclear_evidence_on_already_confirmed_module(tmp_path):
+    db=_db(tmp_path)
+    db.save_modules("P1",(PVModule("M1","T1",((0,0),(1,0),(1,1)),0.9,"test"),))
+    with db.connect() as sql:
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,thermal_source,metadata_json) VALUES('P1','T1','t.jpg','test','{}')")
+        sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P1','F1','T1',1,2,'hotspot_candidate','M1','confirmed','{}')")
+        sql.execute("INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc) VALUES('P1','F1','confirmed','Inspector','2026-09-25T08:00:00+00:00')")
+        sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P1','U1','T1',3,4,'open_circuit_candidate','M1','unclear','{}')")
+        sql.execute("INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc) VALUES('P1','U1','unclear','Inspector','2026-09-25T08:01:00+00:00')")
+    report=assemble_inspection_report(
+        db,"P1","R1",datetime(2026,9,25,8,tzinfo=timezone.utc),release_status="released"
+    )
+    assert report.release_status=="released"
+    assert report.conspicuous_modules==1
+    assert report.manual_review_modules==1
+    assert len(report.details)==2
+    assert any(item.review_status=="confirmed" and item.module_id=="M1" for item in report.details)
+    assert any(
+        item.review_status=="unclear"
+        and item.module_id=="M1"
+        and item.manual_inspection_required is True
+        for item in report.details
+    )
