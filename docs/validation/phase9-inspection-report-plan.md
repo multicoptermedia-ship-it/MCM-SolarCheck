@@ -52,3 +52,10 @@ The remaining close-out work is deliberately limited to integration verification
 Phase 9 is implementation-complete when the branch CI is green after the released-report integration checks. The close-out evidence covers the reviewed evidence boundary, release guards, image and temperature provenance, deterministic asset generation, identity snapshots, and successful DOCX/ODT/PDF export from the shared report contract.
 
 Further changes to report semantics should therefore start from a documented requirement or defect rather than extending Phase 9 speculatively. Licensed-standard conformity remains a separate validation activity; this close-out does not claim full DIN IEC/TS 62446-3 conformity.
+
+
+## Phase 9 status: complete
+
+Phase 9 is closed on this branch after the final close-out gate passed CI. The inspection-report pipeline is frozen at this validated contract: reviewed evidence remains authoritative, release guards fail closed, provenance is preserved through report assembly and generated assets, and the shared report model exports successfully to DOCX, ODT and PDF.
+
+Any future report change should be handled as a new documented requirement or defect with its own validation scope. The separate licensed-standard conformity review remains outside this implementation close-out.
