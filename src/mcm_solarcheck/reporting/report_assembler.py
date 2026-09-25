@@ -56,7 +56,8 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
     details=tuple(details)
     resolved_module_ids={item.module_id.strip() for item in evidence_model.evidence if item.module_id is not None and item.module_id.strip()}
     unresolved=sum(1 for item in evidence_model.evidence if item.module_id is None or not item.module_id.strip())
-    if release_status=="released" and (data.summary.unreviewed_findings or unresolved):
+    unresolved_unclear=sum(1 for item in unclear if item.module_id is None or not item.module_id.strip())
+    if release_status=="released" and (data.summary.unreviewed_findings or unresolved or unresolved_unclear):
         raise ValueError("released report requires reviewed findings and resolved physical modules")
     return InspectionReport(
         report_id=report_id,
