@@ -5,6 +5,14 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+class WorkflowAction(str, Enum):
+    IMPORT = "import"
+    PROCESS = "process"
+    REVIEW = "review"
+    PREPARE_REPORT = "prepare_report"
+    EXPORT = "export"
+
+
 class WorkflowStage(str, Enum):
     PROJECT = "project"
     IMPORT = "import"
@@ -116,3 +124,37 @@ def resume_point(state: ProjectWorkflowState) -> WorkflowResumePoint:
         if not readiness.ready:
             return WorkflowResumePoint(stage, readiness.blockers)
     return WorkflowResumePoint(WorkflowStage.EXPORT)
+
+
+_ACTION_STAGE = {
+    WorkflowAction.IMPORT: WorkflowStage.PROJECT,
+    WorkflowAction.PROCESS: WorkflowStage.IMPORT,
+    WorkflowAction.REVIEW: WorkflowStage.REVIEW,
+    WorkflowAction.PREPARE_REPORT: WorkflowStage.REPORT,
+    WorkflowAction.EXPORT: WorkflowStage.EXPORT,
+}
+
+
+@dataclass(frozen=True)
+class ActionAvailability:
+    action: WorkflowAction
+    allowed: bool
+    blockers: tuple[str, ...] = ()
+
+
+def action_availability(
+    state: ProjectWorkflowState, action: WorkflowAction
+) -> ActionAvailability:
+    """Derive whether an application action may run from persisted readiness."""
+    if not isinstance(action, WorkflowAction):
+        raise ValueError("action must be a WorkflowAction")
+    readiness = state.readiness(_ACTION_STAGE[action])
+    return ActionAvailability(action, readiness.ready, readiness.blockers)
+
+
+def require_action(state: ProjectWorkflowState, action: WorkflowAction) -> None:
+    """Fail closed before an application service executes a blocked action."""
+    availability = action_availability(state, action)
+    if not availability.allowed:
+        reasons = "; ".join(availability.blockers)
+        raise ValueError(f"{action.value} action is blocked: {reasons}")
