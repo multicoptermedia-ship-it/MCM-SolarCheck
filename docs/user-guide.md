@@ -146,9 +146,39 @@ Fehlende Bilder, Messwerte oder Metadaten werden nicht künstlich ergänzt. Eine
 optionale Karten-/Satellitenansicht dient nur der Orientierung und ist keine
 Inspektionsgrundlage.
 
-## 10. Noch zu ergänzende Kapitel
+## 10. Bericht und Export
 
-Die Kapitel **Bericht und Export**, konkrete Dialoge/Fehlermeldungen,
-Tastaturbedienung, Installation/Update der Windows-Offline-Version sowie
-gegebenenfalls Online-Anmeldung/Synchronisierung werden ergänzt, sobald die
-jeweiligen GUI- und Release-Verträge festgelegt sind.
+Wenn Verarbeitung und erforderliche Prüfung abgeschlossen sind und die
+Backend-Prüfungen dies bestätigen, stehen die Hauptaktionen **Bericht** und
+**Export** zur Verfügung.
+
+**Bericht** öffnet die ausführliche Berichtansicht mit den persistierten
+Anlagen-/Betreiberdaten, Befunden, Belegen und Provenienzinformationen. Eine
+Vorschau ist nicht automatisch mit einer Freigabe des Berichts gleichzusetzen.
+
+**Export** öffnet die tatsächlich unterstützten Ausgabeformate. Ist Bericht oder
+Export noch blockiert, bleibt die Funktion erkennbar und SolarCheck zeigt den
+Grund, zum Beispiel eine noch offene Prüfung oder fehlende Pflichtangaben.
+
+## 11. Menüleiste
+
+Zusätzlich zu den Schaltflächen und der linken Arbeitsnavigation stehen die
+Bedienfunktionen über bekannte Drop-down-Menüs im Kopf der Anwendung zur
+Verfügung.
+
+Vorgesehen sind **Projekt**, **Verarbeitung**, **Ansicht**, **Prüfung**,
+**Bericht**, **Export** und **Hilfe**. Hierüber lassen sich dieselben zulässigen
+Aktionen erreichen wie über die jeweilige Arbeitsansicht.
+
+Ein Menüeintrag umgeht keine Sperre. Ist eine Funktion fachlich noch nicht
+zulässig, bleibt sie nach Möglichkeit sichtbar, aber deaktiviert; ein Hinweis
+erklärt den Grund.
+
+Unter **Hilfe** ist diese Bedienungsanleitung erreichbar. Versionsinformationen
+und spätere Diagnose-/Supportfunktionen können dort ebenfalls eingeordnet werden.
+
+## 12. Noch zu ergänzende Kapitel
+
+Konkrete Dialoge/Fehlermeldungen, Tastaturbedienung, Installation/Update der
+Windows-Offline-Version sowie gegebenenfalls Online-Anmeldung/Synchronisierung
+werden ergänzt, sobald die jeweiligen GUI- und Release-Verträge festgelegt sind.
