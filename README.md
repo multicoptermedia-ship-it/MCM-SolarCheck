@@ -36,4 +36,11 @@ Die KI-Erkennung ist als Assistenzsystem zu behandeln. Eine automatische Klassif
 
 ## Status
 
-Die Import-, Radiometrie-, Lokalisierungs-/Priorisierungs- sowie Modell-/Trainingsdatenverträge bis einschließlich Phase 8 sind testgestützt aufgebaut. Phase 8 ergänzt geprüfte Trainingsgeometrie, reproduzierbaren YOLO-Dataset-Export, explizite Trainer-Lineage, unabhängige M3T-Evaluation, Release-Provenienz und ein separates Distributionsrechte-Gate. Modellklassifikation bleibt ausdrücklich eine überprüfbare Empfehlung; die fachkundige menschliche Prüfung bleibt die maßgebliche Befundentscheidung. Ein wissenschaftlich validiertes Produktionsmodell und die kommerzielle Softwarefreigabe sind weiterhin eigene Release-Gates.
+Die Import-, Radiometrie-, Lokalisierungs-/Priorisierungs- sowie Modell-/Trainingsdatenverträge bis einschließlich Phase 8 sind testgestützt aufgebaut. Phase 9 ist abgeschlossen und ergänzt den backend-neutralen Inspektionsbericht, Review- und Release-Gates, Bild-/Temperatur-Provenienz, deterministische Report-Assets sowie den gemeinsamen DOCX-/ODT-/PDF-Export. Modellklassifikation bleibt ausdrücklich eine überprüfbare Empfehlung; die fachkundige menschliche Prüfung bleibt die maßgebliche Befundentscheidung. Ein wissenschaftlich validiertes Produktionsmodell, die Prüfung gegen die lizenzierte Norm und die kommerzielle Softwarefreigabe bleiben eigenständige Gates.
+
+
+## Nächster Arbeitsblock
+
+Phase 10 wird aus einer Bestandsaufnahme der vollständigen Projektpipeline abgeleitet. Vorrang haben Integrations- und Betriebsreife-Lücken zwischen Projektanlage, Import, Verarbeitung, Review und Berichtsexport; neue Komfortfunktionen werden erst danach eingeplant.
+
+Die Desktop-GUI auf Basis von PySide6 wird in den folgenden Schritten als eigener, dokumentierter Bedienvertrag definiert. Ihre Navigation und Zustände sollen die fachlichen Pipeline- und Review-Gates abbilden und diese nicht umgehen. Preisstaffel und automatischer Flugplaner bleiben bis nach der technischen Kernpipeline zurückgestellt.
