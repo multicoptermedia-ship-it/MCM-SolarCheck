@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from odf.opendocument import load
 from odf import teletype
 from mcm_solarcheck.reporting.odt_renderer import render_odt
-from mcm_solarcheck.reporting.report_model import InspectionReport, IrradianceSummary, OperatorSnapshot
+from mcm_solarcheck.reporting.report_model import InspectionReport, IrradianceSummary, OperatorSnapshot, ModuleReportDetail, ReportImage
 
 
 def _text(path):
@@ -30,3 +30,18 @@ def test_odt_cover_uses_operator_snapshot(tmp_path):
     text=_text(render_odt(report,tmp_path/"operator.odt"))
     assert "Operator GmbH" in text and "Werkstr. 1, 12345 Ort" in text
     assert "office@example.invalid" in text
+
+
+def test_odt_overview_image_does_not_depend_on_detail_state(tmp_path):
+    from PIL import Image
+    image=tmp_path/"overview.png"; Image.new("RGB",(20,20)).save(image)
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0,overview_rgb=ReportImage("R1",str(image),"rgb"))
+    text=_text(render_odt(report,tmp_path/"overview.odt"))
+    assert "RGB-Übersicht" in text
+
+
+def test_odt_detail_includes_geometry_context(tmp_path):
+    detail=ModuleReportDetail("M1","hotspot","confirmed",thermal_image=ReportImage("T1",str(tmp_path/"missing.png"),"thermal","persisted_module_polygon"))
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,1,0,details=(detail,))
+    text=_text(render_odt(report,tmp_path/"detail.odt"))
+    assert "Modulausschnitt – persistierte Modulgeometrie" in text
