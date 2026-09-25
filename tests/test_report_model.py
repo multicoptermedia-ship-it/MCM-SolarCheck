@@ -211,3 +211,25 @@ def test_phase9_detail_rejects_wrong_image_slot_modality():
     thermal=ReportImage("T1","thermal.png","thermal")
     with pytest.raises(ValueError,match="rgb_image"):
         ModuleReportDetail("M1","hotspot","confirmed",rgb_image=thermal)
+
+
+def test_phase9_thermal_measurement_rejects_non_finite_values():
+    for value in (float("nan"),float("inf"),float("-inf")):
+        with pytest.raises(ValueError,match="finite"):
+            ThermalMeasurement(value,None,"validated provider",True)
+
+
+def test_phase9_irradiance_rejects_boolean_as_numeric_value():
+    with pytest.raises(ValueError,match="finite non-negative"):
+        IrradianceSummary(True,"sensor")
+
+
+def test_phase9_report_counts_reject_boolean_values():
+    with pytest.raises(ValueError,match="non-negative integer"):
+        InspectionReport("R","P","C","S",datetime.now(timezone.utc),"I",True,0,0)
+
+
+def test_phase9_report_requires_timezone_aware_timestamp():
+    aware=datetime(2026,9,24,12,tzinfo=timezone.utc)
+    report=InspectionReport("R","P","C","S",aware,"I",1,0,0)
+    assert report.inspection_started_at.utcoffset() is not None
