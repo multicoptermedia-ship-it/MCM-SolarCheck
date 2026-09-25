@@ -55,3 +55,20 @@ def test_irradiance_wording_marks_missing_range_values_without_invention():
     text=irradiance_text(report)
     assert "Min —" in text and "Max —" in text
     assert "Quelle: sensor" in text
+
+
+def test_manual_review_wording_does_not_claim_confirmed_finding():
+    detail=ModuleReportDetail("M-10",None,"unclear",manual_inspection_required=True)
+    view=detail_presentation(detail)
+    combined=" ".join((view.finding,view.review,view.manual_inspection)).lower()
+    assert "kein bestätigter befund" in combined
+    assert "manuelle prüfung erforderlich" in combined
+    assert "bestätigter hotspot" not in combined
+
+
+def test_full_frame_context_remains_distinct_for_both_modalities():
+    detail=ModuleReportDetail("M-11","candidate","confirmed",rgb_image=ReportImage("R11","rgb.jpg","rgb","full_frame"),thermal_image=ReportImage("T11","thermal.png","thermal","full_frame"))
+    view=detail_presentation(detail)
+    expected="Vollbild – keine lokalisierte Modulgeometrie"
+    assert view.rgb_context==expected
+    assert view.thermal_context==expected
