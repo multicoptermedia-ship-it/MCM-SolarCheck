@@ -82,3 +82,18 @@ def test_missing_thermal_source_does_not_suppress_validated_rgb_crop(tmp_path):
     assert assets[0].geometry_source=="validated_cross_sensor:homography"
     assert assets[0].path.is_file()
     assert not any(asset.path.name.endswith("_thermal.png") for asset in assets)
+
+
+def test_missing_both_sources_produces_no_assets_or_output_directory(tmp_path):
+    db=ProjectDatabase(tmp_path/"p.sqlite"); db.initialize(); db.create_project("P","x")
+    missing_thermal=tmp_path/"missing-thermal.png"; missing_rgb=tmp_path/"missing-rgb.png"
+    with db.connect() as sql:
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,width,height,thermal_source,metadata_json) VALUES('P','T',?,100,80,'test','{}')",(str(missing_thermal),))
+        sql.execute("INSERT INTO image_frames(project_id,frame_id,source_file,width,height,metadata_json) VALUES('P','R',?,400,300,'{}')",(str(missing_rgb),))
+        sql.execute("INSERT INTO pv_modules(project_id,module_id,frame_id,polygon_json,detector,metadata_json) VALUES('P','M','T',?,'test','{}')",(json.dumps([[10,10],[30,10],[30,30],[10,30]]),))
+        sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P','F','T',20,20,'hotspot_candidate','M','confirmed','{}')")
+        sql.execute("INSERT INTO finding_sensor_links(project_id,finding_id,rgb_frame_id,rgb_pixel_x,rgb_pixel_y,transform_method,transform_validated,status,candidates_json) VALUES('P','F','R',200,150,'homography',1,'validated','[]')")
+    output=tmp_path/"report-assets"
+    assets=build_detail_assets(db,"P","F","M",output)
+    assert assets==()
+    assert not output.exists()
