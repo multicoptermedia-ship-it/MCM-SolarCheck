@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowStage
+from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowStage, resume_point
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
 
 
@@ -133,3 +133,26 @@ def test_reviewed_finding_with_module_allows_report_and_export(tmp_path, status)
     assert state.readiness(WorkflowStage.REVIEW).ready is True
     assert state.readiness(WorkflowStage.REPORT).ready is True
     assert state.readiness(WorkflowStage.EXPORT).ready is True
+
+
+def test_resume_point_returns_first_blocked_stage(tmp_path):
+    state = ProjectWorkflowService(_database(tmp_path)).state("P1")
+    resume = resume_point(state)
+    assert resume.stage is WorkflowStage.IMPORT
+    assert resume.blockers == ("no imported image frames",)
+
+
+def test_resume_point_moves_to_review_after_import(tmp_path):
+    database = _database_with_finding(tmp_path, status="unreviewed", module_id="M1")
+    state = ProjectWorkflowService(database).state("P1")
+    resume = resume_point(state)
+    assert resume.stage is WorkflowStage.REPORT
+    assert resume.blockers == ("unreviewed findings remain",)
+
+
+def test_resume_point_finishes_at_export_when_workflow_is_ready(tmp_path):
+    database = _database_with_finding(tmp_path, status="confirmed", module_id="M1")
+    state = ProjectWorkflowService(database).state("P1")
+    resume = resume_point(state)
+    assert resume.stage is WorkflowStage.EXPORT
+    assert resume.blockers == ()
