@@ -34,3 +34,37 @@ Phase 10 does not change model scientific validation, claim licensed-standard co
 ## GUI follow-on
 
 The later PySide6 GUI should map the backend workflow into clear project navigation: project/import, processing, findings/review, report and export. Progress indicators and action availability must be derived from backend state. GUI convenience actions may trigger application services, but widgets must not become an independent source of inspection truth.
+
+
+## GUI information architecture contract
+
+The online and Windows offline editions should present the same primary workflow,
+terminology, navigation order, status semantics, and action placement. Deployment
+differences must be isolated behind application services and adapters rather than
+creating separate user workflows.
+
+The shared primary navigation follows the persisted workflow:
+
+1. **Project** — project identity, inspection context, and project selection.
+2. **Import** — source selection, import progress, failures, and retry.
+3. **Processing** — pairing, thermal processing, module/finding processing, and
+   persisted processing status.
+4. **Review** — findings, evidence, physical module identity, and authoritative
+   human review.
+5. **Report** — report preview/readiness and explicit release blockers.
+6. **Export** — available report outputs and completed export results.
+
+Each screen must derive action availability and blockers from
+`ProjectWorkflowState` / `WorkflowAction`; widgets must not recreate domain
+rules. Failed operations remain retryable and must not visually advance a stage
+unless the required evidence was persisted.
+
+Online/offline differences may cover storage adapters, authentication or account
+integration, update delivery, connectivity indicators, and resource locations.
+They should not change the inspection vocabulary or the operator's core sequence.
+An offline-only technical status area may expose local database, model/resource,
+and update state without altering the shared workflow.
+
+Detailed visual design (layout, component hierarchy, typography, iconography,
+responsive behavior, dialogs, and exact desktop/web shell) is intentionally left
+for the dedicated GUI-definition step after this backend contract is closed.
