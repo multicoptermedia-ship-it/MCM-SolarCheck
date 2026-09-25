@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from docx import Document
 from mcm_solarcheck.reporting.docx_renderer import REPORT_STANDARD_WORDING, render_docx
-from mcm_solarcheck.reporting.report_model import InspectionReport, IrradianceSummary
+from mcm_solarcheck.reporting.report_model import InspectionReport, IrradianceSummary, OperatorSnapshot
 
 
 def test_docx_renderer_keeps_customer_report_semantics(tmp_path):
@@ -22,3 +22,11 @@ def test_docx_renderer_does_not_invent_irradiance(tmp_path):
     target=render_docx(report,tmp_path/"report.docx")
     text="\n".join(p.text for p in Document(target).paragraphs)
     assert "Einstrahlung: nicht dokumentiert." in text
+
+
+def test_docx_cover_uses_operator_snapshot(tmp_path):
+    op=OperatorSnapshot("Operator GmbH","Werkstr. 1, 12345 Ort","office@example.invalid",phone="+49 123",website="https://example.invalid")
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0,operator=op)
+    text="\n".join(p.text for p in Document(render_docx(report,tmp_path/"operator.docx")).paragraphs)
+    assert "Operator GmbH" in text and "Werkstr. 1, 12345 Ort" in text
+    assert "office@example.invalid" in text and "+49 123" in text
