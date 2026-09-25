@@ -1,5 +1,5 @@
 from mcm_solarcheck.reporting.presentation import detail_presentation, irradiance_text
-from mcm_solarcheck.reporting.report_model import IrradianceSummary, InspectionReport, ModuleReportDetail, ThermalMeasurement
+from mcm_solarcheck.reporting.report_model import IrradianceSummary, InspectionReport, ModuleReportDetail, ThermalMeasurement, ReportImage
 from datetime import datetime, timezone
 
 
@@ -24,3 +24,15 @@ def test_manual_only_detail_separates_finding_from_review_instruction():
     view=detail_presentation(detail)
     assert view.finding=="Kein bestätigter Befund"
     assert view.manual_inspection=="Manuelle Prüfung erforderlich."
+
+
+def test_image_context_does_not_overstate_full_frame_as_localized_crop():
+    detail=ModuleReportDetail("M-1","hotspot_candidate","confirmed",rgb_image=ReportImage("R1","rgb.jpg","rgb","full_frame"),thermal_image=ReportImage("T1","thermal.png","thermal","persisted_module_polygon"))
+    view=detail_presentation(detail)
+    assert view.rgb_context=="Vollbild – keine lokalisierte Modulgeometrie"
+    assert view.thermal_context=="Modulausschnitt – persistierte Modulgeometrie"
+
+
+def test_validated_cross_sensor_context_is_explicit():
+    detail=ModuleReportDetail("M-2","hotspot_candidate","confirmed",rgb_image=ReportImage("R2","rgb.png","rgb","validated_cross_sensor:homography"))
+    assert detail_presentation(detail).rgb_context=="Lokalisierter Ausschnitt – validierte Sensorzuordnung"
