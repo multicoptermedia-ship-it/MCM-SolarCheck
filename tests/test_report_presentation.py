@@ -48,3 +48,10 @@ def test_unknown_image_geometry_is_reported_verbatim_without_claiming_validation
 def test_temperature_without_delta_remains_explicitly_validated():
     detail=ModuleReportDetail("M-4","candidate","confirmed",thermal_measurement=ThermalMeasurement(47.3,None,"validated-provider",True))
     assert detail_presentation(detail).temperature=="Radiometrisch validiert: 47.3 °C; Quelle: validated-provider"
+
+
+def test_irradiance_wording_marks_missing_range_values_without_invention():
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",1,0,0,irradiance=IrradianceSummary(700,"sensor"))
+    text=irradiance_text(report)
+    assert "Min —" in text and "Max —" in text
+    assert "Quelle: sensor" in text
