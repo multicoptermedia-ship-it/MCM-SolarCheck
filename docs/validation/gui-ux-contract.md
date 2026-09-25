@@ -218,3 +218,77 @@ one detail interaction.
 The compact box should remain usable while RGB/thermal comparison is active.
 Opening it must not reset zoom, pan position, selected module, or comparison wipe
 position.
+
+
+## Processing and recovery interaction contract
+
+After import, SolarCheck opens a dedicated processing view. It communicates both
+the overall workflow position and the currently active processing operation
+without inventing progress.
+
+### Progress presentation
+
+Where the backend exposes a meaningful total/current measure, the GUI may show a
+determinate percentage and concrete counter (for example processed images or
+modules). Where no trustworthy measure exists, the active stage uses an
+indeterminate activity indicator instead of a simulated percentage.
+
+The view distinguishes:
+
+- overall processing progress when it can be derived reliably;
+- the active processing stage;
+- stage-specific counters when available;
+- elapsed runtime;
+- completed stages backed by persisted evidence;
+- blocked, failed, or interrupted stages with a human-readable reason.
+
+A lack of percentage movement alone is not evidence that processing is stuck.
+Long-running stages may legitimately remain at one visible percentage.
+
+### Activity and interruption detection
+
+Long-running workers should expose a heartbeat or equivalent activity signal when
+the execution architecture supports it. Loss of that signal may cause the GUI to
+show **No activity detected — check processing**, but must not automatically mark
+the operation as failed solely because progress has not changed.
+
+After application/OS restart, opening the project re-derives workflow state from
+persisted evidence. If processing was interrupted, the GUI offers recovery from
+the last valid persisted boundary rather than claiming that the interrupted stage
+completed.
+
+### Recovery actions
+
+SolarCheck distinguishes three recovery actions:
+
+1. **Continue** — preferred normal recovery. Re-derive persisted state and resume
+   from the next required processing boundary.
+2. **Retry step** — rerun the failed/interrupted processing stage and invalidate
+   only downstream derived results whose validity depends on that stage.
+3. **Restart processing** — explicit maintenance/recovery action that rebuilds
+   derived processing results from the preserved import/source data.
+
+These actions must not be interchangeable labels for the same destructive
+operation. Their exact invalidation scopes are defined per concrete processing
+stage before implementation.
+
+Imported source data must not be silently deleted by processing recovery. Human
+review decisions must also not be silently discarded. If a future dependency
+requires invalidating reviewed evidence, SolarCheck must block the restart and
+require an explicit, separately specified migration/review workflow rather than
+quietly resetting it.
+
+### Restart safety
+
+**Restart processing** requires confirmation that explains exactly which derived
+artifacts will be removed/rebuilt and which source/review data will remain.
+Generic warnings such as “data may be lost” are insufficient.
+
+Recovery commands pass through the same application workflow/action boundary as
+normal operations. A button press does not optimistically advance the progress
+display; after the operation SolarCheck reloads the persisted state and renders
+that result.
+
+The implementation must not claim transactional or resumable behavior for a
+processing stage until that stage's persistence/invalidation behavior has been
+tested explicitly.
