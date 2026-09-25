@@ -272,3 +272,20 @@ def test_confirmed_crop_does_not_leak_into_unclear_detail_on_same_module(tmp_pat
     assert unclear.thermal_image is None
     assert unclear.rgb_image is None
     assert unclear.manual_inspection_required is True
+
+
+def test_generated_confirmed_asset_keeps_source_frame_identity(tmp_path):
+    from PIL import Image
+    db=_db(tmp_path)
+    thermal=tmp_path/"thermal.png"
+    Image.new("RGB",(100,100)).save(thermal)
+    db.save_modules("P1",(PVModule("M1","T1",((10,10),(30,10),(30,30),(10,30)),0.9,"test"),))
+    with db.connect() as sql:
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,width,height,thermal_source,metadata_json) VALUES('P1','T1',?,100,100,'test','{}')",(str(thermal),))
+        sql.execute("INSERT INTO findings(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,finding_type,module_id,reviewer_status,metadata_json) VALUES('P1','F1','T1',20,20,'hotspot_candidate','M1','confirmed','{}')")
+        sql.execute("INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc) VALUES('P1','F1','confirmed','Inspector','2026-09-25T08:00:00+00:00')")
+    detail=assemble_inspection_report(db,"P1","R1",datetime(2026,9,25,8,tzinfo=timezone.utc),asset_dir=tmp_path/"assets").details[0]
+    assert detail.thermal_image is not None
+    assert detail.thermal_image.source_frame_id=="T1"
+    assert detail.thermal_image.modality=="thermal"
+    assert detail.thermal_image.geometry_source=="persisted_module_polygon"
