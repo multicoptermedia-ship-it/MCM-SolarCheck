@@ -19,10 +19,14 @@ def render_pdf(report: InspectionReport, destination: str | Path, *, banner_path
     """Render a non-editable delivery PDF without adding unsupported evidence claims."""
     destination=Path(destination); destination.parent.mkdir(parents=True,exist_ok=True)
     styles=getSampleStyleSheet(); story=[]
+    if banner_path is None and report.operator and report.operator.logo_path: banner_path=report.operator.logo_path
     if banner_path is not None:
         if not Path(banner_path).is_file(): raise FileNotFoundError(banner_path)
         story.append(_image(str(banner_path),170*mm))
-    story += [Paragraph("MCM-SolarCheck",styles["Title"]),Paragraph(REPORT_STANDARD_WORDING,styles["BodyText"]),Spacer(1,5*mm),
+    story += [Paragraph(report.operator.company_name if report.operator else "MCM-SolarCheck",styles["Title"])]
+    if report.operator:
+        story += [Paragraph(report.operator.address,styles["BodyText"]),Paragraph(" | ".join(v for v in (report.operator.email,report.operator.phone,report.operator.website) if v),styles["BodyText"])]
+    story += [Paragraph(REPORT_STANDARD_WORDING,styles["BodyText"]),Spacer(1,5*mm),
               Paragraph(f"Bericht: {report.report_id}",styles["BodyText"]),Paragraph(f"Kunde: {report.customer_name}",styles["BodyText"]),
               Paragraph(f"Anlage: {report.site_name}",styles["BodyText"]),Paragraph(f"Standort: {report.site_address or '—'}",styles["BodyText"]),PageBreak(),
               Paragraph("Übersicht",styles["Heading1"])]
