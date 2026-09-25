@@ -7,6 +7,7 @@ from pathlib import Path
 
 from mcm_solarcheck.importers.project import ProjectImportResult, import_m3t_project
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
+from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAction, require_action
 
 
 @dataclass(frozen=True)
@@ -56,3 +57,20 @@ def import_and_store_m3t_project(
         unpaired_thermal=result.unpaired_thermal_count,
     )
     return result, summary
+
+
+
+class ProjectApplicationService:
+    """Guard application operations with the persisted workflow contract."""
+
+    def __init__(self, database: ProjectDatabase) -> None:
+        self.database = database
+        self.workflow = ProjectWorkflowService(database)
+
+    def require(self, project_id: str, action: WorkflowAction) -> None:
+        """Reject an operation before side effects when its workflow gate is closed."""
+        require_action(self.workflow.state(project_id), action)
+
+    def state(self, project_id: str):
+        """Expose the same persisted state used to guard operations."""
+        return self.workflow.state(project_id)
