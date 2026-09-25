@@ -25,11 +25,15 @@ def render_docx(report: InspectionReport, destination: str | Path, *, banner_pat
     section.left_margin=Mm(18); section.right_margin=Mm(18)
     normal=document.styles["Normal"]; normal.font.name="Arial"; normal.font.size=Pt(9)
 
+    if banner_path is None and report.operator and report.operator.logo_path: banner_path=report.operator.logo_path
     if banner_path is not None:
         banner=Path(banner_path)
         if not banner.is_file(): raise FileNotFoundError(banner)
         document.add_picture(str(banner),width=Mm(174))
-    document.add_heading("MCM-SolarCheck",0)
+    document.add_heading(report.operator.company_name if report.operator else "MCM-SolarCheck",0)
+    if report.operator:
+        document.add_paragraph(report.operator.address)
+        document.add_paragraph(" | ".join(v for v in (report.operator.email,report.operator.phone,report.operator.website) if v))
     document.add_paragraph(REPORT_STANDARD_WORDING)
     document.add_paragraph(f"Bericht: {report.report_id}")
     document.add_paragraph(f"Kunde: {report.customer_name}")
