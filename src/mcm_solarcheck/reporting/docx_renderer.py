@@ -67,7 +67,8 @@ def render_docx(report: InspectionReport, destination: str | Path, *, banner_pat
         if view.manual_inspection: document.add_paragraph(view.manual_inspection)
         images=document.add_table(rows=1,cols=2).cells
         for cell,img,label in ((images[0],detail.rgb_image,"RGB"),(images[1],detail.thermal_image,"Thermal")):
-            cell.text=label
+            context=view.rgb_context if label=="RGB" else view.thermal_context
+            cell.text=label+(f"\n{context}" if context else "")
             if img and Path(img.path).is_file():
                 cell.paragraphs[0].add_run().add_picture(img.path,width=Mm(76))
 
