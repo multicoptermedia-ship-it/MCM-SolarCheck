@@ -233,3 +233,84 @@ but the starting proportions are:
 No fixed pixel values in this document constitute release requirements. Windows
 display scaling and representative laptop/desktop resolutions must be tested
 before dimensions are frozen.
+
+
+## 8. Start and project workspace
+
+The first usable screen after startup is deliberately calm. It helps the user
+either create a new inspection project or safely resume an existing one without
+presenting the full technical workspace before a project context exists.
+
+### Start-screen hierarchy
+
+The normal application header remains available. The center workspace contains:
+
+1. a concise **SolarCheck / PV inspection** heading;
+2. a prominent primary action **Create new project**;
+3. a **Recent/existing projects** region;
+4. optional compact guidance for first use, linked to the user guide rather than
+   marketing copy.
+
+Do not repeat the splash artwork as a large decorative hero. The splash provides
+brand recognition during initialization; the start workspace prioritizes work.
+
+### New-project action
+
+**Create new project** is the single visually dominant action when no project is
+open. It uses the brand accent and opens the guided project-data form defined by
+the GUI/UX contract.
+
+The form visually groups:
+- **Executing company**;
+- **PV plant**;
+- **Operator/contact**.
+
+Required, report-relevant incomplete, and optional fields are visually distinct
+without using alarm styling for ordinary incompleteness. Inline validation is
+preferred to error modals.
+
+The primary form action is **Save project and continue**. After persistence, the
+shell updates to the new project context and the next primary action becomes
+**Import images**.
+
+### Existing-project cards
+
+Existing/recent projects are shown as restrained cards or rows optimized for
+scanning. Each item may show only persisted information that is useful for
+resuming work:
+- project/plant name;
+- last persisted activity timestamp if available;
+- current safe workflow/resume point;
+- concise open-review/blocker information when available.
+
+Do not invent module/image/finding counts merely to make a card look richer.
+Counts appear only when the backend can provide them reliably.
+
+Opening a project routes to its backend-derived safe resume point rather than a
+hard-coded screen. A user may still navigate to other permitted areas through
+the normal shell.
+
+### Empty state
+
+If no existing project is available, show a clean empty state with
+**Create new project** and a short sentence explaining the inspection workflow.
+Avoid sample/fake projects in production.
+
+### Project-card visual language
+
+Cards use the same neutral surface, typography, status chips, and spacing tokens
+as later review/report cards. The project name is the primary visual anchor;
+workflow state is secondary.
+
+Hover/selection feedback is subtle. The entire appropriate card region may be
+clickable, while destructive project-management actions remain separate and
+cannot be triggered by opening the card.
+
+### Returning to the start workspace
+
+Selecting the compact SolarCheck brand/home affordance or the appropriate
+**Project** menu command may return to the project workspace. If a form contains
+unsaved edits, the normal unsaved-change guard applies.
+
+Returning home does not close, delete, or reset the active project. Project
+closing is a distinct explicit command.
