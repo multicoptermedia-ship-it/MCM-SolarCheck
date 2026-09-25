@@ -292,3 +292,63 @@ that result.
 The implementation must not claim transactional or resumable behavior for a
 processing stage until that stage's persistence/invalidation behavior has been
 tested explicitly.
+
+
+## Project start and guided creation contract
+
+The start screen favors a small number of clear next actions over exposing the
+whole application at once.
+
+A prominent **Create new project** action starts the normal workflow. The operator
+first enters the project name and the project is persisted immediately so a
+stable project context exists even if image selection is cancelled or the
+application closes.
+
+### Plant/report data during project creation
+
+Project creation also asks the operator to enter the plant and inspection data
+needed for the eventual report. The form must clearly distinguish:
+
+- data required to create/save the project;
+- report-relevant data that is still incomplete;
+- optional information.
+
+The operator may save an incomplete project where domain rules permit it, but
+SolarCheck keeps the missing report data visible as an explicit completeness
+state and prompts the operator to complete it before report readiness/release.
+Missing information must not be silently replaced with invented defaults.
+
+The exact field set is derived from the existing report/domain model before the
+form is implemented, so the GUI does not create a second incompatible report
+schema.
+
+### Guided first-run actions
+
+After the project is saved, the primary next action is **Import images**. The
+operator may select the complete inspection image set together; SolarCheck is
+responsible for identifying supported RGB/thermal inputs and performing the
+available pairing/import logic rather than requiring separate RGB and thermal
+import workflows.
+
+After import, the screen shows a concise persisted import summary such as RGB
+frames, thermal frames, recognized pairs, failures, and items requiring
+attention. Counts must come from backend/import results or persisted queries.
+
+When processing prerequisites are satisfied, the next prominent action becomes
+**Start processing**. If processing is blocked, the action remains visible but
+disabled and the backend-derived blocker is shown next to it rather than hiding
+the workflow.
+
+### Existing projects and resumption
+
+Existing projects appear in a compact list/card view with project name, recent
+activity where available, and backend-derived workflow state. Selecting a project
+opens its safe resume point: import, processing/recovery, review, report, or
+export as appropriate.
+
+Interrupted processing is shown as recoverable work rather than as completed.
+Projects with incomplete plant/report data retain a visible reminder even if
+image processing can otherwise continue.
+
+The guiding UX principle is: **show the next meaningful primary action, while
+keeping incomplete prerequisites and blockers explicit.**
