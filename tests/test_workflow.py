@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowStage, resume_point
+from mcm_solarcheck.services.workflow import (ProjectWorkflowService, WorkflowAction, WorkflowStage, action_availability, require_action, resume_point)
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
 
 
@@ -156,3 +156,29 @@ def test_resume_point_finishes_at_export_when_workflow_is_ready(tmp_path):
     resume = resume_point(state)
     assert resume.stage is WorkflowStage.EXPORT
     assert resume.blockers == ()
+
+
+def test_actions_are_derived_from_persisted_readiness(tmp_path):
+    state = ProjectWorkflowService(_database(tmp_path)).state("P1")
+
+    assert action_availability(state, WorkflowAction.IMPORT).allowed is True
+    process = action_availability(state, WorkflowAction.PROCESS)
+    assert process.allowed is False
+    assert process.blockers == ("no imported image frames",)
+
+
+def test_blocked_action_fails_closed_with_reason(tmp_path):
+    state = ProjectWorkflowService(_database(tmp_path)).state("P1")
+
+    with pytest.raises(ValueError, match="process action is blocked: no imported image frames"):
+        require_action(state, WorkflowAction.PROCESS)
+
+
+def test_ready_reviewed_project_allows_report_and_export_actions(tmp_path):
+    database = _database_with_finding(tmp_path, status="confirmed", module_id="M1")
+    state = ProjectWorkflowService(database).state("P1")
+
+    assert action_availability(state, WorkflowAction.REVIEW).allowed is True
+    assert action_availability(state, WorkflowAction.PREPARE_REPORT).allowed is True
+    assert action_availability(state, WorkflowAction.EXPORT).allowed is True
+    require_action(state, WorkflowAction.EXPORT)
