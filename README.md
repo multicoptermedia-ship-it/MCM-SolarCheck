@@ -44,3 +44,10 @@ Die Import-, Radiometrie-, Lokalisierungs-/Priorisierungs- sowie Modell-/Trainin
 Phase 10 wird aus einer Bestandsaufnahme der vollständigen Projektpipeline abgeleitet. Vorrang haben Integrations- und Betriebsreife-Lücken zwischen Projektanlage, Import, Verarbeitung, Review und Berichtsexport; neue Komfortfunktionen werden erst danach eingeplant.
 
 Die Desktop-GUI auf Basis von PySide6 wird in den folgenden Schritten als eigener, dokumentierter Bedienvertrag definiert. Ihre Navigation und Zustände sollen die fachlichen Pipeline- und Review-Gates abbilden und diese nicht umgehen. Preisstaffel und automatischer Flugplaner bleiben bis nach der technischen Kernpipeline zurückgestellt.
+
+
+## Offline-Distribution (späte Release-Phase)
+
+Für die Windows-Offline-Version wird zum Abschluss ein eigenes Installationsprogramm erstellt. Es soll die freigegebene SolarCheck-Anwendung und alle für den Offline-Betrieb notwendigen Laufzeitkomponenten reproduzierbar installieren, einschließlich der lokalen Projektdatenbank bzw. ihrer Initialisierung und Migration. Die Installation darf keine fachlichen Review-, Provenienz- oder Release-Gates umgehen.
+
+Die Packaging-/Installer-Arbeit wird bewusst von der laufenden Kernentwicklung getrennt und erhält einen eigenen GitHub-Zweig. Dieser Zweig wird erst auf Basis eines stabilen Release-Kandidaten aufgebaut; konkrete Installer-Technologie und gebündelte Drittkomponenten werden anhand der dann tatsächlich benötigten Runtime-, Lizenz- und Offline-Anforderungen festgelegt.
