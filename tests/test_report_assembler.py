@@ -1,3 +1,4 @@
+from mcm_solarcheck.domain.operator_profile import OperatorProfile
 from datetime import datetime, timezone
 import pytest
 from mcm_solarcheck.domain.models import Finding, PVModule
@@ -104,3 +105,12 @@ def test_unresolved_unclear_finding_blocks_release_without_inventing_module(tmp_
     assert draft.details==()
     with pytest.raises(ValueError,match="resolved physical modules"):
         assemble_inspection_report(db,"P1","R2",datetime(2026,9,25,8,tzinfo=timezone.utc),release_status="released")
+
+
+def test_report_snapshots_operator_branding(tmp_path):
+    db=_db(tmp_path)
+    operator=OperatorProfile("MCM Test GmbH","Werkstr. 1","47500","Teststadt","info@example.invalid",phone="+49 1",website="https://example.invalid",vat_id="DE123",logo_path="brand.png")
+    report=assemble_inspection_report(db,"P1","R1",datetime(2026,9,25,8,tzinfo=timezone.utc),operator_profile=operator)
+    assert report.operator.company_name=="MCM Test GmbH"
+    assert report.operator.address=="Werkstr. 1, 47500 Teststadt"
+    assert report.operator.logo_path=="brand.png"
