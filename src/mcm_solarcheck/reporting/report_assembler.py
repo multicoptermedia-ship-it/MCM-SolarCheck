@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from mcm_solarcheck.reporting.data import InspectionReportDataService
 from mcm_solarcheck.reporting.model import build_report_model
-from mcm_solarcheck.reporting.report_model import InspectionReport, ModuleReportDetail, ReportImage, ThermalMeasurement
+from mcm_solarcheck.reporting.report_model import InspectionReport, ModuleReportDetail, OperatorSnapshot, ReportImage, ThermalMeasurement
 from mcm_solarcheck.thermal.temperature_provenance import has_validated_celsius
 from mcm_solarcheck.reporting.report_assets import build_detail_assets
 
@@ -13,7 +13,7 @@ def _address(*parts: str | None) -> str | None:
     return ", ".join(values) if values else None
 
 
-def assemble_inspection_report(database, project_id: str, report_id: str, inspection_started_at: datetime, *, release_status: str="draft", asset_dir=None) -> InspectionReport:
+def assemble_inspection_report(database, project_id: str, report_id: str, inspection_started_at: datetime, *, release_status: str="draft", asset_dir=None, operator_profile=None) -> InspectionReport:
     """Use project master data once; only human-confirmed evidence becomes a defect detail."""
     profile=database.project_profile(project_id)
     if profile is None:
@@ -77,5 +77,6 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
         customer_reference=profile.customer_reference,
         order_reference=profile.order_reference,
         details=details,
+        operator=(OperatorSnapshot(operator_profile.company_name,operator_profile.address,operator_profile.email,operator_profile.phone,operator_profile.website,operator_profile.tax_id,operator_profile.vat_id,operator_profile.logo_path) if operator_profile is not None else None),
         release_status=release_status,
     )
