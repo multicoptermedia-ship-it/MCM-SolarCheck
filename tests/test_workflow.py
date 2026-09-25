@@ -243,3 +243,66 @@ def test_failed_attempt_requires_action_and_error_contract():
 
     with pytest.raises(ValueError, match="successful attempt must not carry"):
         WorkflowAttempt(WorkflowAction.PROCESS, True, "unexpected")
+
+
+def test_execute_success_rederives_state_from_persisted_operation(tmp_path):
+    from pathlib import Path
+    from mcm_solarcheck.domain.models import ThermalFrame
+    from mcm_solarcheck.thermal.analysis import RawThermalStatistics
+    from mcm_solarcheck.thermal.quality import ThermalQualityGrade, ThermalQualityResult
+
+    database = _database(tmp_path)
+    service = ProjectApplicationService(database)
+
+    def persist_import():
+        frame = ThermalFrame(
+            frame_id="T1",
+            source_file=Path("T1.JPG"),
+            thermal_width=640,
+            thermal_height=512,
+            thermal_source="raw",
+        )
+        quality = ThermalQualityResult(
+            ThermalQualityGrade.PASS,
+            (),
+            RawThermalStatistics(1, 10, 5.0, 5.0, 9.0, 10.0, 9),
+        )
+        database.save_thermal_frame("P1", frame, quality)
+        return "stored"
+
+    attempt, result, state = service.execute("P1", WorkflowAction.IMPORT, persist_import)
+
+    assert attempt == WorkflowAttempt(WorkflowAction.IMPORT, True)
+    assert result == "stored"
+    assert state.readiness(WorkflowStage.IMPORT).ready is True
+    assert state.readiness(WorkflowStage.PROCESSING).ready is True
+
+
+def test_execute_failure_rederives_unchanged_persisted_state(tmp_path):
+    database = _database(tmp_path)
+    service = ProjectApplicationService(database)
+
+    def fail_import():
+        raise RuntimeError("reader failed")
+
+    attempt, result, state = service.execute("P1", WorkflowAction.IMPORT, fail_import)
+
+    assert attempt == WorkflowAttempt(WorkflowAction.IMPORT, False, "reader failed")
+    assert result is None
+    assert state.readiness(WorkflowStage.IMPORT).ready is False
+    assert state.readiness(WorkflowStage.PROCESSING).ready is False
+
+
+def test_execute_does_not_call_operation_when_guard_is_blocked(tmp_path):
+    database = _database(tmp_path)
+    service = ProjectApplicationService(database)
+    calls = []
+
+    with pytest.raises(ValueError, match="process action is blocked"):
+        service.execute(
+            "P1",
+            WorkflowAction.PROCESS,
+            lambda: calls.append("called"),
+        )
+
+    assert calls == []
