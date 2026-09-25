@@ -38,7 +38,7 @@ def test_assets_include_rgb_only_after_transform_validation(tmp_path):
 
 
 def test_missing_crop_source_is_skipped_without_fabricating_asset(tmp_path):
-    db=_db(tmp_path)
+    db=ProjectDatabase(tmp_path/"p.sqlite"); db.initialize(); db.create_project("P1","x")
     missing=tmp_path/"missing-thermal.png"
     with db.connect() as sql:
         sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,width,height,thermal_source,metadata_json) VALUES('P1','T1',?,100,100,'test','{}')",(str(missing),))
