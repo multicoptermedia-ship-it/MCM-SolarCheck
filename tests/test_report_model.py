@@ -288,3 +288,10 @@ def test_phase9_equipment_rejects_blank_optional_identifiers():
         EquipmentRecord("Camera",identifier=" ")
     with pytest.raises(ValueError,match="calibration_reference"):
         EquipmentRecord("Camera",calibration_reference=" ")
+
+
+def test_phase9_provenance_requires_software_and_evidence_statement():
+    with pytest.raises(ValueError,match="software_version"):
+        ReportProvenance(" ","reviewed evidence")
+    with pytest.raises(ValueError,match="evidence_statement"):
+        ReportProvenance("1.0"," ")
