@@ -303,3 +303,11 @@ def test_phase9_report_requires_nonempty_core_identity():
         values=list(base); values[index]=" "
         with pytest.raises(ValueError):
             InspectionReport(*values,10,0,0)
+
+
+def test_phase9_report_optional_customer_fields_reject_blank_values():
+    optional_fields=("customer_contact","customer_address","customer_email","customer_phone","customer_reference","order_reference")
+    for field in optional_fields:
+        kwargs={field:" "}
+        with pytest.raises(ValueError):
+            InspectionReport("R","P","Customer","Site",datetime.now(timezone.utc),"Inspector",10,0,0,**kwargs)
