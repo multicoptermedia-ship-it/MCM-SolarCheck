@@ -4,6 +4,7 @@ import pytest
 
 from mcm_solarcheck.services.workflow import (ProjectWorkflowService, WorkflowAction, WorkflowStage, action_availability, require_action, resume_point)
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
+from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
 
 
 def _database(tmp_path):
@@ -182,3 +183,32 @@ def test_ready_reviewed_project_allows_report_and_export_actions(tmp_path):
     assert action_availability(state, WorkflowAction.PREPARE_REPORT).allowed is True
     assert action_availability(state, WorkflowAction.EXPORT).allowed is True
     require_action(state, WorkflowAction.EXPORT)
+
+
+def test_application_service_exposes_persisted_state(tmp_path):
+    database = _database(tmp_path)
+    service = ProjectApplicationService(database)
+
+    state = service.state("P1")
+
+    assert state.readiness(WorkflowStage.PROJECT).ready is True
+    assert state.readiness(WorkflowStage.IMPORT).ready is False
+
+
+def test_application_service_rejects_blocked_action_before_caller_side_effect(tmp_path):
+    database = _database(tmp_path)
+    service = ProjectApplicationService(database)
+    side_effects = []
+
+    with pytest.raises(ValueError, match="process action is blocked"):
+        service.require("P1", WorkflowAction.PROCESS)
+        side_effects.append("processing-started")
+
+    assert side_effects == []
+
+
+def test_application_service_allows_action_only_after_persisted_prerequisite(tmp_path):
+    database = _database_with_finding(tmp_path, status="confirmed", module_id="M1")
+    service = ProjectApplicationService(database)
+
+    service.require("P1", WorkflowAction.EXPORT)
