@@ -728,3 +728,122 @@ part of the source RGB/thermal image.
 
 The comparison viewer provides visual correlation; it does not itself assert
 radiometric validation, registration accuracy, or defect diagnosis.
+
+
+## 13. Review workspace
+
+The review workspace combines a report-like vertical evidence stream with a
+synchronized plant viewer. Its purpose is efficient human adjudication while
+preserving spatial context and source evidence.
+
+### Split workspace
+
+On typical desktop widths, the review screen uses two coordinated regions:
+- a dominant scrollable review stream for evidence cards;
+- a persistent plant viewer for spatial orientation and selection.
+
+The split is resizable within sensible limits. Neither side becomes a tiny
+decorative preview: the review cards must remain readable and the map must remain
+useful for locating modules.
+
+On narrower supported layouts, implementation may switch to a controlled
+viewer/stream arrangement, but the synchronized selection model remains the
+same.
+
+### Review summary and filters
+
+A compact sticky review header shows persisted counts such as:
+**To review · Confirmed · Unclear · Rejected**.
+
+Filters provide **Open**, **Confirmed**, **Unclear**, **Rejected**, and **All**.
+The active filter is obvious through text/selection treatment, not color alone.
+
+Counts and filters are derived from persisted review state. Changing a filter
+does not change review decisions.
+
+### Review stream
+
+The default stream prioritizes items requiring human attention rather than
+rendering every unremarkable physical module.
+
+Cards use the shared light-surface component language and may contain:
+- module identity/location;
+- current finding/review state;
+- RGB evidence crop;
+- thermal evidence crop;
+- relevant validated thermal values;
+- clearly labelled machine recommendation;
+- concise reviewer note/status;
+- **Confirm · Unclear · Reject** actions;
+- **Report details**.
+
+RGB and thermal crops receive comparable visual weight where both exist.
+Missing source evidence is represented explicitly; no artificial placeholder
+image is styled as if it were inspection evidence.
+
+### Active-card synchronization
+
+As a card becomes actively selected, its physical module is highlighted/focused
+in the plant viewer.
+
+Selecting a finding/module in the plant viewer activates and scrolls the
+corresponding review card into view.
+
+Automatic synchronization should not constantly steal scroll focus merely
+because the map viewport changes. Explicit selection is the authoritative
+navigation event.
+
+### Review decision interaction
+
+Decision controls remain in a stable location across cards to support repetitive
+professional review without encouraging accidental clicks.
+
+A decision is not visually committed until persistence succeeds. During the
+operation, the affected card shows a small bounded busy state. On failure, the
+previous persisted status remains and the error is shown next to that card.
+
+After success, counts, filter membership, map overlay, and card state refresh
+from persisted data.
+
+If the active filter no longer includes the item after a decision, the
+transition to the next relevant card should be predictable and not reset the
+plant viewport.
+
+### Focus mode
+
+Difficult cases can enter **Focus mode**. This enlarges RGB/thermal evidence,
+measurement/context information, and review controls while retaining:
+- current module identity;
+- comparison capability where useful;
+- **Previous/Next review item** navigation;
+- a clear return to the exact stream/filter/map context.
+
+Focus mode is not a separate review model and does not duplicate decisions.
+
+### Notes and detail
+
+Reviewer notes should use a compact expandable field so ordinary cases do not
+become visually dominated by text input. Saving notes follows the same persisted
+state principle as decisions.
+
+Long report narrative, provenance detail, and report-specific composition stay
+behind **Report details** rather than expanding every review card into a full
+report page.
+
+### Large-review performance
+
+The stream uses virtualized/lazy card rendering for large inspections. Evidence
+thumbnails/crops are loaded as needed and may use neutral loading placeholders.
+
+A loading placeholder must be visually distinct from a genuinely missing RGB or
+thermal evidence asset.
+
+### Completion state
+
+When no required review items remain according to backend/domain rules, the
+workspace shows a restrained completion state and promotes the next permitted
+report action.
+
+This visual completion message does not independently declare a report released
+or exportable; report/export readiness is rederived through the application
+workflow service.
