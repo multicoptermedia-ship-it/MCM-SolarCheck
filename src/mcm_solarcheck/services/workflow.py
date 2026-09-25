@@ -53,3 +53,35 @@ class ProjectWorkflowState:
             if item.stage is stage:
                 return item
         raise KeyError(stage)
+
+
+class ProjectWorkflowService:
+    """Derive application readiness from persisted inspection evidence."""
+
+    def __init__(self, database) -> None:
+        from mcm_solarcheck.storage.queries import InspectionQueries
+        self.database = database
+        self.queries = InspectionQueries(database)
+
+    def state(self, project_id: str) -> ProjectWorkflowState:
+        summary = self.queries.summary(project_id)
+        has_images = summary.rgb_frames > 0 or summary.thermal_frames > 0
+        has_processing = summary.pv_modules > 0 or summary.findings > 0
+        review_blockers = []
+        if not has_processing:
+            review_blockers.append("no processed modules or findings")
+        report_blockers = []
+        if summary.unreviewed_findings:
+            report_blockers.append("unreviewed findings remain")
+        if not has_processing:
+            report_blockers.append("no processed modules or findings")
+        export_blockers = list(report_blockers)
+        stages = (
+            StageReadiness(WorkflowStage.PROJECT, True),
+            StageReadiness(WorkflowStage.IMPORT, True if has_images else False, () if has_images else ("no imported image frames",)),
+            StageReadiness(WorkflowStage.PROCESSING, True if has_images else False, () if has_images else ("import required before processing",)),
+            StageReadiness(WorkflowStage.REVIEW, not review_blockers, tuple(review_blockers)),
+            StageReadiness(WorkflowStage.REPORT, not report_blockers, tuple(report_blockers)),
+            StageReadiness(WorkflowStage.EXPORT, not export_blockers, tuple(export_blockers)),
+        )
+        return ProjectWorkflowState(stages)
