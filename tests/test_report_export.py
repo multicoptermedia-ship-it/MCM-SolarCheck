@@ -33,3 +33,22 @@ def test_export_boundary_accepts_uppercase_extension(tmp_path,suffix):
     target=export_report(_report(),tmp_path/f"report.{suffix}")
     assert target.is_file()
     assert target.suffix==f".{suffix}"
+
+
+@pytest.mark.parametrize("suffix",["docx","odt","pdf"])
+def test_export_boundary_accepts_explicit_uppercase_format(tmp_path,suffix):
+    target=export_report(_report(),tmp_path/f"report.{suffix}",format=suffix.upper())
+    assert target.is_file()
+
+
+@pytest.mark.parametrize("suffix",["docx","odt","pdf"])
+def test_export_boundary_creates_parent_directories(tmp_path,suffix):
+    target=tmp_path/"nested"/"customer"/f"report.{suffix}"
+    result=export_report(_report(),target)
+    assert result==target
+    assert target.is_file()
+
+
+def test_export_boundary_rejects_unknown_explicit_format(tmp_path):
+    with pytest.raises(ValueError,match="unsupported report format"):
+        export_report(_report(),tmp_path/"report.zip",format="zip")
