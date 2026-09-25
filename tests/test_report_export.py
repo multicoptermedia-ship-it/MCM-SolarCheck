@@ -21,3 +21,15 @@ def test_all_formats_reject_missing_banner(tmp_path):
     for suffix in ("docx","odt","pdf"):
         with pytest.raises(FileNotFoundError):
             export_report(_report(),tmp_path/f"report.{suffix}",banner_path=tmp_path/"missing.png")
+
+
+def test_export_boundary_rejects_missing_format_and_extension(tmp_path):
+    with pytest.raises(ValueError,match="unsupported report format: <missing>"):
+        export_report(_report(),tmp_path/"report")
+
+
+@pytest.mark.parametrize("suffix",["DOCX","ODT","PDF"])
+def test_export_boundary_accepts_uppercase_extension(tmp_path,suffix):
+    target=export_report(_report(),tmp_path/f"report.{suffix}")
+    assert target.is_file()
+    assert target.suffix==f".{suffix}"
