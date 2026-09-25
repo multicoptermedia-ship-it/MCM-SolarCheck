@@ -669,3 +669,76 @@ tooltip/status/help text rather than silently hiding expected functions.
 Exact menu wording may be localized, but command meaning and ordering should stay
 consistent between online and offline editions. Platform conventions may adjust
 presentation without changing the underlying command model.
+
+
+## GUI/UX definition checkpoint 1
+
+The first SolarCheck GUI/UX definition block is closed with the following
+consistency rules.
+
+### End-to-end workspace
+
+The shared user journey is:
+
+**Project -> Import -> Processing -> Plant overview -> Review -> Report -> Export**
+
+Every visible completion/readiness state is derived from persisted backend
+evidence. Contextual buttons, persistent navigation, and header menus are
+different access paths to the same application commands; none may maintain an
+independent workflow state or bypass a blocker.
+
+### Shared visual shell
+
+The desktop-oriented shell uses a restrained technical/corporate appearance:
+dark anthracite navigation/header surfaces, a light primary work surface, and
+the MCM/SolarCheck green as a controlled brand/accent color. Thermal palette
+colors are reserved primarily for thermal evidence and must not be diluted by
+decorative use throughout the interface.
+
+The center workspace gives inspection imagery priority. The left navigation,
+top application menus/project status, and right contextual detail area remain
+visually subordinate to RGB/thermal evidence.
+
+State must never be communicated by color alone; text and/or icons accompany
+semantic colors.
+
+### Startup / splash screen
+
+SolarCheck may show a branded splash screen while the application initializes.
+The approved direction retains the MCM logo/wordmark, **MCM-Solar-Check**
+identity, drone imagery, PV imagery, and thermal-inspection imagery while
+removing advertising copy and unrelated promotional elements.
+
+The splash screen must not impose an artificial fixed five-second delay. It
+remains visible only while meaningful application initialization is taking
+place, with a concise truthful status such as **SolarCheck wird gestartet ...**
+or a real initialization stage when available.
+
+The original corporate artwork remains source/reference material; an
+application-specific derivative is used for the software splash asset.
+
+### Online/offline parity
+
+Online and offline editions use the same workflow, terminology, command model,
+visual hierarchy, review semantics, and report/export gates. Deployment-specific
+services sit behind application boundaries.
+
+Network-only orientation data such as an uncached background map is optional and
+must disappear gracefully offline without becoming a workflow error.
+
+### Definition freeze and next implementation block
+
+This checkpoint freezes the first GUI information architecture and interaction
+contract: guided project creation, report-relevant project data, image import,
+processing/recovery, plant viewer, optional map background, RGB/thermal compare,
+module details, synchronized review workspace, report/export actions, and
+conventional header menus.
+
+Implementation may refine spacing, typography, iconography, responsive sizing,
+and exact component geometry without changing these semantics. Changes to
+workflow/review/report meaning require an explicit contract update rather than a
+visual implementation shortcut.
+
+The next GUI block may therefore focus on the visual design system and concrete
+screen/component mockups without reopening the Phase 9 report semantics or the
+Phase 10 backend workflow contract.
