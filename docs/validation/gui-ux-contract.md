@@ -170,3 +170,51 @@ detail avoids covering large plants with unreadable labels.
 
 Exact zoom thresholds are implementation details and should be validated with
 representative small, medium, and large PV installations before being fixed.
+
+
+## Module and finding interaction contract
+
+Selecting a module in the plant viewer opens a compact **finding box** in the
+contextual detail region. The map remains the primary workspace; selection must
+not replace the plant view with a separate full-screen record.
+
+The finding box is intentionally concise. It should answer at a glance:
+
+- which physical module is selected;
+- whether a finding exists and its review state;
+- a short, coarse finding indication where available;
+- the most relevant validated thermal value(s), with provenance/status made
+  visible when necessary;
+- whether human review is still required.
+
+The GUI must distinguish a machine-generated recommendation from an authoritative
+human review. A recommendation must not be styled as a confirmed diagnosis.
+
+The finding box provides an explicit **More in report** / **Report details**
+action. Detailed evidence, longer finding descriptions, provenance, supporting
+images, and report-oriented documentation belong in the report/detail workflow
+rather than overcrowding the plant overview.
+
+If no confirmed finding exists, the box must say so plainly rather than inventing
+a diagnosis. Unclear findings remain visibly unclear and review-relevant.
+
+### Review actions
+
+Where the backend permits review, the contextual box exposes the authoritative
+human decisions **Confirm**, **Unclear**, and **Reject**. Their availability is
+derived from backend state and permissions, not duplicated in widget logic.
+
+After a review action, the viewer refreshes from persisted state. The module
+marker, finding box, counters, and filters must therefore reflect the saved
+review result rather than an optimistic UI-only state.
+
+### Fast inspection flow
+
+The operator can move to the previous/next review-relevant module without
+returning to a table. Selecting an item from a findings list focuses that module
+and opens the same finding box, so map navigation and list navigation converge on
+one detail interaction.
+
+The compact box should remain usable while RGB/thermal comparison is active.
+Opening it must not reset zoom, pan position, selected module, or comparison wipe
+position.
