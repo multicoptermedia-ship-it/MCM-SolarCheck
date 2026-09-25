@@ -108,6 +108,23 @@ class ModuleReportDetail:
 
 
 @dataclass(frozen=True)
+class OperatorSnapshot:
+    company_name: str
+    address: str
+    email: str
+    phone: str | None = None
+    website: str | None = None
+    tax_id: str | None = None
+    vat_id: str | None = None
+    logo_path: str | None = None
+
+    def __post_init__(self) -> None:
+        for n,v in (("company_name",self.company_name),("address",self.address),("email",self.email)): _text(n,v)
+        for n,v in (("phone",self.phone),("website",self.website),("tax_id",self.tax_id),("vat_id",self.vat_id),("logo_path",self.logo_path)):
+            if v is not None: _text(n,v)
+
+
+@dataclass(frozen=True)
 class InspectionReport:
     report_id: str
     project_id: str
@@ -131,6 +148,7 @@ class InspectionReport:
     overview_rgb: ReportImage | None = None
     overview_thermal: ReportImage | None = None
     details: tuple[ModuleReportDetail,...] = field(default_factory=tuple)
+    operator: OperatorSnapshot | None = None
     release_status: str = "draft"
 
     def __post_init__(self) -> None:
