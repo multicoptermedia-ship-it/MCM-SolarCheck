@@ -35,3 +35,14 @@ def test_assets_include_rgb_only_after_transform_validation(tmp_path):
     assets=build_detail_assets(db,"P","F","M",tmp_path/"report-assets")
     assert [a.modality for a in assets]==["rgb","thermal"]
     assert assets[0].geometry_source=="validated_cross_sensor:homography"
+
+
+def test_missing_crop_source_is_skipped_without_fabricating_asset(tmp_path):
+    db=_db(tmp_path)
+    missing=tmp_path/"missing-thermal.png"
+    with db.connect() as sql:
+        sql.execute("INSERT INTO thermal_frames(project_id,frame_id,source_file,width,height,thermal_source,metadata_json) VALUES('P1','T1',?,100,100,'test','{}')",(str(missing),))
+        sql.execute("INSERT INTO pv_modules(project_id,module_id,frame_id,polygon_json,detector,metadata_json) VALUES('P1','M1','T1','[[10,10],[30,10],[30,30],[10,30]]','test','{}')")
+    assets=build_detail_assets(db,"P1","F1","M1",tmp_path/"assets")
+    assert assets==()
+    assert not (tmp_path/"assets").exists()
