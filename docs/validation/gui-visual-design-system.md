@@ -618,3 +618,113 @@ action is available from the plant workspace without obscuring the canvas.
 
 If no review action is currently permitted, the same location explains the
 blocker rather than presenting a misleading active button.
+
+
+## 12. RGB/thermal comparison and module interaction
+
+The comparison experience is designed for direct visual correlation without
+turning the viewer into a separate diagnostic authority.
+
+### Compare-mode entry
+
+Selecting **Compare** preserves the current plant viewport and places RGB and
+thermal evidence in the same spatial canvas.
+
+On first entry, a slim vertical comparison handle is hinted at the **right edge
+of the image workspace**. It is visually separate from the right contextual
+panel and includes a concise accessible cue that it can be pulled left.
+
+Dragging the handle from right to left reveals the comparison layer. Once
+engaged, the divider can move freely in both directions.
+
+### Wipe presentation
+
+The divider is a thin high-contrast line with a compact grab handle. Labels or
+icons identify the RGB and thermal sides so the distinction never depends on
+palette recognition.
+
+The wipe is screen-space presentation only. Moving it changes no image
+registration, geometry, finding, measurement, or persisted state.
+
+Keyboard operation must allow the divider to be focused and moved in sensible
+increments. A reset command returns it to the defined default edge/position.
+
+### View synchronization
+
+Pan and zoom always move RGB, thermal, module geometry, finding overlays, and
+the active selection together. Switching among RGB, Thermal, and Compare keeps:
+- viewport center;
+- zoom;
+- selected module/finding;
+- relevant overlay visibility.
+
+The last comparison-divider position may be preserved as transient UI state
+during the current workspace/session, but it is not inspection evidence.
+
+### Module hover and selection
+
+Where performance allows, hovering a selectable module gives a restrained
+preselection outline. Hover must not open a report-style card or obscure
+evidence.
+
+Clicking/selecting the module applies a stronger focus treatment and opens the
+compact finding/detail box in the right contextual panel.
+
+Selection geometry must remain distinguishable over both RGB and thermal
+imagery. The UI may use an outline plus subtle halo/contrast technique rather
+than relying on one fixed color.
+
+### Compact finding box
+
+The box follows a stable information order:
+1. physical module identity/location where resolved;
+2. persisted finding/review state;
+3. short coarse finding indication;
+4. relevant validated thermal values when available;
+5. explicit human-review requirement/state;
+6. contextual actions.
+
+Machine-generated classification is labelled as a recommendation and never
+styled as an authoritative confirmed diagnosis.
+
+Missing/unvalidated measurements are shown as unavailable, not as zero or an
+estimated value.
+
+### Finding actions
+
+Where the backend permits them, **Confirm**, **Unclear**, and **Reject** appear
+together with equal semantic clarity. Confirmation is not made visually
+tempting merely because it is the first action.
+
+After a review action, the detail box refreshes from persisted state before the
+viewer presents the new authoritative status.
+
+A **Report details** / **More in report** action leads to the richer
+report-oriented context without duplicating the report model inside the viewer.
+
+### Navigation between relevant modules
+
+The detail region may expose **Previous** / **Next review item** controls when a
+review-relevant sequence exists. These controls change selection/focus while
+preserving the current comparison mode and useful zoom context.
+
+The sequence is derived from the active review/filter context; it must not imply
+that every physical module has a finding.
+
+### No-finding and unclear states
+
+A selected module without a documented finding says so plainly rather than
+showing an empty warning-style box.
+
+An unclear finding remains explicitly **Unclear** until authoritative review
+changes it. The visual system must not collapse unclear into confirmed,
+rejected, or generic warning merely to simplify coloring.
+
+### Evidence-first behavior
+
+The user can hide overlays and contextual panels to inspect unobstructed source
+presentation. UI annotations must not be burned into or exported as if they were
+part of the source RGB/thermal image.
+
+The comparison viewer provides visual correlation; it does not itself assert
+radiometric validation, registration accuracy, or defect diagnosis.
