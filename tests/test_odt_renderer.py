@@ -45,3 +45,10 @@ def test_odt_detail_includes_geometry_context(tmp_path):
     report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,1,0,details=(detail,))
     text=_text(render_odt(report,tmp_path/"detail.odt"))
     assert "Modulausschnitt – persistierte Modulgeometrie" in text
+
+
+def test_odt_renderer_preserves_customer_and_order_references(tmp_path):
+    report=InspectionReport("R","P","Customer GmbH","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0,customer_contact="Max Muster",customer_address="Kundenweg 2",customer_email="kunde@example.invalid",customer_phone="+49 555",customer_reference="K-17",order_reference="A-42")
+    text=_text(render_odt(report,tmp_path/"references.odt"))
+    for value in ("Max Muster","Kundenweg 2","kunde@example.invalid","+49 555","K-17","A-42"):
+        assert value in text
