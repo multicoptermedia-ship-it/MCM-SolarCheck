@@ -68,3 +68,33 @@ and update state without altering the shared workflow.
 Detailed visual design (layout, component hierarchy, typography, iconography,
 responsive behavior, dialogs, and exact desktop/web shell) is intentionally left
 for the dedicated GUI-definition step after this backend contract is closed.
+
+
+## Phase 10 integration checkpoint — steps 11–20
+
+The second ten-step block closes with the application boundary ready for GUI
+definition:
+
+- workflow actions are fail-closed and derive availability from persisted state;
+- `ProjectApplicationService` provides one guard boundary for callers;
+- execution is ordered as guard -> operation -> persisted evidence -> re-derived
+  workflow state;
+- transient success/failure attempts do not replace persisted workflow evidence;
+- blocked operations are rejected before caller side effects;
+- retry behavior is tested so failures do not create artificial progress;
+- online and offline editions share one operator workflow and GUI information
+  architecture contract.
+
+This checkpoint does **not** claim transactional atomicity for every existing
+multi-write pipeline operation. Concrete operations must be integrated and tested
+individually before such a guarantee is made.
+
+The next GUI-definition block may specify the shared visual shell, navigation,
+screen layouts, component states, and interaction patterns. It must continue to
+consume the backend workflow/action contract rather than duplicate its rules.
+PySide6 implementation and web/online implementation choices remain downstream
+of that shared UX definition.
+
+Phase 9 reporting remains frozen. Scientific production-model validation,
+licensed standards conformity review, pricing/flight-planner work, and the
+Windows installer release branch remain separate gates/workstreams.
