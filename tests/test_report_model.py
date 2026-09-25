@@ -263,3 +263,13 @@ def test_phase9_report_image_requires_nonempty_source_and_path():
         ReportImage(" ","image.png","rgb")
     with pytest.raises(ValueError,match="path"):
         ReportImage("F1"," ","rgb")
+
+
+def test_phase9_report_rejects_invalid_release_status():
+    with pytest.raises(ValueError,match="invalid release_status"):
+        InspectionReport("R","P","C","S",datetime.now(timezone.utc),"I",10,0,0,release_status="approved")
+
+
+def test_phase9_detail_manual_flag_must_be_boolean():
+    with pytest.raises(ValueError,match="must be boolean"):
+        ModuleReportDetail("M1","candidate","unclear",manual_inspection_required=1)
