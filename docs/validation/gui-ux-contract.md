@@ -101,3 +101,72 @@ they supplement rather than replace the spatial plant view.
 
 Exact colors, typography, dimensions, icons, component library, and PySide6/web
 implementation are deliberately deferred to subsequent GUI-definition steps.
+
+
+## Plant viewer interaction contract
+
+The plant overview opens with the complete plant extent visible. Changing between
+RGB, thermal, and comparison modes preserves the same viewport, center, and zoom
+so the operator never has to relocate the inspected area.
+
+### RGB/thermal comparison wipe
+
+Comparison mode uses a vertical wipe boundary. Its grab handle is visually hinted
+at on the **right edge of the plant workspace** when comparison is available, so
+the control is discoverable without permanently covering the imagery.
+
+The intended gesture is to grab the right-edge handle and drag it **from right to
+left** across the plant. This progressively reveals the comparison layer while
+leaving the opposite modality visible on the other side of the boundary. The
+boundary remains draggable in both directions after activation.
+
+The handle must have a clear RGB/thermal comparison cue and a sufficiently large
+hit target. It should not conflict with the contextual detail panel: the wipe
+belongs to the image workspace edge, while the detail panel is a separate layout
+region. Keyboard-accessible adjustment must be provided in addition to pointer
+dragging.
+
+The initial side assignment (RGB base versus thermal reveal) should remain
+consistent throughout the product and be labelled in the viewer; it must not be
+inferred from color alone.
+
+### Viewer controls
+
+A compact control group overlays or borders the image workspace without obscuring
+inspection content. It provides:
+
+- RGB, Thermal, and Compare view modes;
+- zoom in/out;
+- fit complete plant extent;
+- optional reset to the last overview viewport;
+- layer visibility for module outlines, module IDs, findings, and review state;
+- a review-relevant/findings-only filter.
+
+Pan and zoom remain available while comparison mode is active. Moving or zooming
+the viewport moves both image modalities and all overlays together; the wipe
+position is a screen-space comparison control and must not desynchronize the
+underlying spatial registration.
+
+### Selection and contextual details
+
+Selecting a module or finding keeps the central plant viewer visible and opens
+the contextual detail region on the right. The selected geometry is highlighted
+without modifying the underlying RGB or thermal source.
+
+Selection from a list or finding marker focuses the corresponding module at a
+useful inspection zoom while preserving a one-action route back to the complete
+plant extent. Closing the detail region must not reset the current viewport.
+
+The right detail region may be resized or collapsed to maximize imagery. Its
+presence must not move the comparison handle out of the image workspace or make
+the wipe ambiguous.
+
+### Visual-density behavior
+
+At plant overview scale, prioritize plant shape, major findings, and orientation.
+At intermediate zoom, reveal module outlines and finding markers. At detailed
+zoom, module IDs and precise selection geometry may appear. This progressive
+detail avoids covering large plants with unreadable labels.
+
+Exact zoom thresholds are implementation details and should be validated with
+representative small, medium, and large PV installations before being fixed.
