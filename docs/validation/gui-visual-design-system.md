@@ -961,3 +961,88 @@ application, while preserving the renderer's actual document layout.
 The export panel remains compact; the report preview receives most of the
 workspace. MCM/SolarCheck green marks primary actions/focus, while thermal colors
 remain reserved for thermal evidence contained in the report.
+
+
+## 15. Visual design checkpoint 2
+
+The second GUI block is closed after defining the visual foundation and all
+primary workflow workspaces.
+
+### Covered surfaces
+
+The visual contract now covers:
+1. shared corporate design foundation and reusable tokens;
+2. application shell, header menus, workflow navigation, and contextual panel;
+3. start/project workspace and guided project creation;
+4. image-import workspace and persisted import summary;
+5. processing progress, interruption, and recovery presentation;
+6. plant overview and scalable evidence canvas;
+7. RGB/thermal comparison wipe and module/finding interaction;
+8. synchronized review stream, plant viewer, and focus mode;
+9. report lifecycle/preview and DOCX/ODT/PDF export;
+10. branded startup splash direction.
+
+### Cross-screen consistency
+
+Across all screens:
+- the center workspace prioritizes the current task/evidence;
+- one primary next action is emphasized when appropriate;
+- menu commands and contextual buttons use the same application actions;
+- enabled/blocked/completed state is backend-derived;
+- persistence success precedes authoritative visual state changes;
+- color never carries critical state by itself;
+- thermal colors remain evidence-oriented rather than decorative;
+- online/offline editions share workflow, terminology, and visual hierarchy.
+
+### Interaction continuity
+
+Moving between plant, review, and report contexts should preserve meaningful
+selection/context where the backend/UI architecture can do so safely.
+
+Viewer operations such as panel resizing, mode changes, overlay visibility, and
+comparison wipe do not alter domain evidence.
+
+Long-running import, processing, review persistence, report release, and export
+operations show success only after the underlying operation succeeds.
+
+### Documentation rule
+
+The user guide is maintained alongside implementation. User-visible workflow,
+command, recovery, report/export, or navigation changes require a corresponding
+guide review in the same development block.
+
+Screenshots may be added once real GUI implementation stabilizes; conceptual
+mockups must not be presented in the manual as if they were the released UI.
+
+### Implementation readiness
+
+This checkpoint is sufficient to begin concrete GUI component implementation
+without reopening the frozen Phase 9 report semantics or the Phase 10 workflow
+contract.
+
+Implementation should proceed in similarly gated increments:
+- central design tokens/theme;
+- shared command registry and shell;
+- start/project form;
+- import;
+- processing;
+- plant viewer;
+- comparison/module details;
+- review;
+- report/export;
+- end-to-end GUI tests and documentation verification.
+
+Each increment must retain backend-derived guards and should receive automated
+tests appropriate to the component/application boundary before the next one is
+stacked.
+
+### Explicitly deferred
+
+This checkpoint does not implement or decide:
+- scientific production-model validation;
+- DIN IEC/TS 62446-3 conformity;
+- pricing/flight-planner economics;
+- Windows offline installer packaging;
+- map-provider licensing/cache rights.
+
+Those remain separate release/domain workstreams.
