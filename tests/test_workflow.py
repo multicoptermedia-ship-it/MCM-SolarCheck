@@ -84,3 +84,52 @@ def test_unreviewed_finding_blocks_report_and_export(tmp_path):
     assert state.readiness(WorkflowStage.REVIEW).ready is True
     assert state.readiness(WorkflowStage.REPORT).blockers == ("unreviewed findings remain",)
     assert state.readiness(WorkflowStage.EXPORT).blockers == ("unreviewed findings remain",)
+
+
+def _database_with_finding(tmp_path, *, status, module_id):
+    from pathlib import Path
+    from mcm_solarcheck.domain.models import Finding, ThermalFrame
+    from mcm_solarcheck.thermal.analysis import RawThermalStatistics
+    from mcm_solarcheck.thermal.quality import ThermalQualityGrade, ThermalQualityResult
+
+    database = _database(tmp_path)
+    frame = ThermalFrame(
+        frame_id="T1",
+        source_file=Path("T1.JPG"),
+        thermal_width=640,
+        thermal_height=512,
+        thermal_source="raw",
+    )
+    quality = ThermalQualityResult(
+        ThermalQualityGrade.PASS,
+        (),
+        RawThermalStatistics(1, 10, 5.0, 5.0, 9.0, 10.0, 9),
+    )
+    database.save_thermal_frame("P1", frame, quality)
+    database.save_findings(
+        "P1",
+        (Finding("F1", "T1", 1, 2, module_id=module_id, reviewer_status=status),),
+    )
+    return database
+
+
+@pytest.mark.parametrize("status", ["confirmed", "unclear"])
+def test_reviewed_finding_without_module_blocks_report_and_export(tmp_path, status):
+    state = ProjectWorkflowService(
+        _database_with_finding(tmp_path, status=status, module_id=None)
+    ).state("P1")
+
+    blocker = "reviewed findings require resolved physical modules"
+    assert blocker in state.readiness(WorkflowStage.REPORT).blockers
+    assert blocker in state.readiness(WorkflowStage.EXPORT).blockers
+
+
+@pytest.mark.parametrize("status", ["confirmed", "unclear"])
+def test_reviewed_finding_with_module_allows_report_and_export(tmp_path, status):
+    state = ProjectWorkflowService(
+        _database_with_finding(tmp_path, status=status, module_id="M1")
+    ).state("P1")
+
+    assert state.readiness(WorkflowStage.REVIEW).ready is True
+    assert state.readiness(WorkflowStage.REPORT).ready is True
+    assert state.readiness(WorkflowStage.EXPORT).ready is True
