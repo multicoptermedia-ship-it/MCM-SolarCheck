@@ -158,3 +158,30 @@ def require_action(state: ProjectWorkflowState, action: WorkflowAction) -> None:
     if not availability.allowed:
         reasons = "; ".join(availability.blockers)
         raise ValueError(f"{action.value} action is blocked: {reasons}")
+
+
+
+@dataclass(frozen=True)
+class WorkflowAttempt:
+    """Transient execution outcome; persisted evidence remains the workflow authority."""
+
+    action: WorkflowAction
+    succeeded: bool
+    error: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.action, WorkflowAction):
+            raise ValueError("action must be a WorkflowAction")
+        if type(self.succeeded) is not bool:
+            raise ValueError("succeeded must be bool")
+        if self.succeeded and self.error is not None:
+            raise ValueError("successful attempt must not carry an error")
+        if not self.succeeded and (not isinstance(self.error, str) or not self.error.strip()):
+            raise ValueError("failed attempt requires a non-empty error")
+
+
+def record_attempt(action: WorkflowAction, error: Exception | None = None) -> WorkflowAttempt:
+    """Describe one execution attempt without advancing persisted workflow state."""
+    if error is None:
+        return WorkflowAttempt(action, True)
+    return WorkflowAttempt(action, False, str(error) or error.__class__.__name__)
