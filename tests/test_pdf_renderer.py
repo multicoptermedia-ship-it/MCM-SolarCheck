@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 from mcm_solarcheck.reporting.pdf_renderer import render_pdf
-from mcm_solarcheck.reporting.report_model import InspectionReport, IrradianceSummary, ModuleReportDetail, ThermalMeasurement
+from mcm_solarcheck.reporting.report_model import InspectionReport, IrradianceSummary, ModuleReportDetail, ThermalMeasurement, OperatorSnapshot
 
 
 def _report():
@@ -23,3 +23,10 @@ def test_pdf_renderer_requires_existing_banner(tmp_path):
         pass
     else:
         raise AssertionError("missing banner must fail explicitly")
+
+
+def test_pdf_accepts_operator_snapshot_cover(tmp_path):
+    base=_report()
+    report=InspectionReport(base.report_id,base.project_id,base.customer_name,base.site_name,base.inspection_started_at,base.inspector,base.total_modules,base.conspicuous_modules,base.manual_review_modules,operator=OperatorSnapshot("Operator GmbH","Werkstr. 1, 12345 Ort","office@example.invalid"))
+    data=Path(render_pdf(report,tmp_path/"operator.pdf")).read_bytes()
+    assert data.startswith(b"%PDF-") and len(data)>1000
