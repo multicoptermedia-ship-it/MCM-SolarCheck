@@ -503,3 +503,118 @@ action.
 
 No success state is shown solely because a client-side progress animation
 reached its end.
+
+
+## 11. Plant-overview workspace
+
+The plant overview is SolarCheck's primary inspection canvas. It prioritizes
+spatial evidence over dashboard decoration and should feel closer to a precise
+GIS/inspection workstation than a generic business application.
+
+### Canvas-first layout
+
+After successful processing, the center workspace opens with the complete plant
+extent fitted to the available canvas. The RGB inspection mosaic is the default
+primary evidence layer when available.
+
+The canvas expands beneath the normal shell:
+- dark application header remains compact;
+- left workflow navigation remains available;
+- center image canvas receives the dominant area;
+- right contextual panel stays collapsed until selection/detail requires it.
+
+The viewer background uses a neutral dark/medium surface so missing image extent
+is visually distinct from inspection imagery without resembling a thermal value.
+
+### Compact viewer toolbar
+
+A compact floating/docked toolbar provides the frequently used controls:
+**RGB · Thermal · Compare**, **Zoom in**, **Zoom out**, **Fit plant**, and layer
+visibility.
+
+A reset-overview command may be included if implementation testing shows that it
+adds value beyond **Fit plant**.
+
+Controls use icon + accessible label/tooltip. RGB/Thermal/Compare are presented
+as mutually exclusive viewing modes rather than unrelated toggle buttons.
+
+### Spatial navigation
+
+Mouse/touchpad interaction follows familiar map/image conventions:
+- wheel/gesture zoom centered on the interaction point where practical;
+- drag to pan;
+- double-click or equivalent may zoom/focus if it does not conflict with module
+  selection;
+- **Fit plant** restores the complete processed plant extent.
+
+Changing RGB/Thermal/Compare mode, opening details, or changing overlay
+visibility preserves center and zoom.
+
+### Layer controls
+
+The viewer exposes a compact layer control for:
+- module outlines;
+- module IDs where useful at the current zoom;
+- finding markers;
+- review-state overlay;
+- optional background map/satellite orientation layer when available.
+
+Layer state is presentation state only. Hiding an overlay never changes
+persisted findings, review, or evidence.
+
+The optional background layer sits beneath the inspection mosaic and is visually
+subordinate. If no permitted source is available offline, the control is omitted
+or clearly unavailable without producing an error.
+
+### Progressive detail
+
+To prevent large plants becoming visually noisy:
+- overview zoom emphasizes plant extent, orientation, and important finding
+  markers;
+- intermediate zoom introduces module outlines and relevant markers;
+- detail zoom may show module identifiers and precise selection geometry.
+
+Thresholds are presentation choices and must not hide the existence of findings;
+summary counts/filtering remain available where appropriate.
+
+### Selection
+
+Selecting a module/finding gives it a clear focus outline and opens the right
+contextual detail panel. Selection is synchronized with later review/detail
+views.
+
+The selected object remains visible when possible as the right panel opens. The
+viewer adjusts usable canvas geometry without resetting the user's inspection
+context.
+
+Clicking empty canvas may clear selection where this is unambiguous. Closing the
+detail panel does not necessarily clear the selected module.
+
+### Finding overview
+
+Finding markers must remain legible over both RGB and thermal imagery. They use
+shape/icon plus semantic state rather than color alone.
+
+At broad zoom levels, implementation may cluster or simplify markers for
+performance, provided this cannot be mistaken for a reduction in the persisted
+finding count. A visible count/filter summary should make the relationship
+clear.
+
+### Large-plant performance
+
+The visual contract assumes tiled/pyramidal rendering or another scalable image
+strategy for large orthomosaics. The GUI should request/display only the detail
+needed for the current viewport and zoom rather than requiring full-resolution
+imagery to remain resident.
+
+Temporary tile/detail loading uses subtle placeholders/activity indication and
+must not be presented as missing inspection evidence unless the backend actually
+reports it missing.
+
+### Next-task affordance
+
+When backend-derived review work exists, a restrained **Start/continue review**
+action is available from the plant workspace without obscuring the canvas.
+
+If no review action is currently permitted, the same location explains the
+blocker rather than presenting a misleading active button.
