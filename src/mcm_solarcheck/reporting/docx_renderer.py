@@ -71,6 +71,8 @@ def render_docx(report: InspectionReport, destination: str | Path, *, banner_pat
             cell.text=label+(f"\n{context}" if context else "")
             if img and Path(img.path).is_file():
                 cell.paragraphs[0].add_run().add_picture(img.path,width=Mm(76))
+            else:
+                cell.add_paragraph("Bild nicht verfügbar")
 
     document.add_heading("Zusammenfassung und Freigabe",level=1)
     document.add_paragraph(f"Prüfer: {report.inspector}")
