@@ -531,3 +531,80 @@ terrain.
 This visual comparison does not replace registration validation. A map
 background must not be used to claim inspection-coordinate accuracy beyond the
 validated project georeferencing.
+
+
+## Review workspace contract
+
+The primary review experience combines a report-like, vertically scrollable
+**review stream** with the synchronized plant viewer. It is not a flat list of
+every detected module.
+
+By default, the stream prioritizes modules/findings that actually require human
+attention: machine-proposed findings, unclear cases, unresolved identity/evidence
+issues, and other backend-defined review requirements. Unremarkable modules do
+not flood the default review queue, but remain accessible through the plant view
+or explicit filters.
+
+### Review cards
+
+Each review-relevant item is represented by a compact card that may contain:
+
+- physical module identity / location reference;
+- short finding indication and current review state;
+- RGB crop and thermal crop where available;
+- relevant validated thermal measurement(s);
+- clearly labelled machine recommendation where present;
+- optional concise reviewer note;
+- authoritative **Confirm**, **Unclear**, and **Reject** actions where permitted;
+- **Report details** for the deeper evidence/report context.
+
+Cards must not imply a confirmed diagnosis from machine output. Missing source
+imagery or unvalidated measurements remain visibly unavailable rather than being
+substituted.
+
+### Synchronized spatial context
+
+The review stream and plant viewer are bidirectionally synchronized.
+
+When a review card becomes the active item, the corresponding module is
+highlighted/focused in the plant viewer. Selecting a review-relevant module or
+finding in the plant viewer activates and scrolls to the corresponding review
+card.
+
+This synchronization must preserve RGB/thermal mode, comparison wipe position,
+and useful viewport context unless the operator explicitly requests a reset.
+
+### Review progress and filters
+
+A persistent review summary shows backend-derived counts such as:
+
+**To review · Confirmed · Unclear · Rejected**
+
+Filters allow the operator to view open/review-required items, confirmed items,
+unclear items, rejected items, or all findings. Counts and filters reflect
+persisted review state rather than optimistic UI state.
+
+The default queue must remain scalable for large plants. It should not render
+thousands of heavy image cards simultaneously; virtualized/lazy card rendering
+or an equivalent strategy is expected.
+
+### Focus mode
+
+A review card can enter **Focus mode** for difficult cases. Focus mode gives the
+selected RGB/thermal evidence substantially more screen area while retaining the
+same review decision controls and a direct **Previous / Next review item**
+navigation.
+
+Leaving Focus mode returns to the same position in the review stream and plant
+context. Review decisions persist through the backend before counters, filters,
+or navigation treat an item as completed.
+
+### Relationship to the report
+
+The review stream deliberately resembles a concise inspection report so the
+operator can read findings naturally from top to bottom. It is nevertheless a
+review workspace, not a second report renderer.
+
+The final report is assembled from the authoritative persisted review/evidence
+model. Detailed narrative, complete provenance, report formatting, and released
+document content remain responsibilities of the report workflow.
