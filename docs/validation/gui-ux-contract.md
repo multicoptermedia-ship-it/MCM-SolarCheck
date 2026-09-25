@@ -608,3 +608,64 @@ review workspace, not a second report renderer.
 The final report is assembled from the authoritative persisted review/evidence
 model. Detailed narrative, complete provenance, report formatting, and released
 document content remain responsibilities of the report workflow.
+
+
+## Report, export, and application-menu contract
+
+When the persisted workflow confirms that the required processing and review
+prerequisites are complete, the primary workspace exposes prominent **Report**
+and **Export** actions. Their availability is derived from backend readiness and
+release rules; the GUI must not enable them merely because processing appears
+visually finished.
+
+If an action is not yet available, it remains discoverable in a disabled state
+with the concrete blocker, for example incomplete review or missing required
+report/project data.
+
+### Report action
+
+**Report** opens the report workflow/preview built from the authoritative
+persisted report/evidence model. It is the place for the detailed finding
+narrative, evidence, provenance, plant/operator information, and report-oriented
+review before release.
+
+The report screen must distinguish draft/reviewed/released semantics according to
+the existing report contract rather than treating document preview as release.
+
+### Export action
+
+**Export** opens the available output choices supported by the backend report
+export contract. Format choices are not duplicated as UI-only capabilities.
+Export/release actions remain fail-closed when their corresponding backend gate
+is not satisfied.
+
+### Familiar top application menus
+
+In addition to contextual buttons and the persistent workflow navigation, all
+applicable user commands should also be reachable through familiar drop-down
+menus in the page/window header. This provides a conventional secondary access
+path for users who expect desktop-style application menus.
+
+The initial menu information architecture is:
+
+- **Project** — new/open project, project/plant data, image import, close project;
+- **Processing** — start/continue processing and permitted recovery operations;
+- **View** — RGB, thermal, comparison, zoom/fit, layer visibility, optional
+  background map, detail/focus presentation;
+- **Review** — review filters/navigation and permitted review actions;
+- **Report** — open report, report details/readiness;
+- **Export** — available export operations;
+- **Help** — user guide, application/version information, and later support or
+  diagnostics entry points.
+
+A command exposed in more than one place must call the same application action
+and obey the same enabled/blocked state. Menus are alternate navigation, not a
+second implementation of workflow logic.
+
+Unavailable commands should normally remain visible but disabled where doing so
+helps users understand the workflow. The UI should provide the blocker through
+tooltip/status/help text rather than silently hiding expected functions.
+
+Exact menu wording may be localized, but command meaning and ordering should stay
+consistent between online and offline editions. Platform conventions may adjust
+presentation without changing the underlying command model.
