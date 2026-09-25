@@ -66,7 +66,7 @@ def render_docx(report: InspectionReport, destination: str | Path, *, banner_pat
         document.add_paragraph(f"Befund: {view.finding} | Review: {view.review}")
         if view.temperature: document.add_paragraph(view.temperature)
         if view.manual_inspection: document.add_paragraph(view.manual_inspection)
-        images=document.add_table(rows=1,cols=2).cells
+        images=document.add_table(rows=1,cols=2).rows[0].cells
         for cell,img,label in ((images[0],detail.rgb_image,"RGB"),(images[1],detail.thermal_image,"Thermal")):
             context=view.rgb_context if label=="RGB" else view.thermal_context
             cell.text=label+(f"\n{context}" if context else "")
