@@ -332,3 +332,15 @@ def test_phase9_operator_preserves_optional_identity_values():
     assert operator.tax_id=="12/345/67890"
     assert operator.vat_id=="DE123456789"
     assert operator.logo_path=="logo.png"
+
+
+def test_phase9_equipment_preserves_valid_optional_metadata():
+    equipment=EquipmentRecord("Thermal camera",identifier="SN-42",calibration_reference="CAL-2026-09")
+    assert equipment.identifier=="SN-42"
+    assert equipment.calibration_reference=="CAL-2026-09"
+
+
+def test_phase9_provenance_preserves_documented_values():
+    provenance=ReportProvenance("1.2.3","Human-reviewed evidence only")
+    assert provenance.software_version=="1.2.3"
+    assert provenance.evidence_statement=="Human-reviewed evidence only"
