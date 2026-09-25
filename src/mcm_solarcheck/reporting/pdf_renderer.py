@@ -45,7 +45,7 @@ def render_pdf(report: InspectionReport, destination: str | Path, *, banner_path
         view=detail_presentation(detail); story += [Paragraph(view.heading,styles["Heading2"]),Paragraph(f"Befund: {view.finding} | Review: {view.review}",styles["BodyText"])]
         if view.temperature: story.append(Paragraph(view.temperature,styles["BodyText"]))
         if view.manual_inspection: story.append(Paragraph(view.manual_inspection,styles["BodyText"]))
-        story.append(Table([[_image(detail.rgb_image.path if detail.rgb_image else None),_image(detail.thermal_image.path if detail.thermal_image else None)]]))
+        story.append(Table([[Paragraph("RGB"+(f" – {view.rgb_context}" if view.rgb_context else ""),styles["BodyText"]),Paragraph("Thermal"+(f" – {view.thermal_context}" if view.thermal_context else ""),styles["BodyText"])],[_image(detail.rgb_image.path if detail.rgb_image else None),_image(detail.thermal_image.path if detail.thermal_image else None)]]))
     story += [PageBreak(),Paragraph("Zusammenfassung und Freigabe",styles["Heading1"]),Paragraph(f"Prüfer: {report.inspector}",styles["BodyText"]),Paragraph(f"Freigabestatus: {report.release_status}",styles["BodyText"])]
     for item in report.equipment: story.append(Paragraph(f"Prüfmittel: {item.name}; ID: {item.identifier or '—'}; Kalibrierreferenz: {item.calibration_reference or '—'}",styles["BodyText"]))
     if report.provenance:
