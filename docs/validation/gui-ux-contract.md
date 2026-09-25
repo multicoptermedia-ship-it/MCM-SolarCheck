@@ -352,3 +352,67 @@ image processing can otherwise continue.
 
 The guiding UX principle is: **show the next meaningful primary action, while
 keeping incomplete prerequisites and blockers explicit.**
+
+
+## Project and plant data form contract
+
+The project-creation form groups operator-entered data by purpose and keeps
+automatically derived inspection metadata out of the initial manual form.
+
+### Required operator-entered fields
+
+The following information is required for the project/report data set:
+
+**Executing company**
+- company name;
+- postal address;
+- contact details.
+
+**Responsible person**
+- name of the responsible person for the inspection/report.
+
+**PV plant**
+- plant name;
+- plant postal address;
+- plant operator / owner organization or person.
+
+These fields must be visibly marked as required and validated before the project
+is considered complete for reporting. The UI may preserve a draft project while
+data is incomplete, but must retain an explicit incomplete-data state.
+
+### Optional operator-entered fields
+
+The following plant-operator details are optional:
+
+- operator contact person;
+- operator contact details.
+
+Optional fields remain editable later and must not block image import or
+processing merely because they are empty.
+
+### Inspection metadata derived from imagery
+
+Inspection date, time, and precise GPS positions are expected to be derived from
+the imported image metadata where trustworthy values are available. They are not
+duplicated as mandatory manual fields during initial project creation.
+
+Automatically derived metadata must preserve its source/provenance. SolarCheck
+must not silently manufacture a date, time, or GPS position when source metadata
+is missing, invalid, inconsistent, or unavailable.
+
+After import, the project data view should show the detected inspection
+date/time/location information for operator verification. Missing or conflicting
+metadata becomes an explicit review item. Any future manual correction/override
+must be stored as such and remain distinguishable from the original image-derived
+metadata.
+
+### Form layout
+
+To keep project creation simple, the form should use three visible sections:
+**Executing company**, **Plant**, and **Operator/contact**. The responsible person
+belongs with the executing-company/inspection context.
+
+The primary action is **Save project and continue**. Once saved, the guided flow
+moves to **Import images**. Report-data completeness remains visible from the
+project header/status area so it can be corrected later without repeating project
+creation.
