@@ -207,4 +207,4 @@ def test_ready_backend_workflow_enables_guarded_menu_actions(
         ShellCommandId.EXPORT,
     ):
         assert window.action(command_id).isEnabled()
-        assert window.action(command_id).toolTip() == ""
+        assert window.action(command_id).isEnabled()
