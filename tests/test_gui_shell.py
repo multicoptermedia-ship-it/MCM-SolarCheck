@@ -331,3 +331,32 @@ def test_successful_navigation_clears_previous_blocker_feedback(
     import_button.click()
     assert window.current_route is ShellRoute.IMPORT
     assert explanation.text() == ""
+
+
+def test_blocked_navigation_keeps_textual_and_accessible_feedback(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    state = ProjectWorkflowState(
+        (
+            StageReadiness(WorkflowStage.PROJECT, True),
+            StageReadiness(WorkflowStage.IMPORT, False, ("no imported image frames",)),
+            StageReadiness(WorkflowStage.PROCESSING, False, ("import required",)),
+            StageReadiness(WorkflowStage.REVIEW, False, ("processing required",)),
+            StageReadiness(WorkflowStage.REPORT, False, ("review required",)),
+            StageReadiness(WorkflowStage.EXPORT, False, ("review required",)),
+        )
+    )
+    window.apply_workflow_state(state)
+
+    button = window.findChild(QPushButton, "processing_navigation")
+    explanation = window.findChild(QLabel, "workflow_blocker_explanation")
+    assert button is not None
+    assert explanation is not None
+    assert button.property("blocked") is True
+    assert button.accessibleDescription() == "Blockiert: no imported image frames"
+
+    button.click()
+
+    assert "blockiert" in explanation.text().lower()
+    assert "no imported image frames" in explanation.text()
