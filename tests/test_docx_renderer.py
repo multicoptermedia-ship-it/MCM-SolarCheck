@@ -64,3 +64,12 @@ def test_docx_manual_review_detail_keeps_finding_and_instruction_separate(tmp_pa
     text="\n".join(p.text for p in doc.paragraphs)+"\n"+"\n".join(cell.text for table in doc.tables for row in table.rows for cell in row.cells)
     assert "Befund: Kein bestätigter Befund | Review: unclear" in text
     assert "Manuelle Prüfung erforderlich." in text
+
+
+def test_docx_released_clean_result_is_rendered_and_draft_is_not(tmp_path):
+    clean=InspectionReport("C","P","Customer","Site",datetime(2026,9,26,12,tzinfo=timezone.utc),"Inspector",10,0,0,release_status="released")
+    clean_text="\n".join(p.text for p in Document(render_docx(clean,tmp_path/"clean.docx")).paragraphs)
+    assert "Keine defekten Module festgestellt." in clean_text
+    draft=InspectionReport("D","P","Customer","Site",datetime(2026,9,26,12,tzinfo=timezone.utc),"Inspector",10,0,0)
+    draft_text="\n".join(p.text for p in Document(render_docx(draft,tmp_path/"draft.docx")).paragraphs)
+    assert "Keine defekten Module festgestellt." not in draft_text
