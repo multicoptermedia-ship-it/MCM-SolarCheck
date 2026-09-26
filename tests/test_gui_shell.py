@@ -3,8 +3,9 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QStackedWidget, QWidget
+from PySide6.QtWidgets import QListWidget, QApplication, QLabel, QPushButton, QStackedWidget, QWidget
 
+from mcm_solarcheck.gui.project_page import make_project_page
 from mcm_solarcheck.gui.shell import SolarCheckMainWindow
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET, ANTHRACITE, WORK_SURFACE, ACCENT_GREEN
 from mcm_solarcheck.services.deployment import DeploymentMode
@@ -404,3 +405,31 @@ def test_project_actions_fail_closed_without_application_service(
     assert "Application Service" in create.accessibleDescription()
     assert "Application Service" in open_project.accessibleDescription()
     assert "persistierte Projektdaten" in open_project.toolTip()
+
+
+def test_project_workspace_renders_backend_records_and_opens_selected_id(
+    app: QApplication,
+) -> None:
+    from mcm_solarcheck.storage.queries import ProjectRecord
+
+    opened: list[str | None] = []
+    projects = (
+        ProjectRecord("P-2", "Dach Süd", "2026-09-26 18:00:00"),
+        ProjectRecord("P-1", "Halle Nord", "2026-09-25 12:00:00"),
+    )
+    page = make_project_page(projects=projects, on_open_project=opened.append)
+    project_list = page.findChild(QListWidget, "project_list")
+    open_project = page.findChild(QPushButton, "open_project_button")
+
+    assert project_list is not None
+    assert open_project is not None
+    assert project_list.count() == 2
+    assert project_list.item(0).text() == "Dach Süd · 2026-09-26 18:00:00"
+    assert project_list.item(0).data(256) == "P-2"
+    assert not open_project.isEnabled()
+
+    project_list.setCurrentRow(1)
+    assert open_project.isEnabled()
+    open_project.click()
+
+    assert opened == ["P-1"]
