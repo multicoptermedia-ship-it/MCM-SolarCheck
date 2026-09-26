@@ -8,6 +8,7 @@ from mcm_solarcheck.services.product_entitlements import (
     ProductEntitlementError,
     ProductProfileId,
     ProductOperation,
+    product_action_availability,
     product_capabilities,
     require_product_operation,
 )
@@ -66,3 +67,27 @@ def test_product_operation_boundary_rejects_invalid_inputs_fail_closed() -> None
         require_product_operation(None, ProductOperation.EXPORT)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="ProductOperation"):
         require_product_operation(FULL_ONLINE, "export")  # type: ignore[arg-type]
+
+
+def test_gui_availability_exposes_trial_blockers_without_raising() -> None:
+    report = product_action_availability(
+        PROMOTIONAL_TRIAL, ProductOperation.REPORT_DOWNLOAD
+    )
+    export = product_action_availability(PROMOTIONAL_TRIAL, ProductOperation.EXPORT)
+
+    assert not report.allowed
+    assert report.blockers == (
+        "promotional_trial does not permit report download",
+    )
+    assert not export.allowed
+    assert export.blockers == ("promotional_trial does not permit export",)
+
+
+def test_gui_availability_exposes_full_online_actions_as_allowed() -> None:
+    report = product_action_availability(FULL_ONLINE, ProductOperation.REPORT_DOWNLOAD)
+    export = product_action_availability(FULL_ONLINE, ProductOperation.EXPORT)
+
+    assert report.allowed
+    assert report.blockers == ()
+    assert export.allowed
+    assert export.blockers == ()
