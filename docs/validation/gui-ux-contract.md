@@ -815,3 +815,28 @@ project actions stay unavailable.
 This checkpoint intentionally covers persisted project discovery and guarded
 opening only. Project creation remains behind the application-service boundary
 and is not enabled by this checkpoint.
+
+
+## Controlled project creation checkpoint
+
+Project creation is now a guarded application-service workflow rather than a
+Qt/database shortcut. `ProjectApplicationService.create_project(project_id,
+name)` trims and validates the minimal identity, rejects blank values, and
+rejects an already persisted project identifier before calling the existing
+storage write. This prevents the storage upsert behavior from silently turning
+a new-project request into an overwrite.
+
+The GUI only collects project ID and name. Its confirmation control remains
+disabled for blank input, but this is a usability guard rather than the
+authoritative validation boundary. Qt does not write `ProjectDatabase`
+directly.
+
+After successful creation, the shell rebuilds the project workspace from
+`ProjectApplicationService.projects()` and then opens the persisted project
+through `open_project()`. Only the backend-returned workflow state may update
+the active project and action availability. If creation fails, the workspace is
+not refreshed and no project is invented in GUI state.
+
+This checkpoint deliberately covers minimal project identity creation and
+activation. Additional project metadata/profile editing belongs to a later
+integration slice and must continue to use application-service boundaries.
