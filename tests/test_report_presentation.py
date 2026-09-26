@@ -1,4 +1,4 @@
-from mcm_solarcheck.reporting.presentation import detail_presentation, irradiance_text
+from mcm_solarcheck.reporting.presentation import detail_presentation, irradiance_text, overall_result_text
 from mcm_solarcheck.reporting.report_model import IrradianceSummary, InspectionReport, ModuleReportDetail, ThermalMeasurement, ReportImage
 from datetime import datetime, timezone
 
@@ -72,3 +72,39 @@ def test_full_frame_context_remains_distinct_for_both_modalities():
     expected="Vollbild – keine lokalisierte Modulgeometrie"
     assert view.rgb_context==expected
     assert view.thermal_context==expected
+
+
+def _result_report(*, release_status="released", conspicuous=0, manual_review=0):
+    return InspectionReport(
+        "R-CLEAN",
+        "P-CLEAN",
+        "Customer",
+        "Site",
+        datetime(2026, 9, 26, 12, tzinfo=timezone.utc),
+        "Inspector",
+        20,
+        conspicuous,
+        manual_review,
+        release_status=release_status,
+    )
+
+
+def test_released_clean_report_states_no_defective_modules_with_scope_limit():
+    text = overall_result_text(_result_report())
+    assert text is not None
+    assert "Gesamtergebnis: Keine defekten Module festgestellt." in text
+    assert "thermografischen Auswertung" in text
+    assert "untersuchten Anlagenbereich" in text
+    assert "Anlage in Ordnung" not in text
+
+
+def test_clean_result_is_not_claimed_before_report_release():
+    assert overall_result_text(_result_report(release_status="draft")) is None
+
+
+def test_clean_result_is_not_claimed_with_conspicuous_modules():
+    assert overall_result_text(_result_report(conspicuous=1)) is None
+
+
+def test_clean_result_is_not_claimed_with_pending_manual_review():
+    assert overall_result_text(_result_report(manual_review=1)) is None
