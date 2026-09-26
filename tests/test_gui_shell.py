@@ -125,3 +125,20 @@ def test_workflow_navigation_routes_through_shell(app: QApplication) -> None:
     button.click()
 
     assert window.current_route is ShellRoute.REVIEW
+
+
+def test_current_workflow_location_has_non_color_accessible_state(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    review = window.findChild(QPushButton, "review_navigation")
+    project = window.findChild(QPushButton, "project_navigation")
+
+    assert review is not None
+    assert project is not None
+    review.click()
+
+    assert review.property("current") is True
+    assert review.accessibleName() == "Review, aktueller Bereich"
+    assert project.property("current") is False
+    assert project.accessibleName() == "Projekt"
