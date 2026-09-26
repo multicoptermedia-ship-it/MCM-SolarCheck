@@ -120,8 +120,9 @@ class SolarCheckMainWindow(QMainWindow):
         """Persist a new project through the application service before refreshing."""
         if self._project_service is None:
             return
-        self._project_service.create_project(project_id, name)
+        project = self._project_service.create_project(project_id, name)
         self._refresh_project_page()
+        self._open_project(project.project_id)
 
     def _refresh_project_page(self) -> None:
         """Rebuild project presentation exclusively from persisted service records."""
