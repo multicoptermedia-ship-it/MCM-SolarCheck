@@ -167,3 +167,27 @@ Before and during GUI implementation:
 - compute remains provider-neutral;
 - online and offline core inspection behavior stays aligned;
 - final pricing and compute-provider selection remain deferred.
+
+
+## 10. Online-only commercial entry flow
+
+The login/account entry, promotional trial, quote selection, tariff escalation,
+and online-payment flow defined in this document belong to **SolarCheck Online
+only**.
+
+The offline desktop edition does **not** require:
+- an online login screen for normal local use;
+- a promotional 20 kWp trial profile;
+- online quote/tariff selection as an application entry gate;
+- online-payment authorization before local processing.
+
+This separation is intentional and does not create a second inspection
+workflow. After the online commercial/account boundary, online and offline
+editions should continue to share the same inspection concepts, terminology,
+review behavior, evidence integrity, report semantics, and application-service
+guards wherever the deployment model permits.
+
+Product-entitlement code introduced for the online edition must therefore remain
+outside the offline application's normal startup path. Offline packaging must
+not acquire an accidental network/login dependency from the online product
+layer.
