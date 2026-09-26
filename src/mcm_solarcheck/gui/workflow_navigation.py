@@ -47,4 +47,10 @@ class WorkflowNavigation(QWidget):
 
     def set_current_route(self, route: ShellRoute) -> None:
         for candidate, button in self._buttons.items():
-            button.setProperty("current", candidate is route)
+            is_current = candidate is route
+            button.setProperty("current", is_current)
+            button.setAccessibleName(
+                f"{button.text()}, aktueller Bereich" if is_current else button.text()
+            )
+            button.style().unpolish(button)
+            button.style().polish(button)
