@@ -7,6 +7,7 @@ from pathlib import Path
 
 from mcm_solarcheck.importers.project import ProjectImportResult, import_m3t_project
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
+from mcm_solarcheck.storage.queries import InspectionQueries, ProjectRecord
 from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, action_availability, record_attempt, require_action
 from mcm_solarcheck.services.product_entitlements import ProductCapabilities, ProductOperation, effective_output_availability
 
@@ -67,6 +68,10 @@ class ProjectApplicationService:
     def __init__(self, database: ProjectDatabase) -> None:
         self.database = database
         self.workflow = ProjectWorkflowService(database)
+
+    def projects(self) -> tuple[ProjectRecord, ...]:
+        """Expose persisted project selection through the application boundary."""
+        return InspectionQueries(self.database).projects()
 
     def require(self, project_id: str, action: WorkflowAction) -> None:
         """Reject an operation before side effects when its workflow gate is closed."""
