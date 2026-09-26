@@ -306,3 +306,36 @@ def test_execute_does_not_call_operation_when_guard_is_blocked(tmp_path):
         )
 
     assert calls == []
+
+def test_application_output_availability_combines_trial_and_persisted_export_gate(tmp_path):
+    from mcm_solarcheck.services.product_entitlements import (
+        PROMOTIONAL_TRIAL,
+        ProductOperation,
+    )
+
+    database = _database_with_finding(tmp_path, status="unreviewed", module_id="M1")
+    availability = ProjectApplicationService(database).output_availability(
+        "P1", PROMOTIONAL_TRIAL, ProductOperation.EXPORT
+    )
+
+    assert availability.allowed is False
+    assert availability.blockers == (
+        "promotional_trial does not permit export",
+        "unreviewed findings remain",
+    )
+
+
+def test_application_output_availability_allows_ready_full_online_export(tmp_path):
+    from mcm_solarcheck.services.product_entitlements import (
+        FULL_ONLINE,
+        ProductOperation,
+    )
+
+    database = _database_with_finding(tmp_path, status="confirmed", module_id="M1")
+    availability = ProjectApplicationService(database).output_availability(
+        "P1", FULL_ONLINE, ProductOperation.EXPORT
+    )
+
+    assert availability.allowed is True
+    assert availability.blockers == ()
+
