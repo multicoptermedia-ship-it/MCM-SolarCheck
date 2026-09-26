@@ -119,3 +119,33 @@ def product_action_availability(
     except ProductEntitlementError as error:
         return ProductActionAvailability(operation, False, (str(error),))
     return ProductActionAvailability(operation, True)
+
+
+@dataclass(frozen=True)
+class EffectiveActionAvailability:
+    operation: ProductOperation
+    allowed: bool
+    blockers: tuple[str, ...] = ()
+
+
+def effective_output_availability(
+    capabilities: ProductCapabilities,
+    operation: ProductOperation,
+    *,
+    workflow_allowed: bool,
+    workflow_blockers: tuple[str, ...] = (),
+) -> EffectiveActionAvailability:
+    """Combine entitlement and workflow gates without weakening either one."""
+    if type(workflow_allowed) is not bool:
+        raise ValueError("workflow_allowed must be bool")
+    workflow_blockers = tuple(workflow_blockers)
+    if any(not isinstance(item, str) or not item.strip() for item in workflow_blockers):
+        raise ValueError("workflow_blockers must contain non-empty strings")
+    if workflow_allowed and workflow_blockers:
+        raise ValueError("allowed workflow state must not have blockers")
+    if not workflow_allowed and not workflow_blockers:
+        raise ValueError("blocked workflow state requires at least one blocker")
+
+    product = product_action_availability(capabilities, operation)
+    blockers = product.blockers + (() if workflow_allowed else workflow_blockers)
+    return EffectiveActionAvailability(operation, not blockers, blockers)
