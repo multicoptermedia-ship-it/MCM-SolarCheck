@@ -95,3 +95,34 @@ def test_nonfinite_provenanced_celsius_is_not_counted_as_calibrated(tmp_path):
         Finding("F-NAN", "T-0001", 50, 60, temperature_c=float("nan"), metadata={"temperature_status":"calibrated","temperature_provider":"reference"}),
     ))
     assert InspectionQueries(db).summary("P-1").calibrated_findings == 0
+
+
+def test_projects_returns_only_persisted_projects_newest_first(tmp_path):
+    db = ProjectDatabase(tmp_path / "projects.sqlite")
+    db.initialize()
+    db.create_project("P-OLD", "Older inspection")
+    db.create_project("P-NEW", "Newer inspection")
+    with db.connect() as connection:
+        connection.execute(
+            "UPDATE projects SET created_at=? WHERE project_id=?",
+            ("2026-01-01 08:00:00", "P-OLD"),
+        )
+        connection.execute(
+            "UPDATE projects SET created_at=? WHERE project_id=?",
+            ("2026-02-01 08:00:00", "P-NEW"),
+        )
+
+    projects = InspectionQueries(db).projects()
+
+    assert [(project.project_id, project.name) for project in projects] == [
+        ("P-NEW", "Newer inspection"),
+        ("P-OLD", "Older inspection"),
+    ]
+    assert projects[0].created_at == "2026-02-01 08:00:00"
+
+
+def test_projects_empty_database_returns_empty_tuple(tmp_path):
+    db = ProjectDatabase(tmp_path / "empty-projects.sqlite")
+    db.initialize()
+
+    assert InspectionQueries(db).projects() == ()
