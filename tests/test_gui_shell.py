@@ -521,3 +521,54 @@ def test_failed_project_open_does_not_replace_current_project(app: QApplication)
         pass
 
     assert window.current_project_id is None
+
+
+def test_shell_refreshes_project_workspace_only_after_successful_creation(app: QApplication) -> None:
+    class ProjectService:
+        def __init__(self):
+            self.records = []
+
+        def projects(self):
+            return tuple(self.records)
+
+        def create_project(self, project_id, name):
+            record = ProjectRecord(project_id, name, "2026-09-26 19:00:00")
+            self.records.append(record)
+            return record
+
+    service = ProjectService()
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=service
+    )
+
+    window._create_project("P-NEW", "Neuer Solarpark")
+
+    project_list = window.findChild(QListWidget, "project_list")
+    assert project_list is not None
+    assert project_list.count() == 1
+    assert project_list.item(0).data(256) == "P-NEW"
+    assert "Neuer Solarpark" in project_list.item(0).text()
+
+
+def test_failed_project_creation_does_not_refresh_or_invent_project(app: QApplication) -> None:
+    class ProjectService:
+        def projects(self):
+            return ()
+
+        def create_project(self, project_id, name):
+            raise ValueError("creation rejected")
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+    original_page = window.findChild(QWidget, "project_page")
+
+    try:
+        window._create_project("P-FAIL", "Nicht gespeichert")
+    except ValueError:
+        pass
+
+    project_list = window.findChild(QListWidget, "project_list")
+    assert window.findChild(QWidget, "project_page") is original_page
+    assert project_list is not None
+    assert project_list.count() == 0
