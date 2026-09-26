@@ -464,3 +464,37 @@ def test_shell_without_project_service_keeps_workspace_empty(app: QApplication) 
     assert not project_list.isVisible()
     assert empty is not None
     assert not empty.isHidden()
+
+
+def test_project_open_applies_service_workflow_state_to_shell(app: QApplication) -> None:
+    blocked = ProjectWorkflowState(
+        (
+            StageReadiness(WorkflowStage.PROJECT, True),
+            StageReadiness(WorkflowStage.IMPORT, True),
+            StageReadiness(WorkflowStage.PROCESSING, False, ("processing prerequisite",)),
+            StageReadiness(WorkflowStage.REVIEW, False, ("review prerequisite",)),
+            StageReadiness(WorkflowStage.REPORT, False, ("report prerequisite",)),
+            StageReadiness(WorkflowStage.EXPORT, False, ("export prerequisite",)),
+        )
+    )
+
+    class ProjectService:
+        def projects(self):
+            return (ProjectRecord("P-OPEN", "Persistiertes Projekt", "2026-09-26 18:00:00"),)
+
+        def open_project(self, project_id):
+            assert project_id == "P-OPEN"
+            return blocked
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+    project_list = window.findChild(QListWidget, "project_list")
+    open_button = window.findChild(QPushButton, "open_project_button")
+    project_list.setCurrentRow(0)
+    open_button.click()
+
+    assert window.current_project_id == "P-OPEN"
+    assert window.action(ShellCommandId.IMPORT).isEnabled()
+    assert not window.action(ShellCommandId.PROCESS).isEnabled()
+    assert window.action(ShellCommandId.PROCESS).toolTip() == "processing prerequisite"
