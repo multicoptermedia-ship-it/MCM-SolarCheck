@@ -3,6 +3,7 @@ from pathlib import Path
 from mcm_solarcheck.domain.models import ImageFrame,ImagePair,PVModule,Position,ThermalFrame
 from mcm_solarcheck.importers.project import ProjectImportResult
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
+from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
 
 def test_project_import_counts_unpaired_frames():
     rgb=(ImageFrame('V-1',Path('a.JPG')),ImageFrame('V-2',Path('b.JPG')))
@@ -22,3 +23,14 @@ def test_sqlite_v4_persists_rgb_pair_and_module(tmp_path):
     assert con.execute("SELECT COUNT(*) FROM image_frames WHERE project_id='P-1'").fetchone()[0]==1
     stored_pair=con.execute("SELECT * FROM image_pairs WHERE project_id='P-1'").fetchone();assert stored_pair['confidence']==0.99;assert stored_pair['distance_m']==0.22
     stored_module=con.execute("SELECT * FROM pv_modules WHERE project_id='P-1'").fetchone();assert stored_module['detector']=='fixture';assert '100' in stored_module['polygon_json'];con.close()
+
+
+def test_application_service_lists_only_persisted_projects(tmp_path):
+    db=ProjectDatabase(tmp_path/'projects.sqlite');db.initialize()
+    service=ProjectApplicationService(db)
+    assert service.projects()==()
+    db.create_project('P-1','PV Test')
+    projects=service.projects()
+    assert len(projects)==1
+    assert projects[0].project_id=='P-1'
+    assert projects[0].name=='PV Test'
