@@ -796,3 +796,22 @@ by DOCX, ODT, and PDF renderers. Draft reports, reports with conspicuous
 modules, and reports with pending manual review must not emit the clean-result
 statement. Regression tests cover the shared presentation gate and renderer
 integration.
+
+
+## Persisted project service integration checkpoint
+
+The project workspace now obtains persisted project records through
+`ProjectApplicationService`; Qt does not query or mutate `ProjectDatabase`
+directly. Opening a selected project is routed through
+`ProjectApplicationService.open_project(project_id)`, which rejects unknown
+project identifiers and returns the authoritative persisted workflow state.
+
+Only after a successful service call may the shell record the current project
+identifier and apply workflow availability. A failed open remains fail-closed:
+it must not create an active project in the GUI or synthesize workflow
+readiness. Without an application service the workspace remains empty and
+project actions stay unavailable.
+
+This checkpoint intentionally covers persisted project discovery and guarded
+opening only. Project creation remains behind the application-service boundary
+and is not enabled by this checkpoint.
