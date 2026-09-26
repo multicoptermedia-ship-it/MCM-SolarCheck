@@ -19,9 +19,10 @@ from mcm_solarcheck.services.shell_navigation import ShellRoute, shell_navigatio
 
 
 class SolarCheckMainWindow(QMainWindow):
-    def __init__(self, deployment: DeploymentMode) -> None:
+    def __init__(self, deployment: DeploymentMode, *, project_service=None) -> None:
         super().__init__()
         self._deployment = deployment
+        self._project_service = project_service
         self._navigation = shell_navigation(deployment)
         self._commands = shell_commands(deployment)
         self._actions: dict[ShellCommandId, QAction] = {}
@@ -60,7 +61,8 @@ class SolarCheckMainWindow(QMainWindow):
             if route is ShellRoute.LOGIN:
                 page = make_entry_page(self._deployment)
             elif route is ShellRoute.PROJECT:
-                page = make_project_page()
+                projects = self._project_service.projects() if self._project_service is not None else ()
+                page = make_project_page(projects=projects)
             else:
                 page = self._make_placeholder_page(route)
             self._pages[route] = page
