@@ -24,6 +24,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._navigation = shell_navigation(deployment)
         self._commands = shell_commands(deployment)
         self._actions: dict[ShellCommandId, QAction] = {}
+        self._workflow_availability = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -102,6 +103,26 @@ class SolarCheckMainWindow(QMainWindow):
 
     def action(self, command_id: ShellCommandId) -> QAction:
         return self._actions[command_id]
+
+    def apply_workflow_state(self, state) -> None:
+        """Apply backend-derived action readiness without inventing GUI state."""
+        from mcm_solarcheck.services.workflow import WorkflowAction, action_availability
+
+        command_actions = {
+            ShellCommandId.IMPORT: WorkflowAction.IMPORT,
+            ShellCommandId.PROCESS: WorkflowAction.PROCESS,
+            ShellCommandId.REVIEW: WorkflowAction.REVIEW,
+            ShellCommandId.REPORT: WorkflowAction.PREPARE_REPORT,
+            ShellCommandId.EXPORT: WorkflowAction.EXPORT,
+        }
+        for command_id, workflow_action in command_actions.items():
+            availability = action_availability(state, workflow_action)
+            action = self._actions[command_id]
+            action.setEnabled(availability.allowed)
+            action.setToolTip(
+                "" if availability.allowed else "; ".join(availability.blockers)
+            )
+        self._workflow_availability = state
 
     @property
     def current_route(self) -> ShellRoute:
