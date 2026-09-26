@@ -470,7 +470,7 @@ def test_project_open_applies_service_workflow_state_to_shell(app: QApplication)
     blocked = ProjectWorkflowState(
         (
             StageReadiness(WorkflowStage.PROJECT, True),
-            StageReadiness(WorkflowStage.IMPORT, True),
+            StageReadiness(WorkflowStage.IMPORT, False, ("processing prerequisite",)),
             StageReadiness(WorkflowStage.PROCESSING, False, ("processing prerequisite",)),
             StageReadiness(WorkflowStage.REVIEW, False, ("review prerequisite",)),
             StageReadiness(WorkflowStage.REPORT, False, ("report prerequisite",)),
