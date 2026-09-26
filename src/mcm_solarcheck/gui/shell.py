@@ -9,6 +9,7 @@ from __future__ import annotations
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
 
+from mcm_solarcheck.gui.entry_page import make_entry_page
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET
 from mcm_solarcheck.services.deployment import DeploymentMode
 from mcm_solarcheck.services.shell_commands import ShellCommandId, shell_commands
@@ -18,6 +19,7 @@ from mcm_solarcheck.services.shell_navigation import ShellRoute, shell_navigatio
 class SolarCheckMainWindow(QMainWindow):
     def __init__(self, deployment: DeploymentMode) -> None:
         super().__init__()
+        self._deployment = deployment
         self._navigation = shell_navigation(deployment)
         self._commands = shell_commands(deployment)
         self._actions: dict[ShellCommandId, QAction] = {}
@@ -44,7 +46,13 @@ class SolarCheckMainWindow(QMainWindow):
             routes.insert(0, ShellRoute.LOGIN)
 
         for route in routes:
-            page = self._make_placeholder_page(route)
+            if route is self._navigation.initial_route and route in {
+                ShellRoute.LOGIN,
+                ShellRoute.PROJECT,
+            }:
+                page = make_entry_page(self._deployment)
+            else:
+                page = self._make_placeholder_page(route)
             self._pages[route] = page
             self._stack.addWidget(page)
 
