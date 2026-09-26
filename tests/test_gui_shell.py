@@ -536,6 +536,12 @@ def test_shell_refreshes_project_workspace_only_after_successful_creation(app: Q
             self.records.append(record)
             return record
 
+        def open_project(self, project_id):
+            assert project_id == "P-NEW"
+            return ProjectWorkflowState(
+                tuple(StageReadiness(stage, True) for stage in WorkflowStage)
+            )
+
     service = ProjectService()
     window = SolarCheckMainWindow(
         DeploymentMode.OFFLINE_DESKTOP, project_service=service
