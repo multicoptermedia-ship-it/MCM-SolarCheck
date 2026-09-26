@@ -79,3 +79,25 @@ def product_capabilities(profile_id: ProductProfileId) -> ProductCapabilities:
     if profile_id is ProductProfileId.FULL_ONLINE:
         return FULL_ONLINE
     raise ValueError(f"unsupported product profile: {profile_id!r}")
+
+
+class ProductOperation(str, Enum):
+    REPORT_DOWNLOAD = "report_download"
+    EXPORT = "export"
+
+
+def require_product_operation(
+    capabilities: ProductCapabilities, operation: ProductOperation
+) -> None:
+    """Fail closed for output operations restricted by the product profile."""
+    if not isinstance(capabilities, ProductCapabilities):
+        raise ValueError("capabilities must be ProductCapabilities")
+    if not isinstance(operation, ProductOperation):
+        raise ValueError("operation must be a ProductOperation")
+    if operation is ProductOperation.REPORT_DOWNLOAD:
+        capabilities.require_report_download()
+        return
+    if operation is ProductOperation.EXPORT:
+        capabilities.require_export()
+        return
+    raise ValueError(f"unsupported product operation: {operation!r}")
