@@ -7,7 +7,9 @@ from mcm_solarcheck.services.product_entitlements import (
     PROMOTIONAL_TRIAL,
     ProductEntitlementError,
     ProductProfileId,
+    ProductOperation,
     product_capabilities,
+    require_product_operation,
 )
 
 
@@ -45,3 +47,22 @@ def test_negative_power_is_rejected_for_all_profiles() -> None:
 def test_profile_lookup_returns_authoritative_capabilities() -> None:
     assert product_capabilities(ProductProfileId.PROMOTIONAL_TRIAL) is PROMOTIONAL_TRIAL
     assert product_capabilities(ProductProfileId.FULL_ONLINE) is FULL_ONLINE
+
+
+def test_product_operation_boundary_blocks_trial_outputs() -> None:
+    with pytest.raises(ProductEntitlementError, match="report download"):
+        require_product_operation(PROMOTIONAL_TRIAL, ProductOperation.REPORT_DOWNLOAD)
+    with pytest.raises(ProductEntitlementError, match="export"):
+        require_product_operation(PROMOTIONAL_TRIAL, ProductOperation.EXPORT)
+
+
+def test_product_operation_boundary_allows_full_online_outputs() -> None:
+    require_product_operation(FULL_ONLINE, ProductOperation.REPORT_DOWNLOAD)
+    require_product_operation(FULL_ONLINE, ProductOperation.EXPORT)
+
+
+def test_product_operation_boundary_rejects_invalid_inputs_fail_closed() -> None:
+    with pytest.raises(ValueError, match="capabilities"):
+        require_product_operation(None, ProductOperation.EXPORT)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="ProductOperation"):
+        require_product_operation(FULL_ONLINE, "export")  # type: ignore[arg-type]
