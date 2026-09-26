@@ -6,6 +6,7 @@ import pytest
 from PySide6.QtWidgets import QApplication, QLabel
 
 from mcm_solarcheck.gui.shell import SolarCheckMainWindow
+from mcm_solarcheck.gui.theme import APP_STYLE_SHEET, ANTHRACITE, WORK_SURFACE, ACCENT_GREEN
 from mcm_solarcheck.services.deployment import DeploymentMode
 from mcm_solarcheck.services.shell_commands import ShellCommandId
 from mcm_solarcheck.services.shell_navigation import ShellRoute
@@ -87,3 +88,12 @@ def test_offline_entry_has_no_online_login_or_provider_elements(
     assert page.findChild(QLabel, "login_hint") is None
     assert page.findChild(QLabel, "provider_attribution") is None
     assert page.findChild(QLabel, "user_guide_hint") is None
+
+
+def test_shell_uses_central_theme_tokens(app: QApplication) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.ONLINE)
+
+    assert window.styleSheet() == APP_STYLE_SHEET
+    assert ANTHRACITE in APP_STYLE_SHEET
+    assert WORK_SURFACE in APP_STYLE_SHEET
+    assert ACCENT_GREEN.startswith("#")
