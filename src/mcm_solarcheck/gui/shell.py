@@ -7,10 +7,11 @@ by service-layer contracts rather than reimplemented in Qt.
 from __future__ import annotations
 
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QLabel, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
 
 from mcm_solarcheck.gui.entry_page import make_entry_page
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET
+from mcm_solarcheck.gui.workflow_navigation import WorkflowNavigation
 from mcm_solarcheck.services.deployment import DeploymentMode
 from mcm_solarcheck.services.shell_commands import ShellCommandId, shell_commands
 from mcm_solarcheck.services.shell_navigation import ShellRoute, shell_navigation
@@ -38,8 +39,16 @@ class SolarCheckMainWindow(QMainWindow):
         self.setWindowTitle("MCM SolarCheck")
         self.setStyleSheet(APP_STYLE_SHEET)
         self._build_menu_bar()
-        self._stack = QStackedWidget(self)
-        self.setCentralWidget(self._stack)
+        central = QWidget(self)
+        central.setObjectName("application_workspace")
+        central_layout = QHBoxLayout(central)
+        self._workflow_navigation = WorkflowNavigation(
+            self._navigation.workflow_routes, self.show_route, central
+        )
+        central_layout.addWidget(self._workflow_navigation)
+        self._stack = QStackedWidget(central)
+        central_layout.addWidget(self._stack, 1)
+        self.setCentralWidget(central)
 
         routes = list(self._navigation.workflow_routes)
         if self._navigation.initial_route is ShellRoute.LOGIN:
@@ -108,6 +117,8 @@ class SolarCheckMainWindow(QMainWindow):
         except KeyError as exc:
             raise ValueError(f"route is unavailable in this deployment: {route.value}") from exc
         self._stack.setCurrentWidget(page)
+        if route is not ShellRoute.LOGIN:
+            self._workflow_navigation.set_current_route(route)
 
     @staticmethod
     def _make_placeholder_page(route: ShellRoute) -> QWidget:
