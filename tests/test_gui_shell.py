@@ -10,6 +10,7 @@ from mcm_solarcheck.gui.theme import APP_STYLE_SHEET, ANTHRACITE, WORK_SURFACE, 
 from mcm_solarcheck.services.deployment import DeploymentMode
 from mcm_solarcheck.services.shell_commands import ShellCommandId
 from mcm_solarcheck.services.shell_navigation import ShellRoute
+from mcm_solarcheck.services.workflow import ProjectWorkflowState, StageReadiness, WorkflowStage
 
 
 @pytest.fixture(scope="module")
@@ -142,3 +143,68 @@ def test_current_workflow_location_has_non_color_accessible_state(
     assert review.accessibleName() == "Review, aktueller Bereich"
     assert project.property("current") is False
     assert project.accessibleName() == "Projekt"
+
+
+def test_menu_availability_follows_backend_workflow_state(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    state = ProjectWorkflowState(
+        (
+            StageReadiness(WorkflowStage.PROJECT, True),
+            StageReadiness(WorkflowStage.IMPORT, False, ("no imported image frames",)),
+            StageReadiness(
+                WorkflowStage.PROCESSING,
+                False,
+                ("import required before processing",),
+            ),
+            StageReadiness(
+                WorkflowStage.REVIEW,
+                False,
+                ("no processed modules or findings",),
+            ),
+            StageReadiness(
+                WorkflowStage.REPORT,
+                False,
+                ("unreviewed findings remain",),
+            ),
+            StageReadiness(
+                WorkflowStage.EXPORT,
+                False,
+                ("unreviewed findings remain",),
+            ),
+        )
+    )
+
+    window.apply_workflow_state(state)
+
+    assert window.action(ShellCommandId.IMPORT).isEnabled()
+    assert not window.action(ShellCommandId.PROCESS).isEnabled()
+    assert (
+        window.action(ShellCommandId.PROCESS).toolTip()
+        == "no imported image frames"
+    )
+    assert not window.action(ShellCommandId.REVIEW).isEnabled()
+    assert not window.action(ShellCommandId.REPORT).isEnabled()
+    assert not window.action(ShellCommandId.EXPORT).isEnabled()
+
+
+def test_ready_backend_workflow_enables_guarded_menu_actions(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    state = ProjectWorkflowState(
+        tuple(StageReadiness(stage, True) for stage in WorkflowStage)
+    )
+
+    window.apply_workflow_state(state)
+
+    for command_id in (
+        ShellCommandId.IMPORT,
+        ShellCommandId.PROCESS,
+        ShellCommandId.REVIEW,
+        ShellCommandId.REPORT,
+        ShellCommandId.EXPORT,
+    ):
+        assert window.action(command_id).isEnabled()
+        assert window.action(command_id).toolTip() == ""
