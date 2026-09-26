@@ -122,6 +122,14 @@ class SolarCheckMainWindow(QMainWindow):
             action.setToolTip(
                 "" if availability.allowed else "; ".join(availability.blockers)
             )
+            route = self._command_routes[command_id]
+            button = self._workflow_navigation.button(route)
+            button.setEnabled(availability.allowed)
+            blocker_text = "; ".join(availability.blockers)
+            button.setToolTip("" if availability.allowed else blocker_text)
+            button.setAccessibleDescription(
+                "" if availability.allowed else f"Blockiert: {blocker_text}"
+            )
         self._workflow_availability = state
 
     @property
