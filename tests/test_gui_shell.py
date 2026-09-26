@@ -12,6 +12,7 @@ from mcm_solarcheck.services.deployment import DeploymentMode
 from mcm_solarcheck.services.shell_commands import ShellCommandId
 from mcm_solarcheck.services.shell_navigation import ShellRoute
 from mcm_solarcheck.services.workflow import ProjectWorkflowState, StageReadiness, WorkflowStage
+from mcm_solarcheck.storage.queries import ProjectRecord
 
 
 @pytest.fixture(scope="module")
@@ -433,3 +434,33 @@ def test_project_workspace_renders_backend_records_and_opens_selected_id(
     open_project.click()
 
     assert opened == ["P-1"]
+
+
+def test_shell_supplies_service_projects_to_workspace(app: QApplication) -> None:
+    class ProjectService:
+        def projects(self):
+            return (
+                ProjectRecord("P-42", "Persistierter Solarpark", "2026-09-26 18:00:00"),
+            )
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+    project_list = window.findChild(QListWidget, "project_list")
+
+    assert project_list is not None
+    assert project_list.count() == 1
+    assert "Persistierter Solarpark" in project_list.item(0).text()
+    assert project_list.item(0).data(256) == "P-42"
+
+
+def test_shell_without_project_service_keeps_workspace_empty(app: QApplication) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    project_list = window.findChild(QListWidget, "project_list")
+    empty = window.findChild(QLabel, "project_empty_state")
+
+    assert project_list is not None
+    assert project_list.count() == 0
+    assert not project_list.isVisible()
+    assert empty is not None
+    assert not empty.isHidden()
