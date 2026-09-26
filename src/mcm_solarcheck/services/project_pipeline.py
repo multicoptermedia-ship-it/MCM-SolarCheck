@@ -73,6 +73,13 @@ class ProjectApplicationService:
         """Expose persisted project selection through the application boundary."""
         return InspectionQueries(self.database).projects()
 
+    def open_project(self, project_id: str) -> ProjectWorkflowState:
+        """Open only a persisted project and return its authoritative workflow state."""
+        projects = self.projects()
+        if not any(project.project_id == project_id for project in projects):
+            raise KeyError(f"Unknown project: {project_id}")
+        return self.state(project_id)
+
     def require(self, project_id: str, action: WorkflowAction) -> None:
         """Reject an operation before side effects when its workflow gate is closed."""
         require_action(self.workflow.state(project_id), action)
