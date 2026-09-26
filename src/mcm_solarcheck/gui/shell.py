@@ -65,6 +65,11 @@ class SolarCheckMainWindow(QMainWindow):
                 projects = self._project_service.projects() if self._project_service is not None else ()
                 page = make_project_page(
                     projects=projects,
+                    on_create_project=(
+                        self._create_project
+                        if self._project_service is not None
+                        else None
+                    ),
                     on_open_project=(
                         self._open_project
                         if self._project_service is not None
@@ -110,6 +115,29 @@ class SolarCheckMainWindow(QMainWindow):
                     lambda checked=False, target=route: self.show_route(target)
                 )
             self._actions[command.command_id] = action
+
+    def _create_project(self, project_id: str, name: str) -> None:
+        """Persist a new project through the application service before refreshing."""
+        if self._project_service is None:
+            return
+        self._project_service.create_project(project_id, name)
+        self._refresh_project_page()
+
+    def _refresh_project_page(self) -> None:
+        """Rebuild project presentation exclusively from persisted service records."""
+        old_page = self._pages[ShellRoute.PROJECT]
+        new_page = make_project_page(
+            projects=self._project_service.projects(),
+            on_create_project=self._create_project,
+            on_open_project=self._open_project,
+        )
+        self._pages[ShellRoute.PROJECT] = new_page
+        index = self._stack.indexOf(old_page)
+        self._stack.insertWidget(index, new_page)
+        if self._stack.currentWidget() is old_page:
+            self._stack.setCurrentWidget(new_page)
+        self._stack.removeWidget(old_page)
+        old_page.deleteLater()
 
     def _open_project(self, project_id: str | None) -> None:
         """Open a persisted project through the application service boundary."""
