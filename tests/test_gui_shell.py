@@ -498,3 +498,26 @@ def test_project_open_applies_service_workflow_state_to_shell(app: QApplication)
     assert window.action(ShellCommandId.IMPORT).isEnabled()
     assert not window.action(ShellCommandId.PROCESS).isEnabled()
     assert window.action(ShellCommandId.PROCESS).toolTip() == "processing prerequisite"
+
+
+def test_failed_project_open_does_not_replace_current_project(app: QApplication) -> None:
+    class ProjectService:
+        def projects(self):
+            return (ProjectRecord("P-FAIL", "Persistiertes Projekt", "2026-09-26 18:00:00"),)
+
+        def open_project(self, project_id):
+            raise KeyError(f"Unknown project: {project_id}")
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+    project_list = window.findChild(QListWidget, "project_list")
+    open_button = window.findChild(QPushButton, "open_project_button")
+    project_list.setCurrentRow(0)
+
+    try:
+        open_button.click()
+    except KeyError:
+        pass
+
+    assert window.current_project_id is None
