@@ -543,7 +543,8 @@ def test_shell_refreshes_project_workspace_only_after_successful_creation(app: Q
 
     window._create_project("P-NEW", "Neuer Solarpark")
 
-    project_list = window.findChild(QListWidget, "project_list")
+    project_page = window._pages[ShellRoute.PROJECT]
+    project_list = project_page.findChild(QListWidget, "project_list")
     assert project_list is not None
     assert project_list.count() == 1
     assert project_list.item(0).data(256) == "P-NEW"
