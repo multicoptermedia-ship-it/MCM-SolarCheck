@@ -61,4 +61,13 @@ QWidget#workflow_navigation QPushButton[current="true"] {{
     background: {ACCENT_GREEN};
     font-weight: 600;
 }}
+QWidget#workflow_navigation QPushButton[blocked="true"] {{
+    border-left: 3px solid {ANTHRACITE_HOVER};
+}}
+QLabel#workflow_blocker_explanation {{
+    background: {ANTHRACITE_RAISED};
+    color: {TEXT_ON_DARK};
+    border-radius: 4px;
+    padding: 8px;
+}}
 """
