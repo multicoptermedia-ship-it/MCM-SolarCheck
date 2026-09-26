@@ -7,7 +7,8 @@ from pathlib import Path
 
 from mcm_solarcheck.importers.project import ProjectImportResult, import_m3t_project
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
-from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, record_attempt, require_action
+from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, action_availability, record_attempt, require_action
+from mcm_solarcheck.services.product_entitlements import ProductCapabilities, ProductOperation, effective_output_availability
 
 
 @dataclass(frozen=True)
@@ -84,3 +85,23 @@ class ProjectApplicationService:
         except Exception as error:
             return record_attempt(action, error), None, self.state(project_id)
         return record_attempt(action), result, self.state(project_id)
+
+    def output_availability(
+        self,
+        project_id: str,
+        capabilities: ProductCapabilities,
+        operation: ProductOperation,
+    ):
+        """Expose one application boundary combining persisted and product gates."""
+        workflow_action = (
+            WorkflowAction.EXPORT
+            if operation is ProductOperation.EXPORT
+            else WorkflowAction.PREPARE_REPORT
+        )
+        workflow = action_availability(self.state(project_id), workflow_action)
+        return effective_output_availability(
+            capabilities,
+            operation,
+            workflow_allowed=workflow.allowed,
+            workflow_blockers=workflow.blockers,
+        )
