@@ -360,3 +360,31 @@ def test_blocked_navigation_keeps_textual_and_accessible_feedback(
 
     assert "blockiert" in explanation.text().lower()
     assert "no imported image frames" in explanation.text()
+
+
+def test_project_workspace_replaces_project_placeholder(app: QApplication) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+
+    assert window.current_route is ShellRoute.PROJECT
+    page = window.findChild(QWidget, "project_page")
+    create = window.findChild(QPushButton, "create_project_button")
+    empty = window.findChild(QLabel, "project_empty_state")
+    assert page is not None
+    assert create is not None
+    assert create.text() == "Neues Projekt erstellen"
+    assert empty is not None
+    assert "persistierten Backend-Daten" in empty.text()
+
+
+def test_online_login_keeps_project_workspace_behind_entry_boundary(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.ONLINE)
+
+    assert window.current_route is ShellRoute.LOGIN
+    assert window.findChild(QWidget, "project_page") is not None
+
+    window.show_route(ShellRoute.PROJECT)
+
+    assert window.current_route is ShellRoute.PROJECT
+    assert window.findChild(QPushButton, "create_project_button") is not None
