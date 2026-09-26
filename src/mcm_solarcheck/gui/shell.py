@@ -27,6 +27,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._commands = shell_commands(deployment)
         self._actions: dict[ShellCommandId, QAction] = {}
         self._workflow_availability = None
+        self._current_project_id = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -62,7 +63,14 @@ class SolarCheckMainWindow(QMainWindow):
                 page = make_entry_page(self._deployment)
             elif route is ShellRoute.PROJECT:
                 projects = self._project_service.projects() if self._project_service is not None else ()
-                page = make_project_page(projects=projects)
+                page = make_project_page(
+                    projects=projects,
+                    on_open_project=(
+                        self._open_project
+                        if self._project_service is not None
+                        else None
+                    ),
+                )
             else:
                 page = self._make_placeholder_page(route)
             self._pages[route] = page
@@ -102,6 +110,18 @@ class SolarCheckMainWindow(QMainWindow):
                     lambda checked=False, target=route: self.show_route(target)
                 )
             self._actions[command.command_id] = action
+
+    def _open_project(self, project_id: str | None) -> None:
+        """Open a persisted project through the application service boundary."""
+        if self._project_service is None or project_id is None:
+            return
+        state = self._project_service.open_project(project_id)
+        self._current_project_id = project_id
+        self.apply_workflow_state(state)
+
+    @property
+    def current_project_id(self) -> str | None:
+        return self._current_project_id
 
     def action(self, command_id: ShellCommandId) -> QAction:
         return self._actions[command_id]
