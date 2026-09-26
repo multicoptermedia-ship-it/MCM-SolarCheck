@@ -20,6 +20,16 @@ class SolarCheckMainWindow(QMainWindow):
         self._navigation = shell_navigation(deployment)
         self._commands = shell_commands(deployment)
         self._actions: dict[ShellCommandId, QAction] = {}
+        self._command_routes = {
+            ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
+            ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
+            ShellCommandId.IMPORT: ShellRoute.IMPORT,
+            ShellCommandId.PROCESS: ShellRoute.PROCESSING,
+            ShellCommandId.PLANT_OVERVIEW: ShellRoute.PLANT_OVERVIEW,
+            ShellCommandId.REVIEW: ShellRoute.REVIEW,
+            ShellCommandId.REPORT: ShellRoute.REPORT,
+            ShellCommandId.EXPORT: ShellRoute.EXPORT,
+        }
         self._pages: dict[ShellRoute, QWidget] = {}
 
         self.setWindowTitle("MCM SolarCheck")
@@ -64,6 +74,11 @@ class SolarCheckMainWindow(QMainWindow):
             action = QAction(command.label, self)
             action.setObjectName(f"{command.command_id.value}_action")
             menus[menu_for_command[command.command_id]].addAction(action)
+            route = self._command_routes.get(command.command_id)
+            if route is not None:
+                action.triggered.connect(
+                    lambda checked=False, target=route: self.show_route(target)
+                )
             self._actions[command.command_id] = action
 
     def action(self, command_id: ShellCommandId) -> QAction:
