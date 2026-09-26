@@ -56,3 +56,37 @@ def test_application_service_rejects_unknown_project_open(tmp_path):
         assert 'Unknown project: P-INVENTED' in str(error)
     else:
         raise AssertionError('unknown project must fail closed')
+
+
+def test_application_service_creates_persisted_project(tmp_path):
+    db=ProjectDatabase(tmp_path/'create.sqlite');db.initialize()
+    service=ProjectApplicationService(db)
+
+    project=service.create_project(' P-NEW ', ' Neuer Solarpark ')
+
+    assert project.project_id=='P-NEW'
+    assert project.name=='Neuer Solarpark'
+    assert [(p.project_id,p.name) for p in service.projects()]==[('P-NEW','Neuer Solarpark')]
+
+
+def test_application_service_rejects_invalid_or_duplicate_project_creation(tmp_path):
+    db=ProjectDatabase(tmp_path/'create.sqlite');db.initialize()
+    service=ProjectApplicationService(db)
+
+    for project_id,name in (('', 'Solarpark'), ('P-1', '   ')):
+        try:
+            service.create_project(project_id,name)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('invalid project creation must fail closed')
+
+    service.create_project('P-1','Original')
+    try:
+        service.create_project('P-1','Replacement')
+    except ValueError as error:
+        assert 'Project already exists: P-1' in str(error)
+    else:
+        raise AssertionError('duplicate project creation must fail closed')
+
+    assert service.projects()[0].name=='Original'
