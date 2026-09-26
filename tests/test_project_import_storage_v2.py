@@ -34,3 +34,25 @@ def test_application_service_lists_only_persisted_projects(tmp_path):
     assert len(projects)==1
     assert projects[0].project_id=='P-1'
     assert projects[0].name=='PV Test'
+
+
+def test_application_service_opens_only_persisted_project(tmp_path):
+    db=ProjectDatabase(tmp_path/'open.sqlite');db.initialize()
+    db.create_project('P-OPEN','Persisted')
+    service=ProjectApplicationService(db)
+
+    state=service.open_project('P-OPEN')
+
+    assert state==service.state('P-OPEN')
+
+
+def test_application_service_rejects_unknown_project_open(tmp_path):
+    db=ProjectDatabase(tmp_path/'open.sqlite');db.initialize()
+    service=ProjectApplicationService(db)
+
+    try:
+        service.open_project('P-INVENTED')
+    except KeyError as error:
+        assert 'Unknown project: P-INVENTED' in str(error)
+    else:
+        raise AssertionError('unknown project must fail closed')
