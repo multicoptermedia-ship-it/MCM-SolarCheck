@@ -3,7 +3,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtWidgets import QApplication, QLabel
+from PySide6.QtWidgets import QApplication, QLabel, QStackedWidget
 
 from mcm_solarcheck.gui.shell import SolarCheckMainWindow
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET, ANTHRACITE, WORK_SURFACE, ACCENT_GREEN
@@ -65,7 +65,7 @@ def test_online_entry_exposes_login_guide_and_provider_attribution(
     app: QApplication,
 ) -> None:
     window = SolarCheckMainWindow(DeploymentMode.ONLINE)
-    page = window.centralWidget().currentWidget()
+    page = window.findChild(QStackedWidget).currentWidget()
 
     assert page.objectName() == "login_page"
     assert page.findChild(type(page), "project_page") is None
@@ -83,7 +83,7 @@ def test_offline_entry_has_no_online_login_or_provider_elements(
     app: QApplication,
 ) -> None:
     window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
-    page = window.centralWidget().currentWidget()
+    page = window.findChild(QStackedWidget).currentWidget()
     assert page.objectName() == "project_page"
     assert page.findChild(QLabel, "login_hint") is None
     assert page.findChild(QLabel, "provider_attribution") is None
