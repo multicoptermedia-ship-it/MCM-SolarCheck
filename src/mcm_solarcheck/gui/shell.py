@@ -9,6 +9,7 @@ from __future__ import annotations
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
 
+from mcm_solarcheck.gui.theme import APP_STYLE_SHEET
 from mcm_solarcheck.services.deployment import DeploymentMode
 from mcm_solarcheck.services.shell_commands import ShellCommandId, shell_commands
 from mcm_solarcheck.services.shell_navigation import ShellRoute, shell_navigation
@@ -33,6 +34,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._pages: dict[ShellRoute, QWidget] = {}
 
         self.setWindowTitle("MCM SolarCheck")
+        self.setStyleSheet(APP_STYLE_SHEET)
         self._build_menu_bar()
         self._stack = QStackedWidget(self)
         self.setCentralWidget(self._stack)
