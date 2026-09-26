@@ -6,9 +6,11 @@ by service-layer contracts rather than reimplemented in Qt.
 
 from __future__ import annotations
 
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
 
 from mcm_solarcheck.services.deployment import DeploymentMode
+from mcm_solarcheck.services.shell_commands import ShellCommandId, shell_commands
 from mcm_solarcheck.services.shell_navigation import ShellRoute, shell_navigation
 
 
@@ -16,9 +18,12 @@ class SolarCheckMainWindow(QMainWindow):
     def __init__(self, deployment: DeploymentMode) -> None:
         super().__init__()
         self._navigation = shell_navigation(deployment)
+        self._commands = shell_commands(deployment)
+        self._actions: dict[ShellCommandId, QAction] = {}
         self._pages: dict[ShellRoute, QWidget] = {}
 
         self.setWindowTitle("MCM SolarCheck")
+        self._build_menu_bar()
         self._stack = QStackedWidget(self)
         self.setCentralWidget(self._stack)
 
@@ -32,6 +37,37 @@ class SolarCheckMainWindow(QMainWindow):
             self._stack.addWidget(page)
 
         self.show_route(self._navigation.initial_route)
+
+
+    def _build_menu_bar(self) -> None:
+        menus = {
+            "Project": self.menuBar().addMenu("Project"),
+            "Processing": self.menuBar().addMenu("Processing"),
+            "View": self.menuBar().addMenu("View"),
+            "Review": self.menuBar().addMenu("Review"),
+            "Report": self.menuBar().addMenu("Report"),
+            "Export": self.menuBar().addMenu("Export"),
+            "Help": self.menuBar().addMenu("Help"),
+        }
+        menu_for_command = {
+            ShellCommandId.NEW_PROJECT: "Project",
+            ShellCommandId.OPEN_PROJECT: "Project",
+            ShellCommandId.IMPORT: "Project",
+            ShellCommandId.PROCESS: "Processing",
+            ShellCommandId.PLANT_OVERVIEW: "View",
+            ShellCommandId.REVIEW: "Review",
+            ShellCommandId.REPORT: "Report",
+            ShellCommandId.EXPORT: "Export",
+            ShellCommandId.USER_GUIDE: "Help",
+        }
+        for command in self._commands:
+            action = QAction(command.label, self)
+            action.setObjectName(f"{command.command_id.value}_action")
+            menus[menu_for_command[command.command_id]].addAction(action)
+            self._actions[command.command_id] = action
+
+    def action(self, command_id: ShellCommandId) -> QAction:
+        return self._actions[command_id]
 
     @property
     def current_route(self) -> ShellRoute:
