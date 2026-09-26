@@ -25,6 +25,12 @@ class InspectionSummary:
     calibrated_findings: int
 
 @dataclass(frozen=True)
+class ProjectRecord:
+    project_id: str
+    name: str
+    created_at: str
+
+@dataclass(frozen=True)
 class FindingRecord:
     finding_id: str
     thermal_frame_id: str
@@ -63,6 +69,15 @@ class ModuleIdentityRecord:
 class InspectionQueries:
     """Stable read boundary between SQLite and UI/report generation."""
     def __init__(self,database:ProjectDatabase)->None:self.database=database
+    def projects(self)->tuple[ProjectRecord,...]:
+        """Return persisted projects for selection without synthesizing GUI state."""
+        with self.database.connect() as db:
+            rows=db.execute(
+                "SELECT project_id,name,created_at FROM projects "
+                "ORDER BY created_at DESC, project_id"
+            ).fetchall()
+        return tuple(ProjectRecord(**dict(row)) for row in rows)
+
     def summary(self,project_id:str)->InspectionSummary:
         with self.database.connect() as db:
             project=db.execute('SELECT 1 FROM projects WHERE project_id=?',(project_id,)).fetchone()
