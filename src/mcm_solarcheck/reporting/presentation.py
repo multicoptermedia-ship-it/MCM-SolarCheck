@@ -23,6 +23,21 @@ def irradiance_text(report: InspectionReport) -> str:
     return f"Einstrahlung: Mittel {i.mean_w_m2:g} W/m²; Min {minimum}; Max {maximum}; Quelle: {i.source}"
 
 
+def overall_result_text(report: InspectionReport) -> str | None:
+    """Return a conservative positive result only for a fully released clean report."""
+    if report.release_status != "released":
+        return None
+    if report.conspicuous_modules != 0 or report.manual_review_modules != 0:
+        return None
+    return (
+        "Gesamtergebnis: Keine defekten Module festgestellt. "
+        "Im Rahmen der durchgeführten thermografischen Auswertung wurden keine "
+        "auffälligen bzw. als defekt bewerteten PV-Module festgestellt. "
+        "Für den untersuchten Anlagenbereich wurden keine dokumentationspflichtigen "
+        "Modulbefunde erkannt."
+    )
+
+
 def detail_presentation(detail: ModuleReportDetail) -> DetailPresentation:
     temperature=None
     if detail.thermal_measurement:
