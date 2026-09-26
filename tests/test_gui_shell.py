@@ -245,7 +245,8 @@ def test_workflow_navigation_uses_same_backend_blockers_as_menu(
 
     process_button = window.findChild(QPushButton, "processing_navigation")
     assert process_button is not None
-    assert not process_button.isEnabled()
+    assert process_button.isEnabled()
+    assert process_button.property("blocked") is True
     assert process_button.toolTip() == "no imported image frames"
     assert process_button.accessibleDescription() == (
         "Blockiert: no imported image frames"
@@ -258,3 +259,4 @@ def test_workflow_navigation_uses_same_backend_blockers_as_menu(
     import_button = window.findChild(QPushButton, "import_navigation")
     assert import_button is not None
     assert import_button.isEnabled()
+    assert import_button.property("blocked") is False
