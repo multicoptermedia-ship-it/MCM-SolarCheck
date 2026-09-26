@@ -5,7 +5,32 @@ creation/opening operations will be supplied by application services rather
 than invented in Qt widget state.
 """
 
-from PySide6.QtWidgets import QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget
+
+
+class NewProjectDialog(QDialog):
+    """Collect only the minimal project identity required by the service."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Neues Projekt")
+        layout = QFormLayout(self)
+        self.project_id = QLineEdit(self)
+        self.project_id.setObjectName("new_project_id")
+        self.name = QLineEdit(self)
+        self.name.setObjectName("new_project_name")
+        layout.addRow("Projekt-ID", self.project_id)
+        layout.addRow("Projektname", self.name)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            parent=self,
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def values(self) -> tuple[str, str]:
+        return self.project_id.text(), self.name.text()
 
 
 def make_project_page(
@@ -27,7 +52,13 @@ def make_project_page(
     create.setObjectName("create_project_button")
     create.setToolTip("Projektanlage wird über den Application Service ausgeführt.")
     if on_create_project is not None:
-        create.clicked.connect(on_create_project)
+        def request_project_creation() -> None:
+            dialog = NewProjectDialog(page)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                project_id, name = dialog.values()
+                on_create_project(project_id, name)
+
+        create.clicked.connect(request_project_creation)
     else:
         create.setEnabled(False)
         create.setAccessibleDescription(
