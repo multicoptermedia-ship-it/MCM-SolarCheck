@@ -579,3 +579,44 @@ def test_failed_project_creation_does_not_refresh_or_invent_project(app: QApplic
     assert window.findChild(QWidget, "project_page") is original_page
     assert project_list is not None
     assert project_list.count() == 0
+
+
+def test_successful_project_creation_opens_persisted_project_and_applies_state(app: QApplication) -> None:
+    state = ProjectWorkflowState(
+        (
+            StageReadiness(WorkflowStage.PROJECT, True),
+            StageReadiness(WorkflowStage.IMPORT, False, ("import prerequisite",)),
+            StageReadiness(WorkflowStage.PROCESSING, False, ("processing prerequisite",)),
+            StageReadiness(WorkflowStage.REVIEW, False, ("review prerequisite",)),
+            StageReadiness(WorkflowStage.REPORT, False, ("report prerequisite",)),
+            StageReadiness(WorkflowStage.EXPORT, False, ("export prerequisite",)),
+        )
+    )
+
+    class ProjectService:
+        def __init__(self):
+            self.records = []
+
+        def projects(self):
+            return tuple(self.records)
+
+        def create_project(self, project_id, name):
+            record = ProjectRecord(project_id, name, "2026-09-26 19:30:00")
+            self.records.append(record)
+            return record
+
+        def open_project(self, project_id):
+            assert project_id == "P-CREATED"
+            assert any(record.project_id == project_id for record in self.records)
+            return state
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+
+    window._create_project("P-CREATED", "Neu angelegt")
+
+    assert window.current_project_id == "P-CREATED"
+    assert window.action(ShellCommandId.IMPORT).isEnabled()
+    assert not window.action(ShellCommandId.PROCESS).isEnabled()
+    assert window.action(ShellCommandId.PROCESS).toolTip() == "import prerequisite"
