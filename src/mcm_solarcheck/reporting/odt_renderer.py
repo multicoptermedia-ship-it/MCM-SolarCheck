@@ -7,7 +7,7 @@ from odf.draw import Frame, Image as OdfImage
 from odf.table import Table, TableRow, TableCell
 from .docx_renderer import REPORT_STANDARD_WORDING
 from .report_model import InspectionReport
-from .presentation import detail_presentation, irradiance_text
+from .presentation import detail_presentation, irradiance_text, overall_result_text
 
 
 def _p(parent,text): parent.addElement(P(text=str(text)))
@@ -72,6 +72,8 @@ def render_odt(report: InspectionReport, destination: str | Path, *, banner_path
             cell=TableCell(); _image(doc,cell,item.path if item else None,label+(f" – {context}" if context else "")); row.addElement(cell)
         images.addElement(row); doc.text.addElement(images)
     doc.text.addElement(H(outlinelevel=1,text="Zusammenfassung und Freigabe"))
+    overall_result=overall_result_text(report)
+    if overall_result: _p(doc.text,overall_result)
     _p(doc.text,f"Prüfer: {report.inspector}"); _p(doc.text,f"Freigabestatus: {report.release_status}")
     for item in report.equipment: _p(doc.text,f"Prüfmittel: {item.name}; ID: {item.identifier or '—'}; Kalibrierreferenz: {item.calibration_reference or '—'}")
     if report.provenance:
