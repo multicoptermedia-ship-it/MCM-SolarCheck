@@ -3,7 +3,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtWidgets import QApplication, QLabel, QStackedWidget
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QStackedWidget, QWidget
 
 from mcm_solarcheck.gui.shell import SolarCheckMainWindow
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET, ANTHRACITE, WORK_SURFACE, ACCENT_GREEN
@@ -97,3 +97,31 @@ def test_shell_uses_central_theme_tokens(app: QApplication) -> None:
     assert ANTHRACITE in APP_STYLE_SHEET
     assert WORK_SURFACE in APP_STYLE_SHEET
     assert ACCENT_GREEN.startswith("#")
+
+
+def test_workflow_navigation_uses_shared_route_order(app: QApplication) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    navigation = window.findChild(QWidget, "workflow_navigation")
+    assert navigation is not None
+
+    expected = [
+        ("project_navigation", "Projekt"),
+        ("import_navigation", "Import"),
+        ("processing_navigation", "Verarbeitung"),
+        ("plant_overview_navigation", "Anlagenübersicht"),
+        ("review_navigation", "Review"),
+        ("report_navigation", "Bericht"),
+        ("export_navigation", "Export"),
+    ]
+    buttons = navigation.findChildren(QPushButton)
+    assert [(button.objectName(), button.text()) for button in buttons] == expected
+
+
+def test_workflow_navigation_routes_through_shell(app: QApplication) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    button = window.findChild(QPushButton, "review_navigation")
+
+    assert button is not None
+    button.click()
+
+    assert window.current_route is ShellRoute.REVIEW
