@@ -51,6 +51,7 @@ class WorkflowNavigation(QWidget):
         return self._buttons[route]
 
     def set_current_route(self, route: ShellRoute) -> None:
+        self.clear_blocker_explanation()
         for candidate, button in self._buttons.items():
             is_current = candidate is route
             button.setProperty("current", is_current)
@@ -61,11 +62,14 @@ class WorkflowNavigation(QWidget):
             button.style().polish(button)
 
 
+    def clear_blocker_explanation(self) -> None:
+        self._blocker_label.clear()
+        self._blocker_label.hide()
+
     def explain_blocker(self, route: ShellRoute) -> None:
         button = self._buttons[route]
         if button.property("blocked") is not True:
-            self._blocker_label.clear()
-            self._blocker_label.hide()
+            self.clear_blocker_explanation()
             return
         blocker = button.toolTip()
         self._blocker_label.setText(
