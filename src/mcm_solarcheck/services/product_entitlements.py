@@ -101,3 +101,21 @@ def require_product_operation(
         capabilities.require_export()
         return
     raise ValueError(f"unsupported product operation: {operation!r}")
+
+
+@dataclass(frozen=True)
+class ProductActionAvailability:
+    operation: ProductOperation
+    allowed: bool
+    blockers: tuple[str, ...] = ()
+
+
+def product_action_availability(
+    capabilities: ProductCapabilities, operation: ProductOperation
+) -> ProductActionAvailability:
+    """Return GUI-safe availability while keeping authorization backend-owned."""
+    try:
+        require_product_operation(capabilities, operation)
+    except ProductEntitlementError as error:
+        return ProductActionAvailability(operation, False, (str(error),))
+    return ProductActionAvailability(operation, True)
