@@ -8,6 +8,7 @@ from mcm_solarcheck.services.product_entitlements import (
     ProductEntitlementError,
     ProductProfileId,
     ProductOperation,
+    effective_output_availability,
     product_action_availability,
     product_capabilities,
     require_product_operation,
@@ -91,3 +92,66 @@ def test_gui_availability_exposes_full_online_actions_as_allowed() -> None:
     assert report.blockers == ()
     assert export.allowed
     assert export.blockers == ()
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "workflow_allowed", "workflow_blockers", "allowed", "blockers"),
+    (
+        (FULL_ONLINE, True, (), True, ()),
+        (
+            FULL_ONLINE,
+            False,
+            ("unreviewed findings remain",),
+            False,
+            ("unreviewed findings remain",),
+        ),
+        (
+            PROMOTIONAL_TRIAL,
+            True,
+            (),
+            False,
+            ("promotional_trial does not permit export",),
+        ),
+        (
+            PROMOTIONAL_TRIAL,
+            False,
+            ("unreviewed findings remain",),
+            False,
+            (
+                "promotional_trial does not permit export",
+                "unreviewed findings remain",
+            ),
+        ),
+    ),
+)
+def test_effective_export_requires_product_and_workflow_gates(
+    capabilities,
+    workflow_allowed,
+    workflow_blockers,
+    allowed,
+    blockers,
+) -> None:
+    availability = effective_output_availability(
+        capabilities,
+        ProductOperation.EXPORT,
+        workflow_allowed=workflow_allowed,
+        workflow_blockers=workflow_blockers,
+    )
+    assert availability.allowed is allowed
+    assert availability.blockers == blockers
+
+
+def test_effective_output_availability_rejects_inconsistent_workflow_state() -> None:
+    with pytest.raises(ValueError, match="must not have blockers"):
+        effective_output_availability(
+            FULL_ONLINE,
+            ProductOperation.EXPORT,
+            workflow_allowed=True,
+            workflow_blockers=("unexpected blocker",),
+        )
+    with pytest.raises(ValueError, match="requires at least one blocker"):
+        effective_output_availability(
+            FULL_ONLINE,
+            ProductOperation.EXPORT,
+            workflow_allowed=False,
+        )
