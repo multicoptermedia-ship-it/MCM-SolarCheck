@@ -14,9 +14,13 @@ def make_entry_page(deployment: DeploymentMode) -> QWidget:
 
     if policy.show_login:
         page.setObjectName("login_page")
-        heading = QLabel("MCM SolarCheck", page)
+        heading = QLabel("SolarCheck", page)
         heading.setObjectName("page_heading")
         layout.addWidget(heading)
+
+        provider = QLabel("powered by MCM-Dronetech GmbH", page)
+        provider.setObjectName("provider_attribution")
+        layout.addWidget(provider)
 
         login_hint = QLabel("Anmelden, um SolarCheck Online zu verwenden.", page)
         login_hint.setObjectName("login_hint")
