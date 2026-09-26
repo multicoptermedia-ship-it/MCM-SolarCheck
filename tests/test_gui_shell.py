@@ -208,3 +208,53 @@ def test_ready_backend_workflow_enables_guarded_menu_actions(
     ):
         assert window.action(command_id).isEnabled()
         assert window.action(command_id).isEnabled()
+
+
+def test_workflow_navigation_uses_same_backend_blockers_as_menu(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    state = ProjectWorkflowState(
+        (
+            StageReadiness(WorkflowStage.PROJECT, True),
+            StageReadiness(WorkflowStage.IMPORT, False, ("no imported image frames",)),
+            StageReadiness(
+                WorkflowStage.PROCESSING,
+                False,
+                ("import required before processing",),
+            ),
+            StageReadiness(
+                WorkflowStage.REVIEW,
+                False,
+                ("no processed modules or findings",),
+            ),
+            StageReadiness(
+                WorkflowStage.REPORT,
+                False,
+                ("unreviewed findings remain",),
+            ),
+            StageReadiness(
+                WorkflowStage.EXPORT,
+                False,
+                ("unreviewed findings remain",),
+            ),
+        )
+    )
+
+    window.apply_workflow_state(state)
+
+    process_button = window.findChild(QPushButton, "processing_navigation")
+    assert process_button is not None
+    assert not process_button.isEnabled()
+    assert process_button.toolTip() == "no imported image frames"
+    assert process_button.accessibleDescription() == (
+        "Blockiert: no imported image frames"
+    )
+    assert (
+        process_button.toolTip()
+        == window.action(ShellCommandId.PROCESS).toolTip()
+    )
+
+    import_button = window.findChild(QPushButton, "import_navigation")
+    assert import_button is not None
+    assert import_button.isEnabled()
