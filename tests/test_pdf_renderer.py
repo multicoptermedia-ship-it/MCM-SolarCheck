@@ -31,3 +31,33 @@ def test_pdf_accepts_operator_snapshot_cover(tmp_path):
     data=Path(render_pdf(report,tmp_path/"operator.pdf")).read_bytes()
     assert data.startswith(b"%PDF-") and len(data)>1000
 
+
+
+def test_pdf_clean_result_uses_shared_release_gate(monkeypatch, tmp_path):
+    seen = []
+    from mcm_solarcheck.reporting import pdf_renderer
+
+    real = pdf_renderer.overall_result_text
+
+    def capture(report):
+        result = real(report)
+        seen.append(result)
+        return result
+
+    monkeypatch.setattr(pdf_renderer, "overall_result_text", capture)
+    clean = InspectionReport(
+        "C", "P", "Customer", "Site",
+        datetime(2026,9,26,12,tzinfo=timezone.utc),
+        "Inspector", 10, 0, 0, release_status="released",
+    )
+    render_pdf(clean, tmp_path/"clean.pdf")
+    assert seen[-1] is not None
+    assert "Keine defekten Module festgestellt." in seen[-1]
+
+    draft = InspectionReport(
+        "D", "P", "Customer", "Site",
+        datetime(2026,9,26,12,tzinfo=timezone.utc),
+        "Inspector", 10, 0, 0,
+    )
+    render_pdf(draft, tmp_path/"draft.pdf")
+    assert seen[-1] is None
