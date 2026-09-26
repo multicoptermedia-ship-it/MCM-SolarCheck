@@ -67,3 +67,10 @@ def test_odt_detail_preserves_cross_sensor_geometry_context(tmp_path):
     report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,1,0,details=(detail,))
     text=_text(render_odt(report,tmp_path/"geometry.odt"))
     assert "Lokalisierter Ausschnitt – validierte Sensorzuordnung" in text
+
+
+def test_odt_released_clean_result_is_rendered_and_draft_is_not(tmp_path):
+    clean=InspectionReport("C","P","Customer","Site",datetime(2026,9,26,12,tzinfo=timezone.utc),"Inspector",10,0,0,release_status="released")
+    assert "Keine defekten Module festgestellt." in _text(render_odt(clean,tmp_path/"clean.odt"))
+    draft=InspectionReport("D","P","Customer","Site",datetime(2026,9,26,12,tzinfo=timezone.utc),"Inspector",10,0,0)
+    assert "Keine defekten Module festgestellt." not in _text(render_odt(draft,tmp_path/"draft.odt"))
