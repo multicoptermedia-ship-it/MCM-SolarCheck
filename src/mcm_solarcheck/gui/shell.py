@@ -124,8 +124,9 @@ class SolarCheckMainWindow(QMainWindow):
             )
             route = self._command_routes[command_id]
             button = self._workflow_navigation.button(route)
-            button.setEnabled(availability.allowed)
             blocker_text = "; ".join(availability.blockers)
+            button.setEnabled(True)
+            button.setProperty("blocked", not availability.allowed)
             button.setToolTip("" if availability.allowed else blocker_text)
             button.setAccessibleDescription(
                 "" if availability.allowed else f"Blockiert: {blocker_text}"
@@ -141,6 +142,24 @@ class SolarCheckMainWindow(QMainWindow):
         raise RuntimeError("current page is not registered")
 
     def show_route(self, route: ShellRoute) -> None:
+        if self._workflow_availability is not None and route is not ShellRoute.LOGIN:
+            from mcm_solarcheck.services.workflow import WorkflowAction, action_availability
+
+            route_actions = {
+                ShellRoute.IMPORT: WorkflowAction.IMPORT,
+                ShellRoute.PROCESSING: WorkflowAction.PROCESS,
+                ShellRoute.REVIEW: WorkflowAction.REVIEW,
+                ShellRoute.REPORT: WorkflowAction.PREPARE_REPORT,
+                ShellRoute.EXPORT: WorkflowAction.EXPORT,
+            }
+            workflow_action = route_actions.get(route)
+            if workflow_action is not None:
+                availability = action_availability(
+                    self._workflow_availability, workflow_action
+                )
+                if not availability.allowed:
+                    self._workflow_navigation.button(route).setFocus()
+                    return
         try:
             page = self._pages[route]
         except KeyError as exc:
