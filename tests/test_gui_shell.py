@@ -373,7 +373,7 @@ def test_project_workspace_replaces_project_placeholder(app: QApplication) -> No
     assert create is not None
     assert create.text() == "Neues Projekt erstellen"
     assert empty is not None
-    assert "persistierten Backend-Daten" in empty.text()
+    assert empty.text() == "Keine gespeicherten Projekte vorhanden."
 
 
 def test_online_login_keeps_project_workspace_behind_entry_boundary(
