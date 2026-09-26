@@ -301,3 +301,33 @@ def test_blocked_navigation_explains_reason_without_route_change(
     assert explanation.text() == (
         "Verarbeitung ist blockiert: no imported image frames"
     )
+
+
+def test_successful_navigation_clears_previous_blocker_feedback(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    state = ProjectWorkflowState(
+        (
+            StageReadiness(WorkflowStage.PROJECT, True),
+            StageReadiness(WorkflowStage.IMPORT, False, ("no imported image frames",)),
+            StageReadiness(WorkflowStage.PROCESSING, False, ("import required",)),
+            StageReadiness(WorkflowStage.REVIEW, False, ("processing required",)),
+            StageReadiness(WorkflowStage.REPORT, False, ("review required",)),
+            StageReadiness(WorkflowStage.EXPORT, False, ("review required",)),
+        )
+    )
+    window.apply_workflow_state(state)
+    explanation = window.findChild(QLabel, "workflow_blocker_explanation")
+    process_button = window.findChild(QPushButton, "processing_navigation")
+    import_button = window.findChild(QPushButton, "import_navigation")
+    assert explanation is not None
+    assert process_button is not None
+    assert import_button is not None
+
+    process_button.click()
+    assert explanation.text() == "Verarbeitung ist blockiert: no imported image frames"
+
+    import_button.click()
+    assert window.current_route is ShellRoute.IMPORT
+    assert explanation.text() == ""
