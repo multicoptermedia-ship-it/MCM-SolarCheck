@@ -73,6 +73,21 @@ class ProjectApplicationService:
         """Expose persisted project selection through the application boundary."""
         return InspectionQueries(self.database).projects()
 
+    def create_project(self, project_id: str, name: str) -> ProjectRecord:
+        """Create a new persisted project without silently overwriting an existing one."""
+        project_id = project_id.strip()
+        name = name.strip()
+        if not project_id:
+            raise ValueError("project_id must not be blank")
+        if not name:
+            raise ValueError("name must not be blank")
+        if any(project.project_id == project_id for project in self.projects()):
+            raise ValueError(f"Project already exists: {project_id}")
+        self.database.create_project(project_id, name)
+        return next(
+            project for project in self.projects() if project.project_id == project_id
+        )
+
     def open_project(self, project_id: str) -> ProjectWorkflowState:
         """Open only a persisted project and return its authoritative workflow state."""
         projects = self.projects()
