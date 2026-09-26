@@ -10,6 +10,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
 
 from mcm_solarcheck.gui.entry_page import make_entry_page
+from mcm_solarcheck.gui.project_page import make_project_page
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET
 from mcm_solarcheck.gui.workflow_navigation import WorkflowNavigation
 from mcm_solarcheck.services.deployment import DeploymentMode
@@ -56,11 +57,10 @@ class SolarCheckMainWindow(QMainWindow):
             routes.insert(0, ShellRoute.LOGIN)
 
         for route in routes:
-            if route is self._navigation.initial_route and route in {
-                ShellRoute.LOGIN,
-                ShellRoute.PROJECT,
-            }:
+            if route is ShellRoute.LOGIN:
                 page = make_entry_page(self._deployment)
+            elif route is ShellRoute.PROJECT:
+                page = make_project_page()
             else:
                 page = self._make_placeholder_page(route)
             self._pages[route] = page
