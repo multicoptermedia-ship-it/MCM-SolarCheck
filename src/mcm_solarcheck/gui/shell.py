@@ -158,6 +158,7 @@ class SolarCheckMainWindow(QMainWindow):
                     self._workflow_availability, workflow_action
                 )
                 if not availability.allowed:
+                    self._workflow_navigation.explain_blocker(route)
                     self._workflow_navigation.button(route).setFocus()
                     return
         try:
