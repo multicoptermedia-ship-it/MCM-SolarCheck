@@ -742,3 +742,32 @@ visual implementation shortcut.
 The next GUI block may therefore focus on the visual design system and concrete
 screen/component mockups without reopening the Phase 9 report semantics or the
 Phase 10 backend workflow contract.
+
+
+## Persisted project workspace implementation checkpoint
+
+The first concrete Project workspace slice is now defined around the existing
+persistence and application boundaries.
+
+- The Project route is a real workspace in both deployment modes; online access
+  still remains behind the online entry boundary.
+- Existing projects are supplied through `InspectionQueries.projects()` and
+  therefore originate from persisted SQLite project records. The GUI must not
+  synthesize project rows, counts, timestamps, or identities.
+- Project selection retains the persisted `project_id` as the application
+  identity while presenting the human-readable project name and creation time.
+- Create/open controls fail closed when no corresponding application-service
+  callback is connected. Selecting a project may enable the open control, but
+  does not itself mutate persisted workflow state.
+- An empty database is represented explicitly as no saved projects rather than
+  as demo/sample content.
+
+Tests cover persistence ordering/empty results, shell integration, fail-closed
+project actions, and transfer of the selected persisted project ID to the
+application boundary.
+
+This checkpoint deliberately does **not** wire project creation or opening
+directly to `ProjectDatabase`. The next implementation slice must introduce or
+reuse an application-service boundary for those mutations before the Qt
+controls become operational. This preserves the rule that widgets present and
+request state changes but do not own domain/persistence authority.
