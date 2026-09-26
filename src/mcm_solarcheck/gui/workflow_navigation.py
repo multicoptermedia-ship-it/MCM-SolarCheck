@@ -6,7 +6,7 @@ state separately; this widget never invents completion or readiness.
 
 from collections.abc import Callable
 
-from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from mcm_solarcheck.services.shell_navigation import ShellRoute
 
@@ -31,6 +31,10 @@ class WorkflowNavigation(QWidget):
         super().__init__(parent)
         self.setObjectName("workflow_navigation")
         self._buttons: dict[ShellRoute, QPushButton] = {}
+        self._blocker_label = QLabel(self)
+        self._blocker_label.setObjectName("workflow_blocker_explanation")
+        self._blocker_label.setWordWrap(True)
+        self._blocker_label.hide()
         layout = QVBoxLayout(self)
         for route in routes:
             button = QPushButton(_ROUTE_LABELS[route], self)
@@ -40,6 +44,7 @@ class WorkflowNavigation(QWidget):
             )
             layout.addWidget(button)
             self._buttons[route] = button
+        layout.addWidget(self._blocker_label)
         layout.addStretch(1)
 
     def button(self, route: ShellRoute) -> QPushButton:
@@ -54,3 +59,16 @@ class WorkflowNavigation(QWidget):
             )
             button.style().unpolish(button)
             button.style().polish(button)
+
+
+    def explain_blocker(self, route: ShellRoute) -> None:
+        button = self._buttons[route]
+        if button.property("blocked") is not True:
+            self._blocker_label.clear()
+            self._blocker_label.hide()
+            return
+        blocker = button.toolTip()
+        self._blocker_label.setText(
+            f"{button.text()} ist blockiert: {blocker}"
+        )
+        self._blocker_label.show()
