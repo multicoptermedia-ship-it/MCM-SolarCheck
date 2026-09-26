@@ -3,9 +3,9 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtWidgets import QListWidget, QApplication, QLabel, QPushButton, QStackedWidget, QWidget
+from PySide6.QtWidgets import QDialogButtonBox, QListWidget, QApplication, QLabel, QPushButton, QStackedWidget, QWidget
 
-from mcm_solarcheck.gui.project_page import make_project_page
+from mcm_solarcheck.gui.project_page import NewProjectDialog, make_project_page
 from mcm_solarcheck.gui.shell import SolarCheckMainWindow
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET, ANTHRACITE, WORK_SURFACE, ACCENT_GREEN
 from mcm_solarcheck.services.deployment import DeploymentMode
@@ -620,3 +620,23 @@ def test_successful_project_creation_opens_persisted_project_and_applies_state(a
     assert window.action(ShellCommandId.IMPORT).isEnabled()
     assert not window.action(ShellCommandId.PROCESS).isEnabled()
     assert window.action(ShellCommandId.PROCESS).toolTip() == "import prerequisite"
+
+
+def test_new_project_dialog_requires_nonblank_identity(app: QApplication) -> None:
+    dialog = NewProjectDialog()
+    buttons = dialog.findChild(QDialogButtonBox)
+    ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
+
+    assert not ok.isEnabled()
+
+    dialog.project_id.setText("   ")
+    dialog.name.setText("Solarpark")
+    assert not ok.isEnabled()
+
+    dialog.project_id.setText("P-1")
+    dialog.name.setText("   ")
+    assert not ok.isEnabled()
+
+    dialog.name.setText("Solarpark")
+    assert ok.isEnabled()
+    assert dialog.values() == ("P-1", "Solarpark")
