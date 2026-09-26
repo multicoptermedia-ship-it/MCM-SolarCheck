@@ -388,3 +388,19 @@ def test_online_login_keeps_project_workspace_behind_entry_boundary(
 
     assert window.current_route is ShellRoute.PROJECT
     assert window.findChild(QPushButton, "create_project_button") is not None
+
+
+def test_project_actions_fail_closed_without_application_service(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    create = window.findChild(QPushButton, "create_project_button")
+    open_project = window.findChild(QPushButton, "open_project_button")
+
+    assert create is not None
+    assert open_project is not None
+    assert not create.isEnabled()
+    assert not open_project.isEnabled()
+    assert "Application Service" in create.accessibleDescription()
+    assert "Application Service" in open_project.accessibleDescription()
+    assert "persistierte Projektdaten" in open_project.toolTip()
