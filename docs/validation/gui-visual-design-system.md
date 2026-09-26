@@ -1046,3 +1046,28 @@ This checkpoint does not implement or decide:
 - map-provider licensing/cache rights.
 
 Those remain separate release/domain workstreams.
+
+
+## Workflow navigation implementation checkpoint
+
+The PySide6 shell now implements the first guarded workflow-navigation slice of
+this design contract:
+
+- the persistent workflow navigation consumes the shared route model rather than
+  defining a second GUI workflow;
+- current location is exposed structurally and through accessible text, not by
+  accent color alone;
+- menu actions and workflow navigation consume the same backend-derived
+  availability decisions;
+- blocked destinations remain visible and explain the concrete backend blocker,
+  but selecting them cannot navigate around the workflow guard;
+- blocker feedback is cleared after a successful permitted navigation so stale
+  explanations do not misrepresent current state;
+- blocker presentation uses centralized SolarCheck design tokens and retains
+  textual and accessibility semantics independent of styling.
+
+This checkpoint does not claim that the placeholder workflow pages are complete.
+Project, import, processing, plant, review, report, and export workspaces remain
+separate implementation slices. Product entitlements, review/release rules, and
+report semantics continue to be authoritative in their existing service/domain
+boundaries rather than in Qt widget state.
