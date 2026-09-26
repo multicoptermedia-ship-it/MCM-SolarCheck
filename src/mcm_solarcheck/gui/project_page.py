@@ -25,9 +25,18 @@ class NewProjectDialog(QDialog):
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
             parent=self,
         )
+        self._ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self._ok_button.setEnabled(False)
+        self.project_id.textChanged.connect(self._update_acceptance)
+        self.name.textChanged.connect(self._update_acceptance)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
+
+    def _update_acceptance(self) -> None:
+        self._ok_button.setEnabled(
+            bool(self.project_id.text().strip()) and bool(self.name.text().strip())
+        )
 
     def values(self) -> tuple[str, str]:
         return self.project_id.text(), self.name.text()
