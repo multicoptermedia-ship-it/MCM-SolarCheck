@@ -42,4 +42,23 @@ QLabel#provider_attribution {{
     color: {ANTHRACITE_HOVER};
     font-size: 11px;
 }}
+QWidget#workflow_navigation {{
+    background: {ANTHRACITE};
+}}
+QWidget#workflow_navigation QPushButton {{
+    background: transparent;
+    color: {TEXT_ON_DARK};
+    border: 0;
+    border-radius: 4px;
+    padding: 9px 12px;
+    text-align: left;
+}}
+QWidget#workflow_navigation QPushButton:hover,
+QWidget#workflow_navigation QPushButton:focus {{
+    background: {ANTHRACITE_RAISED};
+}}
+QWidget#workflow_navigation QPushButton[current="true"] {{
+    background: {ACCENT_GREEN};
+    font-weight: 600;
+}}
 """
