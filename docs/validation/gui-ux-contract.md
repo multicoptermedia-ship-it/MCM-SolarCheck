@@ -771,3 +771,28 @@ directly to `ProjectDatabase`. The next implementation slice must introduce or
 reuse an application-service boundary for those mutations before the Qt
 controls become operational. This preserves the rule that widgets present and
 request state changes but do not own domain/persistence authority.
+
+
+## Report clean-result requirement amendment
+
+A released inspection report may present a positive clean-result statement only
+when the report's existing release semantics establish both zero conspicuous
+modules and zero modules requiring manual review.
+
+The shared wording is deliberately scoped to the thermographic inspection:
+
+**Gesamtergebnis: Keine defekten Module festgestellt.** Im Rahmen der
+durchgeführten thermografischen Auswertung wurden keine auffälligen bzw. als
+defekt bewerteten PV-Module festgestellt. Für den untersuchten Anlagenbereich
+wurden keine dokumentationspflichtigen Modulbefunde erkannt.
+
+The wording must not be reduced to the broader claim **Anlage in Ordnung**,
+because the thermographic inspection does not by itself establish that every
+electrical, mechanical, or other property of the complete plant is defect-free.
+
+This is a documented Phase 9 requirement amendment rather than a reopening of
+the report architecture. The presentation decision is centralized and shared
+by DOCX, ODT, and PDF renderers. Draft reports, reports with conspicuous
+modules, and reports with pending manual review must not emit the clean-result
+statement. Regression tests cover the shared presentation gate and renderer
+integration.
