@@ -260,3 +260,44 @@ def test_workflow_navigation_uses_same_backend_blockers_as_menu(
     assert import_button is not None
     assert import_button.isEnabled()
     assert import_button.property("blocked") is False
+
+
+def test_blocked_navigation_explains_reason_without_route_change(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+    state = ProjectWorkflowState(
+        (
+            StageReadiness(WorkflowStage.PROJECT, True),
+            StageReadiness(WorkflowStage.IMPORT, False, ("no imported image frames",)),
+            StageReadiness(
+                WorkflowStage.PROCESSING,
+                False,
+                ("import required before processing",),
+            ),
+            StageReadiness(
+                WorkflowStage.REVIEW,
+                False,
+                ("no processed modules or findings",),
+            ),
+            StageReadiness(WorkflowStage.REPORT, False, ("review required",)),
+            StageReadiness(WorkflowStage.EXPORT, False, ("review required",)),
+        )
+    )
+    window.apply_workflow_state(state)
+    assert window.current_route is ShellRoute.PROJECT
+
+    process_button = window.findChild(QPushButton, "processing_navigation")
+    explanation = window.findChild(QLabel, "workflow_blocker_explanation")
+    assert process_button is not None
+    assert explanation is not None
+
+    process_button.click()
+
+    assert window.current_route is ShellRoute.PROJECT
+    assert explanation.isVisible() is False or explanation.text() == (
+        "Verarbeitung ist blockiert: no imported image frames"
+    )
+    assert explanation.text() == (
+        "Verarbeitung ist blockiert: no imported image frames"
+    )
