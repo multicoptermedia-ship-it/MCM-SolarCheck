@@ -5,7 +5,7 @@ from docx import Document
 from docx.enum.section import WD_SECTION
 from docx.shared import Mm, Pt
 from .report_model import InspectionReport
-from .presentation import detail_presentation, irradiance_text
+from .presentation import detail_presentation, irradiance_text, overall_result_text
 
 
 REPORT_STANDARD_WORDING="Prüfbericht – Aufbau unter Berücksichtigung der DIN IEC/TS 62446-3 (VDE V 0126-23-3):2018-04"
@@ -76,6 +76,8 @@ def render_docx(report: InspectionReport, destination: str | Path, *, banner_pat
                 cell.add_paragraph("Bild nicht verfügbar")
 
     document.add_heading("Zusammenfassung und Freigabe",level=1)
+    overall_result=overall_result_text(report)
+    if overall_result: document.add_paragraph(overall_result)
     document.add_paragraph(f"Prüfer: {report.inspector}")
     document.add_paragraph(f"Freigabestatus: {report.release_status}")
     for item in report.equipment:
