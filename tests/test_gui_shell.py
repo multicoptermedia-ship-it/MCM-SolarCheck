@@ -840,3 +840,25 @@ def test_successful_import_refreshes_summary_from_persisted_service_state(app: Q
     summary = window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_summary")
     assert summary is not None
     assert summary.text() == "4 RGB · 3 Thermal · 2 Paare"
+
+
+def test_import_workspace_labels_summary_as_persisted_backend_state(app: QApplication) -> None:
+    class Summary:
+        rgb_frames = 3
+        thermal_frames = 2
+        image_pairs = 1
+
+    page = make_import_page(
+        current_project_id="P-IMPORT",
+        import_summary=Summary(),
+    )
+
+    heading = page.findChild(QLabel, "import_summary_heading")
+    summary = page.findChild(QLabel, "import_summary")
+
+    assert heading is not None
+    assert heading.text() == "Persistierter Importstand"
+    assert summary is not None
+    assert summary.accessibleDescription() == (
+        "Persistierte Bild- und Paarzahlen des aktiven Projekts."
+    )
