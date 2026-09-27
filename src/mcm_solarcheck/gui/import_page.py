@@ -22,6 +22,10 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     layout.addWidget(project)
 
     if import_summary is not None:
+        summary_heading = QLabel("Persistierter Importstand", page)
+        summary_heading.setObjectName("import_summary_heading")
+        layout.addWidget(summary_heading)
+
         summary = QLabel(
             f"{import_summary.rgb_frames} RGB · "
             f"{import_summary.thermal_frames} Thermal · "
@@ -29,6 +33,9 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
             page,
         )
         summary.setObjectName("import_summary")
+        summary.setAccessibleDescription(
+            "Persistierte Bild- und Paarzahlen des aktiven Projekts."
+        )
         layout.addWidget(summary)
 
     import_images = QPushButton("Bilddaten auswählen", page)
