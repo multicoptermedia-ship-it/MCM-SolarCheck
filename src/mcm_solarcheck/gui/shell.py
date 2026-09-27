@@ -155,9 +155,14 @@ class SolarCheckMainWindow(QMainWindow):
     def _refresh_import_page(self) -> None:
         """Rebuild import presentation from the active persisted project context."""
         old_page = self._pages[ShellRoute.IMPORT]
+        summary_provider = (
+            getattr(self._project_service, "import_summary", None)
+            if self._project_service is not None
+            else None
+        )
         import_summary = (
-            self._project_service.import_summary(self._current_project_id)
-            if self._project_service is not None and self._current_project_id is not None
+            summary_provider(self._current_project_id)
+            if callable(summary_provider) and self._current_project_id is not None
             else None
         )
         new_page = make_import_page(
