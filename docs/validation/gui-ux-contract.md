@@ -840,3 +840,30 @@ not refreshed and no project is invented in GUI state.
 This checkpoint deliberately covers minimal project identity creation and
 activation. Additional project metadata/profile editing belongs to a later
 integration slice and must continue to use application-service boundaries.
+
+
+## Guarded image import workspace checkpoint
+
+The concrete Import workspace now preserves the application-service boundary from
+source selection through persisted workflow refresh.
+
+- The Qt workspace presents the active persisted project context and fails closed
+  when either that context or the import callback is unavailable.
+- Directory selection is a presentation concern only. Qt passes the selected
+  source directory to the shell and does not parse, import, or persist imagery.
+- Cancelling source selection has no side effect and does not invoke the import
+  service.
+- The shell routes an import request through
+  `ProjectApplicationService.import_project_images(project_id, source_directory)`.
+  The service verifies the persisted project and executes the existing import
+  pipeline through the guarded `WorkflowAction.IMPORT` application boundary.
+- After an attempted import, the GUI applies only the workflow state returned by
+  the application service. It must not infer successful import, processing
+  readiness, or any later release state from a button click or transient result.
+- Tests inject the directory chooser rather than opening a native modal dialog,
+  keeping headless CI deterministic while verifying the same callback boundary.
+
+This checkpoint establishes the guarded folder-import integration slice. Richer
+multi-file/drop interaction, persisted import summaries, metadata verification,
+and downstream re-import invalidation remain later implementation work and must
+reuse the same authoritative backend boundaries.
