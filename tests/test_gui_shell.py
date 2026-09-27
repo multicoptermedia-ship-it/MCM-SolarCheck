@@ -665,13 +665,14 @@ def test_import_workspace_enables_service_callback_for_active_project(app: QAppl
     calls = []
     page = make_import_page(
         current_project_id="P-IMPORT",
-        on_import_images=lambda: calls.append("called"),
+        on_import_images=calls.append,
+        choose_directory=lambda: "/tmp/import-images",
     )
     button = page.findChild(QPushButton, "import_images_button")
 
     assert button.isEnabled()
     button.click()
-    assert calls == ["called"]
+    assert calls == ["/tmp/import-images"]
 
 
 def test_open_project_refreshes_import_workspace_with_persisted_context(app: QApplication) -> None:
