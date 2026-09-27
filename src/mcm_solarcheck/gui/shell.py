@@ -149,7 +149,31 @@ class SolarCheckMainWindow(QMainWindow):
             return
         state = self._project_service.open_project(project_id)
         self._current_project_id = project_id
+        self._refresh_import_page()
         self.apply_workflow_state(state)
+
+    def _refresh_import_page(self) -> None:
+        """Rebuild import presentation from the active persisted project context."""
+        old_page = self._pages[ShellRoute.IMPORT]
+        new_page = make_import_page(
+            current_project_id=self._current_project_id,
+            on_import_images=(
+                self._request_image_import
+                if self._project_service is not None
+                else None
+            ),
+        )
+        self._pages[ShellRoute.IMPORT] = new_page
+        index = self._stack.indexOf(old_page)
+        self._stack.insertWidget(index, new_page)
+        if self._stack.currentWidget() is old_page:
+            self._stack.setCurrentWidget(new_page)
+        self._stack.removeWidget(old_page)
+        old_page.deleteLater()
+
+    def _request_image_import(self) -> None:
+        """Keep file selection separate from the application import operation."""
+        return None
 
     @property
     def current_project_id(self) -> str | None:
