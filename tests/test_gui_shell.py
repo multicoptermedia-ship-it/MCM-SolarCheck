@@ -936,3 +936,46 @@ def test_shell_presents_failed_backend_import_attempt_and_keeps_backend_state(ap
     assert status.text() == "Import fehlgeschlagen: decoder rejected source"
     assert not window.action(ShellCommandId.PROCESS).isEnabled()
     assert window.action(ShellCommandId.PROCESS).toolTip() == "import evidence still missing"
+
+
+def test_switching_projects_clears_transient_import_attempt(app: QApplication) -> None:
+    state = ProjectWorkflowState(
+        tuple(StageReadiness(stage, True) for stage in WorkflowStage)
+    )
+
+    class ProjectService:
+        def projects(self):
+            return (
+                ProjectRecord("P-A", "Projekt A", "2026-09-27 20:10:00"),
+                ProjectRecord("P-B", "Projekt B", "2026-09-27 20:11:00"),
+            )
+
+        def open_project(self, project_id):
+            return state
+
+        def import_project_images(self, project_id, source_directory):
+            assert project_id == "P-A"
+            return (
+                WorkflowAttempt(WorkflowAction.IMPORT, False, "source rejected"),
+                None,
+                state,
+            )
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+    window._open_project("P-A")
+    window._request_image_import("/tmp/bad-import")
+
+    assert (
+        window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_attempt_status")
+        is not None
+    )
+
+    window._open_project("P-B")
+
+    assert window.current_project_id == "P-B"
+    assert (
+        window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_attempt_status")
+        is None
+    )
