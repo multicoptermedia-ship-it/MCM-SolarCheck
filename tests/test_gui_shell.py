@@ -701,3 +701,46 @@ def test_open_project_refreshes_import_workspace_with_persisted_context(app: QAp
     assert import_page is not original_import_page
     assert context.text() == "Aktives Projekt: P-IMPORT"
     assert button.isEnabled()
+
+
+def test_import_request_routes_through_service_and_applies_backend_state(app: QApplication) -> None:
+    state = ProjectWorkflowState(
+        tuple(StageReadiness(stage, True) for stage in WorkflowStage)
+    )
+
+    class ProjectService:
+        def projects(self):
+            return (ProjectRecord("P-IMPORT", "Importprojekt", "2026-09-27 18:00:00"),)
+
+        def open_project(self, project_id):
+            assert project_id == "P-IMPORT"
+            return state
+
+        def import_project_images(self, project_id, source_directory):
+            assert project_id == "P-IMPORT"
+            assert source_directory == "/tmp/import-images"
+            return object(), object(), state
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+    window._open_project("P-IMPORT")
+
+    window._request_image_import("/tmp/import-images")
+
+    assert window.current_project_id == "P-IMPORT"
+    assert window.action(ShellCommandId.PROCESS).isEnabled()
+
+
+def test_import_workspace_cancel_does_not_call_service_callback(app: QApplication) -> None:
+    calls = []
+    page = make_import_page(
+        current_project_id="P-IMPORT",
+        on_import_images=calls.append,
+        choose_directory=lambda: "",
+    )
+    button = page.findChild(QPushButton, "import_images_button")
+
+    button.click()
+
+    assert calls == []
