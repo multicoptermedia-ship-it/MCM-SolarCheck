@@ -799,3 +799,44 @@ def test_open_project_presents_persisted_import_summary_from_service(app: QAppli
     summary = window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_summary")
     assert summary is not None
     assert summary.text() == "8 RGB · 7 Thermal · 6 Paare"
+
+
+def test_successful_import_refreshes_summary_from_persisted_service_state(app: QApplication) -> None:
+    state = ProjectWorkflowState(
+        tuple(StageReadiness(stage, True) for stage in WorkflowStage)
+    )
+
+    class Summary:
+        def __init__(self, rgb_frames, thermal_frames, image_pairs):
+            self.rgb_frames = rgb_frames
+            self.thermal_frames = thermal_frames
+            self.image_pairs = image_pairs
+
+    class ProjectService:
+        def __init__(self):
+            self.imported = False
+
+        def projects(self):
+            return (ProjectRecord("P-IMPORT", "Importprojekt", "2026-09-27 19:30:00"),)
+
+        def open_project(self, project_id):
+            return state
+
+        def import_summary(self, project_id):
+            return Summary(4, 3, 2) if self.imported else Summary(0, 0, 0)
+
+        def import_project_images(self, project_id, source_directory):
+            self.imported = True
+            return object(), object(), state
+
+    service = ProjectService()
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=service
+    )
+    window._open_project("P-IMPORT")
+
+    window._request_image_import("/tmp/import-images")
+
+    summary = window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_summary")
+    assert summary is not None
+    assert summary.text() == "4 RGB · 3 Thermal · 2 Paare"
