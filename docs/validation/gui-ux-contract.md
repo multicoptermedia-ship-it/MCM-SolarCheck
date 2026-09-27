@@ -867,3 +867,25 @@ This checkpoint establishes the guarded folder-import integration slice. Richer
 multi-file/drop interaction, persisted import summaries, metadata verification,
 and downstream re-import invalidation remain later implementation work and must
 reuse the same authoritative backend boundaries.
+
+
+## Persisted import summary checkpoint
+
+The Import workspace presents import counts only from persisted backend state.
+
+- `ProjectApplicationService.import_summary(project_id)` exposes the persisted
+  `InspectionQueries.summary(project_id)` result through the application boundary
+  and rejects unknown project identifiers.
+- Qt does not count selected files, infer image pairs, or use a transient import
+  operation result as the authoritative presentation source.
+- The shell refreshes the Import workspace from `import_summary()` when a project
+  is opened and again after an import attempt. The workflow state returned by the
+  guarded import service remains independently authoritative for action readiness.
+- The workspace labels the values as **Persistierter Importstand** and presents
+  RGB-frame, thermal-frame, and image-pair counts supplied by the backend.
+- If no summary provider is available, the GUI omits the summary rather than
+  inventing zero values or deriving substitute state.
+
+This checkpoint deliberately keeps import-result presentation separate from
+metadata verification and downstream re-import invalidation. Those concerns need
+their own persisted domain semantics before Qt may expose them.
