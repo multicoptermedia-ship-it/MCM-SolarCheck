@@ -672,3 +672,31 @@ def test_import_workspace_enables_service_callback_for_active_project(app: QAppl
     assert button.isEnabled()
     button.click()
     assert calls == ["called"]
+
+
+def test_open_project_refreshes_import_workspace_with_persisted_context(app: QApplication) -> None:
+    state = ProjectWorkflowState(
+        tuple(StageReadiness(stage, True) for stage in WorkflowStage)
+    )
+
+    class ProjectService:
+        def projects(self):
+            return (ProjectRecord("P-IMPORT", "Importprojekt", "2026-09-27 17:00:00"),)
+
+        def open_project(self, project_id):
+            assert project_id == "P-IMPORT"
+            return state
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+    original_import_page = window._pages[ShellRoute.IMPORT]
+
+    window._open_project("P-IMPORT")
+
+    import_page = window._pages[ShellRoute.IMPORT]
+    context = import_page.findChild(QLabel, "import_project_context")
+    button = import_page.findChild(QPushButton, "import_images_button")
+    assert import_page is not original_import_page
+    assert context.text() == "Aktives Projekt: P-IMPORT"
+    assert button.isEnabled()
