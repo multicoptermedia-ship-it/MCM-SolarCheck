@@ -1011,3 +1011,36 @@ def test_import_attempt_status_exposes_backend_outcome_semantics(app: QApplicati
     assert error.accessibleDescription() == (
         "Ergebnis des letzten Importversuchs laut Anwendungsservice."
     )
+
+
+def test_reopening_same_project_keeps_latest_transient_import_attempt(app: QApplication) -> None:
+    state = ProjectWorkflowState(
+        tuple(StageReadiness(stage, True) for stage in WorkflowStage)
+    )
+
+    class ProjectService:
+        def projects(self):
+            return (ProjectRecord("P-SAME", "Projekt", "2026-09-27 20:20:00"),)
+
+        def open_project(self, project_id):
+            assert project_id == "P-SAME"
+            return state
+
+        def import_project_images(self, project_id, source_directory):
+            return (
+                WorkflowAttempt(WorkflowAction.IMPORT, True),
+                object(),
+                state,
+            )
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+    window._open_project("P-SAME")
+    window._request_image_import("/tmp/import-images")
+    window._open_project("P-SAME")
+
+    status = window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_attempt_status")
+    assert status is not None
+    assert status.text() == "Letzter Import erfolgreich abgeschlossen."
+    assert status.property("outcome") == "success"
