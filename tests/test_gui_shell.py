@@ -5,6 +5,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtWidgets import QDialogButtonBox, QListWidget, QApplication, QLabel, QPushButton, QStackedWidget, QWidget
 
+from mcm_solarcheck.gui.import_page import make_import_page
 from mcm_solarcheck.gui.project_page import NewProjectDialog, make_project_page
 from mcm_solarcheck.gui.shell import SolarCheckMainWindow
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET, ANTHRACITE, WORK_SURFACE, ACCENT_GREEN
@@ -640,3 +641,34 @@ def test_new_project_dialog_requires_nonblank_identity(app: QApplication) -> Non
     dialog.name.setText("Solarpark")
     assert ok.isEnabled()
     assert dialog.values() == ("P-1", "Solarpark")
+
+
+def test_import_workspace_is_fail_closed_without_project_context(app: QApplication) -> None:
+    page = make_import_page()
+    button = page.findChild(QPushButton, "import_images_button")
+    context = page.findChild(QLabel, "import_project_context")
+
+    assert context.text() == "Kein aktives Projekt ausgewählt."
+    assert not button.isEnabled()
+
+
+def test_import_workspace_requires_callback_even_with_project(app: QApplication) -> None:
+    page = make_import_page(current_project_id="P-IMPORT")
+    button = page.findChild(QPushButton, "import_images_button")
+    context = page.findChild(QLabel, "import_project_context")
+
+    assert context.text() == "Aktives Projekt: P-IMPORT"
+    assert not button.isEnabled()
+
+
+def test_import_workspace_enables_service_callback_for_active_project(app: QApplication) -> None:
+    calls = []
+    page = make_import_page(
+        current_project_id="P-IMPORT",
+        on_import_images=lambda: calls.append("called"),
+    )
+    button = page.findChild(QPushButton, "import_images_button")
+
+    assert button.isEnabled()
+    button.click()
+    assert calls == ["called"]
