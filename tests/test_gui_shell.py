@@ -902,7 +902,7 @@ def test_shell_presents_failed_backend_import_attempt_and_keeps_backend_state(ap
     blocked_state = ProjectWorkflowState(
         (
             StageReadiness(WorkflowStage.PROJECT, True),
-            StageReadiness(WorkflowStage.IMPORT, True),
+            StageReadiness(WorkflowStage.IMPORT, False, ("import evidence still missing",)),
             StageReadiness(WorkflowStage.PROCESSING, False, ("processing still blocked",)),
             StageReadiness(WorkflowStage.REVIEW, False, ("review blocked",)),
             StageReadiness(WorkflowStage.REPORT, False, ("report blocked",)),
@@ -935,4 +935,4 @@ def test_shell_presents_failed_backend_import_attempt_and_keeps_backend_state(ap
     assert status is not None
     assert status.text() == "Import fehlgeschlagen: decoder rejected source"
     assert not window.action(ShellCommandId.PROCESS).isEnabled()
-    assert window.action(ShellCommandId.PROCESS).toolTip() == "processing still blocked"
+    assert window.action(ShellCommandId.PROCESS).toolTip() == "import evidence still missing"
