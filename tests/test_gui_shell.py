@@ -766,3 +766,36 @@ def test_import_workspace_omits_summary_when_backend_has_none(app: QApplication)
     page = make_import_page(current_project_id="P-IMPORT")
 
     assert page.findChild(QLabel, "import_summary") is None
+
+
+def test_open_project_presents_persisted_import_summary_from_service(app: QApplication) -> None:
+    state = ProjectWorkflowState(
+        tuple(StageReadiness(stage, True) for stage in WorkflowStage)
+    )
+
+    class Summary:
+        rgb_frames = 8
+        thermal_frames = 7
+        image_pairs = 6
+
+    class ProjectService:
+        def projects(self):
+            return (ProjectRecord("P-SUMMARY", "Summary project", "2026-09-27 19:00:00"),)
+
+        def open_project(self, project_id):
+            assert project_id == "P-SUMMARY"
+            return state
+
+        def import_summary(self, project_id):
+            assert project_id == "P-SUMMARY"
+            return Summary()
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+
+    window._open_project("P-SUMMARY")
+
+    summary = window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_summary")
+    assert summary is not None
+    assert summary.text() == "8 RGB · 7 Thermal · 6 Paare"
