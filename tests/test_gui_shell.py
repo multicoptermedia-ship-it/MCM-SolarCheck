@@ -896,3 +896,43 @@ def test_import_workspace_omits_attempt_status_without_backend_attempt(app: QApp
     page = make_import_page(current_project_id="P-IMPORT")
 
     assert page.findChild(QLabel, "import_attempt_status") is None
+
+
+def test_shell_presents_failed_backend_import_attempt_and_keeps_backend_state(app: QApplication) -> None:
+    blocked_state = ProjectWorkflowState(
+        (
+            StageReadiness(WorkflowStage.PROJECT, True),
+            StageReadiness(WorkflowStage.IMPORT, True),
+            StageReadiness(WorkflowStage.PROCESSING, False, ("processing still blocked",)),
+            StageReadiness(WorkflowStage.REVIEW, False, ("review blocked",)),
+            StageReadiness(WorkflowStage.REPORT, False, ("report blocked",)),
+            StageReadiness(WorkflowStage.EXPORT, False, ("export blocked",)),
+        )
+    )
+
+    class ProjectService:
+        def projects(self):
+            return (ProjectRecord("P-FAIL", "Importfehler", "2026-09-27 20:00:00"),)
+
+        def open_project(self, project_id):
+            return blocked_state
+
+        def import_project_images(self, project_id, source_directory):
+            return (
+                WorkflowAttempt(WorkflowAction.IMPORT, False, "decoder rejected source"),
+                None,
+                blocked_state,
+            )
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+    window._open_project("P-FAIL")
+
+    window._request_image_import("/tmp/bad-import")
+
+    status = window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_attempt_status")
+    assert status is not None
+    assert status.text() == "Import fehlgeschlagen: decoder rejected source"
+    assert not window.action(ShellCommandId.PROCESS).isEnabled()
+    assert window.action(ShellCommandId.PROCESS).toolTip() == "processing still blocked"
