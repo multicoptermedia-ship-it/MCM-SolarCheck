@@ -719,7 +719,7 @@ def test_import_request_routes_through_service_and_applies_backend_state(app: QA
         def import_project_images(self, project_id, source_directory):
             assert project_id == "P-IMPORT"
             assert source_directory == "/tmp/import-images"
-            return object(), object(), state
+            return WorkflowAttempt(WorkflowAction.IMPORT, True), object(), state
 
     window = SolarCheckMainWindow(
         DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
@@ -827,7 +827,7 @@ def test_successful_import_refreshes_summary_from_persisted_service_state(app: Q
 
         def import_project_images(self, project_id, source_directory):
             self.imported = True
-            return object(), object(), state
+            return WorkflowAttempt(WorkflowAction.IMPORT, True), object(), state
 
     service = ProjectService()
     window = SolarCheckMainWindow(
