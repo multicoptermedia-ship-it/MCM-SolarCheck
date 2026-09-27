@@ -29,6 +29,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._actions: dict[ShellCommandId, QAction] = {}
         self._workflow_availability = None
         self._current_project_id = None
+        self._last_import_attempt = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -173,6 +174,7 @@ class SolarCheckMainWindow(QMainWindow):
                 else None
             ),
             import_summary=import_summary,
+            import_attempt=self._last_import_attempt,
         )
         self._pages[ShellRoute.IMPORT] = new_page
         index = self._stack.indexOf(old_page)
@@ -186,10 +188,11 @@ class SolarCheckMainWindow(QMainWindow):
         """Route a selected directory through the guarded application import boundary."""
         if self._project_service is None or self._current_project_id is None:
             return
-        _attempt, _result, state = self._project_service.import_project_images(
+        attempt, _result, state = self._project_service.import_project_images(
             self._current_project_id,
             source_directory,
         )
+        self._last_import_attempt = attempt
         self._refresh_import_page()
         self.apply_workflow_state(state)
 
