@@ -149,6 +149,8 @@ class SolarCheckMainWindow(QMainWindow):
         if self._project_service is None or project_id is None:
             return
         state = self._project_service.open_project(project_id)
+        if project_id != self._current_project_id:
+            self._last_import_attempt = None
         self._current_project_id = project_id
         self._refresh_import_page()
         self.apply_workflow_state(state)
