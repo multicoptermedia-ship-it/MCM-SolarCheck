@@ -862,3 +862,37 @@ def test_import_workspace_labels_summary_as_persisted_backend_state(app: QApplic
     assert summary.accessibleDescription() == (
         "Persistierte Bild- und Paarzahlen des aktiven Projekts."
     )
+
+
+def test_import_workspace_presents_backend_attempt_outcome_without_inference(app: QApplication) -> None:
+    class FailedAttempt:
+        succeeded = False
+        error = "thermal metadata unavailable"
+
+    failed_page = make_import_page(
+        current_project_id="P-IMPORT",
+        import_attempt=FailedAttempt(),
+    )
+    failed_status = failed_page.findChild(QLabel, "import_attempt_status")
+
+    assert failed_status is not None
+    assert failed_status.text() == "Import fehlgeschlagen: thermal metadata unavailable"
+
+    class SuccessfulAttempt:
+        succeeded = True
+        error = None
+
+    successful_page = make_import_page(
+        current_project_id="P-IMPORT",
+        import_attempt=SuccessfulAttempt(),
+    )
+    successful_status = successful_page.findChild(QLabel, "import_attempt_status")
+
+    assert successful_status is not None
+    assert successful_status.text() == "Letzter Import erfolgreich abgeschlossen."
+
+
+def test_import_workspace_omits_attempt_status_without_backend_attempt(app: QApplication) -> None:
+    page = make_import_page(current_project_id="P-IMPORT")
+
+    assert page.findChild(QLabel, "import_attempt_status") is None
