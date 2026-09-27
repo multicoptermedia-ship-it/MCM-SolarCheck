@@ -4,6 +4,7 @@ from mcm_solarcheck.domain.models import ImageFrame,ImagePair,PVModule,Position,
 from mcm_solarcheck.importers.project import ProjectImportResult
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
 from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
+from mcm_solarcheck.services.workflow import WorkflowAction
 
 def test_project_import_counts_unpaired_frames():
     rgb=(ImageFrame('V-1',Path('a.JPG')),ImageFrame('V-2',Path('b.JPG')))
@@ -90,3 +91,49 @@ def test_application_service_rejects_invalid_or_duplicate_project_creation(tmp_p
         raise AssertionError('duplicate project creation must fail closed')
 
     assert service.projects()[0].name=='Original'
+
+
+def test_project_image_import_rejects_unknown_project_before_operation(tmp_path, monkeypatch):
+    db=ProjectDatabase(tmp_path/'guarded-import.sqlite');db.initialize()
+    service=ProjectApplicationService(db)
+    called=[]
+
+    def unexpected_import(*args, **kwargs):
+        called.append(True)
+        raise AssertionError('import must not run')
+
+    monkeypatch.setattr(
+        'mcm_solarcheck.services.project_pipeline.import_and_store_m3t_project',
+        unexpected_import,
+    )
+
+    try:
+        service.import_project_images('P-INVENTED', tmp_path/'images')
+    except KeyError as error:
+        assert 'Unknown project: P-INVENTED' in str(error)
+    else:
+        raise AssertionError('unknown project import must fail closed')
+
+    assert called==[]
+
+
+def test_project_image_import_uses_guarded_execute_boundary(tmp_path, monkeypatch):
+    db=ProjectDatabase(tmp_path/'guarded-import.sqlite');db.initialize()
+    db.create_project('P-IMPORT','Persisted')
+    service=ProjectApplicationService(db)
+    captured={}
+
+    def fake_execute(project_id, action, operation):
+        captured['project_id']=project_id
+        captured['action']=action
+        captured['operation']=operation
+        return 'guarded'
+
+    monkeypatch.setattr(service, 'execute', fake_execute)
+
+    result=service.import_project_images('P-IMPORT', tmp_path/'images')
+
+    assert result=='guarded'
+    assert captured['project_id']=='P-IMPORT'
+    assert captured['action'] is WorkflowAction.IMPORT
+    assert callable(captured['operation'])
