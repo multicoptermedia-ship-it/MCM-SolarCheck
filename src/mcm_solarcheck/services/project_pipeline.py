@@ -113,6 +113,37 @@ class ProjectApplicationService:
             return record_attempt(action, error), None, self.state(project_id)
         return record_attempt(action), result, self.state(project_id)
 
+    def import_project_images(
+        self,
+        project_id: str,
+        source_directory: str | Path,
+        *,
+        minimum_pair_confidence: float = 0.70,
+        candidate_percentile: float = 99.9,
+        candidate_limit: int = 100,
+    ):
+        """Import imagery only through the guarded application boundary."""
+        project = next(
+            (item for item in self.projects() if item.project_id == project_id),
+            None,
+        )
+        if project is None:
+            raise KeyError(f"Unknown project: {project_id}")
+
+        return self.execute(
+            project_id,
+            WorkflowAction.IMPORT,
+            lambda: import_and_store_m3t_project(
+                source_directory,
+                self.database.path,
+                project_id=project.project_id,
+                project_name=project.name,
+                minimum_pair_confidence=minimum_pair_confidence,
+                candidate_percentile=candidate_percentile,
+                candidate_limit=candidate_limit,
+            ),
+        )
+
     def output_availability(
         self,
         project_id: str,
