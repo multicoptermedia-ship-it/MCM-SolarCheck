@@ -45,6 +45,10 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
             status_text = f"Import fehlgeschlagen: {import_attempt.error}"
         status = QLabel(status_text, page)
         status.setObjectName("import_attempt_status")
+        status.setProperty("outcome", "success" if import_attempt.succeeded else "error")
+        status.setAccessibleDescription(
+            "Ergebnis des letzten Importversuchs laut Anwendungsservice."
+        )
         layout.addWidget(status)
 
     import_images = QPushButton("Bilddaten auswählen", page)
