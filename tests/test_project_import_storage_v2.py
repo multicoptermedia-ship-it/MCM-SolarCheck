@@ -137,3 +137,44 @@ def test_project_image_import_uses_guarded_execute_boundary(tmp_path, monkeypatc
     assert captured['project_id']=='P-IMPORT'
     assert captured['action'] is WorkflowAction.IMPORT
     assert callable(captured['operation'])
+
+
+def test_application_service_import_summary_uses_persisted_counts(tmp_path):
+    db=ProjectDatabase(tmp_path/'import-summary.sqlite');db.initialize()
+    db.create_project('P-SUMMARY','Persisted')
+    db.save_image_frames(
+        'P-SUMMARY',
+        (
+            ImageFrame('V-1',Path('a.JPG')),
+            ImageFrame('V-2',Path('b.JPG')),
+        ),
+    )
+    with db.connect() as con:
+        con.execute(
+            'INSERT INTO thermal_frames(project_id,frame_id,source_file,thermal_source) VALUES (?,?,?,?)',
+            ('P-SUMMARY','T-1','t.JPG','fixture'),
+        )
+    db.save_pairs(
+        'P-SUMMARY',
+        (ImagePair('PAIR-1','V-1','T-1',0.99,'fixture'),),
+    )
+    service=ProjectApplicationService(db)
+
+    summary=service.import_summary('P-SUMMARY')
+
+    assert summary.project_id=='P-SUMMARY'
+    assert summary.rgb_frames==2
+    assert summary.thermal_frames==1
+    assert summary.image_pairs==1
+
+
+def test_application_service_import_summary_rejects_unknown_project(tmp_path):
+    db=ProjectDatabase(tmp_path/'import-summary.sqlite');db.initialize()
+    service=ProjectApplicationService(db)
+
+    try:
+        service.import_summary('P-INVENTED')
+    except KeyError as error:
+        assert 'Unknown project: P-INVENTED' in str(error)
+    else:
+        raise AssertionError('unknown project summary must fail closed')
