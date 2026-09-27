@@ -889,3 +889,12 @@ The Import workspace presents import counts only from persisted backend state.
 This checkpoint deliberately keeps import-result presentation separate from
 metadata verification and downstream re-import invalidation. Those concerns need
 their own persisted domain semantics before Qt may expose them.
+
+
+## Import attempt presentation checkpoint
+
+- Import execution outcomes are supplied by the application service as `WorkflowAttempt`; Qt does not infer success from selected files, persisted counts, or navigation state.
+- The import workspace may present the latest service-reported attempt as transient feedback while the persisted import summary remains the authoritative project record.
+- A failed attempt displays the service-provided error and does not advance or override backend-derived workflow readiness.
+- Transient attempt feedback is scoped to the active project and is cleared when another project is opened, preventing cross-project status leakage.
+- Presentation exposes explicit `success` / `error` semantics and an accessible description without creating a second workflow authority.
