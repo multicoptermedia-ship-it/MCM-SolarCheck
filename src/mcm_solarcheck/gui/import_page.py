@@ -3,7 +3,7 @@
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -37,6 +37,15 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
             "Persistierte Bild- und Paarzahlen des aktiven Projekts."
         )
         layout.addWidget(summary)
+
+    if import_attempt is not None:
+        if import_attempt.succeeded:
+            status_text = "Letzter Import erfolgreich abgeschlossen."
+        else:
+            status_text = f"Import fehlgeschlagen: {import_attempt.error}"
+        status = QLabel(status_text, page)
+        status.setObjectName("import_attempt_status")
+        layout.addWidget(status)
 
     import_images = QPushButton("Bilddaten auswählen", page)
     import_images.setObjectName("import_images_button")
