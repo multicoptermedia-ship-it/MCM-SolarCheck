@@ -171,9 +171,15 @@ class SolarCheckMainWindow(QMainWindow):
         self._stack.removeWidget(old_page)
         old_page.deleteLater()
 
-    def _request_image_import(self) -> None:
-        """Keep file selection separate from the application import operation."""
-        return None
+    def _request_image_import(self, source_directory: str) -> None:
+        """Route a selected directory through the guarded application import boundary."""
+        if self._project_service is None or self._current_project_id is None:
+            return
+        _attempt, _result, state = self._project_service.import_project_images(
+            self._current_project_id,
+            source_directory,
+        )
+        self.apply_workflow_state(state)
 
     @property
     def current_project_id(self) -> str | None:
