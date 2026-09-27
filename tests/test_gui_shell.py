@@ -12,7 +12,7 @@ from mcm_solarcheck.gui.theme import APP_STYLE_SHEET, ANTHRACITE, WORK_SURFACE, 
 from mcm_solarcheck.services.deployment import DeploymentMode
 from mcm_solarcheck.services.shell_commands import ShellCommandId
 from mcm_solarcheck.services.shell_navigation import ShellRoute
-from mcm_solarcheck.services.workflow import ProjectWorkflowState, StageReadiness, WorkflowStage
+from mcm_solarcheck.services.workflow import ProjectWorkflowState, StageReadiness, WorkflowAction, WorkflowAttempt, WorkflowStage
 from mcm_solarcheck.storage.queries import ProjectRecord
 
 
