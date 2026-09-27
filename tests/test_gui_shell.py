@@ -979,3 +979,35 @@ def test_switching_projects_clears_transient_import_attempt(app: QApplication) -
         window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_attempt_status")
         is None
     )
+
+
+def test_import_attempt_status_exposes_backend_outcome_semantics(app: QApplication) -> None:
+    class SuccessfulAttempt:
+        succeeded = True
+        error = None
+
+    success_page = make_import_page(
+        current_project_id="P-IMPORT",
+        import_attempt=SuccessfulAttempt(),
+    )
+    success = success_page.findChild(QLabel, "import_attempt_status")
+    assert success is not None
+    assert success.property("outcome") == "success"
+    assert success.accessibleDescription() == (
+        "Ergebnis des letzten Importversuchs laut Anwendungsservice."
+    )
+
+    class FailedAttempt:
+        succeeded = False
+        error = "source rejected"
+
+    error_page = make_import_page(
+        current_project_id="P-IMPORT",
+        import_attempt=FailedAttempt(),
+    )
+    error = error_page.findChild(QLabel, "import_attempt_status")
+    assert error is not None
+    assert error.property("outcome") == "error"
+    assert error.accessibleDescription() == (
+        "Ergebnis des letzten Importversuchs laut Anwendungsservice."
+    )
