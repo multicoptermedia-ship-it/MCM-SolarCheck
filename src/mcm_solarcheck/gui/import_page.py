@@ -3,7 +3,7 @@
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -20,6 +20,16 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     )
     project.setObjectName("import_project_context")
     layout.addWidget(project)
+
+    if import_summary is not None:
+        summary = QLabel(
+            f"{import_summary.rgb_frames} RGB · "
+            f"{import_summary.thermal_frames} Thermal · "
+            f"{import_summary.image_pairs} Paare",
+            page,
+        )
+        summary.setObjectName("import_summary")
+        layout.addWidget(summary)
 
     import_images = QPushButton("Bilddaten auswählen", page)
     import_images.setObjectName("import_images_button")
