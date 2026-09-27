@@ -744,3 +744,25 @@ def test_import_workspace_cancel_does_not_call_service_callback(app: QApplicatio
     button.click()
 
     assert calls == []
+
+
+def test_import_workspace_renders_backend_summary_without_inventing_counts(app: QApplication) -> None:
+    class Summary:
+        rgb_frames = 12
+        thermal_frames = 10
+        image_pairs = 9
+
+    page = make_import_page(
+        current_project_id="P-IMPORT",
+        import_summary=Summary(),
+    )
+    summary = page.findChild(QLabel, "import_summary")
+
+    assert summary is not None
+    assert summary.text() == "12 RGB · 10 Thermal · 9 Paare"
+
+
+def test_import_workspace_omits_summary_when_backend_has_none(app: QApplication) -> None:
+    page = make_import_page(current_project_id="P-IMPORT")
+
+    assert page.findChild(QLabel, "import_summary") is None
