@@ -1,9 +1,9 @@
 """Import workspace presentation for SolarCheck."""
 
-from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -24,7 +24,17 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     import_images = QPushButton("Bilddaten auswählen", page)
     import_images.setObjectName("import_images_button")
     if current_project_id is not None and on_import_images is not None:
-        import_images.clicked.connect(on_import_images)
+        def request_import():
+            chooser = choose_directory or (
+                lambda: QFileDialog.getExistingDirectory(
+                    page, "Bildverzeichnis auswählen"
+                )
+            )
+            source_directory = chooser()
+            if source_directory:
+                on_import_images(source_directory)
+
+        import_images.clicked.connect(request_import)
     else:
         import_images.setEnabled(False)
         import_images.setAccessibleDescription(
