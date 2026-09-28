@@ -1080,3 +1080,54 @@ def test_import_workspace_omits_verification_without_backend_data(app: QApplicat
 
     assert page.findChild(QLabel, "import_verification_heading") is None
     assert page.findChild(QLabel, "import_verification") is None
+
+
+def test_successful_import_refreshes_persisted_verification_from_service(app: QApplication) -> None:
+    state = ProjectWorkflowState(
+        tuple(StageReadiness(stage, True) for stage in WorkflowStage)
+    )
+
+    class Verification:
+        def __init__(self, quality_pass, missing_position):
+            self.quality_pass = quality_pass
+            self.quality_review = 0
+            self.quality_reject = 0
+            self.missing_timestamp = 0
+            self.missing_position = missing_position
+            self.missing_camera_identity = 0
+
+    class ProjectService:
+        def __init__(self):
+            self.imported = False
+
+        def projects(self):
+            return (ProjectRecord("P-VERIFY", "Verify project", "2026-09-28 10:00:00"),)
+
+        def open_project(self, project_id):
+            assert project_id == "P-VERIFY"
+            return state
+
+        def import_verification(self, project_id):
+            assert project_id == "P-VERIFY"
+            return Verification(3, 1) if self.imported else Verification(0, 0)
+
+        def import_project_images(self, project_id, source_directory):
+            assert project_id == "P-VERIFY"
+            self.imported = True
+            return WorkflowAttempt(WorkflowAction.IMPORT, True), object(), state
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+    window._open_project("P-VERIFY")
+
+    before = window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_verification")
+    assert before is not None
+    assert "Qualität: 0 OK" in before.text()
+
+    window._request_image_import("/tmp/import-images")
+
+    after = window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_verification")
+    assert after is not None
+    assert "Qualität: 3 OK" in after.text()
+    assert "1 Position" in after.text()
