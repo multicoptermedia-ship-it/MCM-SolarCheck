@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from mcm_solarcheck.services.compute_jobs import (
@@ -136,7 +137,7 @@ class SQLiteComputeJobStore:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 """
-                SELECT job_id, user_id, project_id, status, worker_id
+                SELECT job_id, user_id, project_id, status, worker_id, lease_expires_at
                 FROM compute_jobs
                 WHERE job_id = ?
                 """,
@@ -167,6 +168,7 @@ class SQLiteComputeJobStore:
         worker_id: str,
         *,
         succeeded: bool,
+        now: datetime | None = None,
     ) -> ComputeJob:
         """Atomically finish a running job only for its owning worker."""
         if not isinstance(worker_id, str) or not worker_id.strip():
@@ -189,6 +191,16 @@ class SQLiteComputeJobStore:
                 raise ValueError("only a running compute job can be finished")
             if row[4] != worker_id:
                 raise PermissionError("compute job worker claim mismatch")
+            lease_expires_at = row[5]
+            if lease_expires_at is not None:
+                if now is None:
+                    raise ValueError("current UTC time is required for leased completion")
+                if now.tzinfo is None or now.utcoffset() is None:
+                    raise ValueError("completion time must be timezone-aware")
+                if now.utcoffset() != timedelta(0):
+                    raise ValueError("completion time must be UTC")
+                if now.isoformat() >= lease_expires_at:
+                    raise PermissionError("compute job worker lease expired")
             status = ComputeJobStatus.COMPLETED if succeeded else ComputeJobStatus.FAILED
             finished = transition_job(job, status)
             connection.execute(
