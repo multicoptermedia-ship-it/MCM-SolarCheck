@@ -511,3 +511,41 @@ def test_compute_job_service_end_to_end_lifecycle_isolated_and_capacity_bounded(
     assert (second_failed.user_id, second_failed.project_id) == ("user-b", "project-b")
     assert store.get(first.job_id) == first_done
     assert store.get(second.job_id) == second_failed
+
+
+
+class _RejectingComputeJobClaims:
+    def claim(self, job_id: str, worker_id: str, lease=None) -> ComputeJob:
+        raise AssertionError("claim should not be called")
+
+    def release_claim(self, job_id: str, worker_id: str, *, now=None) -> ComputeJob:
+        raise AssertionError("release should not be called")
+
+    def finish_claimed(
+        self,
+        job_id: str,
+        worker_id: str,
+        *,
+        succeeded: bool,
+        now=None,
+    ) -> ComputeJob:
+        raise AssertionError("finish_claimed should not be called")
+
+
+def test_compute_job_service_blocks_legacy_finish_when_claims_enabled() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    running = ComputeJob(
+        "job-a",
+        "user-a",
+        "project-a",
+        ComputeJobStatus.RUNNING,
+    )
+    store.create(running)
+    service = ComputeJobService(store, claims=_RejectingComputeJobClaims())
+
+    with pytest.raises(RuntimeError, match="finish_claimed"):
+        service.finish(running.job_id, succeeded=True)
+
+    assert store.get(running.job_id) == running
