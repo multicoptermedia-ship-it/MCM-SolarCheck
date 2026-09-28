@@ -71,3 +71,29 @@ class ComputeCapacity:
             if self.can_start(running_jobs)
             else ComputeJobStatus.QUEUED
         )
+
+
+_ALLOWED_STATUS_TRANSITIONS: dict[ComputeJobStatus, frozenset[ComputeJobStatus]] = {
+    ComputeJobStatus.QUEUED: frozenset(
+        {ComputeJobStatus.RUNNING, ComputeJobStatus.FAILED}
+    ),
+    ComputeJobStatus.RUNNING: frozenset(
+        {ComputeJobStatus.COMPLETED, ComputeJobStatus.FAILED}
+    ),
+    ComputeJobStatus.COMPLETED: frozenset(),
+    ComputeJobStatus.FAILED: frozenset(),
+}
+
+
+def transition_job(job: ComputeJob, status: ComputeJobStatus) -> ComputeJob:
+    """Return the next authoritative job state or reject an invalid transition."""
+    if not isinstance(status, ComputeJobStatus):
+        raise ValueError("status must be a ComputeJobStatus")
+    if status not in _ALLOWED_STATUS_TRANSITIONS[job.status]:
+        raise ValueError(f"invalid compute job transition: {job.status.value} -> {status.value}")
+    return ComputeJob(
+        job_id=job.job_id,
+        user_id=job.user_id,
+        project_id=job.project_id,
+        status=status,
+    )
