@@ -128,6 +128,53 @@ class SQLiteComputeJobStore:
         finally:
             connection.close()
 
+    def renew_claim(
+        self,
+        job_id: str,
+        worker_id: str,
+        lease: ComputeJobLease,
+    ) -> ComputeJob:
+        """Atomically renew an unexpired lease for its current worker."""
+        if not isinstance(worker_id, str) or not worker_id.strip():
+            raise ValueError("worker_id must be a non-empty string")
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT job_id, user_id, project_id, status, worker_id, lease_expires_at
+                FROM compute_jobs
+                WHERE job_id = ?
+                """,
+                (job_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            job = ComputeJob(row[0], row[1], row[2], ComputeJobStatus(row[3]))
+            if job.status is not ComputeJobStatus.RUNNING:
+                raise ValueError("only a running compute job lease can be renewed")
+            if row[4] != worker_id:
+                raise PermissionError("compute job claim owned by another worker")
+            if row[5] is None:
+                raise ValueError("compute job claim has no lease to renew")
+            if row[5] <= lease.now.isoformat():
+                raise PermissionError("compute job worker lease has expired")
+            connection.execute(
+                """
+                UPDATE compute_jobs
+                SET lease_expires_at = ?
+                WHERE job_id = ?
+                """,
+                (lease.expires_at.isoformat(), job_id),
+            )
+            connection.commit()
+            return job
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def release_claim(
         self,
         job_id: str,
