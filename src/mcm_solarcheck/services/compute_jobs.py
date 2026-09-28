@@ -115,6 +115,14 @@ class ComputeJobAdmission(Protocol):
         ...
 
 
+class ComputeJobClaim(Protocol):
+    """Provider-neutral exclusive worker ownership boundary."""
+
+    def claim(self, job_id: str, worker_id: str) -> ComputeJob:
+        """Atomically claim a running job for one worker."""
+        ...
+
+
 class ComputeJobStore(Protocol):
     """Persistence boundary for authoritative compute job state."""
 
