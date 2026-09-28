@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcm_solarcheck.services.billing import ComputeJobDelivery
+from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
 
 
 @pytest.mark.parametrize(
@@ -31,3 +31,33 @@ def test_compute_job_billing_requires_export_and_report_retrieval(
 def test_compute_job_delivery_requires_job_identity() -> None:
     with pytest.raises(ValueError):
         ComputeJobDelivery(" ")
+
+
+
+def test_compute_job_billing_release_requires_delivered_result() -> None:
+    billing = ComputeJobBilling(
+        ComputeJobDelivery(
+            "job-a",
+            export_completed=True,
+            report_retrieved=False,
+        )
+    )
+
+    with pytest.raises(ValueError, match="not billable"):
+        billing.release()
+
+
+def test_compute_job_billing_release_is_one_time() -> None:
+    billing = ComputeJobBilling(
+        ComputeJobDelivery(
+            "job-a",
+            export_completed=True,
+            report_retrieved=True,
+        )
+    )
+
+    released = billing.release()
+
+    assert released.billing_released is True
+    with pytest.raises(ValueError, match="already released"):
+        released.release()
