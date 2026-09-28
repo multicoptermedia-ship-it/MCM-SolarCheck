@@ -8,6 +8,7 @@ import sqlite3
 import pytest
 
 from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
+from mcm_solarcheck.services.worker_dispatch import ComputeWorkerService
 from mcm_solarcheck.services.compute_jobs import (
     ComputeCapacity,
     ComputeJob,
@@ -821,3 +822,36 @@ def test_sqlite_worker_lease_renewal_requires_active_owner(tmp_path) -> None:
         store.renew_claim(running.job_id, "worker-a", after_renewed_expiry)
 
     assert store.claim_next("worker-b", after_renewed_expiry) == running
+
+
+
+def test_compute_worker_service_runs_claim_renew_finish_lifecycle(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    worker = ComputeWorkerService(dispatch=store, claims=store)
+    start = datetime(2026, 9, 28, 18, 0, tzinfo=timezone.utc)
+
+    assert worker.claim_next(
+        worker_id="worker-a",
+        lease=ComputeJobLease(now=start, duration=timedelta(minutes=5)),
+    ) == running
+
+    assert worker.renew(
+        running.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(
+            now=start + timedelta(minutes=4),
+            duration=timedelta(minutes=5),
+        ),
+    ) == running
+
+    finished = worker.finish(
+        running.job_id,
+        worker_id="worker-a",
+        succeeded=True,
+        now=start + timedelta(minutes=6),
+    )
+
+    assert finished.status is ComputeJobStatus.COMPLETED
+    assert store.get(running.job_id) == finished
