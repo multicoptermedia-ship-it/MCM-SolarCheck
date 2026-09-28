@@ -1044,3 +1044,39 @@ def test_reopening_same_project_keeps_latest_transient_import_attempt(app: QAppl
     assert status is not None
     assert status.text() == "Letzter Import erfolgreich abgeschlossen."
     assert status.property("outcome") == "success"
+
+
+def test_import_workspace_presents_persisted_verification_without_inference(app: QApplication) -> None:
+    class Verification:
+        quality_pass = 7
+        quality_review = 2
+        quality_reject = 1
+        missing_timestamp = 3
+        missing_position = 4
+        missing_camera_identity = 5
+
+    page = make_import_page(
+        current_project_id="P-VERIFY",
+        import_verification=Verification(),
+    )
+
+    heading = page.findChild(QLabel, "import_verification_heading")
+    verification = page.findChild(QLabel, "import_verification")
+
+    assert heading is not None
+    assert heading.text() == "Importprüfung"
+    assert verification is not None
+    assert verification.text() == (
+        "Qualität: 7 OK · 2 prüfen · 1 verworfen\n"
+        "Fehlende Metadaten: 3 Zeit · 4 Position · 5 Kamera"
+    )
+    assert verification.accessibleDescription() == (
+        "Persistierte Qualitäts- und Metadatenprüfung des aktiven Projekts."
+    )
+
+
+def test_import_workspace_omits_verification_without_backend_data(app: QApplication) -> None:
+    page = make_import_page(current_project_id="P-VERIFY")
+
+    assert page.findChild(QLabel, "import_verification_heading") is None
+    assert page.findChild(QLabel, "import_verification") is None
