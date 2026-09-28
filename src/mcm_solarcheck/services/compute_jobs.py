@@ -99,6 +99,14 @@ def transition_job(job: ComputeJob, status: ComputeJobStatus) -> ComputeJob:
     )
 
 
+class ComputeJobLoad(Protocol):
+    """Provider-neutral source for current worker occupancy."""
+
+    def running_jobs(self) -> int:
+        """Return the authoritative number of currently running jobs."""
+        ...
+
+
 class ComputeJobStore(Protocol):
     """Persistence boundary for authoritative compute job state."""
 
@@ -120,6 +128,7 @@ class ComputeJobService:
     """Server-side boundary that owns persistence and state transitions."""
 
     store: ComputeJobStore
+    load: ComputeJobLoad | None = None
 
     def create(self, *, job_id: str, user_id: str, project_id: str) -> ComputeJob:
         job = ComputeJob(
@@ -143,9 +152,13 @@ class ComputeJobService:
         user_id: str,
         project_id: str,
         capacity: ComputeCapacity,
-        running_jobs: int,
+        running_jobs: int | None = None,
     ) -> ComputeJob:
         current = self.get(job_id, user_id=user_id, project_id=project_id)
+        if running_jobs is None:
+            if self.load is None:
+                raise RuntimeError("compute job load source is required")
+            running_jobs = self.load.running_jobs()
         if capacity.admission_status(running_jobs) is ComputeJobStatus.QUEUED:
             return current
         return self.transition(
