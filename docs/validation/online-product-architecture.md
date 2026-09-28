@@ -191,3 +191,43 @@ Product-entitlement code introduced for the online edition must therefore remain
 outside the offline application's normal startup path. Offline packaging must
 not acquire an accidental network/login dependency from the online product
 layer.
+
+
+## 11. Internal online acceptance profile
+
+SolarCheck Online has a distinct `internal_online` product profile for MCM
+acceptance and production-path testing.
+
+- It does not require customer payment.
+- It is not the promotional trial and therefore does not inherit the 20 kWp
+  ceiling or trial output restrictions.
+- It may use the normal report-download and export product capabilities.
+- Product entitlement never overrides workflow, review, provenance,
+  report-release, or export-validation gates.
+- Internal evaluations use the real online processing path and therefore consume
+  real compute, storage, and other infrastructure resources.
+
+This profile must remain an explicit backend entitlement. It must not be
+implemented as a generic GUI-side `admin = allow everything` bypass.
+
+## 12. Tenant-isolated compute jobs and bounded concurrency
+
+Online processing is represented by provider-neutral jobs. Every job carries a
+distinct `job_id` together with its owning `user_id` and `project_id`.
+Implementations must preserve those identities when persisting, enqueueing,
+executing, and returning job state so concurrent users cannot share project
+results accidentally.
+
+The authoritative lifecycle is `queued -> running -> completed`, with
+`failed` as the terminal error state. Web UI state does not manufacture these
+transitions.
+
+Compute concurrency is deployment-owned and bounded by an explicit positive
+worker capacity. A job may enter `running` only while a worker slot is
+available; excess work remains `queued`. Therefore two simultaneous users may
+run in parallel when at least two slots are configured, while the same requests
+are safely serialized when only one slot is available.
+
+The capacity contract is provider-neutral. Concrete queue technology,
+autoscaling, retry/timeout policy, and cloud vendor remain deployment decisions
+and must not alter the inspection workflow or product-entitlement semantics.
