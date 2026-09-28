@@ -21,6 +21,8 @@ def test_compute_job_billing_requires_export_and_report_retrieval(
 ) -> None:
     delivery = ComputeJobDelivery(
         "job-a",
+        "user-a",
+        "project-a",
         export_completed=export_completed,
         report_retrieved=report_retrieved,
     )
@@ -30,7 +32,7 @@ def test_compute_job_billing_requires_export_and_report_retrieval(
 
 def test_compute_job_delivery_requires_job_identity() -> None:
     with pytest.raises(ValueError):
-        ComputeJobDelivery(" ")
+        ComputeJobDelivery(" ", "user-a", "project-a")
 
 
 
