@@ -136,6 +136,25 @@ class ComputeJobService:
         self._require_owner(job, user_id=user_id, project_id=project_id)
         return job
 
+    def start(
+        self,
+        job_id: str,
+        *,
+        user_id: str,
+        project_id: str,
+        capacity: ComputeCapacity,
+        running_jobs: int,
+    ) -> ComputeJob:
+        current = self.get(job_id, user_id=user_id, project_id=project_id)
+        if capacity.admission_status(running_jobs) is ComputeJobStatus.QUEUED:
+            return current
+        return self.transition(
+            job_id,
+            ComputeJobStatus.RUNNING,
+            user_id=user_id,
+            project_id=project_id,
+        )
+
     def transition(
         self,
         job_id: str,
