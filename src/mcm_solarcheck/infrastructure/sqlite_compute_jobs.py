@@ -265,6 +265,50 @@ class SQLiteComputeJobStore:
         finally:
             connection.close()
 
+    def claim_next(
+        self,
+        worker_id: str,
+        lease: ComputeJobLease | None = None,
+    ) -> ComputeJob | None:
+        """Atomically claim one ready running job for a worker."""
+        if not isinstance(worker_id, str) or not worker_id.strip():
+            raise ValueError("worker_id must be a non-empty string")
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT job_id, user_id, project_id, status
+                FROM compute_jobs
+                WHERE status = ? AND worker_id IS NULL
+                ORDER BY rowid
+                LIMIT 1
+                """,
+                (ComputeJobStatus.RUNNING.value,),
+            ).fetchone()
+            if row is None:
+                connection.commit()
+                return None
+            job = ComputeJob(row[0], row[1], row[2], ComputeJobStatus(row[3]))
+            lease_expires_at = (
+                lease.expires_at.isoformat() if lease is not None else None
+            )
+            connection.execute(
+                """
+                UPDATE compute_jobs
+                SET worker_id = ?, lease_expires_at = ?
+                WHERE job_id = ?
+                """,
+                (worker_id, lease_expires_at, job.job_id),
+            )
+            connection.commit()
+            return job
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def next_ready(self) -> ComputeJob | None:
         """Return one running job that has not yet been claimed by a worker."""
         with self._connect() as connection:
