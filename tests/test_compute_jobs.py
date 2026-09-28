@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJob, ComputeJobStatus
 
 
 def test_compute_job_preserves_tenant_and_project_identity() -> None:
@@ -61,3 +61,26 @@ def test_distinct_users_can_hold_distinct_queued_jobs() -> None:
     assert first.job_id != second.job_id
     assert first.user_id != second.user_id
     assert first.project_id != second.project_id
+
+
+def test_compute_capacity_starts_jobs_only_while_slots_are_free() -> None:
+    capacity = ComputeCapacity(max_parallel_jobs=2)
+
+    assert capacity.admission_status(0) is ComputeJobStatus.RUNNING
+    assert capacity.admission_status(1) is ComputeJobStatus.RUNNING
+    assert capacity.admission_status(2) is ComputeJobStatus.QUEUED
+    assert capacity.admission_status(3) is ComputeJobStatus.QUEUED
+
+
+@pytest.mark.parametrize("value", (0, -1, 1.5, True))
+def test_compute_capacity_rejects_invalid_parallel_limit(value) -> None:
+    with pytest.raises(ValueError, match="positive integer"):
+        ComputeCapacity(max_parallel_jobs=value)
+
+
+@pytest.mark.parametrize("running_jobs", (-1, 1.5, True))
+def test_compute_capacity_rejects_invalid_running_job_count(running_jobs) -> None:
+    capacity = ComputeCapacity(max_parallel_jobs=2)
+
+    with pytest.raises(ValueError, match="non-negative integer"):
+        capacity.admission_status(running_jobs)
