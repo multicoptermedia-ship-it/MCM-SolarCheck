@@ -97,3 +97,45 @@ def transition_job(job: ComputeJob, status: ComputeJobStatus) -> ComputeJob:
         project_id=job.project_id,
         status=status,
     )
+
+
+class ComputeJobStore(Protocol):
+    """Persistence boundary for authoritative compute job state."""
+
+    def create(self, job: ComputeJob) -> None:
+        """Persist a new job exactly once."""
+        ...
+
+    def get(self, job_id: str) -> ComputeJob:
+        """Load one authoritative job state."""
+        ...
+
+    def replace(self, job: ComputeJob) -> None:
+        """Persist the supplied authoritative job state."""
+        ...
+
+
+@dataclass
+class ComputeJobService:
+    """Server-side boundary that owns persistence and state transitions."""
+
+    store: ComputeJobStore
+
+    def create(self, *, job_id: str, user_id: str, project_id: str) -> ComputeJob:
+        job = ComputeJob(
+            job_id=job_id,
+            user_id=user_id,
+            project_id=project_id,
+            status=ComputeJobStatus.QUEUED,
+        )
+        self.store.create(job)
+        return job
+
+    def get(self, job_id: str) -> ComputeJob:
+        return self.store.get(job_id)
+
+    def transition(self, job_id: str, status: ComputeJobStatus) -> ComputeJob:
+        current = self.store.get(job_id)
+        transitioned = transition_job(current, status)
+        self.store.replace(transitioned)
+        return transitioned
