@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+from mcm_solarcheck.services.compute_jobs import (\n    ComputeCapacity,\n    ComputeJob,\n    ComputeJobStatus,\n    transition_job,\n)
 
 
 class SQLiteComputeJobStore:
@@ -56,6 +56,40 @@ class SQLiteComputeJobStore:
             project_id=row[2],
             status=ComputeJobStatus(row[3]),
         )
+
+    def try_start(self, job: ComputeJob, capacity: ComputeCapacity) -> ComputeJob:
+        """Atomically reserve capacity and persist the running transition."""
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT user_id, project_id, status FROM compute_jobs WHERE job_id = ?",
+                (job.job_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(job.job_id)
+            current = ComputeJob(job.job_id, row[0], row[1], ComputeJobStatus(row[2]))
+            if current != job:
+                raise ValueError("compute job changed before admission")
+            running = connection.execute(
+                "SELECT COUNT(*) FROM compute_jobs WHERE status = ?",
+                (ComputeJobStatus.RUNNING.value,),
+            ).fetchone()[0]
+            if not capacity.can_start(int(running)):
+                connection.commit()
+                return current
+            started = transition_job(current, ComputeJobStatus.RUNNING)
+            connection.execute(
+                "UPDATE compute_jobs SET status = ? WHERE job_id = ?",
+                (started.status.value, started.job_id),
+            )
+            connection.commit()
+            return started
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def running_jobs(self) -> int:
         """Return the authoritative number of jobs occupying worker capacity."""
