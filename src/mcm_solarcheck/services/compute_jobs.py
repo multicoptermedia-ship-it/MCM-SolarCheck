@@ -158,6 +158,7 @@ class ComputeJobClaim(Protocol):
         worker_id: str,
         *,
         succeeded: bool,
+        now: datetime | None = None,
     ) -> ComputeJob:
         """Atomically finish a job only for its owning worker."""
         ...
@@ -266,6 +267,7 @@ class ComputeJobService:
         *,
         worker_id: str,
         succeeded: bool,
+        now: datetime | None = None,
     ) -> ComputeJob:
         """Finish one job through its authoritative worker claim."""
         if self.claims is None:
@@ -274,6 +276,7 @@ class ComputeJobService:
             job_id,
             worker_id,
             succeeded=succeeded,
+            now=now,
         )
 
     def finish(self, job_id: str, *, succeeded: bool) -> ComputeJob:
