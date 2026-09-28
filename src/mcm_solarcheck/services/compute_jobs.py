@@ -7,6 +7,7 @@ queue and worker providers remain deployment concerns.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Protocol
 
@@ -35,6 +36,26 @@ class ComputeJob:
                 raise ValueError(f"{name} must be a non-empty string")
         if not isinstance(self.status, ComputeJobStatus):
             raise ValueError("status must be a ComputeJobStatus")
+
+
+@dataclass(frozen=True)
+class ComputeJobLease:
+    """Explicit worker lease timing supplied by the application layer."""
+
+    now: datetime
+    duration: timedelta
+
+    def __post_init__(self) -> None:
+        if self.now.tzinfo is None or self.now.utcoffset() is None:
+            raise ValueError("lease now must be timezone-aware")
+        if self.now.utcoffset() != timedelta(0):
+            raise ValueError("lease now must be UTC")
+        if self.duration <= timedelta(0):
+            raise ValueError("lease duration must be positive")
+
+    @property
+    def expires_at(self) -> datetime:
+        return self.now.astimezone(timezone.utc) + self.duration
 
 
 class ComputeJobQueue(Protocol):
@@ -118,7 +139,12 @@ class ComputeJobAdmission(Protocol):
 class ComputeJobClaim(Protocol):
     """Provider-neutral exclusive worker ownership boundary."""
 
-    def claim(self, job_id: str, worker_id: str) -> ComputeJob:
+    def claim(
+        self,
+        job_id: str,
+        worker_id: str,
+        lease: ComputeJobLease | None = None,
+    ) -> ComputeJob:
         """Atomically claim a running job for one worker."""
         ...
 
@@ -216,11 +242,17 @@ class ComputeJobService:
         self.store.replace(transitioned)
         return transitioned
 
-    def claim(self, job_id: str, *, worker_id: str) -> ComputeJob:
+    def claim(
+        self,
+        job_id: str,
+        *,
+        worker_id: str,
+        lease: ComputeJobLease | None = None,
+    ) -> ComputeJob:
         """Claim one running job through the configured worker boundary."""
         if self.claims is None:
             raise RuntimeError("compute job claim source is required")
-        return self.claims.claim(job_id, worker_id)
+        return self.claims.claim(job_id, worker_id, lease)
 
     def release_claim(self, job_id: str, *, worker_id: str) -> ComputeJob:
         """Release one job through its authoritative worker claim."""
