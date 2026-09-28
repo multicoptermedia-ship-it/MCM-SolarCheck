@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from mcm_solarcheck.services.compute_jobs import ComputeJob
+from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobLease
 
 
 class ComputeJobDispatch(Protocol):
@@ -12,4 +12,12 @@ class ComputeJobDispatch(Protocol):
 
     def next_ready(self) -> ComputeJob | None:
         """Return one ready job, or None when no work is available."""
+        ...
+
+    def claim_next(
+        self,
+        worker_id: str,
+        lease: ComputeJobLease | None = None,
+    ) -> ComputeJob | None:
+        """Atomically claim and return one ready job, or None when none is available."""
         ...
