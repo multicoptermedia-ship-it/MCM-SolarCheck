@@ -206,3 +206,54 @@ def test_sqlite_worker_claim_requires_worker_identity(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="worker_id"):
         store.claim("job-a", " ")
+
+
+
+@pytest.mark.parametrize(
+    ("succeeded", "expected"),
+    (
+        (True, ComputeJobStatus.COMPLETED),
+        (False, ComputeJobStatus.FAILED),
+    ),
+)
+def test_sqlite_claim_owner_can_finish_job(
+    tmp_path,
+    succeeded: bool,
+    expected: ComputeJobStatus,
+) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    store.claim(running.job_id, "worker-a")
+
+    finished = store.finish_claimed(
+        running.job_id,
+        "worker-a",
+        succeeded=succeeded,
+    )
+
+    assert finished.status is expected
+    assert store.get(running.job_id) == finished
+
+
+def test_sqlite_non_owner_worker_cannot_finish_claimed_job(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    store.claim(running.job_id, "worker-a")
+
+    with pytest.raises(PermissionError, match="claim mismatch"):
+        store.finish_claimed(running.job_id, "worker-b", succeeded=True)
+
+    assert store.get(running.job_id) == running
+
+
+def test_sqlite_unclaimed_job_cannot_be_finished_by_worker(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+
+    with pytest.raises(PermissionError, match="claim mismatch"):
+        store.finish_claimed(running.job_id, "worker-a", succeeded=True)
+
+    assert store.get(running.job_id) == running
