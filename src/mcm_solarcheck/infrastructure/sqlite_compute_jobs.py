@@ -8,6 +8,7 @@ from pathlib import Path
 from mcm_solarcheck.services.compute_jobs import (
     ComputeCapacity,
     ComputeJob,
+    ComputeJobLease,
     ComputeJobStatus,
     transition_job,
 )
@@ -25,9 +26,22 @@ class SQLiteComputeJobStore:
                     job_id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL,
                     project_id TEXT NOT NULL,
-                    status TEXT NOT NULL,\n                    worker_id TEXT\n                )
+                    status TEXT NOT NULL,
+                    worker_id TEXT,
+                    lease_expires_at TEXT
+                )
                 """
             )
+            columns = {
+                row[1]
+                for row in connection.execute("PRAGMA table_info(compute_jobs)")
+            }
+            if "worker_id" not in columns:
+                connection.execute("ALTER TABLE compute_jobs ADD COLUMN worker_id TEXT")
+            if "lease_expires_at" not in columns:
+                connection.execute(
+                    "ALTER TABLE compute_jobs ADD COLUMN lease_expires_at TEXT"
+                )
 
     def create(self, job: ComputeJob) -> None:
         try:
@@ -61,8 +75,13 @@ class SQLiteComputeJobStore:
             status=ComputeJobStatus(row[3]),
         )
 
-    def claim(self, job_id: str, worker_id: str) -> ComputeJob:
-        """Atomically assign one running job to exactly one worker."""
+    def claim(
+        self,
+        job_id: str,
+        worker_id: str,
+        lease: ComputeJobLease | None = None,
+    ) -> ComputeJob:
+        """Atomically assign or renew one running job worker lease."""
         if not isinstance(worker_id, str) or not worker_id.strip():
             raise ValueError("worker_id must be a non-empty string")
         connection = self._connect()
@@ -70,7 +89,7 @@ class SQLiteComputeJobStore:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 """
-                SELECT job_id, user_id, project_id, status, worker_id
+                SELECT job_id, user_id, project_id, status, worker_id, lease_expires_at
                 FROM compute_jobs
                 WHERE job_id = ?
                 """,
@@ -81,11 +100,24 @@ class SQLiteComputeJobStore:
             job = ComputeJob(row[0], row[1], row[2], ComputeJobStatus(row[3]))
             if job.status is not ComputeJobStatus.RUNNING:
                 raise ValueError("only a running compute job can be claimed")
-            if row[4] not in (None, worker_id):
+            owner, expires = row[4], row[5]
+            expired = (
+                lease is not None
+                and expires is not None
+                and expires <= lease.now.isoformat()
+            )
+            if owner not in (None, worker_id) and not expired:
                 raise RuntimeError("compute job already claimed by another worker")
+            lease_expires_at = (
+                lease.expires_at.isoformat() if lease is not None else None
+            )
             connection.execute(
-                "UPDATE compute_jobs SET worker_id = ? WHERE job_id = ?",
-                (worker_id, job_id),
+                """
+                UPDATE compute_jobs
+                SET worker_id = ?, lease_expires_at = ?
+                WHERE job_id = ?
+                """,
+                (worker_id, lease_expires_at, job_id),
             )
             connection.commit()
             return job
@@ -118,7 +150,7 @@ class SQLiteComputeJobStore:
             if row[4] != worker_id:
                 raise PermissionError("compute job worker claim mismatch")
             connection.execute(
-                "UPDATE compute_jobs SET worker_id = NULL WHERE job_id = ?",
+                "UPDATE compute_jobs SET worker_id = NULL, lease_expires_at = NULL WHERE job_id = ?",
                 (job_id,),
             )
             connection.commit()
