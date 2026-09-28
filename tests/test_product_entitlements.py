@@ -201,3 +201,24 @@ def test_internal_online_does_not_bypass_workflow_output_gate() -> None:
 
     assert availability.allowed is False
     assert availability.blockers == ("unreviewed findings remain",)
+
+
+def test_customer_payment_requirement_is_profile_specific() -> None:
+    assert FULL_ONLINE.customer_payment_required is True
+    assert INTERNAL_ONLINE.customer_payment_required is False
+    assert PROMOTIONAL_TRIAL.customer_payment_required is False
+    assert OFFLINE_DESKTOP.customer_payment_required is False
+
+
+def test_internal_payment_exemption_does_not_change_output_workflow_gate() -> None:
+    assert INTERNAL_ONLINE.customer_payment_required is False
+
+    availability = effective_output_availability(
+        INTERNAL_ONLINE,
+        ProductOperation.REPORT_DOWNLOAD,
+        workflow_allowed=False,
+        workflow_blockers=("report is not released",),
+    )
+
+    assert availability.allowed is False
+    assert availability.blockers == ("report is not released",)
