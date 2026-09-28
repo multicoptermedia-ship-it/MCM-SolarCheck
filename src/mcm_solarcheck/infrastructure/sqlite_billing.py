@@ -90,3 +90,55 @@ class SQLiteComputeJobBillingStore:
             )
             if cursor.rowcount != 1:
                 raise KeyError(billing.delivery.job_id)
+
+
+    def release(
+        self,
+        job_id: str,
+        user_id: str,
+        project_id: str,
+    ) -> ComputeJobBilling:
+        """Atomically release a delivered job for billing exactly once."""
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT user_id, project_id,
+                       export_completed, report_retrieved, billing_released
+                FROM compute_job_billing
+                WHERE job_id = ?
+                """,
+                (job_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            if row[0] != user_id or row[1] != project_id:
+                raise PermissionError("compute job billing ownership mismatch")
+
+            billing = ComputeJobBilling(
+                ComputeJobDelivery(
+                    job_id,
+                    row[0],
+                    row[1],
+                    export_completed=bool(row[2]),
+                    report_retrieved=bool(row[3]),
+                ),
+                billing_released=bool(row[4]),
+            )
+            released = billing.release()
+            connection.execute(
+                """
+                UPDATE compute_job_billing
+                SET billing_released = 1
+                WHERE job_id = ?
+                """,
+                (job_id,),
+            )
+            connection.commit()
+            return released
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
