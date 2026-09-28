@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 import sqlite3
 
 import pytest
@@ -649,3 +651,34 @@ def test_sqlite_store_migrates_legacy_compute_jobs_without_data_loss(tmp_path) -
         "worker-a",
         (start + timedelta(minutes=5)).isoformat(),
     )
+
+
+
+def test_sqlite_concurrent_workers_exclusively_claim_one_job(tmp_path) -> None:
+    database = tmp_path / "compute-jobs.sqlite"
+    store = SQLiteComputeJobStore(database)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    barrier = Barrier(2)
+
+    def claim(worker_id: str) -> tuple[str, str]:
+        worker_store = SQLiteComputeJobStore(database)
+        barrier.wait()
+        try:
+            worker_store.claim(running.job_id, worker_id)
+        except RuntimeError as exc:
+            return ("rejected", str(exc))
+        return ("claimed", worker_id)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(claim, ("worker-a", "worker-b")))
+
+    claimed = [result for result in results if result[0] == "claimed"]
+    rejected = [result for result in results if result[0] == "rejected"]
+
+    assert len(claimed) == 1
+    assert len(rejected) == 1
+    assert "already claimed by another worker" in rejected[0][1]
+
+    winner = claimed[0][1]
+    assert store.claim(running.job_id, winner) == running
