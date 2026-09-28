@@ -715,3 +715,20 @@ def test_sqlite_concurrent_admission_respects_single_worker_capacity(tmp_path) -
         ComputeJobStatus.RUNNING,
         ComputeJobStatus.QUEUED,
     }
+
+
+
+def test_sqlite_dispatch_returns_only_unclaimed_running_jobs(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    queued = ComputeJob("job-q", "user-a", "project-a", ComputeJobStatus.QUEUED)
+    claimed = ComputeJob("job-c", "user-b", "project-b", ComputeJobStatus.RUNNING)
+    ready = ComputeJob("job-r", "user-c", "project-c", ComputeJobStatus.RUNNING)
+    store.create(queued)
+    store.create(claimed)
+    store.create(ready)
+    store.claim(claimed.job_id, "worker-a")
+
+    assert store.next_ready() == ready
+
+    store.claim(ready.job_id, "worker-b")
+    assert store.next_ready() is None
