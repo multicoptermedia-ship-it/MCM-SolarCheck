@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
 
 @dataclass(frozen=True)
@@ -37,3 +38,19 @@ class ComputeJobBilling:
         if self.billing_released:
             raise ValueError("compute job billing already released")
         return ComputeJobBilling(self.delivery, billing_released=True)
+
+
+class ComputeJobBillingStore(Protocol):
+    """Persistence boundary for authoritative delivery and billing state."""
+
+    def create(self, billing: ComputeJobBilling) -> None:
+        """Persist billing state for one job exactly once."""
+        ...
+
+    def get(self, job_id: str) -> ComputeJobBilling:
+        """Load authoritative billing state for one job."""
+        ...
+
+    def replace(self, billing: ComputeJobBilling) -> None:
+        """Persist updated authoritative billing state."""
+        ...
