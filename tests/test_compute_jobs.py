@@ -320,3 +320,74 @@ def test_compute_job_service_checks_ownership_before_capacity_admission() -> Non
         )
 
     assert store.get("job-a") == queued
+
+
+
+class _StaticComputeJobLoad:
+    def __init__(self, running_jobs: int) -> None:
+        self._running_jobs = running_jobs
+
+    def running_jobs(self) -> int:
+        return self._running_jobs
+
+
+def test_compute_job_service_sources_admission_load_server_side() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store, load=_StaticComputeJobLoad(1))
+    service.create(job_id="job-a", user_id="user-a", project_id="project-a")
+
+    started = service.start(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        capacity=ComputeCapacity(max_parallel_jobs=2),
+    )
+
+    assert started.status is ComputeJobStatus.RUNNING
+    assert store.get("job-a") == started
+
+
+def test_compute_job_service_server_load_keeps_excess_work_queued() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store, load=_StaticComputeJobLoad(2))
+    queued = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    admitted = service.start(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        capacity=ComputeCapacity(max_parallel_jobs=2),
+    )
+
+    assert admitted == queued
+    assert store.get("job-a") == queued
+
+
+def test_compute_job_service_fails_closed_without_admission_load_source() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store)
+    queued = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    with pytest.raises(RuntimeError, match="load source is required"):
+        service.start(
+            "job-a",
+            user_id="user-a",
+            project_id="project-a",
+            capacity=ComputeCapacity(max_parallel_jobs=1),
+        )
+
+    assert store.get("job-a") == queued
