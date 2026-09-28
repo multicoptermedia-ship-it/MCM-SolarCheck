@@ -95,6 +95,40 @@ class SQLiteComputeJobStore:
         finally:
             connection.close()
 
+    def release_claim(self, job_id: str, worker_id: str) -> ComputeJob:
+        """Atomically release a running job only for its owning worker."""
+        if not isinstance(worker_id, str) or not worker_id.strip():
+            raise ValueError("worker_id must be a non-empty string")
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT job_id, user_id, project_id, status, worker_id
+                FROM compute_jobs
+                WHERE job_id = ?
+                """,
+                (job_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            job = ComputeJob(row[0], row[1], row[2], ComputeJobStatus(row[3]))
+            if job.status is not ComputeJobStatus.RUNNING:
+                raise ValueError("only a running compute job claim can be released")
+            if row[4] != worker_id:
+                raise PermissionError("compute job worker claim mismatch")
+            connection.execute(
+                "UPDATE compute_jobs SET worker_id = NULL WHERE job_id = ?",
+                (job_id,),
+            )
+            connection.commit()
+            return job
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def finish_claimed(
         self,
         job_id: str,
