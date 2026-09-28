@@ -107,6 +107,14 @@ class ComputeJobLoad(Protocol):
         ...
 
 
+class ComputeJobAdmission(Protocol):
+    """Provider-neutral atomic capacity admission boundary."""
+
+    def try_start(self, job: ComputeJob, capacity: ComputeCapacity) -> ComputeJob:
+        """Atomically start the job when capacity is available, else return it queued."""
+        ...
+
+
 class ComputeJobStore(Protocol):
     """Persistence boundary for authoritative compute job state."""
 
@@ -129,6 +137,7 @@ class ComputeJobService:
 
     store: ComputeJobStore
     load: ComputeJobLoad | None = None
+    admission: ComputeJobAdmission | None = None
 
     def create(self, *, job_id: str, user_id: str, project_id: str) -> ComputeJob:
         job = ComputeJob(
@@ -155,6 +164,8 @@ class ComputeJobService:
         running_jobs: int | None = None,
     ) -> ComputeJob:
         current = self.get(job_id, user_id=user_id, project_id=project_id)
+        if running_jobs is None and self.admission is not None:
+            return self.admission.try_start(current, capacity)
         if running_jobs is None:
             if self.load is None:
                 raise RuntimeError("compute job load source is required")
