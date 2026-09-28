@@ -25,6 +25,17 @@ class InspectionSummary:
     calibrated_findings: int
 
 @dataclass(frozen=True)
+class ImportVerificationSummary:
+    project_id: str
+    thermal_frames: int
+    quality_pass: int
+    quality_review: int
+    quality_reject: int
+    missing_timestamp: int
+    missing_position: int
+    missing_camera_identity: int
+
+@dataclass(frozen=True)
 class ProjectRecord:
     project_id: str
     name: str
@@ -95,6 +106,29 @@ class InspectionQueries:
                 if isinstance(metadata,dict) and has_validated_celsius(row['temperature_c'],metadata.get('temperature_status'),metadata.get('temperature_provider')):
                     calibrated+=1
             return InspectionSummary(project_id,count('image_frames'),count('thermal_frames'),count('image_pairs'),count('pv_modules'),count('findings'),statuses.get('unreviewed',0),statuses.get('confirmed',0),statuses.get('rejected',0),statuses.get('unclear',0),calibrated)
+    def import_verification(self,project_id:str)->ImportVerificationSummary:
+        """Summarize persisted thermal metadata and quality without inferring validity."""
+        with self.database.connect() as db:
+            project=db.execute('SELECT 1 FROM projects WHERE project_id=?',(project_id,)).fetchone()
+            if project is None:raise KeyError(f'Unknown project: {project_id}')
+            rows=db.execute(
+                'SELECT quality_grade,timestamp_utc,latitude,longitude,camera_make,camera_model '
+                'FROM thermal_frames WHERE project_id=?',(project_id,)
+            ).fetchall()
+        grades=[row['quality_grade'] for row in rows]
+        return ImportVerificationSummary(
+            project_id=project_id,
+            thermal_frames=len(rows),
+            quality_pass=grades.count('pass'),
+            quality_review=grades.count('review'),
+            quality_reject=grades.count('reject'),
+            missing_timestamp=sum(row['timestamp_utc'] is None for row in rows),
+            missing_position=sum(row['latitude'] is None or row['longitude'] is None for row in rows),
+            missing_camera_identity=sum(
+                not (row['camera_make'] or '').strip() or not (row['camera_model'] or '').strip()
+                for row in rows
+            ),
+        )
     def module_identities(self,project_id:str,*,physical_module_id:str|None=None)->tuple[ModuleIdentityRecord,...]:
         sql='SELECT frame_id,local_module_id,physical_module_id,status,normalized_distance FROM module_identity_links WHERE project_id=?'
         params=[project_id]
