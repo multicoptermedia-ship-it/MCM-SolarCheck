@@ -448,3 +448,66 @@ def test_compute_job_service_rejects_worker_finish_outside_running_state(
         service.finish("job-a", succeeded=True)
 
     assert store.get("job-a") == job
+
+
+
+def test_compute_job_service_end_to_end_lifecycle_isolated_and_capacity_bounded() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    load = _StaticComputeJobLoad(0)
+    service = ComputeJobService(store, load=load)
+    capacity = ComputeCapacity(max_parallel_jobs=1)
+
+    first = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    second = service.create(
+        job_id="job-b",
+        user_id="user-b",
+        project_id="project-b",
+    )
+
+    first_running = service.start(
+        first.job_id,
+        user_id="user-a",
+        project_id="project-a",
+        capacity=capacity,
+    )
+    assert first_running.status is ComputeJobStatus.RUNNING
+
+    load._running_jobs = 1
+    second_queued = service.start(
+        second.job_id,
+        user_id="user-b",
+        project_id="project-b",
+        capacity=capacity,
+    )
+    assert second_queued.status is ComputeJobStatus.QUEUED
+
+    with pytest.raises(PermissionError, match="access denied"):
+        service.get(
+            first.job_id,
+            user_id="user-b",
+            project_id="project-b",
+        )
+
+    first_done = service.finish(first.job_id, succeeded=True)
+    assert first_done.status is ComputeJobStatus.COMPLETED
+    assert (first_done.user_id, first_done.project_id) == ("user-a", "project-a")
+
+    load._running_jobs = 0
+    second_running = service.start(
+        second.job_id,
+        user_id="user-b",
+        project_id="project-b",
+        capacity=capacity,
+    )
+    second_failed = service.finish(second_running.job_id, succeeded=False)
+
+    assert second_failed.status is ComputeJobStatus.FAILED
+    assert (second_failed.user_id, second_failed.project_id) == ("user-b", "project-b")
+    assert store.get(first.job_id) == first_done
+    assert store.get(second.job_id) == second_failed
