@@ -163,3 +163,46 @@ def test_sqlite_atomic_admission_rejects_stale_job_snapshot(tmp_path) -> None:
         store.try_start(queued, ComputeCapacity(max_parallel_jobs=2))
 
     assert store.running_jobs() == 1
+
+
+
+def test_sqlite_worker_claim_is_exclusive_and_idempotent(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+
+    assert store.claim("job-a", "worker-a") == running
+    assert store.claim("job-a", "worker-a") == running
+
+    with pytest.raises(RuntimeError, match="another worker"):
+        store.claim("job-a", "worker-b")
+
+    assert store.get("job-a") == running
+
+
+@pytest.mark.parametrize(
+    "status",
+    (ComputeJobStatus.QUEUED, ComputeJobStatus.COMPLETED, ComputeJobStatus.FAILED),
+)
+def test_sqlite_worker_claim_requires_running_job(
+    tmp_path,
+    status: ComputeJobStatus,
+) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    job = ComputeJob("job-a", "user-a", "project-a", status)
+    store.create(job)
+
+    with pytest.raises(ValueError, match="only a running compute job"):
+        store.claim(job.job_id, "worker-a")
+
+    assert store.get(job.job_id) == job
+
+
+def test_sqlite_worker_claim_requires_worker_identity(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    store.create(
+        ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    )
+
+    with pytest.raises(ValueError, match="worker_id"):
+        store.claim("job-a", " ")
