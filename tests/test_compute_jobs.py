@@ -154,3 +154,58 @@ def test_compute_job_transition_rejects_untyped_target_status() -> None:
 
     with pytest.raises(ValueError, match="ComputeJobStatus"):
         transition_job(job, "running")
+
+
+
+class _InMemoryComputeJobStore:
+    def __init__(self) -> None:
+        self.jobs: dict[str, ComputeJob] = {}
+
+    def create(self, job: ComputeJob) -> None:
+        if job.job_id in self.jobs:
+            raise ValueError("compute job already exists")
+        self.jobs[job.job_id] = job
+
+    def get(self, job_id: str) -> ComputeJob:
+        return self.jobs[job_id]
+
+    def replace(self, job: ComputeJob) -> None:
+        if job.job_id not in self.jobs:
+            raise KeyError(job.job_id)
+        self.jobs[job.job_id] = job
+
+
+def test_compute_job_service_owns_persistence_and_transition_boundary() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store)
+
+    created = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    running = service.transition(created.job_id, ComputeJobStatus.RUNNING)
+    completed = service.transition(running.job_id, ComputeJobStatus.COMPLETED)
+
+    assert store.get("job-a") == completed
+    assert completed.status is ComputeJobStatus.COMPLETED
+    assert (completed.user_id, completed.project_id) == ("user-a", "project-a")
+
+
+def test_compute_job_service_rejects_invalid_transition_without_persisting() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store)
+    created = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    with pytest.raises(ValueError, match="invalid compute job transition"):
+        service.transition(created.job_id, ComputeJobStatus.COMPLETED)
+
+    assert store.get("job-a") == created
