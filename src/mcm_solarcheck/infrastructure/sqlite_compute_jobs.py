@@ -280,11 +280,23 @@ class SQLiteComputeJobStore:
                 """
                 SELECT job_id, user_id, project_id, status
                 FROM compute_jobs
-                WHERE status = ? AND worker_id IS NULL
+                WHERE status = ?
+                  AND (
+                      worker_id IS NULL
+                      OR (
+                          ? IS NOT NULL
+                          AND lease_expires_at IS NOT NULL
+                          AND lease_expires_at <= ?
+                      )
+                  )
                 ORDER BY rowid
                 LIMIT 1
                 """,
-                (ComputeJobStatus.RUNNING.value,),
+                (
+                    ComputeJobStatus.RUNNING.value,
+                    lease.now.isoformat() if lease is not None else None,
+                    lease.now.isoformat() if lease is not None else None,
+                ),
             ).fetchone()
             if row is None:
                 connection.commit()
