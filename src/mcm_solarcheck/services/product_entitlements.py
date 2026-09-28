@@ -23,6 +23,7 @@ class ProductCapabilities:
     max_plant_power_kwp: float | None
     report_download_allowed: bool
     export_allowed: bool
+    customer_payment_required: bool
 
     def __post_init__(self) -> None:
         if self.max_plant_power_kwp is not None and self.max_plant_power_kwp <= 0:
@@ -65,6 +66,7 @@ PROMOTIONAL_TRIAL = ProductCapabilities(
     max_plant_power_kwp=20.0,
     report_download_allowed=False,
     export_allowed=False,
+    customer_payment_required=False,
 )
 
 FULL_ONLINE = ProductCapabilities(
@@ -72,6 +74,7 @@ FULL_ONLINE = ProductCapabilities(
     max_plant_power_kwp=None,
     report_download_allowed=True,
     export_allowed=True,
+    customer_payment_required=True,
 )
 
 INTERNAL_ONLINE = ProductCapabilities(
@@ -79,6 +82,7 @@ INTERNAL_ONLINE = ProductCapabilities(
     max_plant_power_kwp=None,
     report_download_allowed=True,
     export_allowed=True,
+    customer_payment_required=False,
 )
 
 OFFLINE_DESKTOP = ProductCapabilities(
@@ -86,6 +90,7 @@ OFFLINE_DESKTOP = ProductCapabilities(
     max_plant_power_kwp=None,
     report_download_allowed=True,
     export_allowed=True,
+    customer_payment_required=False,
 )
 
 
