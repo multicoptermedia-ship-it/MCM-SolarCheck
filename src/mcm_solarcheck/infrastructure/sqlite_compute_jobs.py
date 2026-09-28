@@ -5,7 +5,12 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from mcm_solarcheck.services.compute_jobs import (\n    ComputeCapacity,\n    ComputeJob,\n    ComputeJobStatus,\n    transition_job,\n)
+from mcm_solarcheck.services.compute_jobs import (
+    ComputeCapacity,
+    ComputeJob,
+    ComputeJobStatus,
+    transition_job,
+)
 
 
 class SQLiteComputeJobStore:
