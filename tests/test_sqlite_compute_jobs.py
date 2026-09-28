@@ -121,3 +121,45 @@ def test_compute_service_uses_sqlite_load_for_capacity_admission(tmp_path) -> No
 
     assert second_running.status is ComputeJobStatus.RUNNING
     assert store.running_jobs() == 1
+
+
+
+def test_sqlite_atomic_admission_keeps_second_job_queued(tmp_path) -> None:
+    database = tmp_path / "compute-jobs.sqlite"
+    store = SQLiteComputeJobStore(database)
+    service = ComputeJobService(store, load=store, admission=store)
+    capacity = ComputeCapacity(max_parallel_jobs=1)
+    first = service.create(job_id="job-a", user_id="user-a", project_id="project-a")
+    second = service.create(job_id="job-b", user_id="user-b", project_id="project-b")
+
+    first_started = service.start(
+        first.job_id,
+        user_id="user-a",
+        project_id="project-a",
+        capacity=capacity,
+    )
+    second_result = service.start(
+        second.job_id,
+        user_id="user-b",
+        project_id="project-b",
+        capacity=capacity,
+    )
+
+    assert first_started.status is ComputeJobStatus.RUNNING
+    assert second_result.status is ComputeJobStatus.QUEUED
+    assert store.running_jobs() == 1
+
+
+def test_sqlite_atomic_admission_rejects_stale_job_snapshot(tmp_path) -> None:
+    database = tmp_path / "compute-jobs.sqlite"
+    store = SQLiteComputeJobStore(database)
+    queued = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.QUEUED)
+    store.create(queued)
+    store.replace(
+        ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    )
+
+    with pytest.raises(ValueError, match="changed before admission"):
+        store.try_start(queued, ComputeCapacity(max_parallel_jobs=2))
+
+    assert store.running_jobs() == 1
