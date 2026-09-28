@@ -753,3 +753,40 @@ def test_sqlite_concurrent_dispatch_claims_ready_job_once(tmp_path) -> None:
     assert results.count(running) == 1
     assert results.count(None) == 1
     assert store.next_ready() is None
+
+
+
+def test_sqlite_dispatch_recovers_expired_worker_lease(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 9, 28, 18, 0, tzinfo=timezone.utc)
+    first_lease = ComputeJobLease(now=start, duration=timedelta(minutes=5))
+    store.claim(running.job_id, "worker-a", first_lease)
+
+    before_expiry = ComputeJobLease(
+        now=start + timedelta(minutes=4),
+        duration=timedelta(minutes=5),
+    )
+    assert store.claim_next("worker-b", before_expiry) is None
+
+    recovery_lease = ComputeJobLease(
+        now=start + timedelta(minutes=5),
+        duration=timedelta(minutes=5),
+    )
+    assert store.claim_next("worker-b", recovery_lease) == running
+
+    with pytest.raises(PermissionError):
+        store.finish_claimed(
+            running.job_id,
+            "worker-a",
+            succeeded=True,
+            now=start + timedelta(minutes=5),
+        )
+
+    assert store.finish_claimed(
+        running.job_id,
+        "worker-b",
+        succeeded=True,
+        now=start + timedelta(minutes=6),
+    ).status is ComputeJobStatus.COMPLETED
