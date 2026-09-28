@@ -732,3 +732,24 @@ def test_sqlite_dispatch_returns_only_unclaimed_running_jobs(tmp_path) -> None:
 
     store.claim(ready.job_id, "worker-b")
     assert store.next_ready() is None
+
+
+
+def test_sqlite_concurrent_dispatch_claims_ready_job_once(tmp_path) -> None:
+    database = tmp_path / "compute-jobs.sqlite"
+    store = SQLiteComputeJobStore(database)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    barrier = Barrier(2)
+
+    def claim_next(worker_id: str) -> ComputeJob | None:
+        worker_store = SQLiteComputeJobStore(database)
+        barrier.wait()
+        return worker_store.claim_next(worker_id)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(claim_next, ("worker-a", "worker-b")))
+
+    assert results.count(running) == 1
+    assert results.count(None) == 1
+    assert store.next_ready() is None
