@@ -426,3 +426,83 @@ def test_compute_job_lease_requires_utc_positive_duration() -> None:
             datetime(2026, 1, 1, tzinfo=timezone.utc),
             timedelta(0),
         )
+
+
+
+def test_sqlite_worker_can_finish_before_lease_expiry(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, claims=store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    service.claim(
+        running.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+    )
+
+    finished = service.finish_claimed(
+        running.job_id,
+        worker_id="worker-a",
+        succeeded=True,
+        now=start + timedelta(minutes=4, seconds=59),
+    )
+
+    assert finished.status is ComputeJobStatus.COMPLETED
+
+
+def test_sqlite_worker_cannot_finish_at_or_after_lease_expiry(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, claims=store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    service.claim(
+        running.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+    )
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        service.finish_claimed(
+            running.job_id,
+            worker_id="worker-a",
+            succeeded=True,
+            now=start + timedelta(minutes=5),
+        )
+
+    assert store.get(running.job_id) == running
+
+
+def test_old_worker_cannot_finish_after_expired_lease_is_reclaimed(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, claims=store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    service.claim(
+        running.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+    )
+    service.claim(
+        running.job_id,
+        worker_id="worker-b",
+        lease=ComputeJobLease(start + timedelta(minutes=5), timedelta(minutes=5)),
+    )
+
+    with pytest.raises(PermissionError, match="claim mismatch"):
+        service.finish_claimed(
+            running.job_id,
+            worker_id="worker-a",
+            succeeded=True,
+            now=start + timedelta(minutes=6),
+        )
+
+    finished = service.finish_claimed(
+        running.job_id,
+        worker_id="worker-b",
+        succeeded=False,
+        now=start + timedelta(minutes=6),
+    )
+    assert finished.status is ComputeJobStatus.FAILED
