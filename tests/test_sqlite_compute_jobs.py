@@ -855,3 +855,31 @@ def test_compute_worker_service_runs_claim_renew_finish_lifecycle(tmp_path) -> N
 
     assert finished.status is ComputeJobStatus.COMPLETED
     assert store.get(running.job_id) == finished
+
+
+
+def test_compute_worker_service_release_makes_job_immediately_dispatchable(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    worker = ComputeWorkerService(dispatch=store, claims=store)
+    start = datetime(2026, 9, 28, 18, 0, tzinfo=timezone.utc)
+
+    assert worker.claim_next(
+        worker_id="worker-a",
+        lease=ComputeJobLease(now=start, duration=timedelta(minutes=5)),
+    ) == running
+
+    assert worker.release(
+        running.job_id,
+        worker_id="worker-a",
+        now=start + timedelta(minutes=1),
+    ) == running
+
+    assert worker.claim_next(
+        worker_id="worker-b",
+        lease=ComputeJobLease(
+            now=start + timedelta(minutes=1),
+            duration=timedelta(minutes=5),
+        ),
+    ) == running
