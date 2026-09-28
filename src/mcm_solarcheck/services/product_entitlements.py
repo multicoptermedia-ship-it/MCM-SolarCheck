@@ -13,6 +13,7 @@ from enum import Enum
 class ProductProfileId(str, Enum):
     PROMOTIONAL_TRIAL = "promotional_trial"
     FULL_ONLINE = "full_online"
+    INTERNAL_ONLINE = "internal_online"
     OFFLINE_DESKTOP = "offline_desktop"
 
 
@@ -73,6 +74,13 @@ FULL_ONLINE = ProductCapabilities(
     export_allowed=True,
 )
 
+INTERNAL_ONLINE = ProductCapabilities(
+    profile_id=ProductProfileId.INTERNAL_ONLINE,
+    max_plant_power_kwp=None,
+    report_download_allowed=True,
+    export_allowed=True,
+)
+
 OFFLINE_DESKTOP = ProductCapabilities(
     profile_id=ProductProfileId.OFFLINE_DESKTOP,
     max_plant_power_kwp=None,
@@ -86,6 +94,8 @@ def product_capabilities(profile_id: ProductProfileId) -> ProductCapabilities:
         return PROMOTIONAL_TRIAL
     if profile_id is ProductProfileId.FULL_ONLINE:
         return FULL_ONLINE
+    if profile_id is ProductProfileId.INTERNAL_ONLINE:
+        return INTERNAL_ONLINE
     if profile_id is ProductProfileId.OFFLINE_DESKTOP:
         return OFFLINE_DESKTOP
     raise ValueError(f"unsupported product profile: {profile_id!r}")
