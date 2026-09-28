@@ -168,6 +168,16 @@ class SolarCheckMainWindow(QMainWindow):
             if callable(summary_provider) and self._current_project_id is not None
             else None
         )
+        verification_provider = (
+            getattr(self._project_service, "import_verification", None)
+            if self._project_service is not None
+            else None
+        )
+        import_verification = (
+            verification_provider(self._current_project_id)
+            if callable(verification_provider) and self._current_project_id is not None
+            else None
+        )
         new_page = make_import_page(
             current_project_id=self._current_project_id,
             on_import_images=(
@@ -176,6 +186,7 @@ class SolarCheckMainWindow(QMainWindow):
                 else None
             ),
             import_summary=import_summary,
+            import_verification=import_verification,
             import_attempt=self._last_import_attempt,
         )
         self._pages[ShellRoute.IMPORT] = new_page
