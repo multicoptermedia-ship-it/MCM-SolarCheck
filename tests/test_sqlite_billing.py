@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import pytest
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 from mcm_solarcheck.infrastructure.sqlite_billing import SQLiteComputeJobBillingStore
 from mcm_solarcheck.services.billing import (
@@ -104,3 +106,38 @@ def test_billing_service_rejects_cross_tenant_and_project_access(tmp_path) -> No
     assert persisted.delivery.project_id == "project-a"
     assert persisted.delivery.export_completed is False
     assert persisted.delivery.report_retrieved is False
+
+
+
+def test_sqlite_billing_release_is_atomic_under_concurrency(tmp_path) -> None:
+    database = tmp_path / "billing.sqlite"
+    store = SQLiteComputeJobBillingStore(database)
+    service = ComputeJobBillingService(store)
+    service.create("job-a", user_id="user-a", project_id="project-a")
+    service.mark_export_completed(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    service.mark_report_retrieved(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    barrier = Barrier(2)
+
+    def release_once() -> str:
+        local = ComputeJobBillingService(SQLiteComputeJobBillingStore(database))
+        barrier.wait()
+        try:
+            local.release(
+                "job-a",
+                user_id="user-a",
+                project_id="project-a",
+            )
+            return "released"
+        except ValueError as exc:
+            assert "already released" in str(exc)
+            return "rejected"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _: release_once(), range(2)))
+
+    assert sorted(results) == ["rejected", "released"]
+    assert store.get("job-a").billing_released is True
