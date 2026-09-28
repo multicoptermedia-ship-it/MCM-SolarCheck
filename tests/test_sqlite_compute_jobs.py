@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import sqlite3
 
 import pytest
 
@@ -577,3 +578,74 @@ def test_sqlite_leased_release_requires_current_time(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="current UTC time is required"):
         service.release_claim(running.job_id, worker_id="worker-a")
+
+
+
+def test_sqlite_store_migrates_legacy_compute_jobs_without_data_loss(tmp_path) -> None:
+    database = tmp_path / "compute-jobs.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE compute_jobs (
+                job_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                status TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO compute_jobs (job_id, user_id, project_id, status)
+            VALUES (?, ?, ?, ?)
+            """,
+            ("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING.value),
+        )
+
+    store = SQLiteComputeJobStore(database)
+    service = ComputeJobService(store, claims=store)
+    existing = store.get("job-a")
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    claimed = service.claim(
+        existing.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+    )
+    finished = service.finish_claimed(
+        existing.job_id,
+        worker_id="worker-a",
+        succeeded=True,
+        now=start + timedelta(minutes=1),
+    )
+
+    assert existing == ComputeJob(
+        "job-a",
+        "user-a",
+        "project-a",
+        ComputeJobStatus.RUNNING,
+    )
+    assert claimed == existing
+    assert finished.status is ComputeJobStatus.COMPLETED
+
+    with sqlite3.connect(database) as connection:
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(compute_jobs)")
+        }
+        row = connection.execute(
+            """
+            SELECT user_id, project_id, status, worker_id, lease_expires_at
+            FROM compute_jobs
+            WHERE job_id = ?
+            """,
+            ("job-a",),
+        ).fetchone()
+
+    assert {"worker_id", "lease_expires_at"} <= columns
+    assert row == (
+        "user-a",
+        "project-a",
+        ComputeJobStatus.COMPLETED.value,
+        "worker-a",
+        (start + timedelta(minutes=5)).isoformat(),
+    )
