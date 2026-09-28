@@ -265,6 +265,23 @@ class SQLiteComputeJobStore:
         finally:
             connection.close()
 
+    def next_ready(self) -> ComputeJob | None:
+        """Return one running job that has not yet been claimed by a worker."""
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT job_id, user_id, project_id, status
+                FROM compute_jobs
+                WHERE status = ? AND worker_id IS NULL
+                ORDER BY rowid
+                LIMIT 1
+                """,
+                (ComputeJobStatus.RUNNING.value,),
+            ).fetchone()
+        if row is None:
+            return None
+        return ComputeJob(row[0], row[1], row[2], ComputeJobStatus(row[3]))
+
     def running_jobs(self) -> int:
         """Return the authoritative number of jobs occupying worker capacity."""
         with self._connect() as connection:
