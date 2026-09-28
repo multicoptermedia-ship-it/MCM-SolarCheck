@@ -254,3 +254,69 @@ def test_compute_job_service_denies_cross_tenant_transition_without_persisting()
         )
 
     assert store.get("job-a") == created
+
+
+
+def test_compute_job_service_starts_job_when_capacity_is_available() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store)
+    service.create(job_id="job-a", user_id="user-a", project_id="project-a")
+
+    started = service.start(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        capacity=ComputeCapacity(max_parallel_jobs=2),
+        running_jobs=1,
+    )
+
+    assert started.status is ComputeJobStatus.RUNNING
+    assert store.get("job-a") == started
+
+
+def test_compute_job_service_keeps_job_queued_when_capacity_is_full() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store)
+    queued = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    admitted = service.start(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+        running_jobs=1,
+    )
+
+    assert admitted == queued
+    assert store.get("job-a") == queued
+
+
+def test_compute_job_service_checks_ownership_before_capacity_admission() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store)
+    queued = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    with pytest.raises(PermissionError, match="access denied"):
+        service.start(
+            "job-a",
+            user_id="user-b",
+            project_id="project-a",
+            capacity=ComputeCapacity(max_parallel_jobs=2),
+            running_jobs=0,
+        )
+
+    assert store.get("job-a") == queued
