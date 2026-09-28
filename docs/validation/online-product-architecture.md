@@ -231,3 +231,34 @@ are safely serialized when only one slot is available.
 The capacity contract is provider-neutral. Concrete queue technology,
 autoscaling, retry/timeout policy, and cloud vendor remain deployment decisions
 and must not alter the inspection workflow or product-entitlement semantics.
+
+
+## 13. Server-owned compute lifecycle boundary
+
+The provider-neutral compute service now owns the authoritative online job lifecycle
+from creation through worker completion.
+
+- Jobs are created as `queued` with immutable `job_id`, `user_id`, and
+  `project_id` identity.
+- Customer-facing reads and start requests require the matching user and project;
+  cross-tenant or cross-project access fails closed before state mutation.
+- Admission to `running` is bounded by deployment-owned `ComputeCapacity` and,
+  in the normal server path, uses a provider-neutral authoritative load source
+  rather than client-supplied occupancy.
+- Excess work remains `queued`; capacity does not manufacture skipped lifecycle
+  transitions.
+- Worker completion is a separate server-side boundary. Only a `running` job may
+  become `completed` or `failed`; queued and terminal jobs cannot be finished
+  or replayed.
+- The persistence, load, capacity, transition, and worker-completion contracts
+  remain independent of a concrete queue, cloud, autoscaling, retry, or timeout
+  provider.
+
+The integration regression gate covers two isolated tenants sharing one worker
+slot: the first job runs while the second remains queued, cross-tenant reads are
+rejected, the released slot admits the second job, and successful/failed terminal
+outcomes preserve each job's original tenant and project identity.
+
+Concrete infrastructure adapters remain a deployment task and must implement
+these contracts without weakening workflow, entitlement, review, provenance, or
+report-release gates.
