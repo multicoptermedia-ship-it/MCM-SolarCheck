@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from __future__ import annotations
 
 import pytest
@@ -6,6 +7,7 @@ from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobSt
 from mcm_solarcheck.services.compute_jobs import (
     ComputeCapacity,
     ComputeJob,
+    ComputeJobLease,
     ComputeJobService,
     ComputeJobStatus,
 )
@@ -354,3 +356,72 @@ def test_compute_service_release_claim_fails_closed_without_adapter(tmp_path) ->
         service.release_claim(running.job_id, worker_id="worker-a")
 
     assert store.get(running.job_id) == running
+
+
+
+def test_sqlite_expired_worker_lease_can_be_reclaimed(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, claims=store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    service.claim(
+        running.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+    )
+
+    with pytest.raises(RuntimeError, match="another worker"):
+        service.claim(
+            running.job_id,
+            worker_id="worker-b",
+            lease=ComputeJobLease(start + timedelta(minutes=4), timedelta(minutes=5)),
+        )
+
+    reclaimed = service.claim(
+        running.job_id,
+        worker_id="worker-b",
+        lease=ComputeJobLease(start + timedelta(minutes=5), timedelta(minutes=5)),
+    )
+
+    assert reclaimed == running
+
+
+def test_sqlite_worker_can_renew_its_lease(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, claims=store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    service.claim(
+        running.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+    )
+    renewed = service.claim(
+        running.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(start + timedelta(minutes=4), timedelta(minutes=5)),
+    )
+
+    assert renewed == running
+
+    with pytest.raises(RuntimeError, match="another worker"):
+        service.claim(
+            running.job_id,
+            worker_id="worker-b",
+            lease=ComputeJobLease(start + timedelta(minutes=6), timedelta(minutes=5)),
+        )
+
+
+def test_compute_job_lease_requires_utc_positive_duration() -> None:
+    with pytest.raises(ValueError, match="timezone-aware"):
+        ComputeJobLease(datetime(2026, 1, 1), timedelta(minutes=1))
+
+    with pytest.raises(ValueError, match="positive"):
+        ComputeJobLease(
+            datetime(2026, 1, 1, tzinfo=timezone.utc),
+            timedelta(0),
+        )
