@@ -126,3 +126,45 @@ def test_projects_empty_database_returns_empty_tuple(tmp_path):
     db.initialize()
 
     assert InspectionQueries(db).projects() == ()
+
+
+def test_import_verification_reports_persisted_quality_and_missing_metadata(tmp_path):
+    db = _fixture_db(tmp_path)
+    with db.connect() as connection:
+        connection.execute(
+            "UPDATE thermal_frames SET timestamp_utc=?, latitude=?, longitude=?, "
+            "camera_make=?, camera_model=? WHERE project_id=? AND frame_id=?",
+            ("2026-09-28T10:00:00+00:00", 51.0, 7.0, "DJI", "M3T", "P-1", "T-0001"),
+        )
+
+    summary = InspectionQueries(db).import_verification("P-1")
+
+    assert summary.thermal_frames == 1
+    assert summary.quality_pass == 1
+    assert summary.quality_review == 0
+    assert summary.quality_reject == 0
+    assert summary.missing_timestamp == 0
+    assert summary.missing_position == 0
+    assert summary.missing_camera_identity == 0
+
+
+def test_import_verification_counts_missing_metadata_without_inventing_values(tmp_path):
+    summary = InspectionQueries(_fixture_db(tmp_path)).import_verification("P-1")
+
+    assert summary.thermal_frames == 1
+    assert summary.quality_pass == 1
+    assert summary.missing_timestamp == 1
+    assert summary.missing_position == 1
+    assert summary.missing_camera_identity == 1
+
+
+def test_unknown_project_import_verification_fails_explicitly(tmp_path):
+    db = ProjectDatabase(tmp_path / "empty-verification.sqlite")
+    db.initialize()
+
+    try:
+        InspectionQueries(db).import_verification("missing")
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("unknown project must not return an empty verification summary")
