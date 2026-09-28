@@ -682,3 +682,36 @@ def test_sqlite_concurrent_workers_exclusively_claim_one_job(tmp_path) -> None:
 
     winner = claimed[0][1]
     assert store.claim(running.job_id, winner) == running
+
+
+
+def test_sqlite_concurrent_admission_respects_single_worker_capacity(tmp_path) -> None:
+    database = tmp_path / "compute-jobs.sqlite"
+    store = SQLiteComputeJobStore(database)
+    first = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.QUEUED)
+    second = ComputeJob("job-b", "user-b", "project-b", ComputeJobStatus.QUEUED)
+    store.create(first)
+    store.create(second)
+    capacity = ComputeCapacity(max_parallel_jobs=1)
+    barrier = Barrier(2)
+
+    def start(job: ComputeJob) -> ComputeJob:
+        worker_store = SQLiteComputeJobStore(database)
+        barrier.wait()
+        return worker_store.try_start(job, capacity)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(start, (first, second)))
+
+    running = [job for job in results if job.status is ComputeJobStatus.RUNNING]
+    queued = [job for job in results if job.status is ComputeJobStatus.QUEUED]
+
+    assert len(running) == 1
+    assert len(queued) == 1
+    assert store.running_jobs() == 1
+
+    persisted = {store.get(first.job_id), store.get(second.job_id)}
+    assert {job.status for job in persisted} == {
+        ComputeJobStatus.RUNNING,
+        ComputeJobStatus.QUEUED,
+    }
