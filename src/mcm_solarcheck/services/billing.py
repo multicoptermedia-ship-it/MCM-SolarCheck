@@ -54,3 +54,51 @@ class ComputeJobBillingStore(Protocol):
     def replace(self, billing: ComputeJobBilling) -> None:
         """Persist updated authoritative billing state."""
         ...
+
+
+@dataclass
+class ComputeJobBillingService:
+    """Server-owned delivery evidence and billing eligibility transitions."""
+
+    store: ComputeJobBillingStore
+
+    def create(self, job_id: str) -> ComputeJobBilling:
+        billing = ComputeJobBilling(ComputeJobDelivery(job_id))
+        self.store.create(billing)
+        return billing
+
+    def mark_export_completed(self, job_id: str) -> ComputeJobBilling:
+        current = self.store.get(job_id)
+        if current.delivery.export_completed:
+            return current
+        updated = ComputeJobBilling(
+            ComputeJobDelivery(
+                job_id,
+                export_completed=True,
+                report_retrieved=current.delivery.report_retrieved,
+            ),
+            billing_released=current.billing_released,
+        )
+        self.store.replace(updated)
+        return updated
+
+    def mark_report_retrieved(self, job_id: str) -> ComputeJobBilling:
+        current = self.store.get(job_id)
+        if current.delivery.report_retrieved:
+            return current
+        updated = ComputeJobBilling(
+            ComputeJobDelivery(
+                job_id,
+                export_completed=current.delivery.export_completed,
+                report_retrieved=True,
+            ),
+            billing_released=current.billing_released,
+        )
+        self.store.replace(updated)
+        return updated
+
+    def release(self, job_id: str) -> ComputeJobBilling:
+        current = self.store.get(job_id)
+        released = current.release()
+        self.store.replace(released)
+        return released
