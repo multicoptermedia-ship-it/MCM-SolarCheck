@@ -11,12 +11,19 @@ class ComputeJobDelivery:
     """Evidence that a compute result was successfully delivered to the user."""
 
     job_id: str
+    user_id: str
+    project_id: str
     export_completed: bool = False
     report_retrieved: bool = False
 
     def __post_init__(self) -> None:
-        if not isinstance(self.job_id, str) or not self.job_id.strip():
-            raise ValueError("job_id must be a non-empty string")
+        for name, value in (
+            ("job_id", self.job_id),
+            ("user_id", self.user_id),
+            ("project_id", self.project_id),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} must be a non-empty string")
 
     @property
     def billable(self) -> bool:
@@ -62,8 +69,14 @@ class ComputeJobBillingService:
 
     store: ComputeJobBillingStore
 
-    def create(self, job_id: str) -> ComputeJobBilling:
-        billing = ComputeJobBilling(ComputeJobDelivery(job_id))
+    def create(
+        self,
+        job_id: str,
+        *,
+        user_id: str,
+        project_id: str,
+    ) -> ComputeJobBilling:
+        billing = ComputeJobBilling(ComputeJobDelivery(job_id, user_id, project_id))
         self.store.create(billing)
         return billing
 
@@ -74,6 +87,8 @@ class ComputeJobBillingService:
         updated = ComputeJobBilling(
             ComputeJobDelivery(
                 job_id,
+                current.delivery.user_id,
+                current.delivery.project_id,
                 export_completed=True,
                 report_retrieved=current.delivery.report_retrieved,
             ),
@@ -89,6 +104,8 @@ class ComputeJobBillingService:
         updated = ComputeJobBilling(
             ComputeJobDelivery(
                 job_id,
+                current.delivery.user_id,
+                current.delivery.project_id,
                 export_completed=current.delivery.export_completed,
                 report_retrieved=True,
             ),
