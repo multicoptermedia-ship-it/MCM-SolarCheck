@@ -391,3 +391,60 @@ def test_compute_job_service_fails_closed_without_admission_load_source() -> Non
         )
 
     assert store.get("job-a") == queued
+
+
+
+@pytest.mark.parametrize(
+    ("succeeded", "expected"),
+    (
+        (True, ComputeJobStatus.COMPLETED),
+        (False, ComputeJobStatus.FAILED),
+    ),
+)
+def test_compute_job_service_finishes_running_worker_job(
+    succeeded: bool,
+    expected: ComputeJobStatus,
+) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store)
+    created = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    running = service.transition(
+        created.job_id,
+        ComputeJobStatus.RUNNING,
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    finished = service.finish(running.job_id, succeeded=succeeded)
+
+    assert finished.status is expected
+    assert finished.job_id == running.job_id
+    assert finished.user_id == running.user_id
+    assert finished.project_id == running.project_id
+    assert store.get("job-a") == finished
+
+
+@pytest.mark.parametrize(
+    "status",
+    (ComputeJobStatus.QUEUED, ComputeJobStatus.COMPLETED, ComputeJobStatus.FAILED),
+)
+def test_compute_job_service_rejects_worker_finish_outside_running_state(
+    status: ComputeJobStatus,
+) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    job = ComputeJob("job-a", "user-a", "project-a", status)
+    store.create(job)
+    service = ComputeJobService(store)
+
+    with pytest.raises(ValueError, match="only a running compute job"):
+        service.finish("job-a", succeeded=True)
+
+    assert store.get("job-a") == job
