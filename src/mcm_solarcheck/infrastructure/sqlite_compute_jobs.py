@@ -128,7 +128,13 @@ class SQLiteComputeJobStore:
         finally:
             connection.close()
 
-    def release_claim(self, job_id: str, worker_id: str) -> ComputeJob:
+    def release_claim(
+        self,
+        job_id: str,
+        worker_id: str,
+        *,
+        now: datetime | None = None,
+    ) -> ComputeJob:
         """Atomically release a running job only for its owning worker."""
         if not isinstance(worker_id, str) or not worker_id.strip():
             raise ValueError("worker_id must be a non-empty string")
@@ -150,6 +156,16 @@ class SQLiteComputeJobStore:
                 raise ValueError("only a running compute job claim can be released")
             if row[4] != worker_id:
                 raise PermissionError("compute job worker claim mismatch")
+            lease_expires_at = row[5]
+            if lease_expires_at is not None:
+                if now is None:
+                    raise ValueError("current UTC time is required for leased release")
+                if now.tzinfo is None or now.utcoffset() is None:
+                    raise ValueError("release time must be timezone-aware")
+                if now.utcoffset() != timedelta(0):
+                    raise ValueError("release time must be UTC")
+                if now.isoformat() >= lease_expires_at:
+                    raise PermissionError("compute job worker lease expired")
             connection.execute(
                 "UPDATE compute_jobs SET worker_id = NULL, lease_expires_at = NULL WHERE job_id = ?",
                 (job_id,),
