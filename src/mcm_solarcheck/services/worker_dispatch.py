@@ -19,5 +19,5 @@ class ComputeJobDispatch(Protocol):
         worker_id: str,
         lease: ComputeJobLease | None = None,
     ) -> ComputeJob | None:
-        """Atomically claim and return one ready job, or None when none is available."""
+        """Claim one ready job, including a claim expired at lease.now."""
         ...
