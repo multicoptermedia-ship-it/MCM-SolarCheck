@@ -40,6 +40,8 @@ def test_compute_job_billing_release_requires_delivered_result() -> None:
     billing = ComputeJobBilling(
         ComputeJobDelivery(
             "job-a",
+            "user-a",
+            "project-a",
             export_completed=True,
             report_retrieved=False,
         )
@@ -53,6 +55,8 @@ def test_compute_job_billing_release_is_one_time() -> None:
     billing = ComputeJobBilling(
         ComputeJobDelivery(
             "job-a",
+            "user-a",
+            "project-a",
             export_completed=True,
             report_retrieved=True,
         )
