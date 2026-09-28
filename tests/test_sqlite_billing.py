@@ -16,6 +16,8 @@ def test_sqlite_compute_billing_persists_delivery_and_release(tmp_path) -> None:
     billing = ComputeJobBilling(
         ComputeJobDelivery(
             "job-a",
+            "user-a",
+            "project-a",
             export_completed=True,
             report_retrieved=True,
         )
