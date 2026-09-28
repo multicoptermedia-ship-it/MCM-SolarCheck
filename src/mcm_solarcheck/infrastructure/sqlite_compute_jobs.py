@@ -25,8 +25,7 @@ class SQLiteComputeJobStore:
                     job_id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL,
                     project_id TEXT NOT NULL,
-                    status TEXT NOT NULL
-                )
+                    status TEXT NOT NULL,\n                    worker_id TEXT\n                )
                 """
             )
 
@@ -61,6 +60,40 @@ class SQLiteComputeJobStore:
             project_id=row[2],
             status=ComputeJobStatus(row[3]),
         )
+
+    def claim(self, job_id: str, worker_id: str) -> ComputeJob:
+        """Atomically assign one running job to exactly one worker."""
+        if not isinstance(worker_id, str) or not worker_id.strip():
+            raise ValueError("worker_id must be a non-empty string")
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT job_id, user_id, project_id, status, worker_id
+                FROM compute_jobs
+                WHERE job_id = ?
+                """,
+                (job_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            job = ComputeJob(row[0], row[1], row[2], ComputeJobStatus(row[3]))
+            if job.status is not ComputeJobStatus.RUNNING:
+                raise ValueError("only a running compute job can be claimed")
+            if row[4] not in (None, worker_id):
+                raise RuntimeError("compute job already claimed by another worker")
+            connection.execute(
+                "UPDATE compute_jobs SET worker_id = ? WHERE job_id = ?",
+                (worker_id, job_id),
+            )
+            connection.commit()
+            return job
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def try_start(self, job: ComputeJob, capacity: ComputeCapacity) -> ComputeJob:
         """Atomically reserve capacity and persist the running transition."""
