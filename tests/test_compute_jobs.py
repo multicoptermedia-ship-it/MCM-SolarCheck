@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from mcm_solarcheck.services.compute_jobs import (\n    ComputeCapacity,\n    ComputeJob,\n    ComputeJobStatus,\n    transition_job,\n)
+from mcm_solarcheck.services.compute_jobs import (
+    ComputeCapacity,
+    ComputeJob,
+    ComputeJobStatus,
+    transition_job,
+)
 
 
 def test_compute_job_preserves_tenant_and_project_identity() -> None:
