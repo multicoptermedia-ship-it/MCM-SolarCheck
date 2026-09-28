@@ -3,7 +3,7 @@
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -37,6 +37,26 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
             "Persistierte Bild- und Paarzahlen des aktiven Projekts."
         )
         layout.addWidget(summary)
+
+    if import_verification is not None:
+        verification_heading = QLabel("Importprüfung", page)
+        verification_heading.setObjectName("import_verification_heading")
+        layout.addWidget(verification_heading)
+
+        verification = QLabel(
+            f"Qualität: {import_verification.quality_pass} OK · "
+            f"{import_verification.quality_review} prüfen · "
+            f"{import_verification.quality_reject} verworfen\n"
+            f"Fehlende Metadaten: {import_verification.missing_timestamp} Zeit · "
+            f"{import_verification.missing_position} Position · "
+            f"{import_verification.missing_camera_identity} Kamera",
+            page,
+        )
+        verification.setObjectName("import_verification")
+        verification.setAccessibleDescription(
+            "Persistierte Qualitäts- und Metadatenprüfung des aktiven Projekts."
+        )
+        layout.addWidget(verification)
 
     if import_attempt is not None:
         if import_attempt.succeeded:
