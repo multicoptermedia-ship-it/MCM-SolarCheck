@@ -4,6 +4,7 @@ import pytest
 
 from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
 from mcm_solarcheck.services.compute_jobs import (
+    ComputeCapacity,
     ComputeJob,
     ComputeJobService,
     ComputeJobStatus,
@@ -63,3 +64,60 @@ def test_sqlite_compute_job_store_rejects_replace_for_missing_job(tmp_path) -> N
 
     with pytest.raises(KeyError):
         store.replace(missing)
+
+
+
+def test_sqlite_compute_job_store_counts_only_running_jobs(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    store.create(ComputeJob("queued", "user-a", "project-a", ComputeJobStatus.QUEUED))
+    store.create(ComputeJob("running-a", "user-a", "project-a", ComputeJobStatus.RUNNING))
+    store.create(ComputeJob("running-b", "user-b", "project-b", ComputeJobStatus.RUNNING))
+    store.create(ComputeJob("completed", "user-c", "project-c", ComputeJobStatus.COMPLETED))
+    store.create(ComputeJob("failed", "user-d", "project-d", ComputeJobStatus.FAILED))
+
+    assert store.running_jobs() == 2
+
+
+def test_compute_service_uses_sqlite_load_for_capacity_admission(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, load=store)
+    capacity = ComputeCapacity(max_parallel_jobs=1)
+
+    first = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    second = service.create(
+        job_id="job-b",
+        user_id="user-b",
+        project_id="project-b",
+    )
+
+    first_running = service.start(
+        first.job_id,
+        user_id="user-a",
+        project_id="project-a",
+        capacity=capacity,
+    )
+    second_queued = service.start(
+        second.job_id,
+        user_id="user-b",
+        project_id="project-b",
+        capacity=capacity,
+    )
+
+    assert first_running.status is ComputeJobStatus.RUNNING
+    assert second_queued.status is ComputeJobStatus.QUEUED
+    assert store.running_jobs() == 1
+
+    service.finish(first.job_id, succeeded=True)
+    second_running = service.start(
+        second.job_id,
+        user_id="user-b",
+        project_id="project-b",
+        capacity=capacity,
+    )
+
+    assert second_running.status is ComputeJobStatus.RUNNING
+    assert store.running_jobs() == 1
