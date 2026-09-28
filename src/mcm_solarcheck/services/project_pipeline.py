@@ -119,6 +119,12 @@ class ProjectApplicationService:
             raise KeyError(f"Unknown project: {project_id}")
         return InspectionQueries(self.database).summary(project_id)
 
+    def import_verification(self, project_id: str):
+        """Expose persisted import metadata verification through the application boundary."""
+        if not any(project.project_id == project_id for project in self.projects()):
+            raise KeyError(f"Unknown project: {project_id}")
+        return InspectionQueries(self.database).import_verification(project_id)
+
     def import_project_images(
         self,
         project_id: str,
