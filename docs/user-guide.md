@@ -254,7 +254,47 @@ Importierte Originaldaten und menschliche Reviewentscheidungen werden nicht
 stillschweigend verworfen. Ist eine sichere Wiederherstellung für einen
 konkreten Zustand nicht definiert, bleibt die entsprechende Aktion gesperrt.
 
-## 17. Stand dieser Anleitung
+## 17. Parallele und zeitversetzte Online-Verarbeitung
+
+Bei der Online-Verarbeitung können mehrere Worker gleichzeitig Aufgaben
+bearbeiten. Die konfigurierte Verarbeitungskapazität bestimmt, wie viele Jobs
+zur selben Zeit laufen dürfen. Sind beispielsweise zwei Worker-Plätze
+verfügbar, können zwei unterschiedliche Jobs gleichzeitig verarbeitet werden;
+weitere Jobs bleiben in der Warteschlange, bis wieder Kapazität frei wird.
+
+Ein einzelner Job wird zur selben Zeit immer nur von einem Worker bearbeitet.
+SolarCheck vergibt dafür einen exklusiven Worker-Claim. Dadurch können zwei
+Worker nicht denselben Job gleichzeitig übernehmen, auch wenn beide nahezu
+zeitgleich nach neuer Arbeit suchen.
+
+Die Zuordnung eines Jobs zu einem Worker ist nicht dauerhaft. Nach erfolgreichem
+oder fehlgeschlagenem Abschluss wird Kapazität für weitere Jobs frei. Ein
+später verfügbarer Worker kann anschließend einen anderen wartenden Job
+übernehmen.
+
+Für unterbrochene Worker-Verarbeitung verwendet SolarCheck zeitlich begrenzte
+Claims (Leases). Solange ein Lease gültig ist, bleibt der Job seinem Worker
+zugeordnet. Läuft das Lease ab, darf ein anderer Worker den Job übernehmen.
+Ein verspätet zurückkehrender alter Worker darf den Job nach Ablauf seines
+Leases nicht mehr abschließen oder dessen Worker-Zuordnung verändern. Damit
+bleibt auch bei Abstürzen oder zeitversetzter Wiederaufnahme immer genau ein
+Worker für die aktuelle Bearbeitung eines Jobs zuständig.
+
+Beispiel bei einer Kapazität von zwei parallelen Jobs:
+
+- Job A wird von Worker 1 verarbeitet.
+- Job B wird von Worker 2 verarbeitet.
+- Job C wartet zunächst.
+- Wird Job A abgeschlossen, kann Job C zugelassen und von einem verfügbaren
+  Worker übernommen werden.
+- Fällt ein Worker aus, kann sein Job nach Ablauf des Leases von einem anderen
+  Worker übernommen werden.
+
+Diese Regeln sind unabhängig von der später eingesetzten Server-, Queue- oder
+Cloud-Infrastruktur. Sie beschreiben das Verhalten, auf das sich die
+SolarCheck-Verarbeitung verlassen kann.
+
+## 18. Stand dieser Anleitung
 
 Diese Anleitung wird parallel zur SolarCheck-Oberfläche gepflegt. Abbildungen
 der tatsächlichen Anwendung werden ergänzt, sobald die implementierten
