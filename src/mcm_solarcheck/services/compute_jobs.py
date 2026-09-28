@@ -122,6 +122,16 @@ class ComputeJobClaim(Protocol):
         """Atomically claim a running job for one worker."""
         ...
 
+    def finish_claimed(
+        self,
+        job_id: str,
+        worker_id: str,
+        *,
+        succeeded: bool,
+    ) -> ComputeJob:
+        """Atomically finish a job only for its owning worker."""
+        ...
+
 
 class ComputeJobStore(Protocol):
     """Persistence boundary for authoritative compute job state."""
