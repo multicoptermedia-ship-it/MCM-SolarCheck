@@ -131,11 +131,26 @@ class ComputeJobService:
         self.store.create(job)
         return job
 
-    def get(self, job_id: str) -> ComputeJob:
-        return self.store.get(job_id)
+    def get(self, job_id: str, *, user_id: str, project_id: str) -> ComputeJob:
+        job = self.store.get(job_id)
+        self._require_owner(job, user_id=user_id, project_id=project_id)
+        return job
 
-    def transition(self, job_id: str, status: ComputeJobStatus) -> ComputeJob:
+    def transition(
+        self,
+        job_id: str,
+        status: ComputeJobStatus,
+        *,
+        user_id: str,
+        project_id: str,
+    ) -> ComputeJob:
         current = self.store.get(job_id)
+        self._require_owner(current, user_id=user_id, project_id=project_id)
         transitioned = transition_job(current, status)
         self.store.replace(transitioned)
         return transitioned
+
+    @staticmethod
+    def _require_owner(job: ComputeJob, *, user_id: str, project_id: str) -> None:
+        if job.user_id != user_id or job.project_id != project_id:
+            raise PermissionError("compute job access denied")
