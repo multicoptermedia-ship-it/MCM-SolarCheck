@@ -506,3 +506,74 @@ def test_old_worker_cannot_finish_after_expired_lease_is_reclaimed(tmp_path) -> 
         now=start + timedelta(minutes=6),
     )
     assert finished.status is ComputeJobStatus.FAILED
+
+
+
+def test_sqlite_worker_can_release_before_lease_expiry(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, claims=store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    service.claim(
+        running.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+    )
+
+    released = service.release_claim(
+        running.job_id,
+        worker_id="worker-a",
+        now=start + timedelta(minutes=4, seconds=59),
+    )
+    reclaimed = service.claim(
+        running.job_id,
+        worker_id="worker-b",
+        lease=ComputeJobLease(start + timedelta(minutes=5), timedelta(minutes=5)),
+    )
+
+    assert released == running
+    assert reclaimed == running
+
+
+def test_sqlite_worker_cannot_release_at_or_after_lease_expiry(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, claims=store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    service.claim(
+        running.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+    )
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        service.release_claim(
+            running.job_id,
+            worker_id="worker-a",
+            now=start + timedelta(minutes=5),
+        )
+
+    reclaimed = service.claim(
+        running.job_id,
+        worker_id="worker-b",
+        lease=ComputeJobLease(start + timedelta(minutes=5), timedelta(minutes=5)),
+    )
+    assert reclaimed == running
+
+
+def test_sqlite_leased_release_requires_current_time(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, claims=store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    service.claim(
+        running.job_id,
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+    )
+
+    with pytest.raises(ValueError, match="current UTC time is required"):
+        service.release_claim(running.job_id, worker_id="worker-a")
