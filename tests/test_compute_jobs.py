@@ -84,3 +84,24 @@ def test_compute_capacity_rejects_invalid_running_job_count(running_jobs) -> Non
 
     with pytest.raises(ValueError, match="non-negative integer"):
         capacity.admission_status(running_jobs)
+
+
+def test_single_worker_serializes_two_tenant_jobs_without_identity_leakage() -> None:
+    capacity = ComputeCapacity(max_parallel_jobs=1)
+    first = ComputeJob(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+        status=capacity.admission_status(0),
+    )
+    second = ComputeJob(
+        job_id="job-b",
+        user_id="user-b",
+        project_id="project-b",
+        status=capacity.admission_status(1),
+    )
+
+    assert first.status is ComputeJobStatus.RUNNING
+    assert second.status is ComputeJobStatus.QUEUED
+    assert (first.user_id, first.project_id) == ("user-a", "project-a")
+    assert (second.user_id, second.project_id) == ("user-b", "project-b")
