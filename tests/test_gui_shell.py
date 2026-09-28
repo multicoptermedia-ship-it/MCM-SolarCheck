@@ -1131,3 +1131,44 @@ def test_successful_import_refreshes_persisted_verification_from_service(app: QA
     assert after is not None
     assert "Qualität: 3 OK" in after.text()
     assert "1 Position" in after.text()
+
+
+def test_reopening_project_reloads_persisted_import_verification(app: QApplication) -> None:
+    state = ProjectWorkflowState(
+        tuple(StageReadiness(stage, True) for stage in WorkflowStage)
+    )
+
+    class Verification:
+        quality_pass = 2
+        quality_review = 1
+        quality_reject = 0
+        missing_timestamp = 0
+        missing_position = 1
+        missing_camera_identity = 0
+
+    class ProjectService:
+        def projects(self):
+            return (ProjectRecord("P-PERSIST", "Persisted", "2026-09-28 11:00:00"),)
+
+        def open_project(self, project_id):
+            assert project_id == "P-PERSIST"
+            return state
+
+        def import_verification(self, project_id):
+            assert project_id == "P-PERSIST"
+            return Verification()
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP, project_service=ProjectService()
+    )
+
+    window._open_project("P-PERSIST")
+    first = window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_verification")
+    assert first is not None
+    assert "Qualität: 2 OK · 1 prüfen · 0 verworfen" in first.text()
+
+    window._open_project("P-PERSIST")
+    reloaded = window._pages[ShellRoute.IMPORT].findChild(QLabel, "import_verification")
+    assert reloaded is not None
+    assert reloaded is not first
+    assert "1 Position" in reloaded.text()
