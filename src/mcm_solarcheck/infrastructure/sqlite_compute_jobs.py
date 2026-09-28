@@ -57,6 +57,19 @@ class SQLiteComputeJobStore:
             status=ComputeJobStatus(row[3]),
         )
 
+    def running_jobs(self) -> int:
+        """Return the authoritative number of jobs occupying worker capacity."""
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM compute_jobs
+                WHERE status = ?
+                """,
+                (ComputeJobStatus.RUNNING.value,),
+            ).fetchone()
+        return int(row[0])
+
     def replace(self, job: ComputeJob) -> None:
         with self._connect() as connection:
             cursor = connection.execute(
