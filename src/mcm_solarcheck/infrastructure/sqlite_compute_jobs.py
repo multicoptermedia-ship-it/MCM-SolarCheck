@@ -178,7 +178,7 @@ class SQLiteComputeJobStore:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 """
-                SELECT job_id, user_id, project_id, status, worker_id
+                SELECT job_id, user_id, project_id, status, worker_id, lease_expires_at
                 FROM compute_jobs
                 WHERE job_id = ?
                 """,
