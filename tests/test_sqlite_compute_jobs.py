@@ -310,3 +310,47 @@ def test_compute_service_fails_closed_without_worker_claim_adapter(tmp_path) -> 
         )
 
     assert store.get(running.job_id) == running
+
+
+
+def test_sqlite_claim_owner_can_release_for_another_worker(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, claims=store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+
+    service.claim(running.job_id, worker_id="worker-a")
+    released = service.release_claim(running.job_id, worker_id="worker-a")
+    reclaimed = service.claim(running.job_id, worker_id="worker-b")
+
+    assert released == running
+    assert reclaimed == running
+    assert store.get(running.job_id) == running
+
+
+def test_sqlite_non_owner_worker_cannot_release_claim(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store, claims=store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    service.claim(running.job_id, worker_id="worker-a")
+
+    with pytest.raises(PermissionError, match="claim mismatch"):
+        service.release_claim(running.job_id, worker_id="worker-b")
+
+    with pytest.raises(RuntimeError, match="another worker"):
+        service.claim(running.job_id, worker_id="worker-b")
+
+    assert store.get(running.job_id) == running
+
+
+def test_compute_service_release_claim_fails_closed_without_adapter(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+
+    with pytest.raises(RuntimeError, match="claim source is required"):
+        service.release_claim(running.job_id, worker_id="worker-a")
+
+    assert store.get(running.job_id) == running
