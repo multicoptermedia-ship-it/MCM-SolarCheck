@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from mcm_solarcheck.services.compute_jobs import (
@@ -60,7 +61,7 @@ class ComputeWorkerService:
         *,
         worker_id: str,
         succeeded: bool,
-        now=None,
+        now: datetime | None = None,
     ) -> ComputeJob:
         """Finish a job through its authoritative worker claim."""
         return self.claims.finish_claimed(
