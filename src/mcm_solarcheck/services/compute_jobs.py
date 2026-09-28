@@ -47,3 +47,27 @@ class ComputeJobQueue(Protocol):
     def get(self, job_id: str) -> ComputeJob:
         """Return the authoritative persisted state for one job."""
         ...
+
+
+@dataclass(frozen=True)
+class ComputeCapacity:
+    """Deployment-owned limit for simultaneous evaluation workers."""
+
+    max_parallel_jobs: int
+
+    def __post_init__(self) -> None:
+        if type(self.max_parallel_jobs) is not int or self.max_parallel_jobs <= 0:
+            raise ValueError("max_parallel_jobs must be a positive integer")
+
+    def can_start(self, running_jobs: int) -> bool:
+        if type(running_jobs) is not int or running_jobs < 0:
+            raise ValueError("running_jobs must be a non-negative integer")
+        return running_jobs < self.max_parallel_jobs
+
+    def admission_status(self, running_jobs: int) -> ComputeJobStatus:
+        """Keep excess work queued instead of starting unbounded processes."""
+        return (
+            ComputeJobStatus.RUNNING
+            if self.can_start(running_jobs)
+            else ComputeJobStatus.QUEUED
+        )
