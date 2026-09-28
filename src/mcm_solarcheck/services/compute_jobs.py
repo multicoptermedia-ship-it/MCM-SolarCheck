@@ -292,7 +292,11 @@ class ComputeJobService:
         )
 
     def finish(self, job_id: str, *, succeeded: bool) -> ComputeJob:
-        """Persist a terminal worker outcome for an already-running job."""
+        """Persist a terminal outcome only when worker claims are not configured."""
+        if self.claims is not None:
+            raise RuntimeError(
+                "claimed compute jobs must be finished through finish_claimed"
+            )
         current = self.store.get(job_id)
         if current.status is not ComputeJobStatus.RUNNING:
             raise ValueError("only a running compute job can be finished")
