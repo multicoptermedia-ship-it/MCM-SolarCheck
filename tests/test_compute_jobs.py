@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJob, ComputeJobStatus
+from mcm_solarcheck.services.compute_jobs import (\n    ComputeCapacity,\n    ComputeJob,\n    ComputeJobStatus,\n    transition_job,\n)
 
 
 def test_compute_job_preserves_tenant_and_project_identity() -> None:
@@ -105,3 +105,47 @@ def test_single_worker_serializes_two_tenant_jobs_without_identity_leakage() -> 
     assert second.status is ComputeJobStatus.QUEUED
     assert (first.user_id, first.project_id) == ("user-a", "project-a")
     assert (second.user_id, second.project_id) == ("user-b", "project-b")
+
+
+@pytest.mark.parametrize(
+    ("source", "target"),
+    (
+        (ComputeJobStatus.QUEUED, ComputeJobStatus.RUNNING),
+        (ComputeJobStatus.QUEUED, ComputeJobStatus.FAILED),
+        (ComputeJobStatus.RUNNING, ComputeJobStatus.COMPLETED),
+        (ComputeJobStatus.RUNNING, ComputeJobStatus.FAILED),
+    ),
+)
+def test_compute_job_allows_only_declared_forward_transitions(source, target) -> None:
+    job = ComputeJob("job-a", "user-a", "project-a", source)
+
+    transitioned = transition_job(job, target)
+
+    assert transitioned.status is target
+    assert transitioned.job_id == job.job_id
+    assert transitioned.user_id == job.user_id
+    assert transitioned.project_id == job.project_id
+
+
+@pytest.mark.parametrize(
+    ("source", "target"),
+    (
+        (ComputeJobStatus.QUEUED, ComputeJobStatus.COMPLETED),
+        (ComputeJobStatus.RUNNING, ComputeJobStatus.QUEUED),
+        (ComputeJobStatus.COMPLETED, ComputeJobStatus.RUNNING),
+        (ComputeJobStatus.FAILED, ComputeJobStatus.QUEUED),
+        (ComputeJobStatus.COMPLETED, ComputeJobStatus.COMPLETED),
+    ),
+)
+def test_compute_job_rejects_invalid_or_replayed_transitions(source, target) -> None:
+    job = ComputeJob("job-a", "user-a", "project-a", source)
+
+    with pytest.raises(ValueError, match="invalid compute job transition"):
+        transition_job(job, target)
+
+
+def test_compute_job_transition_rejects_untyped_target_status() -> None:
+    job = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.QUEUED)
+
+    with pytest.raises(ValueError, match="ComputeJobStatus"):
+        transition_job(job, "running")
