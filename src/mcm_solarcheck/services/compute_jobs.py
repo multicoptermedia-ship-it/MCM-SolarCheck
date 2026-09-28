@@ -156,6 +156,7 @@ class ComputeJobService:
     store: ComputeJobStore
     load: ComputeJobLoad | None = None
     admission: ComputeJobAdmission | None = None
+    claims: ComputeJobClaim | None = None
 
     def create(self, *, job_id: str, user_id: str, project_id: str) -> ComputeJob:
         job = ComputeJob(
@@ -210,6 +211,28 @@ class ComputeJobService:
         transitioned = transition_job(current, status)
         self.store.replace(transitioned)
         return transitioned
+
+    def claim(self, job_id: str, *, worker_id: str) -> ComputeJob:
+        """Claim one running job through the configured worker boundary."""
+        if self.claims is None:
+            raise RuntimeError("compute job claim source is required")
+        return self.claims.claim(job_id, worker_id)
+
+    def finish_claimed(
+        self,
+        job_id: str,
+        *,
+        worker_id: str,
+        succeeded: bool,
+    ) -> ComputeJob:
+        """Finish one job through its authoritative worker claim."""
+        if self.claims is None:
+            raise RuntimeError("compute job claim source is required")
+        return self.claims.finish_claimed(
+            job_id,
+            worker_id,
+            succeeded=succeeded,
+        )
 
     def finish(self, job_id: str, *, succeeded: bool) -> ComputeJob:
         """Persist a terminal worker outcome for an already-running job."""
