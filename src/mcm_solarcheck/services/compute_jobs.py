@@ -122,6 +122,10 @@ class ComputeJobClaim(Protocol):
         """Atomically claim a running job for one worker."""
         ...
 
+    def release_claim(self, job_id: str, worker_id: str) -> ComputeJob:
+        """Atomically release a running job owned by the worker."""
+        ...
+
     def finish_claimed(
         self,
         job_id: str,
@@ -217,6 +221,12 @@ class ComputeJobService:
         if self.claims is None:
             raise RuntimeError("compute job claim source is required")
         return self.claims.claim(job_id, worker_id)
+
+    def release_claim(self, job_id: str, *, worker_id: str) -> ComputeJob:
+        """Release one job through its authoritative worker claim."""
+        if self.claims is None:
+            raise RuntimeError("compute job claim source is required")
+        return self.claims.release_claim(job_id, worker_id)
 
     def finish_claimed(
         self,
