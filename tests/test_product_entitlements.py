@@ -4,6 +4,7 @@ import pytest
 
 from mcm_solarcheck.services.product_entitlements import (
     FULL_ONLINE,
+    INTERNAL_ONLINE,
     OFFLINE_DESKTOP,
     PROMOTIONAL_TRIAL,
     ProductEntitlementError,
@@ -177,5 +178,26 @@ def test_offline_desktop_still_respects_workflow_output_gate() -> None:
         workflow_allowed=False,
         workflow_blockers=("unreviewed findings remain",),
     )
+    assert availability.allowed is False
+    assert availability.blockers == ("unreviewed findings remain",)
+
+
+def test_internal_online_has_full_product_capabilities() -> None:
+    assert INTERNAL_ONLINE.profile_id is ProductProfileId.INTERNAL_ONLINE
+    assert INTERNAL_ONLINE.max_plant_power_kwp is None
+    assert INTERNAL_ONLINE.accepts_plant_power(1_000_000.0)
+    INTERNAL_ONLINE.require_report_download()
+    INTERNAL_ONLINE.require_export()
+    assert product_capabilities(ProductProfileId.INTERNAL_ONLINE) is INTERNAL_ONLINE
+
+
+def test_internal_online_does_not_bypass_workflow_output_gate() -> None:
+    availability = effective_output_availability(
+        INTERNAL_ONLINE,
+        ProductOperation.EXPORT,
+        workflow_allowed=False,
+        workflow_blockers=("unreviewed findings remain",),
+    )
+
     assert availability.allowed is False
     assert availability.blockers == ("unreviewed findings remain",)
