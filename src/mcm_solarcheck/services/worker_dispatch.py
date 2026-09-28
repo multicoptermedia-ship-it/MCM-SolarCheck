@@ -55,6 +55,16 @@ class ComputeWorkerService:
         """Renew an active lease owned by this worker."""
         return self.claims.renew_claim(job_id, worker_id, lease)
 
+    def release(
+        self,
+        job_id: str,
+        *,
+        worker_id: str,
+        now: datetime | None = None,
+    ) -> ComputeJob:
+        """Release a job through its authoritative worker claim."""
+        return self.claims.release_claim(job_id, worker_id, now=now)
+
     def finish(
         self,
         job_id: str,
