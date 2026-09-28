@@ -18,6 +18,8 @@ class SQLiteComputeJobBillingStore:
                 """
                 CREATE TABLE IF NOT EXISTS compute_job_billing (
                     job_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    project_id TEXT NOT NULL,
                     export_completed INTEGER NOT NULL,
                     report_retrieved INTEGER NOT NULL,
                     billing_released INTEGER NOT NULL
@@ -33,11 +35,14 @@ class SQLiteComputeJobBillingStore:
             connection.execute(
                 """
                 INSERT INTO compute_job_billing (
-                    job_id, export_completed, report_retrieved, billing_released
-                ) VALUES (?, ?, ?, ?)
+                    job_id, user_id, project_id,
+                    export_completed, report_retrieved, billing_released
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     billing.delivery.job_id,
+                    billing.delivery.user_id,
+                    billing.delivery.project_id,
                     billing.delivery.export_completed,
                     billing.delivery.report_retrieved,
                     billing.billing_released,
@@ -48,7 +53,8 @@ class SQLiteComputeJobBillingStore:
         with self._connect() as connection:
             row = connection.execute(
                 """
-                SELECT export_completed, report_retrieved, billing_released
+                SELECT user_id, project_id,
+                       export_completed, report_retrieved, billing_released
                 FROM compute_job_billing
                 WHERE job_id = ?
                 """,
@@ -59,10 +65,12 @@ class SQLiteComputeJobBillingStore:
         return ComputeJobBilling(
             ComputeJobDelivery(
                 job_id,
-                export_completed=bool(row[0]),
-                report_retrieved=bool(row[1]),
+                row[0],
+                row[1],
+                export_completed=bool(row[2]),
+                report_retrieved=bool(row[3]),
             ),
-            billing_released=bool(row[2]),
+            billing_released=bool(row[4]),
         )
 
     def replace(self, billing: ComputeJobBilling) -> None:
