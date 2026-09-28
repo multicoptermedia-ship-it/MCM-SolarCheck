@@ -62,6 +62,15 @@ class ComputeJobBillingStore(Protocol):
         """Persist updated authoritative billing state."""
         ...
 
+    def release(
+        self,
+        job_id: str,
+        user_id: str,
+        project_id: str,
+    ) -> ComputeJobBilling:
+        """Atomically release one delivered job for billing."""
+        ...
+
 
 @dataclass
 class ComputeJobBillingService:
@@ -142,7 +151,4 @@ class ComputeJobBillingService:
         user_id: str,
         project_id: str,
     ) -> ComputeJobBilling:
-        current = self._owned(job_id, user_id, project_id)
-        released = current.release()
-        self.store.replace(released)
-        return released
+        return self.store.release(job_id, user_id, project_id)
