@@ -80,8 +80,23 @@ class ComputeJobBillingService:
         self.store.create(billing)
         return billing
 
-    def mark_export_completed(self, job_id: str) -> ComputeJobBilling:
+    def _owned(self, job_id: str, user_id: str, project_id: str) -> ComputeJobBilling:
         current = self.store.get(job_id)
+        if (
+            current.delivery.user_id != user_id
+            or current.delivery.project_id != project_id
+        ):
+            raise PermissionError("compute job billing ownership mismatch")
+        return current
+
+    def mark_export_completed(
+        self,
+        job_id: str,
+        *,
+        user_id: str,
+        project_id: str,
+    ) -> ComputeJobBilling:
+        current = self._owned(job_id, user_id, project_id)
         if current.delivery.export_completed:
             return current
         updated = ComputeJobBilling(
@@ -97,8 +112,14 @@ class ComputeJobBillingService:
         self.store.replace(updated)
         return updated
 
-    def mark_report_retrieved(self, job_id: str) -> ComputeJobBilling:
-        current = self.store.get(job_id)
+    def mark_report_retrieved(
+        self,
+        job_id: str,
+        *,
+        user_id: str,
+        project_id: str,
+    ) -> ComputeJobBilling:
+        current = self._owned(job_id, user_id, project_id)
         if current.delivery.report_retrieved:
             return current
         updated = ComputeJobBilling(
@@ -114,8 +135,14 @@ class ComputeJobBillingService:
         self.store.replace(updated)
         return updated
 
-    def release(self, job_id: str) -> ComputeJobBilling:
-        current = self.store.get(job_id)
+    def release(
+        self,
+        job_id: str,
+        *,
+        user_id: str,
+        project_id: str,
+    ) -> ComputeJobBilling:
+        current = self._owned(job_id, user_id, project_id)
         released = current.release()
         self.store.replace(released)
         return released
