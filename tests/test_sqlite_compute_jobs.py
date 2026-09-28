@@ -257,3 +257,56 @@ def test_sqlite_unclaimed_job_cannot_be_finished_by_worker(tmp_path) -> None:
         store.finish_claimed(running.job_id, "worker-a", succeeded=True)
 
     assert store.get(running.job_id) == running
+
+
+
+def test_compute_service_routes_worker_claim_lifecycle_through_adapter(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(
+        store,
+        load=store,
+        admission=store,
+        claims=store,
+    )
+    capacity = ComputeCapacity(max_parallel_jobs=1)
+    created = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    running = service.start(
+        created.job_id,
+        user_id="user-a",
+        project_id="project-a",
+        capacity=capacity,
+    )
+
+    claimed = service.claim(running.job_id, worker_id="worker-a")
+    finished = service.finish_claimed(
+        claimed.job_id,
+        worker_id="worker-a",
+        succeeded=True,
+    )
+
+    assert claimed == running
+    assert finished.status is ComputeJobStatus.COMPLETED
+    assert store.get(created.job_id) == finished
+
+
+def test_compute_service_fails_closed_without_worker_claim_adapter(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    service = ComputeJobService(store)
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+
+    with pytest.raises(RuntimeError, match="claim source is required"):
+        service.claim(running.job_id, worker_id="worker-a")
+
+    with pytest.raises(RuntimeError, match="claim source is required"):
+        service.finish_claimed(
+            running.job_id,
+            worker_id="worker-a",
+            succeeded=True,
+        )
+
+    assert store.get(running.job_id) == running
