@@ -339,3 +339,23 @@ def test_application_output_availability_allows_ready_full_online_export(tmp_pat
     assert availability.allowed is True
     assert availability.blockers == ()
 
+
+
+def test_application_service_exposes_persisted_import_verification(tmp_path):
+    database = _database(tmp_path)
+    service = ProjectApplicationService(database)
+
+    verification = service.import_verification("P1")
+
+    assert verification.project_id == "P1"
+    assert verification.thermal_frames == 0
+    assert verification.quality_pass == 0
+    assert verification.quality_review == 0
+    assert verification.quality_reject == 0
+
+
+def test_application_service_import_verification_rejects_unknown_project(tmp_path):
+    service = ProjectApplicationService(_database(tmp_path))
+
+    with pytest.raises(KeyError, match="Unknown project: missing"):
+        service.import_verification("missing")
