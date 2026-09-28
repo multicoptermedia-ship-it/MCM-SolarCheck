@@ -148,6 +148,15 @@ class ComputeJobClaim(Protocol):
         """Atomically claim a running job for one worker."""
         ...
 
+    def renew_claim(
+        self,
+        job_id: str,
+        worker_id: str,
+        lease: ComputeJobLease,
+    ) -> ComputeJob:
+        """Renew an active lease only for its current worker."""
+        ...
+
     def release_claim(
         self,
         job_id: str,
@@ -260,6 +269,18 @@ class ComputeJobService:
         if self.claims is None:
             raise RuntimeError("compute job claim source is required")
         return self.claims.claim(job_id, worker_id, lease)
+
+    def renew_claim(
+        self,
+        job_id: str,
+        *,
+        worker_id: str,
+        lease: ComputeJobLease,
+    ) -> ComputeJob:
+        """Renew one active worker lease through the configured claim boundary."""
+        if self.claims is None:
+            raise RuntimeError("compute job claim source is required")
+        return self.claims.renew_claim(job_id, worker_id, lease)
 
     def release_claim(
         self,
