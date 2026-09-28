@@ -95,6 +95,48 @@ class SQLiteComputeJobStore:
         finally:
             connection.close()
 
+    def finish_claimed(
+        self,
+        job_id: str,
+        worker_id: str,
+        *,
+        succeeded: bool,
+    ) -> ComputeJob:
+        """Atomically finish a running job only for its owning worker."""
+        if not isinstance(worker_id, str) or not worker_id.strip():
+            raise ValueError("worker_id must be a non-empty string")
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT job_id, user_id, project_id, status, worker_id
+                FROM compute_jobs
+                WHERE job_id = ?
+                """,
+                (job_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            job = ComputeJob(row[0], row[1], row[2], ComputeJobStatus(row[3]))
+            if job.status is not ComputeJobStatus.RUNNING:
+                raise ValueError("only a running compute job can be finished")
+            if row[4] != worker_id:
+                raise PermissionError("compute job worker claim mismatch")
+            status = ComputeJobStatus.COMPLETED if succeeded else ComputeJobStatus.FAILED
+            finished = transition_job(job, status)
+            connection.execute(
+                "UPDATE compute_jobs SET status = ? WHERE job_id = ?",
+                (finished.status.value, finished.job_id),
+            )
+            connection.commit()
+            return finished
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def try_start(self, job: ComputeJob, capacity: ComputeCapacity) -> ComputeJob:
         """Atomically reserve capacity and persist the running transition."""
         connection = self._connect()
