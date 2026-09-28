@@ -21,3 +21,19 @@ class ComputeJobDelivery:
     def billable(self) -> bool:
         """Become billable only after export completion and report retrieval."""
         return self.export_completed and self.report_retrieved
+
+
+@dataclass(frozen=True)
+class ComputeJobBilling:
+    """Persistent billing state separated from payment execution."""
+
+    delivery: ComputeJobDelivery
+    billing_released: bool = False
+
+    def release(self) -> "ComputeJobBilling":
+        """Release delivered work for billing exactly once."""
+        if not self.delivery.billable:
+            raise ValueError("compute job delivery is not billable")
+        if self.billing_released:
+            raise ValueError("compute job billing already released")
+        return ComputeJobBilling(self.delivery, billing_released=True)
