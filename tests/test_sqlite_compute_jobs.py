@@ -790,3 +790,34 @@ def test_sqlite_dispatch_recovers_expired_worker_lease(tmp_path) -> None:
         succeeded=True,
         now=start + timedelta(minutes=6),
     ).status is ComputeJobStatus.COMPLETED
+
+
+
+def test_sqlite_worker_lease_renewal_requires_active_owner(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 9, 28, 18, 0, tzinfo=timezone.utc)
+    store.claim(
+        running.job_id,
+        "worker-a",
+        ComputeJobLease(now=start, duration=timedelta(minutes=5)),
+    )
+
+    renewed = ComputeJobLease(
+        now=start + timedelta(minutes=4),
+        duration=timedelta(minutes=5),
+    )
+    assert store.renew_claim(running.job_id, "worker-a", renewed) == running
+
+    with pytest.raises(PermissionError):
+        store.renew_claim(running.job_id, "worker-b", renewed)
+
+    after_renewed_expiry = ComputeJobLease(
+        now=start + timedelta(minutes=9),
+        duration=timedelta(minutes=5),
+    )
+    with pytest.raises(PermissionError):
+        store.renew_claim(running.job_id, "worker-a", after_renewed_expiry)
+
+    assert store.claim_next("worker-b", after_renewed_expiry) == running
