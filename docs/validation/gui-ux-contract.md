@@ -898,3 +898,28 @@ their own persisted domain semantics before Qt may expose them.
 - A failed attempt displays the service-provided error and does not advance or override backend-derived workflow readiness.
 - Transient attempt feedback is scoped to the active project and is cleared when another project is opened, preventing cross-project status leakage.
 - Presentation exposes explicit `success` / `error` semantics and an accessible description without creating a second workflow authority.
+
+
+## Persisted import metadata verification checkpoint
+
+Import metadata and thermal quality are presented only from persisted backend
+evidence; the GUI does not infer radiometric validity or manufacture missing
+metadata.
+
+- `InspectionQueries.import_verification(project_id)` summarizes persisted
+  thermal-frame quality grades and counts missing timestamp, position, and
+  camera-identity fields. Unknown projects fail explicitly.
+- The verification is descriptive. Quality grades remain the importer/thermal
+  quality subsystem's persisted assessment and are not promoted into a new
+  scientific-validity or release decision.
+- `ProjectApplicationService.import_verification(project_id)` is the application
+  boundary used by the shell. Qt never queries `thermal_frames` directly.
+- The Import workspace presents pass/review/reject counts separately from missing
+  metadata counts and omits the verification section when no provider result is
+  available.
+- Opening a project and completing an import rebuild the workspace from the
+  persisted verification provider, so transient `WorkflowAttempt` feedback
+  cannot replace or override stored evidence.
+- This checkpoint does not define re-import invalidation semantics. Any future
+  invalidation behavior requires its own backend/domain contract before GUI
+  integration.
