@@ -182,6 +182,16 @@ class ComputeJobService:
         self.store.replace(transitioned)
         return transitioned
 
+    def finish(self, job_id: str, *, succeeded: bool) -> ComputeJob:
+        """Persist a terminal worker outcome for an already-running job."""
+        current = self.store.get(job_id)
+        if current.status is not ComputeJobStatus.RUNNING:
+            raise ValueError("only a running compute job can be finished")
+        status = ComputeJobStatus.COMPLETED if succeeded else ComputeJobStatus.FAILED
+        transitioned = transition_job(current, status)
+        self.store.replace(transitioned)
+        return transitioned
+
     @staticmethod
     def _require_owner(job: ComputeJob, *, user_id: str, project_id: str) -> None:
         if job.user_id != user_id or job.project_id != project_id:
