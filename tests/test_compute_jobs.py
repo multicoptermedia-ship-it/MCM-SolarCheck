@@ -186,8 +186,8 @@ def test_compute_job_service_owns_persistence_and_transition_boundary() -> None:
         user_id="user-a",
         project_id="project-a",
     )
-    running = service.transition(created.job_id, ComputeJobStatus.RUNNING)
-    completed = service.transition(running.job_id, ComputeJobStatus.COMPLETED)
+    running = service.transition(created.job_id, ComputeJobStatus.RUNNING, user_id="user-a", project_id="project-a")
+    completed = service.transition(running.job_id, ComputeJobStatus.COMPLETED, user_id="user-a", project_id="project-a")
 
     assert store.get("job-a") == completed
     assert completed.status is ComputeJobStatus.COMPLETED
@@ -206,6 +206,51 @@ def test_compute_job_service_rejects_invalid_transition_without_persisting() -> 
     )
 
     with pytest.raises(ValueError, match="invalid compute job transition"):
-        service.transition(created.job_id, ComputeJobStatus.COMPLETED)
+        service.transition(created.job_id, ComputeJobStatus.COMPLETED, user_id="user-a", project_id="project-a")
+
+    assert store.get("job-a") == created
+
+
+
+@pytest.mark.parametrize(
+    ("user_id", "project_id"),
+    (
+        ("user-b", "project-a"),
+        ("user-a", "project-b"),
+        ("user-b", "project-b"),
+    ),
+)
+def test_compute_job_service_denies_cross_tenant_or_project_reads(
+    user_id: str,
+    project_id: str,
+) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store)
+    service.create(job_id="job-a", user_id="user-a", project_id="project-a")
+
+    with pytest.raises(PermissionError, match="access denied"):
+        service.get("job-a", user_id=user_id, project_id=project_id)
+
+
+def test_compute_job_service_denies_cross_tenant_transition_without_persisting() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+
+    store = _InMemoryComputeJobStore()
+    service = ComputeJobService(store)
+    created = service.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    with pytest.raises(PermissionError, match="access denied"):
+        service.transition(
+            "job-a",
+            ComputeJobStatus.RUNNING,
+            user_id="user-b",
+            project_id="project-a",
+        )
 
     assert store.get("job-a") == created
