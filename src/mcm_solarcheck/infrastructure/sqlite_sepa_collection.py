@@ -28,6 +28,26 @@ class SQLiteSepaCollectionStore:
                 )
                 """
             )
+            duplicate = connection.execute(
+                """
+                SELECT provider_id, provider_reference
+                FROM sepa_collections
+                GROUP BY provider_id, provider_reference
+                HAVING COUNT(*) > 1
+                LIMIT 1
+                """
+            ).fetchone()
+            if duplicate is not None:
+                raise ValueError(
+                    "legacy SEPA collections contain duplicate provider reference"
+                )
+            connection.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS
+                    ux_sepa_collections_provider_reference
+                ON sepa_collections (provider_id, provider_reference)
+                """
+            )
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.database)
