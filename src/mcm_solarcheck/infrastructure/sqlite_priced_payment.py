@@ -54,6 +54,16 @@ class SQLitePricedPaymentStore:
                 discount_percent=discount_percent,
                 now=now,
             )
+            existing_job = connection.execute(
+                """
+                SELECT payment_id
+                FROM online_payments
+                WHERE job_id = ?
+                """,
+                (payment.job_id,),
+            ).fetchone()
+            if existing_job is not None:
+                raise ValueError("compute job already has a payment")
             connection.execute(
                 """
                 INSERT INTO online_payments (
