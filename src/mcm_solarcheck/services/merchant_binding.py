@@ -43,4 +43,5 @@ class MerchantAccountBindingService:
             payment,
             merchant_account_id=account.account_id,
             merchant_account_version=account.version,
+            provider_id=account.provider_id,
         )
