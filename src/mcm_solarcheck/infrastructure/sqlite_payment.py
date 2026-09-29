@@ -10,6 +10,7 @@ from mcm_solarcheck.services.payment import (
     PaymentAmount,
     PaymentStatus,
 )
+from mcm_solarcheck.services.payment_methods import PaymentMethod
 
 
 class SQLiteOnlinePaymentStore:
@@ -26,10 +27,19 @@ class SQLiteOnlinePaymentStore:
                     amount_minor_units INTEGER,
                     currency TEXT,
                     status TEXT NOT NULL,
-                    provider_reference TEXT
+                    provider_reference TEXT,
+                    method TEXT
                 )
                 """
             )
+            columns = {
+                row[1]
+                for row in connection.execute("PRAGMA table_info(online_payments)")
+            }
+            if "method" not in columns:
+                connection.execute(
+                    "ALTER TABLE online_payments ADD COLUMN method TEXT"
+                )
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.database)
@@ -40,8 +50,8 @@ class SQLiteOnlinePaymentStore:
                 """
                 INSERT INTO online_payments (
                     payment_id, user_id, project_id, job_id,
-                    amount_minor_units, currency, status, provider_reference
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    amount_minor_units, currency, status, provider_reference, method
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payment.payment_id,
@@ -52,6 +62,7 @@ class SQLiteOnlinePaymentStore:
                     payment.amount.currency if payment.amount else None,
                     payment.status.value,
                     payment.provider_reference,
+                    payment.method.value if payment.method else None,
                 ),
             )
 
@@ -60,7 +71,7 @@ class SQLiteOnlinePaymentStore:
             row = connection.execute(
                 """
                 SELECT user_id, project_id, job_id, amount_minor_units,
-                       currency, status, provider_reference
+                       currency, status, provider_reference, method
                 FROM online_payments
                 WHERE payment_id = ?
                 """,
@@ -76,6 +87,7 @@ class SQLiteOnlinePaymentStore:
             PaymentAmount(row[3], row[4]) if row[3] is not None else None,
             PaymentStatus(row[5]),
             row[6],
+            PaymentMethod(row[7]) if row[7] is not None else None,
         )
 
     def authorize(
@@ -131,6 +143,7 @@ class SQLiteOnlinePaymentStore:
                 PaymentAmount(row[3], row[4]) if row[3] is not None else None,
                 PaymentStatus(row[5]),
                 row[6],
+                PaymentMethod(row[7]) if row[7] is not None else None,
             )
             updated = transition(current)
             connection.execute(
