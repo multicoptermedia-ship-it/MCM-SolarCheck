@@ -142,6 +142,39 @@ class SQLiteFlightPlanVoucherPolicyStore:
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.database, timeout=30)
 
+    def bootstrap_default(self) -> FlightPlanVoucherPolicy:
+        """Create the initial 10% policy exactly once for legacy databases."""
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT version, discount_percent, active
+                FROM flightplan_voucher_policy
+                ORDER BY version DESC
+                LIMIT 1
+                """
+            ).fetchone()
+            if row is not None:
+                connection.commit()
+                return FlightPlanVoucherPolicy(row[1], row[0], bool(row[2]))
+            policy = FlightPlanVoucherPolicy()
+            connection.execute(
+                """
+                INSERT INTO flightplan_voucher_policy (
+                    version, discount_percent, active
+                ) VALUES (?, ?, ?)
+                """,
+                (policy.version, policy.discount_percent, int(policy.active)),
+            )
+            connection.commit()
+            return policy
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def save(self, policy: FlightPlanVoucherPolicy) -> None:
         connection = self._connect()
         try:
