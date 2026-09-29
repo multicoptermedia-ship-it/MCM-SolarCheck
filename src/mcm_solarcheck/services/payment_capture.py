@@ -75,3 +75,5 @@ class PaymentCaptureService:
             if self._operation_intents is not None:
                 self._operation_intents.mark_completed(payment_id)
             return updated
+
+        return self._payments.capture(payment_id, user_id, project_id)
