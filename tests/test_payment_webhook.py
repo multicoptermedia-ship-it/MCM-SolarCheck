@@ -1,5 +1,8 @@
 import pytest
 
+from mcm_solarcheck.infrastructure.sqlite_payment_webhook import (
+    SQLitePaymentWebhookReplayStore,
+)
 from mcm_solarcheck.infrastructure.sqlite_sepa_collection import (
     SQLiteSepaCollectionStore,
 )
@@ -31,6 +34,7 @@ class RecordingVerifier:
             self.provider_id,
             "provider-debit-a",
             SepaCollectionStatus.SUCCEEDED,
+            "event-a",
         )
 
 
@@ -101,3 +105,57 @@ def test_verifier_cannot_switch_provider_identity(tmp_path) -> None:
         service.handle(request())
 
     assert store.get("collection-a").status is SepaCollectionStatus.SUBMITTED
+
+
+def test_authenticated_webhook_replay_is_processed_once(tmp_path) -> None:
+    verifier = RecordingVerifier()
+    store, _ = setup_service(tmp_path, verifier)
+    replay = SQLitePaymentWebhookReplayStore(tmp_path / "replay.sqlite")
+    service = PaymentWebhookService(
+        {"provider-a": verifier},
+        SepaReconciliationService(store),
+        replay,
+    )
+
+    first = service.handle(request())
+    second = service.handle(request())
+
+    assert first == second
+    assert replay.is_processed("provider-a", "event-a")
+    assert store.get("collection-a").status is SepaCollectionStatus.SUCCEEDED
+
+
+class FailOnceReconciliation:
+    def __init__(self, delegate) -> None:
+        self.delegate = delegate
+        self.failed = False
+
+    def apply(self, event):
+        if not self.failed:
+            self.failed = True
+            raise RuntimeError("temporary reconciliation failure")
+        return self.delegate.apply(event)
+
+    def resolve(self, provider_id, provider_reference):
+        return self.delegate.resolve(provider_id, provider_reference)
+
+
+def test_failed_webhook_processing_can_be_retried(tmp_path) -> None:
+    verifier = RecordingVerifier()
+    store, _ = setup_service(tmp_path, verifier)
+    replay = SQLitePaymentWebhookReplayStore(tmp_path / "replay.sqlite")
+    reconciliation = FailOnceReconciliation(SepaReconciliationService(store))
+    service = PaymentWebhookService(
+        {"provider-a": verifier},
+        reconciliation,
+        replay,
+    )
+
+    with pytest.raises(RuntimeError, match="temporary"):
+        service.handle(request())
+
+    assert not replay.is_processed("provider-a", "event-a")
+
+    result = service.handle(request())
+    assert result.status is SepaCollectionStatus.SUCCEEDED
+    assert replay.is_processed("provider-a", "event-a")
