@@ -79,7 +79,8 @@ def test_later_policy_change_does_not_reprice_existing_payment(tmp_path) -> None
         now=now,
     )
 
-    assert FlightPlanVoucherPolicy(12).discount_percent == 12
+    with pytest.raises(ValueError, match="must be 10 percent"):
+        FlightPlanVoucherPolicy(12)
     assert payments.get("payment-a").amount == PaymentAmount(45000, "EUR")
 
 
@@ -118,7 +119,7 @@ def test_full_discount_persists_settled_payment_without_provider_amount(tmp_path
     service = PaymentPricingService(
         payments,
         vouchers,
-        FlightPlanVoucherPolicy(100),
+        FlightPlanVoucherPolicy(10),
         SQLitePricedPaymentStore(payments.database, vouchers.database),
     )
 
@@ -127,7 +128,7 @@ def test_full_discount_persists_settled_payment_without_provider_amount(tmp_path
         user_id="user-a",
         project_id="project-a",
         job_id="job-a",
-        base_amount=PaymentAmount(50000, "EUR"),
+        base_amount=PaymentAmount(0, "EUR"),
         voucher_code="FLIGHTPLAN-FULL",
         now=now,
     )
