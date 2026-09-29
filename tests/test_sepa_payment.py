@@ -44,7 +44,8 @@ def test_sepa_submission_requires_active_matching_mandate(tmp_path) -> None:
     payments, mandates = setup_payment(tmp_path)
     gateway = RecordingSepaGateway()
     service = SepaPaymentService(
-        payments, mandates, gateway, "provider-a"
+        payments, mandates, gateway, "provider-a",
+        billing=MemoryBillingStore(delivery_billing(released=True)),
     )
 
     with pytest.raises(ValueError, match="active mandate"):
@@ -79,7 +80,8 @@ def test_sepa_submission_rejects_cross_user_mandate(tmp_path) -> None:
 
     with pytest.raises(PermissionError, match="mandate ownership"):
         SepaPaymentService(
-            payments, mandates, gateway, "provider-a"
+            payments, mandates, gateway, "provider-a",
+            billing=MemoryBillingStore(delivery_billing(released=True)),
         ).submit(
             "payment-a",
             "mandate-b",
@@ -101,6 +103,7 @@ def test_successful_sepa_submission_is_persisted_as_submitted(tmp_path) -> None:
         gateway,
         "provider-a",
         collections,
+        billing=MemoryBillingStore(delivery_billing(released=True)),
     )
 
     service.submit(
@@ -125,14 +128,20 @@ class MemoryBillingStore:
         return self.billing
 
 
-def delivery_billing(*, released, project_id="project-a"):
+def delivery_billing(
+    *,
+    released,
+    project_id="project-a",
+    export_completed=True,
+    report_retrieved=True,
+):
     return ComputeJobBilling(
         ComputeJobDelivery(
             "job-a",
             "user-a",
             project_id,
-            export_completed=True,
-            report_retrieved=True,
+            export_completed=export_completed,
+            report_retrieved=report_retrieved,
         ),
         billing_released=released,
     )
@@ -207,3 +216,43 @@ def test_sepa_submission_runs_after_billing_release(tmp_path) -> None:
 
     assert reference == "provider-debit-a"
     assert len(gateway.calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("export_completed", "report_retrieved"),
+    [
+        (True, False),
+        (False, True),
+    ],
+)
+def test_sepa_submission_requires_both_delivery_events(
+    tmp_path,
+    export_completed,
+    report_retrieved,
+) -> None:
+    payments, mandates = setup_payment(tmp_path)
+    mandates.activate("mandate-a", "user-a", "provider-mandate-a")
+    gateway = RecordingSepaGateway()
+    service = SepaPaymentService(
+        payments,
+        mandates,
+        gateway,
+        "provider-a",
+        billing=MemoryBillingStore(
+            delivery_billing(
+                released=False,
+                export_completed=export_completed,
+                report_retrieved=report_retrieved,
+            )
+        ),
+    )
+
+    with pytest.raises(ValueError, match="export and report retrieval"):
+        service.submit(
+            "payment-a",
+            "mandate-a",
+            user_id="user-a",
+            project_id="project-a",
+        )
+
+    assert gateway.calls == []
