@@ -5,6 +5,11 @@ from __future__ import annotations
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
 from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
 from mcm_solarcheck.services.payment_gateway import PaymentGateway, payment_idempotency_key
+from mcm_solarcheck.services.payment_operation import (
+    PaymentOperation,
+    PaymentOperationIntent,
+    PaymentOperationIntentStore,
+)
 
 
 class PaymentCaptureService:
@@ -15,10 +20,16 @@ class PaymentCaptureService:
         payment_store: OnlinePaymentStore,
         billing_store: ComputeJobBillingStore,
         gateway: PaymentGateway | None = None,
+        operation_intents: PaymentOperationIntentStore | None = None,
     ) -> None:
         self._payments = payment_store
         self._billing = billing_store
         self._gateway = gateway
+        self._operation_intents = operation_intents
+        if gateway is not None and operation_intents is None:
+            raise ValueError(
+                "provider capture requires persistent operation intents"
+            )
 
     def capture(
         self,
@@ -49,6 +60,9 @@ class PaymentCaptureService:
         if self._gateway is not None:
             if payment.provider_reference is None:
                 raise ValueError("authorized payment requires provider reference")
+            self._operation_intents.reserve(
+                PaymentOperationIntent(payment_id, PaymentOperation.CAPTURE)
+            )
             self._gateway.capture(
                 payment.provider_reference,
                 idempotency_key=payment_idempotency_key(payment_id, "capture"),
