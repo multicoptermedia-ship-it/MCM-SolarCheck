@@ -68,9 +68,15 @@ class MerchantProviderAdapter:
         idempotency_key: str,
     ) -> str | None:
         credential = self._credentials.resolve(account)
-        return self._client.call(
+        result = self._client.call(
             credential=credential,
             operation=operation,
             payload=payload,
             idempotency_key=idempotency_key,
         )
+        if result is not None:
+            if not isinstance(result, str) or not result.strip():
+                raise ValueError("provider reference must be non-empty")
+            if result == credential.value:
+                raise ValueError("provider reference must not expose credential material")
+        return result
