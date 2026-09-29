@@ -123,3 +123,68 @@ def test_void_retry_after_local_crash_does_not_call_provider_twice(tmp_path) -> 
     assert voided.status is PaymentStatus.VOIDED
     assert len(gateway.voids) == 1
     assert intents.get("payment-a").status is PaymentOperationStatus.COMPLETED
+
+
+class FailOnceCompletionStore:
+    def __init__(self, delegate):
+        self.delegate = delegate
+        self.failed = False
+
+    def reserve(self, intent):
+        return self.delegate.reserve(intent)
+
+    def get(self, payment_id):
+        return self.delegate.get(payment_id)
+
+    def mark_provider_succeeded(self, payment_id):
+        return self.delegate.mark_provider_succeeded(payment_id)
+
+    def mark_completed(self, payment_id):
+        if not self.failed:
+            self.failed = True
+            raise RuntimeError("simulated crash before intent completion")
+        return self.delegate.mark_completed(payment_id)
+
+
+def test_capture_retry_completes_intent_after_local_capture_crash_window(tmp_path) -> None:
+    payments = authorized_payment_store(tmp_path)
+    durable_intents = SQLitePaymentOperationIntentStore(tmp_path / "operations.sqlite")
+    intents = FailOnceCompletionStore(durable_intents)
+    gateway = RecordingGateway()
+    service = PaymentCaptureService(payments, BillingStore(), gateway, intents)
+
+    with pytest.raises(RuntimeError, match="intent completion"):
+        service.capture("payment-a", user_id="user-a", project_id="project-a")
+
+    assert payments.get("payment-a").status is PaymentStatus.CAPTURED
+    assert durable_intents.get("payment-a").status is PaymentOperationStatus.PROVIDER_SUCCEEDED
+
+    recovered = PaymentCaptureService(
+        payments, BillingStore(), gateway, durable_intents
+    ).capture("payment-a", user_id="user-a", project_id="project-a")
+
+    assert recovered.status is PaymentStatus.CAPTURED
+    assert len(gateway.captures) == 1
+    assert durable_intents.get("payment-a").status is PaymentOperationStatus.COMPLETED
+
+
+def test_void_retry_completes_intent_after_local_void_crash_window(tmp_path) -> None:
+    payments = authorized_payment_store(tmp_path)
+    durable_intents = SQLitePaymentOperationIntentStore(tmp_path / "operations.sqlite")
+    intents = FailOnceCompletionStore(durable_intents)
+    gateway = RecordingGateway()
+    service = PaymentVoidService(payments, gateway, intents)
+
+    with pytest.raises(RuntimeError, match="intent completion"):
+        service.void("payment-a", user_id="user-a", project_id="project-a")
+
+    assert payments.get("payment-a").status is PaymentStatus.VOIDED
+    assert durable_intents.get("payment-a").status is PaymentOperationStatus.PROVIDER_SUCCEEDED
+
+    recovered = PaymentVoidService(
+        payments, gateway, durable_intents
+    ).void("payment-a", user_id="user-a", project_id="project-a")
+
+    assert recovered.status is PaymentStatus.VOIDED
+    assert len(gateway.voids) == 1
+    assert durable_intents.get("payment-a").status is PaymentOperationStatus.COMPLETED
