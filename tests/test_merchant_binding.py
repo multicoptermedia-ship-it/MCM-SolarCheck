@@ -38,7 +38,9 @@ def test_new_payments_bind_current_account_version(tmp_path) -> None:
     )
 
     assert bound.merchant_account_id == "paypal-main"
+    assert bound.provider_id == "provider-a"
     assert bound.merchant_account_version == 2
+    assert bound.provider_id == "paypal"
     assert payment.merchant_account_id is None
 
 
