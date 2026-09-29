@@ -9,6 +9,7 @@ from mcm_solarcheck.services.payment import (
     PaymentAmount,
     PaymentStatus,
 )
+from mcm_solarcheck.services.payment_methods import PaymentMethod
 
 
 def payment() -> OnlinePayment:
@@ -91,3 +92,30 @@ def test_concurrent_capture_and_void_have_one_terminal_winner(tmp_path) -> None:
         PaymentStatus.CAPTURED,
         PaymentStatus.VOIDED,
     }
+
+
+def test_selected_payment_method_persists_across_lifecycle(tmp_path) -> None:
+    database = tmp_path / "payment-method.sqlite"
+    store = SQLiteOnlinePaymentStore(database)
+    selected = OnlinePayment(
+        "payment-method",
+        "user-a",
+        "project-a",
+        "job-a",
+        PaymentAmount(12900, "EUR"),
+        method=PaymentMethod.CARD,
+    )
+    store.create(selected)
+
+    authorized = store.authorize(
+        "payment-method", "user-a", "project-a", "provider-auth-method"
+    )
+    assert authorized.method is PaymentMethod.CARD
+
+    captured = store.capture(
+        "payment-method", "user-a", "project-a"
+    )
+    assert captured.method is PaymentMethod.CARD
+    assert SQLiteOnlinePaymentStore(database).get(
+        "payment-method"
+    ).method is PaymentMethod.CARD
