@@ -130,3 +130,44 @@ def test_authorization_rejects_provider_that_does_not_support_method(tmp_path) -
 
     assert authorized.status is PaymentStatus.AUTHORIZED
     assert len(gateway.authorized) == 1
+
+
+def test_authorization_cannot_switch_bound_payment_provider(tmp_path) -> None:
+    store = SQLiteOnlinePaymentStore(tmp_path / "payment-bound-provider.sqlite")
+    store.create(
+        OnlinePayment(
+            "payment-bound",
+            "user-a",
+            "project-a",
+            "job-bound",
+            PaymentAmount(45000, "EUR"),
+            method=PaymentMethod.PAYPAL,
+            provider_id="paypal-a",
+        )
+    )
+    gateway = RecordingGateway()
+    routing = PaymentProviderRoutingService(
+        PaymentProviderRegistry(
+            (
+                PaymentProviderCapabilities(
+                    "paypal-a",
+                    frozenset({PaymentMethod.PAYPAL}),
+                ),
+                PaymentProviderCapabilities(
+                    "paypal-b",
+                    frozenset({PaymentMethod.PAYPAL}),
+                ),
+            )
+        )
+    )
+    service = PaymentAuthorizationService(
+        store, gateway, routing, "paypal-b"
+    )
+
+    with pytest.raises(ValueError, match="provider snapshot mismatch"):
+        service.authorize(
+            "payment-bound", user_id="user-a", project_id="project-a"
+        )
+
+    assert gateway.authorized == []
+    assert store.get("payment-bound").status is PaymentStatus.CREATED
