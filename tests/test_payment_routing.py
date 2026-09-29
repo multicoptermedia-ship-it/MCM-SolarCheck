@@ -60,3 +60,26 @@ def test_sepa_uses_distinct_processing_flow() -> None:
             payment(PaymentMethod.SEPA_DIRECT_DEBIT),
             "provider-sepa",
         )
+
+
+def test_bound_payment_cannot_be_routed_to_different_provider() -> None:
+    bound = OnlinePayment(
+        "payment-bound",
+        "user-a",
+        "project-a",
+        "job-a",
+        PaymentAmount(12900, "EUR"),
+        method=PaymentMethod.PAYPAL,
+        provider_id="provider-paypal",
+    )
+
+    routing().require_provider(bound, "provider-paypal")
+
+    with pytest.raises(ValueError, match="provider snapshot mismatch"):
+        routing().require_provider(bound, "provider-card")
+
+
+@pytest.mark.parametrize("provider_id", ["", "   ", None, 123])
+def test_provider_lookup_rejects_invalid_identity(provider_id) -> None:
+    with pytest.raises(ValueError, match="provider_id"):
+        routing().require_provider(payment(PaymentMethod.CARD), provider_id)
