@@ -35,6 +35,15 @@ class OnlineRegistrationStore(Protocol):
     def verify(self, token: str, *, now: datetime) -> OnlineRegistration:
         ...
 
+    def get(self, user_id: str) -> OnlineRegistration:
+        ...
+
+    def pending_notification_user_ids(self) -> list[str]:
+        ...
+
+    def mark_notification_sent(self, user_id: str, *, now: datetime) -> None:
+        ...
+
 
 class OnlineRegistrationService:
     """Coordinate registration, verification, notification and entitlement."""
@@ -100,5 +109,14 @@ class OnlineRegistrationService:
             OnlineEntitlement(registration.user_id, product),
             registration,
         )
-        self._notifications.notify_verified(registration)
         return entitlement
+
+    def deliver_pending_notifications(self, *, now: datetime) -> int:
+        """Deliver persisted audit notifications without changing verification."""
+        delivered = 0
+        for user_id in self._store.pending_notification_user_ids():
+            registration = self._store.get(user_id)
+            self._notifications.notify_verified(registration)
+            self._store.mark_notification_sent(user_id, now=now)
+            delivered += 1
+        return delivered
