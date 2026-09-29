@@ -7,10 +7,13 @@ from mcm_solarcheck.services.merchant_account import (
     MerchantAccount,
     MerchantAccountKind,
 )
+from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
+from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.provider_credentials import (
     MerchantProviderAdapter,
     ProviderCredential,
     ProviderCredentialResolver,
+    PaymentBoundProviderAdapter,
 )
 
 
@@ -104,3 +107,93 @@ def test_provider_adapter_rejects_credential_as_provider_reference() -> None:
             payload={"amount": 12900},
             idempotency_key="payment:payment-a:authorize",
         )
+
+
+class MerchantHistory:
+    def __init__(self, accounts):
+        self.accounts = {
+            (account.account_id, account.version): account
+            for account in accounts
+        }
+        self.requests = []
+
+    def get(self, account_id, version):
+        self.requests.append((account_id, version))
+        return self.accounts[(account_id, version)]
+
+
+def bound_payment(*, version=1, provider_id="provider-a") -> OnlinePayment:
+    return OnlinePayment(
+        "payment-bound",
+        "user-a",
+        "project-a",
+        "job-bound",
+        PaymentAmount(12900, "EUR"),
+        method=PaymentMethod.PAYPAL,
+        merchant_account_id="paypal-main",
+        merchant_account_version=version,
+        provider_id=provider_id,
+    )
+
+
+def test_payment_bound_adapter_uses_historical_account_version() -> None:
+    old = merchant()
+    current = old.supersede(
+        display_reference="new-masked-reference",
+        credential_key="env:PAYPAL_NEW",
+    )
+    history = MerchantHistory([old, current])
+    client = RecordingProviderClient()
+    adapter = PaymentBoundProviderAdapter(
+        history,
+        MerchantProviderAdapter(
+            ProviderCredentialResolver(
+                EnvironmentSecretResolver(
+                    {
+                        "PAYPAL_MAIN": "old-runtime-secret",
+                        "PAYPAL_NEW": "new-runtime-secret",
+                    }
+                )
+            ),
+            client,
+        ),
+    )
+
+    adapter.call(
+        bound_payment(version=1),
+        provider_id="provider-a",
+        operation="capture",
+        payload={"provider_reference": "provider-auth-a"},
+        idempotency_key="payment:payment-bound:capture",
+    )
+
+    assert history.requests == [("paypal-main", 1)]
+    assert client.calls[0][0].value == "old-runtime-secret"
+
+
+def test_payment_bound_adapter_rejects_provider_switch_before_secret_resolution() -> None:
+    history = MerchantHistory([merchant()])
+    client = RecordingProviderClient()
+    adapter = PaymentBoundProviderAdapter(
+        history,
+        MerchantProviderAdapter(
+            ProviderCredentialResolver(
+                EnvironmentSecretResolver(
+                    {"PAYPAL_MAIN": "super-secret-runtime-value"}
+                )
+            ),
+            client,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="provider snapshot mismatch"):
+        adapter.call(
+            bound_payment(),
+            provider_id="provider-b",
+            operation="authorize",
+            payload={"amount": 12900},
+            idempotency_key="payment:payment-bound:authorize",
+        )
+
+    assert history.requests == []
+    assert client.calls == []
