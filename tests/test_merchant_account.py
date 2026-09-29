@@ -81,3 +81,47 @@ def test_activation_transitions_reject_redundant_state() -> None:
     inactive = active.deactivate()
     with pytest.raises(ValueError, match="already inactive"):
         inactive.deactivate()
+
+
+@pytest.mark.parametrize(
+    "credential_key",
+    [
+        "plain-api-key",
+        "password123",
+        "env:",
+        "secret:",
+        "   ",
+    ],
+)
+def test_merchant_account_rejects_credential_material_or_invalid_reference(
+    credential_key,
+) -> None:
+    with pytest.raises(ValueError, match="credential_key"):
+        MerchantAccount(
+            "merchant-a",
+            "provider-a",
+            MerchantAccountKind.PAYPAL,
+            "masked-reference",
+            credential_key=credential_key,
+        )
+
+
+@pytest.mark.parametrize(
+    "credential_key",
+    [
+        "env:PAYPAL_MAIN",
+        "secret:payments/paypal/main",
+    ],
+)
+def test_merchant_account_accepts_explicit_secret_reference(
+    credential_key,
+) -> None:
+    account = MerchantAccount(
+        "merchant-a",
+        "provider-a",
+        MerchantAccountKind.PAYPAL,
+        "masked-reference",
+        credential_key=credential_key,
+    )
+
+    assert account.credential_key == credential_key
