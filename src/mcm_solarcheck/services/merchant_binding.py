@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Protocol
 
-from mcm_solarcheck.services.merchant_account import MerchantAccount
+from mcm_solarcheck.services.merchant_account import (
+    MerchantAccount,
+    MerchantAccountKind,
+)
+from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.payment import OnlinePayment
 
 
@@ -23,6 +27,16 @@ class MerchantAccountBindingService:
             raise ValueError("payment already has merchant account snapshot")
 
         account = self._accounts.current(account_id)
+        expected_kind = {
+            PaymentMethod.SEPA_DIRECT_DEBIT: MerchantAccountKind.BANK,
+            PaymentMethod.PAYPAL: MerchantAccountKind.PAYPAL,
+            PaymentMethod.CARD: MerchantAccountKind.CARD_PROCESSOR,
+        }.get(payment.method)
+        if expected_kind is None:
+            raise ValueError(\"payment method is required for merchant binding\")
+        if account.kind is not expected_kind:
+            raise ValueError(\"merchant account kind does not match payment method\")
+
         return replace(
             payment,
             merchant_account_id=account.account_id,
