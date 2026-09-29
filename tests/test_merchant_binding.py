@@ -99,3 +99,58 @@ def test_binding_requires_explicit_payment_method(tmp_path) -> None:
         MerchantAccountBindingService(accounts).bind(
             payment, "paypal-main"
         )
+
+
+def test_binding_rejects_account_from_other_routed_provider(tmp_path) -> None:
+    accounts = SQLiteMerchantAccountStore(tmp_path / "merchant.sqlite")
+    accounts.save(
+        MerchantAccount(
+            "paypal-main",
+            "provider-a",
+            MerchantAccountKind.PAYPAL,
+            "merchant@example.invalid",
+        )
+    )
+    payment = OnlinePayment(
+        "payment-a",
+        "user-a",
+        "project-a",
+        "job-a",
+        PaymentAmount(12900, "EUR"),
+        method=PaymentMethod.PAYPAL,
+    )
+
+    with pytest.raises(ValueError, match="provider mismatch"):
+        MerchantAccountBindingService(accounts).bind(
+            payment,
+            "paypal-main",
+            provider_id="provider-b",
+        )
+
+
+def test_binding_accepts_account_for_routed_provider(tmp_path) -> None:
+    accounts = SQLiteMerchantAccountStore(tmp_path / "merchant.sqlite")
+    accounts.save(
+        MerchantAccount(
+            "paypal-main",
+            "provider-a",
+            MerchantAccountKind.PAYPAL,
+            "merchant@example.invalid",
+        )
+    )
+    payment = OnlinePayment(
+        "payment-a",
+        "user-a",
+        "project-a",
+        "job-a",
+        PaymentAmount(12900, "EUR"),
+        method=PaymentMethod.PAYPAL,
+    )
+
+    bound = MerchantAccountBindingService(accounts).bind(
+        payment,
+        "paypal-main",
+        provider_id="provider-a",
+    )
+
+    assert bound.merchant_account_id == "paypal-main"
