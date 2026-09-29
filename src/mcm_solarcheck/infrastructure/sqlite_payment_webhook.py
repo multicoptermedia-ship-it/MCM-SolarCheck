@@ -3,23 +3,14 @@
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from enum import Enum
 from pathlib import Path
 from uuid import uuid4
 
-
-class WebhookReplayStatus(str, Enum):
-    ACQUIRED = "acquired"
-    PROCESSING = "processing"
-    PROCESSED = "processed"
-
-
-@dataclass(frozen=True)
-class WebhookReplayReservation:
-    status: WebhookReplayStatus
-    lease_token: str | None = None
+from mcm_solarcheck.services.payment_webhook import (
+    WebhookReplayReservation,
+    WebhookReplayStatus,
+)
 
 
 class SQLitePaymentWebhookReplayStore:
