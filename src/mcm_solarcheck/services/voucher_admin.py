@@ -16,12 +16,36 @@ class VoucherAdminStore(Protocol):
 
 @dataclass(frozen=True)
 class FlightPlanVoucherPolicy:
-    """Global discount policy controlled by SolarCheck administration."""
+    """Versioned global discount policy controlled by SolarCheck administration."""
 
     discount_percent: int = 10
+    version: int = 1
+    active: bool = True
 
     def __post_init__(self) -> None:
         _require_discount_percent(self.discount_percent)
+        if not isinstance(self.version, int) or isinstance(self.version, bool):
+            raise ValueError("version must be an integer")
+        if self.version <= 0:
+            raise ValueError("version must be positive")
+        if not isinstance(self.active, bool):
+            raise ValueError("active must be boolean")
+
+    def supersede(self, *, discount_percent: int) -> "FlightPlanVoucherPolicy":
+        return FlightPlanVoucherPolicy(
+            discount_percent,
+            self.version + 1,
+            True,
+        )
+
+    def deactivate(self) -> "FlightPlanVoucherPolicy":
+        if not self.active:
+            raise ValueError("voucher policy is already inactive")
+        return FlightPlanVoucherPolicy(
+            self.discount_percent,
+            self.version + 1,
+            False,
+        )
 
 
 class FlightPlanVoucherAdminService:
