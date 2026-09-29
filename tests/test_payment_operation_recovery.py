@@ -188,3 +188,72 @@ def test_void_retry_completes_intent_after_local_void_crash_window(tmp_path) -> 
     assert recovered.status is PaymentStatus.VOIDED
     assert len(gateway.voids) == 1
     assert durable_intents.get("payment-a").status is PaymentOperationStatus.COMPLETED
+
+
+class FailOnceProviderSuccessIntentStore:
+    def __init__(self, delegate):
+        self.delegate = delegate
+        self.failed = False
+
+    def reserve(self, intent):
+        return self.delegate.reserve(intent)
+
+    def get(self, payment_id):
+        return self.delegate.get(payment_id)
+
+    def mark_provider_succeeded(self, payment_id):
+        if not self.failed:
+            self.failed = True
+            raise RuntimeError("simulated crash before provider success persistence")
+        return self.delegate.mark_provider_succeeded(payment_id)
+
+    def mark_completed(self, payment_id):
+        return self.delegate.mark_completed(payment_id)
+
+
+def test_capture_retry_reuses_idempotency_key_when_provider_success_was_not_persisted(tmp_path) -> None:
+    payments = authorized_payment_store(tmp_path)
+    durable_intents = SQLitePaymentOperationIntentStore(tmp_path / "operations.sqlite")
+    intents = FailOnceProviderSuccessIntentStore(durable_intents)
+    gateway = RecordingGateway()
+    service = PaymentCaptureService(payments, BillingStore(), gateway, intents)
+
+    with pytest.raises(RuntimeError, match="provider success persistence"):
+        service.capture("payment-a", user_id="user-a", project_id="project-a")
+
+    assert payments.get("payment-a").status is PaymentStatus.AUTHORIZED
+    assert durable_intents.get("payment-a").status is PaymentOperationStatus.RESERVED
+
+    captured = PaymentCaptureService(
+        payments, BillingStore(), gateway, durable_intents
+    ).capture("payment-a", user_id="user-a", project_id="project-a")
+
+    assert captured.status is PaymentStatus.CAPTURED
+    assert len(gateway.captures) == 2
+    assert gateway.captures[0][1] == gateway.captures[1][1]
+    assert gateway.captures[0][1] == "payment:payment-a:capture"
+    assert durable_intents.get("payment-a").status is PaymentOperationStatus.COMPLETED
+
+
+def test_void_retry_reuses_idempotency_key_when_provider_success_was_not_persisted(tmp_path) -> None:
+    payments = authorized_payment_store(tmp_path)
+    durable_intents = SQLitePaymentOperationIntentStore(tmp_path / "operations.sqlite")
+    intents = FailOnceProviderSuccessIntentStore(durable_intents)
+    gateway = RecordingGateway()
+    service = PaymentVoidService(payments, gateway, intents)
+
+    with pytest.raises(RuntimeError, match="provider success persistence"):
+        service.void("payment-a", user_id="user-a", project_id="project-a")
+
+    assert payments.get("payment-a").status is PaymentStatus.AUTHORIZED
+    assert durable_intents.get("payment-a").status is PaymentOperationStatus.RESERVED
+
+    voided = PaymentVoidService(
+        payments, gateway, durable_intents
+    ).void("payment-a", user_id="user-a", project_id="project-a")
+
+    assert voided.status is PaymentStatus.VOIDED
+    assert len(gateway.voids) == 2
+    assert gateway.voids[0][1] == gateway.voids[1][1]
+    assert gateway.voids[0][1] == "payment:payment-a:void"
+    assert durable_intents.get("payment-a").status is PaymentOperationStatus.COMPLETED
