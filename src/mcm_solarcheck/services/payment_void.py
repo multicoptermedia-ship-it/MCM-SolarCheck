@@ -8,6 +8,7 @@ from mcm_solarcheck.services.payment_operation import (
     PaymentOperation,
     PaymentOperationIntent,
     PaymentOperationIntentStore,
+    PaymentOperationStatus,
 )
 
 
@@ -30,6 +31,20 @@ class PaymentVoidService:
         payment = self._payments.get(payment_id)
         if payment.user_id != user_id or payment.project_id != project_id:
             raise PermissionError("payment ownership mismatch")
+        if payment.status is PaymentStatus.VOIDED:
+            intent = self._operation_intents.get(payment_id)
+            if (
+                intent.operation is PaymentOperation.VOID
+                and intent.status is PaymentOperationStatus.PROVIDER_SUCCEEDED
+            ):
+                self._operation_intents.mark_completed(payment_id)
+                return payment
+            if (
+                intent.operation is PaymentOperation.VOID
+                and intent.status is PaymentOperationStatus.COMPLETED
+            ):
+                return payment
+            raise ValueError("voided payment has inconsistent operation intent")
         if payment.status is not PaymentStatus.AUTHORIZED:
             raise ValueError("payment void requires authorized state")
         if payment.provider_reference is None:
@@ -39,7 +54,7 @@ class PaymentVoidService:
         intent = self._operation_intents.reserve(
             PaymentOperationIntent(payment_id, PaymentOperation.VOID, key)
         )
-        if intent.status.value == "reserved":
+        if intent.status is PaymentOperationStatus.RESERVED:
             self._gateway.void(
                 payment.provider_reference,
                 idempotency_key=key,
