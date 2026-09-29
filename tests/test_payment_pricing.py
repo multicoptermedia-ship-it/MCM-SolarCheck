@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherStore
-from mcm_solarcheck.services.payment import PaymentAmount
+from mcm_solarcheck.services.payment import PaymentAmount, PaymentStatus
 from mcm_solarcheck.services.payment_pricing import PaymentPricingService
 from mcm_solarcheck.services.voucher import FlightPlanVoucher
 from mcm_solarcheck.services.voucher_admin import FlightPlanVoucherPolicy
@@ -89,3 +89,37 @@ def test_payment_without_voucher_keeps_full_amount(tmp_path) -> None:
 
     assert payment is not None
     assert payment.amount == PaymentAmount(50000, "EUR")
+
+
+def test_full_discount_persists_settled_payment_without_provider_amount(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-FULL",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
+        )
+    )
+    service = PaymentPricingService(
+        payments, vouchers, FlightPlanVoucherPolicy(100)
+    )
+
+    payment = service.create_payment(
+        "payment-free",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-a",
+        base_amount=PaymentAmount(50000, "EUR"),
+        voucher_code="FLIGHTPLAN-FULL",
+        now=now,
+    )
+
+    assert payment.status is PaymentStatus.SETTLED
+    assert payment.amount is None
+    assert payment.provider_reference is None
+    assert payments.get("payment-free") == payment
+    assert (
+        vouchers.get("FLIGHTPLAN-FULL").redeemed_payment_id == "payment-free"
+    )
