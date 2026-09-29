@@ -23,8 +23,8 @@ class SQLiteOnlinePaymentStore:
                     user_id TEXT NOT NULL,
                     project_id TEXT NOT NULL,
                     job_id TEXT NOT NULL,
-                    amount_minor_units INTEGER NOT NULL,
-                    currency TEXT NOT NULL,
+                    amount_minor_units INTEGER,
+                    currency TEXT,
                     status TEXT NOT NULL,
                     provider_reference TEXT
                 )
@@ -48,8 +48,8 @@ class SQLiteOnlinePaymentStore:
                     payment.user_id,
                     payment.project_id,
                     payment.job_id,
-                    payment.amount.minor_units,
-                    payment.amount.currency,
+                    payment.amount.minor_units if payment.amount else None,
+                    payment.amount.currency if payment.amount else None,
                     payment.status.value,
                     payment.provider_reference,
                 ),
@@ -73,7 +73,7 @@ class SQLiteOnlinePaymentStore:
             row[0],
             row[1],
             row[2],
-            PaymentAmount(row[3], row[4]),
+            PaymentAmount(row[3], row[4]) if row[3] is not None else None,
             PaymentStatus(row[5]),
             row[6],
         )
@@ -128,7 +128,7 @@ class SQLiteOnlinePaymentStore:
                 row[0],
                 row[1],
                 row[2],
-                PaymentAmount(row[3], row[4]),
+                PaymentAmount(row[3], row[4]) if row[3] is not None else None,
                 PaymentStatus(row[5]),
                 row[6],
             )
