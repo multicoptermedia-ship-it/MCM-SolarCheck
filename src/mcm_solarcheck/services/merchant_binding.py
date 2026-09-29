@@ -35,9 +35,9 @@ class MerchantAccountBindingService:
             PaymentMethod.CARD: MerchantAccountKind.CARD_PROCESSOR,
         }.get(payment.method)
         if expected_kind is None:
-            raise ValueError(\"payment method is required for merchant binding\")
+            raise ValueError("payment method is required for merchant binding")
         if account.kind is not expected_kind:
-            raise ValueError(\"merchant account kind does not match payment method\")
+            raise ValueError("merchant account kind does not match payment method")
 
         return replace(
             payment,
