@@ -52,6 +52,28 @@ class SQLiteSepaCollectionStore:
                 ),
             )
 
+    def get_by_provider_reference(
+        self, provider_id: str, provider_reference: str
+    ) -> SepaCollection:
+        with self._connect() as connection:
+            rows = connection.execute(
+                \"\"\"
+                SELECT collection_id, payment_id, user_id, project_id, status
+                FROM sepa_collections
+                WHERE provider_id = ? AND provider_reference = ?
+                \"\"\",
+                (provider_id, provider_reference),
+            ).fetchall()
+        if not rows:
+            raise KeyError((provider_id, provider_reference))
+        if len(rows) != 1:
+            raise ValueError(\"ambiguous SEPA provider reference\")
+        row = rows[0]
+        return SepaCollection(
+            row[0], row[1], row[2], row[3], provider_id,
+            provider_reference, SepaCollectionStatus(row[4]),
+        )
+
     def get(self, collection_id: str) -> SepaCollection:
         with self._connect() as connection:
             row = connection.execute(
