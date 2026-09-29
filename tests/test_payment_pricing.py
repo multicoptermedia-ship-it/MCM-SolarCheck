@@ -105,42 +105,9 @@ def test_payment_without_voucher_keeps_full_amount(tmp_path) -> None:
     assert payment.amount == PaymentAmount(50000, "EUR")
 
 
-def test_full_discount_persists_settled_payment_without_provider_amount(tmp_path) -> None:
-    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
-    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
-    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
-    vouchers.create(
-        FlightPlanVoucher(
-            "FLIGHTPLAN-FULL",
-            now - timedelta(days=1),
-            now + timedelta(days=30),
-        )
-    )
-    service = PaymentPricingService(
-        payments,
-        vouchers,
-        FlightPlanVoucherPolicy(10),
-        SQLitePricedPaymentStore(payments.database, vouchers.database),
-    )
-
-    payment = service.create_payment(
-        "payment-free",
-        user_id="user-a",
-        project_id="project-a",
-        job_id="job-a",
-        base_amount=PaymentAmount(0, "EUR"),
-        voucher_code="FLIGHTPLAN-FULL",
-        now=now,
-    )
-
-    assert payment.status is PaymentStatus.SETTLED
-    assert payment.amount is None
-    assert payment.provider_reference is None
-    assert payments.get("payment-free") == payment
-    assert (
-        vouchers.get("FLIGHTPLAN-FULL").redeemed_payment_id == "payment-free"
-    )
-
+def test_flightplan_policy_cannot_be_configured_as_full_discount() -> None:
+    with pytest.raises(ValueError, match="must be 10 percent"):
+        FlightPlanVoucherPolicy(100)
 
 def test_failed_payment_insert_does_not_consume_voucher(tmp_path) -> None:
     payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
