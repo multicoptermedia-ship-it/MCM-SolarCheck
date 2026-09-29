@@ -150,3 +150,41 @@ def test_merchant_account_snapshot_survives_account_change(tmp_path) -> None:
 
     assert store.get("payment-account-a").merchant_account_version == 1
     assert store.get("payment-account-b").merchant_account_version == 2
+
+
+def test_provider_snapshot_persists_across_payment_lifecycle(tmp_path) -> None:
+    database = tmp_path / "payment-provider.sqlite"
+    store = SQLiteOnlinePaymentStore(database)
+    payment = OnlinePayment(
+        "payment-provider",
+        "user-a",
+        "project-a",
+        "job-a",
+        PaymentAmount(12900, "EUR"),
+        method=PaymentMethod.PAYPAL,
+        merchant_account_id="paypal-main",
+        merchant_account_version=3,
+        provider_id="provider-a",
+    )
+    store.create(payment)
+
+    loaded = SQLiteOnlinePaymentStore(database).get("payment-provider")
+    assert loaded.provider_id == "provider-a"
+    assert loaded.merchant_account_id == "paypal-main"
+    assert loaded.merchant_account_version == 3
+
+    authorized = store.authorize(
+        "payment-provider",
+        "user-a",
+        "project-a",
+        "provider-auth-a",
+    )
+    assert authorized.provider_id == "provider-a"
+
+    captured = store.capture(
+        "payment-provider", "user-a", "project-a"
+    )
+    assert captured.provider_id == "provider-a"
+    assert SQLiteOnlinePaymentStore(database).get(
+        "payment-provider"
+    ).provider_id == "provider-a"
