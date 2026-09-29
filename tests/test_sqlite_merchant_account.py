@@ -52,3 +52,53 @@ def test_merchant_account_versions_cannot_skip_or_overwrite(tmp_path) -> None:
     )
     with pytest.raises(ValueError, match="not next"):
         store.save(skipped)
+
+
+def test_account_provider_cannot_change_across_versions(tmp_path) -> None:
+    store = SQLiteMerchantAccountStore(tmp_path / "merchant.sqlite")
+    store.save(
+        MerchantAccount(
+            "merchant-a",
+            "provider-a",
+            MerchantAccountKind.PAYPAL,
+            "old-reference",
+        )
+    )
+
+    with pytest.raises(ValueError, match="provider cannot change"):
+        store.save(
+            MerchantAccount(
+                "merchant-a",
+                "provider-b",
+                MerchantAccountKind.PAYPAL,
+                "new-reference",
+                version=2,
+            )
+        )
+
+    assert store.current("merchant-a").provider_id == "provider-a"
+
+
+def test_account_kind_cannot_change_across_versions(tmp_path) -> None:
+    store = SQLiteMerchantAccountStore(tmp_path / "merchant.sqlite")
+    store.save(
+        MerchantAccount(
+            "merchant-a",
+            "provider-a",
+            MerchantAccountKind.PAYPAL,
+            "old-reference",
+        )
+    )
+
+    with pytest.raises(ValueError, match="kind cannot change"):
+        store.save(
+            MerchantAccount(
+                "merchant-a",
+                "provider-a",
+                MerchantAccountKind.BANK,
+                "new-reference",
+                version=2,
+            )
+        )
+
+    assert store.current("merchant-a").kind is MerchantAccountKind.PAYPAL
