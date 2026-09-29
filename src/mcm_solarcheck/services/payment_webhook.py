@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from hashlib import sha256
 from typing import Protocol
 
 from mcm_solarcheck.services.sepa_collection import SepaCollection
@@ -28,7 +30,9 @@ class PaymentWebhookRequest:
 
 
 class PaymentWebhookReplayStore(Protocol):
-    def reserve(self, provider_id: str, event_id: str) -> bool:
+    def reserve(
+        self, provider_id: str, event_id: str, fingerprint: str, *, now: datetime
+    ) -> bool:
         ...
 
     def mark_processed(self, provider_id: str, event_id: str) -> None:
@@ -70,7 +74,13 @@ class PaymentWebhookService:
         if self._replay is None or event.event_id is None:
             return self._reconciliation.apply(event)
 
-        if not self._replay.reserve(event.provider_id, event.event_id):
+        fingerprint = sha256(request.payload).hexdigest()
+        if not self._replay.reserve(
+            event.provider_id,
+            event.event_id,
+            fingerprint,
+            now=datetime.now(timezone.utc),
+        ):
             return self._reconciliation.resolve(
                 event.provider_id, event.provider_reference
             )
