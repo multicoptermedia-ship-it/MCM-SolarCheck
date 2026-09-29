@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Protocol
 
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
@@ -10,7 +11,7 @@ from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, P
 from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.sepa import SepaMandate, SepaMandateStatus
 from mcm_solarcheck.services.sepa_collection import SepaCollection
-from mcm_solarcheck.services.sepa_submission import SepaSubmission
+from mcm_solarcheck.services.sepa_submission import SepaSubmission, SepaSubmissionStatus
 
 
 class SepaMandateStore(Protocol):
@@ -19,12 +20,17 @@ class SepaMandateStore(Protocol):
 
 
 class SepaSubmissionStore(Protocol):
-    def reserve(self, submission: SepaSubmission) -> SepaSubmission:
+    def reserve(
+        self, submission: SepaSubmission, *, now: datetime
+    ) -> SepaSubmission:
         ...
 
     def mark_submitted(
-        self, payment_id: str, provider_reference: str
+        self, payment_id: str, provider_reference: str, lease_token: str
     ) -> SepaSubmission:
+        ...
+
+    def release(self, payment_id: str, lease_token: str) -> None:
         ...
 
 
@@ -116,8 +122,9 @@ class SepaPaymentService:
             raise ValueError("active SEPA mandate requires provider reference")
 
         idempotency_key = sepa_submission_key(payment_id)
+        reserved = None
         if self._submissions is not None:
-            self._submissions.reserve(
+            reserved = self._submissions.reserve(
                 SepaSubmission(
                     payment_id,
                     mandate_id,
@@ -125,16 +132,33 @@ class SepaPaymentService:
                     project_id,
                     self._provider_id,
                     idempotency_key,
-                )
+                ),
+                now=datetime.now(timezone.utc),
             )
+            if reserved.status is SepaSubmissionStatus.SUBMITTED:
+                return reserved.provider_reference
+            if reserved.lease_token is None:
+                raise RuntimeError("claimed SEPA submission has no lease token")
 
-        provider_reference = self._gateway.submit(
-            payment,
-            mandate.provider_reference,
-            idempotency_key=idempotency_key,
-        )
-        if self._submissions is not None:
-            self._submissions.mark_submitted(payment_id, provider_reference)
+        try:
+            provider_reference = self._gateway.submit(
+                payment,
+                mandate.provider_reference,
+                idempotency_key=idempotency_key,
+            )
+            if self._submissions is not None:
+                self._submissions.mark_submitted(
+                    payment_id,
+                    provider_reference,
+                    reserved.lease_token,
+                )
+        except Exception:
+            if self._submissions is not None and reserved is not None:
+                try:
+                    self._submissions.release(payment_id, reserved.lease_token)
+                except ValueError:
+                    pass
+            raise
         if self._collections is not None:
             try:
                 self._collections.create(
