@@ -10,8 +10,7 @@ from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
 from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.sepa import SepaMandate
 from mcm_solarcheck.services.sepa_payment import SepaPaymentService
-from mcm_solarcheck.services.sepa_submission import SepaSubmissionStatus
-
+from mcm_solarcheck.services.sepa_submission import SepaSubmission, SepaSubmissionStatus\n\nimport pytest\n
 
 class IdempotentSepaGateway:
     def __init__(self) -> None:
@@ -93,3 +92,47 @@ def test_sepa_retry_reuses_reserved_provider_idempotency_key(tmp_path) -> None:
     ]
     assert durable.get("payment-a").status is SepaSubmissionStatus.SUBMITTED
     assert collections.get("sepa:payment-a").provider_reference == "provider-debit-a"
+
+
+def test_reserved_sepa_intent_rejects_conflicting_retry(tmp_path) -> None:
+    store = SQLiteSepaSubmissionStore(tmp_path / "submissions.sqlite")
+    original = SepaSubmission(
+        "payment-a",
+        "mandate-a",
+        "user-a",
+        "project-a",
+        "provider-a",
+        "payment:payment-a:sepa-submit",
+    )
+    store.reserve(original)
+
+    conflicting = SepaSubmission(
+        "payment-a",
+        "mandate-b",
+        "user-a",
+        "project-a",
+        "provider-a",
+        "payment:payment-a:sepa-submit",
+    )
+    with pytest.raises(ValueError, match="conflicting"):
+        store.reserve(conflicting)
+
+
+def test_submitted_sepa_intent_is_idempotent_for_same_reference(tmp_path) -> None:
+    store = SQLiteSepaSubmissionStore(tmp_path / "submissions.sqlite")
+    store.reserve(
+        SepaSubmission(
+            "payment-a",
+            "mandate-a",
+            "user-a",
+            "project-a",
+            "provider-a",
+            "payment:payment-a:sepa-submit",
+        )
+    )
+
+    first = store.mark_submitted("payment-a", "provider-debit-a")
+    second = store.mark_submitted("payment-a", "provider-debit-a")
+
+    assert first == second
+    assert second.status is SepaSubmissionStatus.SUBMITTED
