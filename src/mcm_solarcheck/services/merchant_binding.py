@@ -22,7 +22,9 @@ class MerchantAccountBindingService:
     def __init__(self, accounts: MerchantAccountStore) -> None:
         self._accounts = accounts
 
-    def bind(self, payment: OnlinePayment, account_id: str) -> OnlinePayment:
+    def bind(
+        self, payment: OnlinePayment, account_id: str, *, provider_id: str | None = None
+    ) -> OnlinePayment:
         if payment.merchant_account_id is not None:
             raise ValueError("payment already has merchant account snapshot")
 
