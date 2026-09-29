@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from mcm_solarcheck.services.payment_webhook import (
+from mcm_solarcheck.payment_webhook_contracts import (
     WebhookReplayReservation,
     WebhookReplayStatus,
 )
