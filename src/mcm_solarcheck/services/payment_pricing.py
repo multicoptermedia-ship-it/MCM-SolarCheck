@@ -16,11 +16,26 @@ from mcm_solarcheck.services.voucher_admin import FlightPlanVoucherPolicy
 
 
 class VoucherRedemptionStore(Protocol):
+    def get(self, code: str) -> FlightPlanVoucher:
+        ...
+
     def redeem(
         self,
         code: str,
         payment_id: str,
         *,
+        discount_percent: int,
+        now: datetime,
+    ) -> FlightPlanVoucher:
+        ...
+
+
+class AtomicPricedPaymentStore(Protocol):
+    def create_with_voucher(
+        self,
+        payment: OnlinePayment,
+        *,
+        voucher_code: str,
         discount_percent: int,
         now: datetime,
     ) -> FlightPlanVoucher:
@@ -35,10 +50,12 @@ class PaymentPricingService:
         payments: OnlinePaymentStore,
         vouchers: VoucherRedemptionStore,
         voucher_policy: FlightPlanVoucherPolicy,
+        atomic_store: AtomicPricedPaymentStore | None = None,
     ) -> None:
         self._payments = payments
         self._vouchers = vouchers
         self._voucher_policy = voucher_policy
+        self._atomic_store = atomic_store
 
     def create_payment(
         self,
@@ -52,16 +69,21 @@ class PaymentPricingService:
         voucher_code: str | None = None,
     ) -> OnlinePayment:
         amount = base_amount
+        discount_percent = self._voucher_policy.discount_percent
         if voucher_code is not None:
-            voucher = self._vouchers.redeem(
-                voucher_code,
+            if self._atomic_store is None:
+                raise ValueError(
+                    "voucher payment requires atomic payment persistence"
+                )
+            voucher = self._vouchers.get(voucher_code)
+            voucher.redeem(
                 payment_id,
-                discount_percent=self._voucher_policy.discount_percent,
+                discount_percent=discount_percent,
                 now=now,
             )
             amount = discounted_amount(
                 base_amount,
-                discount_percent=voucher.redeemed_discount_percent,
+                discount_percent=discount_percent,
             )
         payment = OnlinePayment(
             payment_id,
@@ -71,5 +93,13 @@ class PaymentPricingService:
             amount,
             PaymentStatus.SETTLED if amount is None else PaymentStatus.CREATED,
         )
-        self._payments.create(payment)
+        if voucher_code is not None:
+            self._atomic_store.create_with_voucher(
+                payment,
+                voucher_code=voucher_code,
+                discount_percent=discount_percent,
+                now=now,
+            )
+        else:
+            self._payments.create(payment)
         return payment
