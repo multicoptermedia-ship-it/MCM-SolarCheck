@@ -21,6 +21,8 @@ class SepaSubmission:
     idempotency_key: str
     status: SepaSubmissionStatus = SepaSubmissionStatus.PENDING
     provider_reference: str | None = None
+    lease_token: str | None = None
+    lease_until: str | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -37,6 +39,10 @@ class SepaSubmission:
             raise ValueError("submitted SEPA intent requires provider reference")
         if self.status is SepaSubmissionStatus.PENDING and self.provider_reference is not None:
             raise ValueError("pending SEPA intent cannot have provider reference")
+        if self.status is SepaSubmissionStatus.SUBMITTED and (
+            self.lease_token is not None or self.lease_until is not None
+        ):
+            raise ValueError("submitted SEPA intent cannot retain a lease")
 
     def submitted(self, provider_reference: str) -> "SepaSubmission":
         if self.status is not SepaSubmissionStatus.PENDING:
@@ -52,4 +58,6 @@ class SepaSubmission:
             self.idempotency_key,
             SepaSubmissionStatus.SUBMITTED,
             provider_reference.strip(),
+            None,
+            None,
         )
