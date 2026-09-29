@@ -6,7 +6,10 @@ import pytest
 
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.infrastructure.sqlite_priced_payment import SQLitePricedPaymentStore
-from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherStore
+from mcm_solarcheck.infrastructure.sqlite_voucher import (
+    SQLiteFlightPlanVoucherPolicyStore,
+    SQLiteFlightPlanVoucherStore,
+)
 from mcm_solarcheck.services.payment import PaymentAmount, PaymentStatus
 from mcm_solarcheck.services.payment_pricing import PaymentPricingService
 from mcm_solarcheck.services.voucher import FlightPlanVoucher
@@ -218,3 +221,50 @@ def test_duplicate_job_payment_does_not_consume_voucher(tmp_path) -> None:
         )
 
     assert vouchers.get("FLIGHTPLAN-DUPJOB").redeemed is False
+
+
+def test_persisted_policy_change_only_affects_new_voucher_payments(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    policies = SQLiteFlightPlanVoucherPolicyStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    for code in ("FLIGHTPLAN-OLD", "FLIGHTPLAN-NEW"):
+        vouchers.create(
+            FlightPlanVoucher(
+                code,
+                now - timedelta(days=1),
+                now + timedelta(days=30),
+            )
+        )
+    policies.save(FlightPlanVoucherPolicy(10))
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        policies,
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+
+    old_payment = service.create_payment(
+        "payment-old",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-old",
+        base_amount=PaymentAmount(50000, "EUR"),
+        voucher_code="FLIGHTPLAN-OLD",
+        now=now,
+    )
+    policies.save(policies.current().supersede(discount_percent=20))
+    new_payment = service.create_payment(
+        "payment-new",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-new",
+        base_amount=PaymentAmount(50000, "EUR"),
+        voucher_code="FLIGHTPLAN-NEW",
+        now=now + timedelta(seconds=1),
+    )
+
+    assert old_payment.amount == PaymentAmount(45000, "EUR")
+    assert new_payment.amount == PaymentAmount(40000, "EUR")
+    assert vouchers.get("FLIGHTPLAN-OLD").redeemed_discount_percent == 10
+    assert vouchers.get("FLIGHTPLAN-NEW").redeemed_discount_percent == 20
