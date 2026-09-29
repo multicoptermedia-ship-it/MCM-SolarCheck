@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -307,3 +308,63 @@ def test_redeemed_flightplan_code_cannot_discount_another_solarcheck(tmp_path) -
             voucher_code="FLIGHTPLAN-ONE-TIME",
             now=now + timedelta(seconds=1),
         )
+
+
+def test_same_flightplan_code_cannot_discount_two_concurrent_solarchecks(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-CONCURRENT",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
+        )
+    )
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        FlightPlanVoucherPolicy(10),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+
+    def create(payment_id, project_id, job_id):
+        return service.create_payment(
+            payment_id,
+            user_id="user-a",
+            project_id=project_id,
+            job_id=job_id,
+            base_amount=PaymentAmount(50000, "EUR"),
+            voucher_code="FLIGHTPLAN-CONCURRENT",
+            now=now,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(create, "payment-a", "project-a", "job-a"),
+            executor.submit(create, "payment-b", "project-b", "job-b"),
+        ]
+        results = []
+        errors = []
+        for future in futures:
+            try:
+                results.append(future.result())
+            except Exception as exc:
+                errors.append(exc)
+
+    assert len(results) == 1
+    assert results[0].amount == PaymentAmount(45000, "EUR")
+    assert len(errors) == 1
+    assert "already redeemed" in str(errors[0])
+
+    redeemed = vouchers.get("FLIGHTPLAN-CONCURRENT")
+    assert redeemed.redeemed_discount_percent == 10
+    assert redeemed.redeemed_payment_id == results[0].payment_id
+
+    persisted = []
+    for payment_id in ("payment-a", "payment-b"):
+        try:
+            persisted.append(payments.get(payment_id))
+        except KeyError:
+            pass
+    assert persisted == results
