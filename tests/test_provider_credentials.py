@@ -197,3 +197,37 @@ def test_payment_bound_adapter_rejects_provider_switch_before_secret_resolution(
 
     assert history.requests == []
     assert client.calls == []
+
+
+def test_payment_bound_adapter_rejects_account_provider_mismatch() -> None:
+    wrong_account = MerchantAccount(
+        "paypal-main",
+        "provider-b",
+        MerchantAccountKind.PAYPAL,
+        "masked-reference",
+        credential_key="env:PAYPAL_MAIN",
+    )
+    history = MerchantHistory([wrong_account])
+    client = RecordingProviderClient()
+    adapter = PaymentBoundProviderAdapter(
+        history,
+        MerchantProviderAdapter(
+            ProviderCredentialResolver(
+                EnvironmentSecretResolver(
+                    {"PAYPAL_MAIN": "super-secret-runtime-value"}
+                )
+            ),
+            client,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="merchant account provider snapshot mismatch"):
+        adapter.call(
+            bound_payment(),
+            provider_id="provider-a",
+            operation="authorize",
+            payload={"amount": 12900},
+            idempotency_key="payment:payment-bound:authorize",
+        )
+
+    assert client.calls == []
