@@ -102,3 +102,44 @@ def test_account_kind_cannot_change_across_versions(tmp_path) -> None:
         )
 
     assert store.current("merchant-a").kind is MerchantAccountKind.PAYPAL
+
+
+def test_inactive_current_account_is_not_selectable_but_history_remains(tmp_path) -> None:
+    store = SQLiteMerchantAccountStore(tmp_path / "merchant.sqlite")
+    first = MerchantAccount(
+        "merchant-a",
+        "provider-a",
+        MerchantAccountKind.PAYPAL,
+        "masked-reference",
+    )
+    store.save(first)
+    store.save(first.deactivate())
+
+    with pytest.raises(ValueError, match="inactive"):
+        store.current("merchant-a")
+
+    historical = store.get("merchant-a", 1)
+    inactive = store.get("merchant-a", 2)
+    assert historical.active is True
+    assert inactive.active is False
+    assert historical.provider_id == inactive.provider_id
+
+
+def test_reactivated_account_becomes_current_as_new_version(tmp_path) -> None:
+    store = SQLiteMerchantAccountStore(tmp_path / "merchant.sqlite")
+    first = MerchantAccount(
+        "merchant-a",
+        "provider-a",
+        MerchantAccountKind.PAYPAL,
+        "masked-reference",
+    )
+    inactive = first.deactivate()
+    active_again = inactive.reactivate()
+    store.save(first)
+    store.save(inactive)
+    store.save(active_again)
+
+    current = store.current("merchant-a")
+    assert current.version == 3
+    assert current.active is True
+    assert store.get("merchant-a", 2).active is False
