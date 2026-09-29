@@ -38,6 +38,13 @@ class MerchantAccountBindingService:
             raise ValueError("payment method is required for merchant binding")
         if account.kind is not expected_kind:
             raise ValueError("merchant account kind does not match payment method")
+        if payment.provider_id is not None:
+            raise ValueError("payment already has provider snapshot")
+        if provider_id is not None:
+            if not isinstance(provider_id, str) or not provider_id.strip():
+                raise ValueError("provider_id must be non-empty when configured")
+            if account.provider_id != provider_id.strip():
+                raise ValueError("merchant account provider mismatch")
 
         return replace(
             payment,
