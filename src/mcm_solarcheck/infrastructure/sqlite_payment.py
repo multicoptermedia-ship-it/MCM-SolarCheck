@@ -55,6 +55,26 @@ class SQLiteOnlinePaymentStore:
                 connection.execute(
                     "ALTER TABLE online_payments ADD COLUMN provider_id TEXT"
                 )
+            duplicate = connection.execute(
+                """
+                SELECT job_id, COUNT(*)
+                FROM online_payments
+                GROUP BY job_id
+                HAVING COUNT(*) > 1
+                LIMIT 1
+                """
+            ).fetchone()
+            if duplicate is not None:
+                raise ValueError(
+                    "cannot enforce one payment per job: duplicate job payments exist"
+                )
+            connection.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS
+                    ux_online_payments_job_id
+                ON online_payments(job_id)
+                """
+            )
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.database)
