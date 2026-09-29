@@ -254,3 +254,35 @@ def test_active_webhook_lease_reports_processing_instead_of_stale_success(tmp_pa
         service.handle(request())
 
     assert store.get("collection-a").status is SepaCollectionStatus.SUBMITTED
+
+
+class MarkFailsReplay:
+    def __init__(self) -> None:
+        self.released = False
+
+    def reserve(self, provider_id, event_id, fingerprint, *, now):
+        from mcm_solarcheck.services.payment_webhook import WebhookReplayReservation
+        return WebhookReplayReservation(WebhookReplayStatus.ACQUIRED, "lease-a")
+
+    def mark_processed(self, provider_id, event_id, lease_token):
+        raise ValueError("webhook replay lease ownership lost")
+
+    def release(self, provider_id, event_id, lease_token):
+        self.released = True
+
+
+def test_successful_reconciliation_does_not_release_lost_webhook_lease(tmp_path) -> None:
+    verifier = RecordingVerifier()
+    store, _ = setup_service(tmp_path, verifier)
+    replay = MarkFailsReplay()
+    service = PaymentWebhookService(
+        {"provider-a": verifier},
+        SepaReconciliationService(store),
+        replay,
+    )
+
+    with pytest.raises(ValueError, match="ownership lost"):
+        service.handle(request())
+
+    assert store.get("collection-a").status is SepaCollectionStatus.SUCCEEDED
+    assert replay.released is False
