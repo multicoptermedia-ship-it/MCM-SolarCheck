@@ -80,6 +80,7 @@ class OnlinePayment:
             self.amount,
             PaymentStatus.AUTHORIZED,
             provider_reference.strip(),
+            self.method,
         )
 
     def capture(self) -> "OnlinePayment":
@@ -107,6 +108,7 @@ class OnlinePayment:
             self.amount,
             PaymentStatus.VOIDED,
             self.provider_reference,
+            self.method,
         )
 
 
