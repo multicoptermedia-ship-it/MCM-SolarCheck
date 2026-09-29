@@ -177,3 +177,44 @@ def test_failed_payment_insert_does_not_consume_voucher(tmp_path) -> None:
 
     voucher = vouchers.get("FLIGHTPLAN-ATOMIC")
     assert voucher.redeemed is False
+
+
+def test_duplicate_job_payment_does_not_consume_voucher(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-DUPJOB",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
+        )
+    )
+    atomic = SQLitePricedPaymentStore(payments.database, vouchers.database)
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        FlightPlanVoucherPolicy(10),
+        atomic,
+    )
+    service.create_payment(
+        "payment-existing",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-a",
+        base_amount=PaymentAmount(50000, "EUR"),
+        now=now,
+    )
+
+    with pytest.raises(ValueError, match="already has a payment"):
+        service.create_payment(
+            "payment-duplicate",
+            user_id="user-a",
+            project_id="project-a",
+            job_id="job-a",
+            base_amount=PaymentAmount(50000, "EUR"),
+            voucher_code="FLIGHTPLAN-DUPJOB",
+            now=now,
+        )
+
+    assert vouchers.get("FLIGHTPLAN-DUPJOB").redeemed is False
