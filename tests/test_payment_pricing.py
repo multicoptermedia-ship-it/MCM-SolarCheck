@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
+from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherStore
+from mcm_solarcheck.services.payment import PaymentAmount
+from mcm_solarcheck.services.payment_pricing import PaymentPricingService
+from mcm_solarcheck.services.voucher import FlightPlanVoucher
+from mcm_solarcheck.services.voucher_admin import FlightPlanVoucherPolicy
+
+
+def test_voucher_discount_is_fixed_in_payment_before_authorization(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-ABC123",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
+        )
+    )
+    service = PaymentPricingService(
+        payments, vouchers, FlightPlanVoucherPolicy(10)
+    )
+
+    payment = service.create_payment(
+        "payment-a",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-a",
+        base_amount=PaymentAmount(50000, "EUR"),
+        voucher_code="FLIGHTPLAN-ABC123",
+        now=now,
+    )
+
+    assert payment is not None
+    assert payment.amount == PaymentAmount(45000, "EUR")
+    assert payments.get("payment-a").amount == PaymentAmount(45000, "EUR")
+    assert (
+        vouchers.get("FLIGHTPLAN-ABC123").redeemed_discount_percent == 10
+    )
+
+
+def test_later_policy_change_does_not_reprice_existing_payment(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-ABC123",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
+        )
+    )
+    PaymentPricingService(
+        payments, vouchers, FlightPlanVoucherPolicy(10)
+    ).create_payment(
+        "payment-a",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-a",
+        base_amount=PaymentAmount(50000, "EUR"),
+        voucher_code="FLIGHTPLAN-ABC123",
+        now=now,
+    )
+
+    assert FlightPlanVoucherPolicy(12).discount_percent == 12
+    assert payments.get("payment-a").amount == PaymentAmount(45000, "EUR")
+
+
+def test_payment_without_voucher_keeps_full_amount(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    service = PaymentPricingService(
+        payments, vouchers, FlightPlanVoucherPolicy()
+    )
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+
+    payment = service.create_payment(
+        "payment-a",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-a",
+        base_amount=PaymentAmount(50000, "EUR"),
+        now=now,
+    )
+
+    assert payment is not None
+    assert payment.amount == PaymentAmount(50000, "EUR")
