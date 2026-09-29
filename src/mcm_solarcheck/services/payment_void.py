@@ -4,14 +4,25 @@ from __future__ import annotations
 
 from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
 from mcm_solarcheck.services.payment_gateway import PaymentGateway, payment_idempotency_key
+from mcm_solarcheck.services.payment_operation import (
+    PaymentOperation,
+    PaymentOperationIntent,
+    PaymentOperationIntentStore,
+)
 
 
 class PaymentVoidService:
     """Void an authorization at the provider before marking it void locally."""
 
-    def __init__(self, payments: OnlinePaymentStore, gateway: PaymentGateway) -> None:
+    def __init__(
+        self,
+        payments: OnlinePaymentStore,
+        gateway: PaymentGateway,
+        operation_intents: PaymentOperationIntentStore,
+    ) -> None:
         self._payments = payments
         self._gateway = gateway
+        self._operation_intents = operation_intents
 
     def void(
         self, payment_id: str, *, user_id: str, project_id: str
@@ -24,6 +35,9 @@ class PaymentVoidService:
         if payment.provider_reference is None:
             raise ValueError("authorized payment requires provider reference")
 
+        self._operation_intents.reserve(
+            PaymentOperationIntent(payment_id, PaymentOperation.VOID)
+        )
         self._gateway.void(
             payment.provider_reference,
             idempotency_key=payment_idempotency_key(payment_id, "void"),
