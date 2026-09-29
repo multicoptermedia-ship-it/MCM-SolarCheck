@@ -1,12 +1,12 @@
-"""Administrative creation boundary for FlightPlan vouchers."""
+"""Administrative configuration boundary for FlightPlan vouchers."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
-from mcm_solarcheck.services.payment import PaymentAmount
-from mcm_solarcheck.services.voucher import FlightPlanVoucher
+from mcm_solarcheck.services.voucher import FlightPlanVoucher, _require_discount_percent
 
 
 class VoucherAdminStore(Protocol):
@@ -14,8 +14,18 @@ class VoucherAdminStore(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class FlightPlanVoucherPolicy:
+    """Global discount policy controlled by SolarCheck administration."""
+
+    discount_percent: int = 10
+
+    def __post_init__(self) -> None:
+        _require_discount_percent(self.discount_percent)
+
+
 class FlightPlanVoucherAdminService:
-    """Create voucher value and validity from trusted admin input."""
+    """Create voucher codes independently of the globally configured discount."""
 
     def __init__(self, store: VoucherAdminStore) -> None:
         self._store = store
@@ -24,16 +34,9 @@ class FlightPlanVoucherAdminService:
         self,
         code: str,
         *,
-        value_minor_units: int,
-        currency: str,
         valid_from: datetime,
         valid_until: datetime,
     ) -> FlightPlanVoucher:
-        voucher = FlightPlanVoucher(
-            code,
-            PaymentAmount(value_minor_units, currency),
-            valid_from,
-            valid_until,
-        )
+        voucher = FlightPlanVoucher(code, valid_from, valid_until)
         self._store.create(voucher)
         return voucher
