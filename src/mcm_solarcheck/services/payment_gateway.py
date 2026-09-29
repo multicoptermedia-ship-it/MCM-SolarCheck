@@ -17,16 +17,30 @@ class PaymentAuthorizationResult:
             raise ValueError("provider_reference must be non-empty")
 
 
+def payment_idempotency_key(payment_id: str, operation: str) -> str:
+    if not isinstance(payment_id, str) or not payment_id.strip():
+        raise ValueError("payment_id must be non-empty")
+    if operation not in {"authorize", "capture", "void"}:
+        raise ValueError("unsupported payment operation")
+    return f"payment:{payment_id.strip()}:{operation}"
+
+
 class PaymentGateway(Protocol):
-    def authorize(self, payment: OnlinePayment) -> PaymentAuthorizationResult:
+    def authorize(
+        self, payment: OnlinePayment, *, idempotency_key: str
+    ) -> PaymentAuthorizationResult:
         """Reserve the payment amount without capturing it."""
         ...
 
-    def capture(self, provider_reference: str) -> None:
+    def capture(
+        self, provider_reference: str, *, idempotency_key: str
+    ) -> None:
         """Capture a previously authorized provider payment."""
         ...
 
-    def void(self, provider_reference: str) -> None:
+    def void(
+        self, provider_reference: str, *, idempotency_key: str
+    ) -> None:
         """Release a previously authorized provider payment."""
         ...
 
@@ -51,7 +65,10 @@ class PaymentAuthorizationService:
         if payment.amount is None:
             raise ValueError("provider authorization requires payable amount")
 
-        result = self._gateway.authorize(payment)
+        result = self._gateway.authorize(
+            payment,
+            idempotency_key=payment_idempotency_key(payment_id, "authorize"),
+        )
         return self._payments.authorize(
             payment_id,
             user_id,
