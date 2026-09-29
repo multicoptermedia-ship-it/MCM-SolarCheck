@@ -170,6 +170,7 @@ class SQLiteOnlinePaymentStore:
                 PaymentMethod(row[7]) if row[7] is not None else None,
                 row[8],
                 row[9],
+                row[10],
             )
             updated = transition(current)
             connection.execute(
