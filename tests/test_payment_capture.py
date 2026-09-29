@@ -51,14 +51,19 @@ def authorized_payment() -> OnlinePayment:
     ).authorize("provider-auth-a")
 
 
-def billing(*, released: bool) -> ComputeJobBilling:
+def billing(
+    *,
+    released: bool,
+    export_completed: bool = True,
+    report_retrieved: bool = True,
+) -> ComputeJobBilling:
     return ComputeJobBilling(
         ComputeJobDelivery(
             "job-a",
             "user-a",
             "project-a",
-            export_completed=True,
-            report_retrieved=True,
+            export_completed=export_completed,
+            report_retrieved=report_retrieved,
         ),
         billing_released=released,
     )
@@ -110,3 +115,36 @@ def test_capture_rejects_billing_from_another_project() -> None:
 
     with pytest.raises(PermissionError, match="billing identity mismatch"):
         service.capture("payment-a", user_id="user-a", project_id="project-a")
+
+
+@pytest.mark.parametrize(
+    ("export_completed", "report_retrieved"),
+    [
+        (True, False),
+        (False, True),
+    ],
+)
+def test_capture_requires_both_delivery_events(
+    export_completed,
+    report_retrieved,
+) -> None:
+    payments = MemoryPaymentStore(authorized_payment())
+    service = PaymentCaptureService(
+        payments,
+        MemoryBillingStore(
+            billing(
+                released=False,
+                export_completed=export_completed,
+                report_retrieved=report_retrieved,
+            )
+        ),
+    )
+
+    with pytest.raises(ValueError, match="export and report retrieval"):
+        service.capture(
+            "payment-a",
+            user_id="user-a",
+            project_id="project-a",
+        )
+
+    assert payments.payment.status is PaymentStatus.AUTHORIZED
