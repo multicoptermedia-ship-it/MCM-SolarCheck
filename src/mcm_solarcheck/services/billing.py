@@ -38,6 +38,12 @@ class ComputeJobBilling:
     delivery: ComputeJobDelivery
     billing_released: bool = False
 
+    def __post_init__(self) -> None:
+        if self.billing_released and not self.delivery.billable:
+            raise ValueError(
+                "billing cannot be released before export and report retrieval"
+            )
+
     def release(self) -> "ComputeJobBilling":
         """Release delivered work for billing exactly once."""
         if not self.delivery.billable:
