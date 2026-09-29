@@ -71,11 +71,9 @@ class PaymentWebhookService:
             return self._reconciliation.apply(event)
 
         if not self._replay.reserve(event.provider_id, event.event_id):
-            collection = self._reconciliation._collections.get_by_provider_reference(
-                event.provider_id,
-                event.provider_reference,
+            return self._reconciliation.resolve(
+                event.provider_id, event.provider_reference
             )
-            return collection
 
         try:
             result = self._reconciliation.apply(event)
