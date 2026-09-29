@@ -37,6 +37,32 @@ class MerchantAccount:
         if self.credential_key is not None and not self.credential_key.strip():
             raise ValueError("credential_key must be non-empty when configured")
 
+    def deactivate(self) -> "MerchantAccount":
+        if not self.active:
+            raise ValueError("merchant account is already inactive")
+        return MerchantAccount(
+            self.account_id,
+            self.provider_id,
+            self.kind,
+            self.display_reference,
+            self.version + 1,
+            False,
+            self.credential_key,
+        )
+
+    def reactivate(self) -> "MerchantAccount":
+        if self.active:
+            raise ValueError("merchant account is already active")
+        return MerchantAccount(
+            self.account_id,
+            self.provider_id,
+            self.kind,
+            self.display_reference,
+            self.version + 1,
+            True,
+            self.credential_key,
+        )
+
     def supersede(
         self,
         *,
