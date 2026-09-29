@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+
 import pytest
 
 from mcm_solarcheck.infrastructure.sqlite_payment_webhook import (
@@ -159,3 +162,48 @@ def test_failed_webhook_processing_can_be_retried(tmp_path) -> None:
     result = service.handle(request())
     assert result.status is SepaCollectionStatus.SUCCEEDED
     assert replay.is_processed("provider-a", "event-a")
+
+
+def test_webhook_event_id_rejects_changed_verified_payload(tmp_path) -> None:
+    verifier = RecordingVerifier()
+    store, _ = setup_service(tmp_path, verifier)
+    replay = SQLitePaymentWebhookReplayStore(tmp_path / "replay.sqlite")
+    service = PaymentWebhookService(
+        {"provider-a": verifier},
+        SepaReconciliationService(store),
+        replay,
+    )
+    service.handle(request())
+
+    changed = PaymentWebhookRequest(
+        "provider-a",
+        b'{"event":"payment.changed"}',
+        "signed-value",
+    )
+    with pytest.raises(ValueError, match="fingerprint mismatch"):
+        service.handle(changed)
+
+
+def test_expired_webhook_lease_can_be_reclaimed_after_crash(tmp_path) -> None:
+    replay = SQLitePaymentWebhookReplayStore(
+        tmp_path / "replay.sqlite",
+        lease_seconds=60,
+    )
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    fingerprint = sha256(b"verified-payload").hexdigest()
+
+    assert replay.reserve(
+        "provider-a", "event-crash", fingerprint, now=now
+    )
+    assert not replay.reserve(
+        "provider-a",
+        "event-crash",
+        fingerprint,
+        now=now + timedelta(seconds=30),
+    )
+    assert replay.reserve(
+        "provider-a",
+        "event-crash",
+        fingerprint,
+        now=now + timedelta(seconds=61),
+    )
