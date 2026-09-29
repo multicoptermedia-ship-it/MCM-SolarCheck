@@ -192,18 +192,37 @@ def test_expired_webhook_lease_can_be_reclaimed_after_crash(tmp_path) -> None:
     now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
     fingerprint = sha256(b"verified-payload").hexdigest()
 
-    assert replay.reserve(
+    first = replay.reserve(
         "provider-a", "event-crash", fingerprint, now=now
     )
-    assert not replay.reserve(
+    active = replay.reserve(
         "provider-a",
         "event-crash",
         fingerprint,
         now=now + timedelta(seconds=30),
     )
-    assert replay.reserve(
+    reclaimed = replay.reserve(
         "provider-a",
         "event-crash",
         fingerprint,
         now=now + timedelta(seconds=61),
     )
+
+    assert first.status.value == "acquired"
+    assert active.status.value == "processing"
+    assert reclaimed.status.value == "acquired"
+    assert reclaimed.lease_token != first.lease_token
+
+    with pytest.raises(ValueError, match="ownership lost"):
+        replay.mark_processed(
+            "provider-a", "event-crash", first.lease_token
+        )
+    with pytest.raises(ValueError, match="ownership lost"):
+        replay.release(
+            "provider-a", "event-crash", first.lease_token
+        )
+
+    replay.mark_processed(
+        "provider-a", "event-crash", reclaimed.lease_token
+    )
+    assert replay.is_processed("provider-a", "event-crash")
