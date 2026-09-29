@@ -12,6 +12,7 @@ from mcm_solarcheck.infrastructure.sqlite_sepa_collection import (
 from mcm_solarcheck.services.payment_webhook import (
     PaymentWebhookRequest,
     PaymentWebhookService,
+    WebhookReplayStatus,
 )
 from mcm_solarcheck.services.sepa_collection import (
     SepaCollection,
@@ -208,9 +209,9 @@ def test_expired_webhook_lease_can_be_reclaimed_after_crash(tmp_path) -> None:
         now=now + timedelta(seconds=61),
     )
 
-    assert first.status.value == "acquired"
-    assert active.status.value == "processing"
-    assert reclaimed.status.value == "acquired"
+    assert first.status is WebhookReplayStatus.ACQUIRED
+    assert active.status is WebhookReplayStatus.PROCESSING
+    assert reclaimed.status is WebhookReplayStatus.ACQUIRED
     assert reclaimed.lease_token != first.lease_token
 
     with pytest.raises(ValueError, match="ownership lost"):
@@ -226,3 +227,30 @@ def test_expired_webhook_lease_can_be_reclaimed_after_crash(tmp_path) -> None:
         "provider-a", "event-crash", reclaimed.lease_token
     )
     assert replay.is_processed("provider-a", "event-crash")
+
+
+def test_active_webhook_lease_reports_processing_instead_of_stale_success(tmp_path) -> None:
+    verifier = RecordingVerifier()
+    store, _ = setup_service(tmp_path, verifier)
+    replay = SQLitePaymentWebhookReplayStore(
+        tmp_path / "replay-processing.sqlite",
+        lease_seconds=60,
+    )
+    fingerprint = sha256(request().payload).hexdigest()
+    reservation = replay.reserve(
+        "provider-a",
+        "event-a",
+        fingerprint,
+        now=datetime.now(timezone.utc),
+    )
+    assert reservation.status is WebhookReplayStatus.ACQUIRED
+
+    service = PaymentWebhookService(
+        {"provider-a": verifier},
+        SepaReconciliationService(store),
+        replay,
+    )
+    with pytest.raises(RuntimeError, match="already being processed"):
+        service.handle(request())
+
+    assert store.get("collection-a").status is SepaCollectionStatus.SUBMITTED
