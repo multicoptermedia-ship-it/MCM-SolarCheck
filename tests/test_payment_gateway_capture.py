@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
+from mcm_solarcheck.infrastructure.sqlite_payment_operation import SQLitePaymentOperationIntentStore
 from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount, PaymentStatus
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
@@ -54,7 +55,12 @@ def test_delivered_payment_uses_stable_provider_capture_key(tmp_path) -> None:
         "payment-a", "user-a", "project-a", "provider-auth-a"
     )
     gateway = RecordingGateway()
-    service = PaymentCaptureService(payments, BillingStore(), gateway)
+    service = PaymentCaptureService(
+        payments,
+        BillingStore(),
+        gateway,
+        SQLitePaymentOperationIntentStore(tmp_path / "operations.sqlite"),
+    )
 
     captured = service.capture(
         "payment-a", user_id="user-a", project_id="project-a"
