@@ -23,8 +23,12 @@ class MemoryPaymentStore:
             raise KeyError(payment_id)
         return self.payment
 
-    def replace(self, payment: OnlinePayment) -> None:
-        self.payment = payment
+    def capture(self, payment_id: str, user_id: str, project_id: str) -> OnlinePayment:
+        payment = self.get(payment_id)
+        if payment.user_id != user_id or payment.project_id != project_id:
+            raise PermissionError("payment ownership mismatch")
+        self.payment = payment.capture()
+        return self.payment
 
 
 class MemoryBillingStore:
