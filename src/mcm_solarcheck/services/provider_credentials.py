@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from mcm_solarcheck.services.merchant_account import MerchantAccount
+from mcm_solarcheck.services.payment import OnlinePayment
 from mcm_solarcheck.services.secret_resolver import SecretResolver
 
 
@@ -80,3 +81,57 @@ class MerchantProviderAdapter:
             if result == credential.value:
                 raise ValueError("provider reference must not expose credential material")
         return result
+
+
+class MerchantAccountHistory(Protocol):
+    def get(self, account_id: str, version: int) -> MerchantAccount:
+        ...
+
+
+class PaymentBoundProviderAdapter:
+    """Resolve exactly the immutable merchant/provider snapshot stored on a payment."""
+
+    def __init__(
+        self,
+        accounts: MerchantAccountHistory,
+        adapter: MerchantProviderAdapter,
+    ) -> None:
+        self._accounts = accounts
+        self._adapter = adapter
+
+    def call(
+        self,
+        payment: OnlinePayment,
+        *,
+        provider_id: str,
+        operation: str,
+        payload: object,
+        idempotency_key: str,
+    ) -> str | None:
+        if payment.provider_id is None:
+            raise ValueError("payment has no provider snapshot")
+        if payment.provider_id != provider_id:
+            raise ValueError("payment provider snapshot mismatch")
+        if (
+            payment.merchant_account_id is None
+            or payment.merchant_account_version is None
+        ):
+            raise ValueError("payment has no merchant account snapshot")
+
+        account = self._accounts.get(
+            payment.merchant_account_id,
+            payment.merchant_account_version,
+        )
+        if account.provider_id != payment.provider_id:
+            raise ValueError("merchant account provider snapshot mismatch")
+        if account.account_id != payment.merchant_account_id:
+            raise ValueError("merchant account snapshot mismatch")
+        if account.version != payment.merchant_account_version:
+            raise ValueError("merchant account version snapshot mismatch")
+
+        return self._adapter.call(
+            account,
+            operation=operation,
+            payload=payload,
+            idempotency_key=idempotency_key,
+        )
