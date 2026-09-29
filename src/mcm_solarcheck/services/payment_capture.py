@@ -39,6 +39,10 @@ class PaymentCaptureService:
             or billing.delivery.project_id != payment.project_id
         ):
             raise PermissionError("payment billing identity mismatch")
+        if not billing.delivery.billable:
+            raise ValueError(
+                "export and report retrieval are required before payment capture"
+            )
         if not billing.billing_released:
             raise ValueError("billing must be released before payment capture")
 
