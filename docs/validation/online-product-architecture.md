@@ -262,3 +262,40 @@ outcomes preserve each job's original tenant and project identity.
 Concrete infrastructure adapters remain a deployment task and must implement
 these contracts without weakening workflow, entitlement, review, provenance, or
 report-release gates.
+
+
+## 14. Verified online identity and registration delivery
+
+Promotional-trial and full online access require a server-authoritative verified
+email identity. Registration collects a stable user identity, a name or company
+name, and an email address. Basic address syntax validation is not proof of
+mailbox control; proof comes from successful redemption of a one-time
+verification secret.
+
+- Verification secrets are generated server-side with cryptographic randomness.
+  Persistent storage keeps only a digest, never the clear verification token.
+- Verification tokens have an explicit lifetime and are consumed atomically.
+  Concurrent redemption cannot verify the same token twice.
+- Trial and full-product entitlement are separate product concepts, but neither
+  may be activated for an unverified registration or by using another user's
+  verified identity.
+- Successful verification is persisted before operational notification. The
+  verified database state is authoritative; an email notification is not the
+  registration record.
+- Internal registration notification contains only the user identity,
+  name/company, verified email address, and verification timestamp. Verification
+  tokens, passwords, payment data, and other secrets are excluded.
+- Notification delivery uses a persistent outbox. A temporary mail-provider
+  failure cannot undo verification or entitlement activation, and the pending
+  notification remains available for a later delivery attempt.
+- Email transport is provider-neutral. Sender address, internal notification
+  recipient, and the public application base URL are deployment configuration,
+  so INWX, IONOS, or another transport can be selected without changing product
+  semantics.
+- The intended production application URL may use
+  `https://app.mcm-solarcheck.de`, but application code must not depend on that
+  literal hostname.
+
+SMTP/API credentials and other mail-provider secrets belong only in server-side
+deployment secrets. They must not be committed to the repository or exposed to
+the browser/client.
