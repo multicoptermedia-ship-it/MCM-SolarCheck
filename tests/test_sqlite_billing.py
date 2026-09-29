@@ -26,8 +26,10 @@ def test_sqlite_compute_billing_persists_delivery_and_release(tmp_path) -> None:
     )
     store.create(billing)
 
-    released = billing.release()
-    store.replace(released)
+    service = ComputeJobBillingService(store)
+    released = service.release(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
 
     restarted = SQLiteComputeJobBillingStore(database)
     persisted = restarted.get("job-a")
@@ -141,3 +143,46 @@ def test_sqlite_billing_release_is_atomic_under_concurrency(tmp_path) -> None:
 
     assert sorted(results) == ["rejected", "released"]
     assert store.get("job-a").billing_released is True
+
+
+def test_sqlite_billing_delivery_events_do_not_lose_concurrent_updates(tmp_path) -> None:
+    database = tmp_path / "billing.sqlite"
+    store = SQLiteComputeJobBillingStore(database)
+    ComputeJobBillingService(store).create(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    barrier = Barrier(2)
+
+    def mark_export() -> None:
+        local = ComputeJobBillingService(SQLiteComputeJobBillingStore(database))
+        barrier.wait()
+        local.mark_export_completed(
+            "job-a", user_id="user-a", project_id="project-a"
+        )
+
+    def mark_retrieval() -> None:
+        local = ComputeJobBillingService(SQLiteComputeJobBillingStore(database))
+        barrier.wait()
+        local.mark_report_retrieved(
+            "job-a", user_id="user-a", project_id="project-a"
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(mark_export), executor.submit(mark_retrieval)]
+        for future in futures:
+            future.result()
+
+    persisted = store.get("job-a")
+    assert persisted.delivery.export_completed is True
+    assert persisted.delivery.report_retrieved is True
+    assert persisted.delivery.billable is True
+
+    released = ComputeJobBillingService(store).release(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    assert released.billing_released is True
+
+    repeated = ComputeJobBillingService(store).mark_export_completed(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    assert repeated.billing_released is True
