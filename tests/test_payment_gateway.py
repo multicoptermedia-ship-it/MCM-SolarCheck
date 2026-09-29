@@ -16,16 +16,15 @@ from mcm_solarcheck.services.payment_gateway import (
 
 class RecordingGateway:
     def __init__(self) -> None:
-        self.authorized: list[OnlinePayment] = []
+        self.authorized: list[tuple[OnlinePayment, str]] = []
 
-    def authorize(self, payment: OnlinePayment) -> PaymentAuthorizationResult:
-        self.authorized.append(payment)
+    def authorize(\n        self, payment: OnlinePayment, *, idempotency_key: str\n    ) -> PaymentAuthorizationResult:\n        self.authorized.append((payment, idempotency_key))
         return PaymentAuthorizationResult("provider-auth-a")
 
-    def capture(self, provider_reference: str) -> None:
+    def capture(self, provider_reference: str, *, idempotency_key: str) -> None:
         raise AssertionError("capture not expected")
 
-    def void(self, provider_reference: str) -> None:
+    def void(self, provider_reference: str, *, idempotency_key: str) -> None:
         raise AssertionError("void not expected")
 
 
@@ -47,7 +46,7 @@ def test_gateway_receives_fixed_payable_amount(tmp_path) -> None:
         "payment-a", user_id="user-a", project_id="project-a"
     )
 
-    assert gateway.authorized[0].amount == PaymentAmount(45000, "EUR")
+    assert gateway.authorized[0][0].amount == PaymentAmount(45000, "EUR")\n    assert gateway.authorized[0][1] == "payment:payment-a:authorize"
     assert authorized.status is PaymentStatus.AUTHORIZED
     assert authorized.provider_reference == "provider-auth-a"
 
