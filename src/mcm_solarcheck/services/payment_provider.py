@@ -45,8 +45,11 @@ class PaymentProviderRegistry:
         self._providers = by_id
 
     def get(self, provider_id: str) -> PaymentProviderCapabilities:
+        if not isinstance(provider_id, str) or not provider_id.strip():
+            raise ValueError("provider_id must be non-empty")
+        normalized = provider_id.strip()
         try:
-            return self._providers[provider_id.strip()]
+            return self._providers[normalized]
         except KeyError:
             raise KeyError(provider_id) from None
 
