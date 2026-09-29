@@ -14,6 +14,11 @@ class PaymentProviderRoutingService:
     def require_provider(
         self, payment: OnlinePayment, provider_id: str
     ) -> None:
+        if not isinstance(provider_id, str) or not provider_id.strip():
+            raise ValueError("provider_id must be non-empty")
+        provider_id = provider_id.strip()
+        if payment.provider_id is not None and payment.provider_id != provider_id:
+            raise ValueError("payment provider snapshot mismatch")
         if payment.method is None:
             raise ValueError("payment method must be selected before provider routing")
 
