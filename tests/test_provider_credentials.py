@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from mcm_solarcheck.infrastructure.environment_secret import EnvironmentSecretResolver
 from mcm_solarcheck.services.merchant_account import (
     MerchantAccount,
@@ -71,3 +73,34 @@ def test_provider_credential_masks_string_and_repr() -> None:
     assert repr(credential) == "ProviderCredential(<redacted>)"
     assert "super-secret-runtime-value" not in str(credential)
     assert "super-secret-runtime-value" not in repr(credential)
+
+
+class LeakingProviderClient:
+    def call(
+        self,
+        *,
+        credential,
+        operation,
+        payload,
+        idempotency_key,
+    ):
+        return credential.value
+
+
+def test_provider_adapter_rejects_credential_as_provider_reference() -> None:
+    adapter = MerchantProviderAdapter(
+        ProviderCredentialResolver(
+            EnvironmentSecretResolver(
+                {"PAYPAL_MAIN": "super-secret-runtime-value"}
+            )
+        ),
+        LeakingProviderClient(),
+    )
+
+    with pytest.raises(ValueError, match="must not expose credential"):
+        adapter.call(
+            merchant(),
+            operation="authorize",
+            payload={"amount": 12900},
+            idempotency_key="payment:payment-a:authorize",
+        )
