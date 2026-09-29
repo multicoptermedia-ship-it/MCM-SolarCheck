@@ -158,7 +158,7 @@ def test_sepa_submission_requires_released_delivered_result(tmp_path) -> None:
             project_id="project-a",
         )
 
-    assert gateway.submitted == []
+    assert gateway.calls == []
 
 
 def test_sepa_submission_rejects_foreign_billing_identity(tmp_path) -> None:
@@ -183,7 +183,7 @@ def test_sepa_submission_rejects_foreign_billing_identity(tmp_path) -> None:
             project_id="project-a",
         )
 
-    assert gateway.submitted == []
+    assert gateway.calls == []
 
 
 def test_sepa_submission_runs_after_billing_release(tmp_path) -> None:
@@ -206,4 +206,4 @@ def test_sepa_submission_runs_after_billing_release(tmp_path) -> None:
     )
 
     assert reference == "provider-debit-a"
-    assert len(gateway.submitted) == 1
+    assert len(gateway.calls) == 1
