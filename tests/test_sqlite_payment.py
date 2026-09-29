@@ -119,3 +119,34 @@ def test_selected_payment_method_persists_across_lifecycle(tmp_path) -> None:
     assert SQLiteOnlinePaymentStore(database).get(
         "payment-method"
     ).method is PaymentMethod.CARD
+
+
+def test_merchant_account_snapshot_survives_account_change(tmp_path) -> None:
+    database = tmp_path / "payment-account.sqlite"
+    store = SQLiteOnlinePaymentStore(database)
+    first = OnlinePayment(
+        "payment-account-a",
+        "user-a",
+        "project-a",
+        "job-a",
+        PaymentAmount(12900, "EUR"),
+        method=PaymentMethod.PAYPAL,
+        merchant_account_id="paypal-main",
+        merchant_account_version=1,
+    )
+    store.create(first)
+
+    second = OnlinePayment(
+        "payment-account-b",
+        "user-a",
+        "project-b",
+        "job-b",
+        PaymentAmount(15900, "EUR"),
+        method=PaymentMethod.PAYPAL,
+        merchant_account_id="paypal-main",
+        merchant_account_version=2,
+    )
+    store.create(second)
+
+    assert store.get("payment-account-a").merchant_account_version == 1
+    assert store.get("payment-account-b").merchant_account_version == 2
