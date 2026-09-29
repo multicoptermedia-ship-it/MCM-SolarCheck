@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
+from mcm_solarcheck.services.payment_routing import PaymentProviderRoutingService
 
 
 @dataclass(frozen=True)
@@ -48,9 +49,19 @@ class PaymentGateway(Protocol):
 class PaymentAuthorizationService:
     """Authorize only payable created payments and persist provider identity."""
 
-    def __init__(self, payments: OnlinePaymentStore, gateway: PaymentGateway) -> None:
+    def __init__(
+        self,
+        payments: OnlinePaymentStore,
+        gateway: PaymentGateway,
+        routing: PaymentProviderRoutingService | None = None,
+        provider_id: str | None = None,
+    ) -> None:
+        if (routing is None) != (provider_id is None):
+            raise ValueError("routing and provider_id must be configured together")
         self._payments = payments
         self._gateway = gateway
+        self._routing = routing
+        self._provider_id = provider_id
 
     def authorize(
         self, payment_id: str, *, user_id: str, project_id: str
@@ -64,6 +75,9 @@ class PaymentAuthorizationService:
             raise ValueError("payment authorization requires created state")
         if payment.amount is None:
             raise ValueError("provider authorization requires payable amount")
+
+        if self._routing is not None:
+            self._routing.require_provider(payment, self._provider_id)
 
         result = self._gateway.authorize(
             payment,
