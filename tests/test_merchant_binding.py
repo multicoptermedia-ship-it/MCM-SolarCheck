@@ -1,3 +1,5 @@
+import pytest
+
 from mcm_solarcheck.infrastructure.sqlite_merchant_account import (
     SQLiteMerchantAccountStore,
 )
@@ -38,3 +40,62 @@ def test_new_payments_bind_current_account_version(tmp_path) -> None:
     assert bound.merchant_account_id == "paypal-main"
     assert bound.merchant_account_version == 2
     assert payment.merchant_account_id is None
+
+
+@pytest.mark.parametrize(
+    ("method", "kind"),
+    [
+        (PaymentMethod.SEPA_DIRECT_DEBIT, MerchantAccountKind.PAYPAL),
+        (PaymentMethod.PAYPAL, MerchantAccountKind.BANK),
+        (PaymentMethod.CARD, MerchantAccountKind.PAYPAL),
+    ],
+)
+def test_binding_rejects_account_kind_for_other_payment_method(
+    tmp_path, method, kind
+) -> None:
+    accounts = SQLiteMerchantAccountStore(tmp_path / "merchant.sqlite")
+    accounts.save(
+        MerchantAccount(
+            "wrong-account",
+            "provider-a",
+            kind,
+            "masked-reference",
+        )
+    )
+    payment = OnlinePayment(
+        "payment-a",
+        "user-a",
+        "project-a",
+        "job-a",
+        PaymentAmount(12900, "EUR"),
+        method=method,
+    )
+
+    with pytest.raises(ValueError, match="kind does not match"):
+        MerchantAccountBindingService(accounts).bind(
+            payment, "wrong-account"
+        )
+
+
+def test_binding_requires_explicit_payment_method(tmp_path) -> None:
+    accounts = SQLiteMerchantAccountStore(tmp_path / "merchant.sqlite")
+    accounts.save(
+        MerchantAccount(
+            "paypal-main",
+            "paypal",
+            MerchantAccountKind.PAYPAL,
+            "merchant@example.invalid",
+        )
+    )
+    payment = OnlinePayment(
+        "payment-a",
+        "user-a",
+        "project-a",
+        "job-a",
+        PaymentAmount(12900, "EUR"),
+    )
+
+    with pytest.raises(ValueError, match="payment method is required"):
+        MerchantAccountBindingService(accounts).bind(
+            payment, "paypal-main"
+        )
