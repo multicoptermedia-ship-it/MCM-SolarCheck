@@ -2,18 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Protocol
-
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
-from mcm_solarcheck.services.payment import OnlinePayment, PaymentStatus
-
-
-class PaymentStore(Protocol):
-    def get(self, payment_id: str) -> OnlinePayment:
-        ...
-
-    def replace(self, payment: OnlinePayment) -> None:
-        ...
+from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
 
 
 class PaymentCaptureService:
@@ -21,7 +11,7 @@ class PaymentCaptureService:
 
     def __init__(
         self,
-        payment_store: PaymentStore,
+        payment_store: OnlinePaymentStore,
         billing_store: ComputeJobBillingStore,
     ) -> None:
         self._payments = payment_store
@@ -49,6 +39,4 @@ class PaymentCaptureService:
         if not billing.billing_released:
             raise ValueError("billing must be released before payment capture")
 
-        captured = payment.capture()
-        self._payments.replace(captured)
-        return captured
+        return self._payments.capture(payment_id, user_id, project_id)
