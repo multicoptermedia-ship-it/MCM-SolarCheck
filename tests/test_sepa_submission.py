@@ -10,7 +10,10 @@ from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
 from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.sepa import SepaMandate
 from mcm_solarcheck.services.sepa_payment import SepaPaymentService
-from mcm_solarcheck.services.sepa_submission import SepaSubmission, SepaSubmissionStatus\n\nimport pytest\n
+from mcm_solarcheck.services.sepa_submission import SepaSubmission, SepaSubmissionStatus
+
+import pytest
+
 
 class IdempotentSepaGateway:
     def __init__(self) -> None:
