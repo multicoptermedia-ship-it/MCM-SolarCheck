@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol
 
-from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentAmount
+from mcm_solarcheck.services.payment import (\n    OnlinePayment,\n    OnlinePaymentStore,\n    PaymentAmount,\n    PaymentStatus,\n)
 from mcm_solarcheck.services.voucher import FlightPlanVoucher, discounted_amount
 from mcm_solarcheck.services.voucher_admin import FlightPlanVoucherPolicy
 
@@ -45,7 +45,7 @@ class PaymentPricingService:
         base_amount: PaymentAmount,
         now: datetime,
         voucher_code: str | None = None,
-    ) -> OnlinePayment | None:
+    ) -> OnlinePayment:
         amount = base_amount
         if voucher_code is not None:
             voucher = self._vouchers.redeem(
@@ -58,15 +58,6 @@ class PaymentPricingService:
                 base_amount,
                 discount_percent=voucher.redeemed_discount_percent,
             )
-            if amount is None:
-                return None
-
-        payment = OnlinePayment(
-            payment_id,
-            user_id,
-            project_id,
-            job_id,
-            amount,
-        )
+        payment = OnlinePayment(\n            payment_id,\n            user_id,\n            project_id,\n            job_id,\n            amount,\n            PaymentStatus.SETTLED if amount is None else PaymentStatus.CREATED,\n        )
         self._payments.create(payment)
         return payment
