@@ -60,12 +60,18 @@ class PaymentCaptureService:
         if self._gateway is not None:
             if payment.provider_reference is None:
                 raise ValueError("authorized payment requires provider reference")
-            self._operation_intents.reserve(
-                PaymentOperationIntent(payment_id, PaymentOperation.CAPTURE)
+            key = payment_idempotency_key(payment_id, "capture")
+            intent = self._operation_intents.reserve(
+                PaymentOperationIntent(payment_id, PaymentOperation.CAPTURE, key)
             )
-            self._gateway.capture(
-                payment.provider_reference,
-                idempotency_key=payment_idempotency_key(payment_id, "capture"),
-            )
+            if intent.status.value == "reserved":
+                self._gateway.capture(
+                    payment.provider_reference,
+                    idempotency_key=key,
+                )
+                self._operation_intents.mark_provider_succeeded(payment_id)
 
-        return self._payments.capture(payment_id, user_id, project_id)
+            updated = self._payments.capture(payment_id, user_id, project_id)
+            if self._operation_intents is not None:
+                self._operation_intents.mark_completed(payment_id)
+            return updated
