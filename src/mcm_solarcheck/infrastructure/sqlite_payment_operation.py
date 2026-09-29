@@ -71,6 +71,8 @@ class SQLitePaymentOperationIntentStore:
         return self._from_row(payment_id, row)
 
     def reserve(self, intent: PaymentOperationIntent) -> PaymentOperationIntent:
+        if intent.status is not PaymentOperationStatus.RESERVED:
+            raise ValueError("new payment operation intent must be reserved")
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
