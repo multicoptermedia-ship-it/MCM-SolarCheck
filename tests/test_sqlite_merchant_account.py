@@ -16,12 +16,12 @@ def test_current_merchant_account_changes_without_rewriting_history(tmp_path) ->
         "paypal",
         MerchantAccountKind.PAYPAL,
         "old@example.invalid",
-        credential_key="PAYPAL_V1",
+        credential_key="env:PAYPAL_V1",
     )
     store.save(first)
     second = first.supersede(
         display_reference="new@example.invalid",
-        credential_key="PAYPAL_V2",
+        credential_key="env:PAYPAL_V2",
     )
     store.save(second)
 
