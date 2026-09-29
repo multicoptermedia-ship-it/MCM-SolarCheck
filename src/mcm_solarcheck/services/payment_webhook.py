@@ -109,12 +109,6 @@ class PaymentWebhookService:
 
         try:
             result = self._reconciliation.apply(event)
-            self._replay.mark_processed(
-                event.provider_id,
-                event.event_id,
-                reservation.lease_token,
-            )
-            return result
         except Exception:
             try:
                 self._replay.release(
@@ -125,3 +119,10 @@ class PaymentWebhookService:
             except ValueError:
                 pass
             raise
+
+        self._replay.mark_processed(
+            event.provider_id,
+            event.event_id,
+            reservation.lease_token,
+        )
+        return result
