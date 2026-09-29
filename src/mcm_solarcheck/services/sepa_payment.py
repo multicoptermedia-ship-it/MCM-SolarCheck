@@ -7,10 +7,16 @@ from typing import Protocol
 from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
 from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.sepa import SepaMandate, SepaMandateStatus
+from mcm_solarcheck.services.sepa_collection import SepaCollection
 
 
 class SepaMandateStore(Protocol):
     def get(self, mandate_id: str) -> SepaMandate:
+        ...
+
+
+class SepaCollectionStore(Protocol):
+    def create(self, collection: SepaCollection) -> None:
         ...
 
 
@@ -38,6 +44,7 @@ class SepaPaymentService:
         mandates: SepaMandateStore,
         gateway: SepaPaymentGateway,
         provider_id: str,
+        collections: SepaCollectionStore | None = None,
     ) -> None:
         if not isinstance(provider_id, str) or not provider_id.strip():
             raise ValueError("provider_id must be non-empty")
@@ -45,6 +52,7 @@ class SepaPaymentService:
         self._mandates = mandates
         self._gateway = gateway
         self._provider_id = provider_id.strip()
+        self._collections = collections
 
     def submit(
         self,
@@ -74,8 +82,20 @@ class SepaPaymentService:
         if mandate.provider_reference is None:
             raise ValueError("active SEPA mandate requires provider reference")
 
-        return self._gateway.submit(
+        provider_reference = self._gateway.submit(
             payment,
             mandate.provider_reference,
             idempotency_key=sepa_submission_key(payment_id),
         )
+        if self._collections is not None:
+            self._collections.create(
+                SepaCollection(
+                    f"sepa:{payment_id}",
+                    payment_id,
+                    user_id,
+                    project_id,
+                    self._provider_id,
+                    provider_reference,
+                )
+            )
+        return provider_reference
