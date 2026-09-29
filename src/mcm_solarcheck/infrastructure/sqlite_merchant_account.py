@@ -39,15 +39,26 @@ class SQLiteMerchantAccountStore:
             connection.execute("BEGIN IMMEDIATE")
             latest = connection.execute(
                 """
-                SELECT MAX(version)
+                SELECT version, provider_id, kind
                 FROM merchant_accounts
                 WHERE account_id = ?
+                ORDER BY version DESC
+                LIMIT 1
                 """,
                 (account.account_id,),
-            ).fetchone()[0]
-            expected = 1 if latest is None else latest + 1
+            ).fetchone()
+            expected = 1 if latest is None else latest[0] + 1
             if account.version != expected:
                 raise ValueError("merchant account version is not next")
+            if latest is not None:
+                if account.provider_id != latest[1]:
+                    raise ValueError(
+                        "merchant account provider cannot change across versions"
+                    )
+                if account.kind.value != latest[2]:
+                    raise ValueError(
+                        "merchant account kind cannot change across versions"
+                    )
 
             connection.execute(
                 """
