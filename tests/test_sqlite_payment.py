@@ -3,6 +3,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
+import pytest
+
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.services.payment import (
     OnlinePayment,
@@ -188,3 +190,51 @@ def test_provider_snapshot_persists_across_payment_lifecycle(tmp_path) -> None:
     assert SQLiteOnlinePaymentStore(database).get(
         "payment-provider"
     ).provider_id == "provider-a"
+
+
+def test_compute_job_allows_only_one_payment(tmp_path) -> None:
+    store = SQLiteOnlinePaymentStore(tmp_path / "payment.sqlite")
+    store.create(payment())
+
+    with pytest.raises(Exception):
+        store.create(
+            OnlinePayment(
+                "payment-b",
+                "user-a",
+                "project-a",
+                "job-a",
+                PaymentAmount(12900, "EUR"),
+            )
+        )
+
+    assert store.get("payment-a").job_id == "job-a"
+
+
+def test_concurrent_payment_creation_for_same_job_has_one_winner(tmp_path) -> None:
+    database = tmp_path / "payment.sqlite"
+    SQLiteOnlinePaymentStore(database)
+    barrier = Barrier(2)
+
+    def create_once(payment_id: str) -> str:
+        local = SQLiteOnlinePaymentStore(database)
+        barrier.wait()
+        try:
+            local.create(
+                OnlinePayment(
+                    payment_id,
+                    "user-a",
+                    "project-a",
+                    "job-race",
+                    PaymentAmount(12900, "EUR"),
+                )
+            )
+            return "created"
+        except Exception:
+            return "rejected"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(
+            executor.map(create_once, ["payment-race-a", "payment-race-b"])
+        )
+
+    assert sorted(results) == ["created", "rejected"]
