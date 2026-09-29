@@ -223,19 +223,18 @@ def test_duplicate_job_payment_does_not_consume_voucher(tmp_path) -> None:
     assert vouchers.get("FLIGHTPLAN-DUPJOB").redeemed is False
 
 
-def test_persisted_policy_change_only_affects_new_voucher_payments(tmp_path) -> None:
+def test_flightplan_discount_applies_only_to_payment_using_voucher(tmp_path) -> None:
     payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
     vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
     policies = SQLiteFlightPlanVoucherPolicyStore(tmp_path / "vouchers.sqlite")
     now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
-    for code in ("FLIGHTPLAN-OLD", "FLIGHTPLAN-NEW"):
-        vouchers.create(
-            FlightPlanVoucher(
-                code,
-                now - timedelta(days=1),
-                now + timedelta(days=30),
-            )
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-ONE-TIME",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
         )
+    )
     policies.save(FlightPlanVoucherPolicy(10))
     service = PaymentPricingService(
         payments,
@@ -244,27 +243,67 @@ def test_persisted_policy_change_only_affects_new_voucher_payments(tmp_path) -> 
         SQLitePricedPaymentStore(payments.database, vouchers.database),
     )
 
-    old_payment = service.create_payment(
-        "payment-old",
+    discounted = service.create_payment(
+        "payment-with-flightplan",
         user_id="user-a",
         project_id="project-a",
-        job_id="job-old",
+        job_id="job-a",
         base_amount=PaymentAmount(50000, "EUR"),
-        voucher_code="FLIGHTPLAN-OLD",
+        voucher_code="FLIGHTPLAN-ONE-TIME",
         now=now,
     )
-    policies.save(policies.current().supersede(discount_percent=20))
-    new_payment = service.create_payment(
-        "payment-new",
+    regular = service.create_payment(
+        "payment-next-solarcheck",
         user_id="user-a",
-        project_id="project-a",
-        job_id="job-new",
+        project_id="project-b",
+        job_id="job-b",
         base_amount=PaymentAmount(50000, "EUR"),
-        voucher_code="FLIGHTPLAN-NEW",
         now=now + timedelta(seconds=1),
     )
 
-    assert old_payment.amount == PaymentAmount(45000, "EUR")
-    assert new_payment.amount == PaymentAmount(40000, "EUR")
-    assert vouchers.get("FLIGHTPLAN-OLD").redeemed_discount_percent == 10
-    assert vouchers.get("FLIGHTPLAN-NEW").redeemed_discount_percent == 20
+    assert discounted.amount == PaymentAmount(45000, "EUR")
+    assert regular.amount == PaymentAmount(50000, "EUR")
+    assert vouchers.get(
+        "FLIGHTPLAN-ONE-TIME"
+    ).redeemed_discount_percent == 10
+
+
+def test_redeemed_flightplan_code_cannot_discount_another_solarcheck(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    policies = SQLiteFlightPlanVoucherPolicyStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-ONE-TIME",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
+        )
+    )
+    policies.save(FlightPlanVoucherPolicy(10))
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        policies,
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+    service.create_payment(
+        "payment-a",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-a",
+        base_amount=PaymentAmount(50000, "EUR"),
+        voucher_code="FLIGHTPLAN-ONE-TIME",
+        now=now,
+    )
+
+    with pytest.raises(ValueError, match="already redeemed"):
+        service.create_payment(
+            "payment-b",
+            user_id="user-a",
+            project_id="project-b",
+            job_id="job-b",
+            base_amount=PaymentAmount(50000, "EUR"),
+            voucher_code="FLIGHTPLAN-ONE-TIME",
+            now=now + timedelta(seconds=1),
+        )
