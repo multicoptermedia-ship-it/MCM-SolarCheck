@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.infrastructure.sqlite_priced_payment import SQLitePricedPaymentStore
 from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherStore
@@ -133,3 +135,45 @@ def test_full_discount_persists_settled_payment_without_provider_amount(tmp_path
     assert (
         vouchers.get("FLIGHTPLAN-FULL").redeemed_payment_id == "payment-free"
     )
+
+
+def test_failed_payment_insert_does_not_consume_voucher(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-ATOMIC",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
+        )
+    )
+    atomic = SQLitePricedPaymentStore(payments.database, vouchers.database)
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        FlightPlanVoucherPolicy(10),
+        atomic,
+    )
+    service.create_payment(
+        "payment-a",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-a",
+        base_amount=PaymentAmount(50000, "EUR"),
+        now=now,
+    )
+
+    with pytest.raises(Exception):
+        service.create_payment(
+            "payment-a",
+            user_id="user-a",
+            project_id="project-a",
+            job_id="job-b",
+            base_amount=PaymentAmount(50000, "EUR"),
+            voucher_code="FLIGHTPLAN-ATOMIC",
+            now=now,
+        )
+
+    voucher = vouchers.get("FLIGHTPLAN-ATOMIC")
+    assert voucher.redeemed is False
