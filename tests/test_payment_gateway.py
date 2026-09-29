@@ -8,6 +8,12 @@ from mcm_solarcheck.services.payment import (
     PaymentAmount,
     PaymentStatus,
 )
+from mcm_solarcheck.services.payment_methods import PaymentMethod
+from mcm_solarcheck.services.payment_provider import (
+    PaymentProviderCapabilities,
+    PaymentProviderRegistry,
+)
+from mcm_solarcheck.services.payment_routing import PaymentProviderRoutingService
 from mcm_solarcheck.services.payment_gateway import (
     PaymentAuthorizationResult,
     PaymentAuthorizationService,
@@ -76,3 +82,51 @@ def test_settled_zero_amount_payment_never_reaches_gateway(tmp_path) -> None:
         )
 
     assert gateway.authorized == []
+
+
+def test_authorization_rejects_provider_that_does_not_support_method(tmp_path) -> None:
+    store = SQLiteOnlinePaymentStore(tmp_path / "payment-routing.sqlite")
+    store.create(
+        OnlinePayment(
+            "payment-routed",
+            "user-a",
+            "project-a",
+            "job-a",
+            PaymentAmount(45000, "EUR"),
+            method=PaymentMethod.PAYPAL,
+        )
+    )
+    gateway = RecordingGateway()
+    routing = PaymentProviderRoutingService(
+        PaymentProviderRegistry(
+            (
+                PaymentProviderCapabilities(
+                    "card-only",
+                    frozenset({PaymentMethod.CARD}),
+                ),
+                PaymentProviderCapabilities(
+                    "paypal",
+                    frozenset({PaymentMethod.PAYPAL}),
+                ),
+            )
+        )
+    )
+
+    wrong = PaymentAuthorizationService(
+        store, gateway, routing, "card-only"
+    )
+    with pytest.raises(ValueError, match="does not support"):
+        wrong.authorize(
+            "payment-routed", user_id="user-a", project_id="project-a"
+        )
+    assert gateway.authorized == []
+
+    correct = PaymentAuthorizationService(
+        store, gateway, routing, "paypal"
+    )
+    authorized = correct.authorize(
+        "payment-routed", user_id="user-a", project_id="project-a"
+    )
+
+    assert authorized.status is PaymentStatus.AUTHORIZED
+    assert len(gateway.authorized) == 1
