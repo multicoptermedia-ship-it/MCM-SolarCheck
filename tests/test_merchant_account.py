@@ -12,19 +12,19 @@ def test_merchant_account_change_creates_new_version() -> None:
         "paypal",
         MerchantAccountKind.PAYPAL,
         "billing@example.invalid",
-        credential_key="PAYPAL_MAIN",
+        credential_key="env:PAYPAL_MAIN",
     )
 
     updated = current.supersede(
         display_reference="new-billing@example.invalid",
-        credential_key="PAYPAL_NEW",
+        credential_key="env:PAYPAL_NEW",
     )
 
     assert current.version == 1
     assert current.display_reference == "billing@example.invalid"
     assert updated.version == 2
     assert updated.display_reference == "new-billing@example.invalid"
-    assert updated.credential_key == "PAYPAL_NEW"
+    assert updated.credential_key == "env:PAYPAL_NEW"
 
 
 def test_bank_account_reference_can_change_without_mutating_history() -> None:
@@ -50,7 +50,7 @@ def test_deactivate_and_reactivate_are_versioned_transitions() -> None:
         "provider-a",
         MerchantAccountKind.PAYPAL,
         "masked-reference",
-        credential_key="secret/paypal/a",
+        credential_key="secret:paypal/a",
     )
 
     inactive = first.deactivate()
