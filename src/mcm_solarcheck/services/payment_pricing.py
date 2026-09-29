@@ -42,6 +42,11 @@ class AtomicPricedPaymentStore(Protocol):
         ...
 
 
+class VoucherPolicyStore(Protocol):
+    def current(self) -> FlightPlanVoucherPolicy:
+        ...
+
+
 class PaymentPricingService:
     """Fix the payable amount before any provider authorization occurs."""
 
@@ -49,7 +54,7 @@ class PaymentPricingService:
         self,
         payments: OnlinePaymentStore,
         vouchers: VoucherRedemptionStore,
-        voucher_policy: FlightPlanVoucherPolicy,
+        voucher_policy: FlightPlanVoucherPolicy | VoucherPolicyStore,
         atomic_store: AtomicPricedPaymentStore | None = None,
     ) -> None:
         self._payments = payments
@@ -69,7 +74,12 @@ class PaymentPricingService:
         voucher_code: str | None = None,
     ) -> OnlinePayment:
         amount = base_amount
-        discount_percent = self._voucher_policy.discount_percent
+        policy = (
+            self._voucher_policy.current()
+            if hasattr(self._voucher_policy, "current")
+            else self._voucher_policy
+        )
+        discount_percent = policy.discount_percent
         if voucher_code is not None:
             if self._atomic_store is None:
                 raise ValueError(
