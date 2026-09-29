@@ -52,6 +52,7 @@ class OnlinePayment:
     method: PaymentMethod | None = None
     merchant_account_id: str | None = None
     merchant_account_version: int | None = None
+    provider_id: str | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -72,6 +73,10 @@ class OnlinePayment:
             raise ValueError("merchant account id and version must be configured together")
         if self.merchant_account_version is not None and self.merchant_account_version <= 0:
             raise ValueError("merchant account version must be positive")
+        if self.provider_id is not None and (
+            not isinstance(self.provider_id, str) or not self.provider_id.strip()
+        ):
+            raise ValueError("provider_id must be non-empty when configured")
 
     def authorize(self, provider_reference: str) -> "OnlinePayment":
         if self.status is not PaymentStatus.CREATED:
@@ -89,6 +94,7 @@ class OnlinePayment:
             self.method,
             self.merchant_account_id,
             self.merchant_account_version,
+            self.provider_id,
         )
 
     def capture(self) -> "OnlinePayment":
@@ -105,6 +111,7 @@ class OnlinePayment:
             self.method,
             self.merchant_account_id,
             self.merchant_account_version,
+            self.provider_id,
         )
 
     def void(self) -> "OnlinePayment":
@@ -121,6 +128,7 @@ class OnlinePayment:
             self.method,
             self.merchant_account_id,
             self.merchant_account_version,
+            self.provider_id,
         )
 
 
