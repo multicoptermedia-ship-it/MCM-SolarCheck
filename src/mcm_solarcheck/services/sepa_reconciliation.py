@@ -28,7 +28,7 @@ class SepaProviderEvent:
         if self.event_id is not None and (
             not isinstance(self.event_id, str) or not self.event_id.strip()
         ):
-            raise ValueError(\"event_id must be non-empty when configured\")
+            raise ValueError("event_id must be non-empty when configured")
         if self.status is SepaCollectionStatus.SUBMITTED:
             raise ValueError("provider reconciliation cannot submit collections")
 
