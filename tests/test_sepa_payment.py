@@ -2,10 +2,12 @@ import pytest
 
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.infrastructure.sqlite_sepa import SQLiteSepaMandateStore
+from mcm_solarcheck.infrastructure.sqlite_sepa_collection import SQLiteSepaCollectionStore
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
 from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.sepa import SepaMandate
 from mcm_solarcheck.services.sepa_payment import SepaPaymentService
+from mcm_solarcheck.services.sepa_collection import SepaCollectionStatus
 
 
 class RecordingSepaGateway:
@@ -84,3 +86,28 @@ def test_sepa_submission_rejects_cross_user_mandate(tmp_path) -> None:
         )
 
     assert gateway.calls == []
+
+
+def test_successful_sepa_submission_is_persisted_as_submitted(tmp_path) -> None:
+    payments, mandates = setup_payment(tmp_path)
+    mandates.activate("mandate-a", "user-a", "provider-mandate-a")
+    gateway = RecordingSepaGateway()
+    collections = SQLiteSepaCollectionStore(tmp_path / "collections.sqlite")
+    service = SepaPaymentService(
+        payments,
+        mandates,
+        gateway,
+        "provider-a",
+        collections,
+    )
+
+    service.submit(
+        "payment-a",
+        "mandate-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    item = collections.get("sepa:payment-a")
+    assert item.status is SepaCollectionStatus.SUBMITTED
+    assert item.provider_reference == "provider-debit-a"
