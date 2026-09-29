@@ -1,0 +1,150 @@
+"""SQLite persistence for provider-neutral online payments."""
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+from mcm_solarcheck.services.payment import (
+    OnlinePayment,
+    PaymentAmount,
+    PaymentStatus,
+)
+
+
+class SQLiteOnlinePaymentStore:
+    def __init__(self, database: str | Path) -> None:
+        self.database = str(database)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS online_payments (
+                    payment_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    project_id TEXT NOT NULL,
+                    job_id TEXT NOT NULL,
+                    amount_minor_units INTEGER NOT NULL,
+                    currency TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    provider_reference TEXT
+                )
+                """
+            )
+
+    def _connect(self) -> sqlite3.Connection:
+        return sqlite3.connect(self.database)
+
+    def create(self, payment: OnlinePayment) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO online_payments (
+                    payment_id, user_id, project_id, job_id,
+                    amount_minor_units, currency, status, provider_reference
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    payment.payment_id,
+                    payment.user_id,
+                    payment.project_id,
+                    payment.job_id,
+                    payment.amount.minor_units,
+                    payment.amount.currency,
+                    payment.status.value,
+                    payment.provider_reference,
+                ),
+            )
+
+    def get(self, payment_id: str) -> OnlinePayment:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT user_id, project_id, job_id, amount_minor_units,
+                       currency, status, provider_reference
+                FROM online_payments
+                WHERE payment_id = ?
+                """,
+                (payment_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(payment_id)
+        return OnlinePayment(
+            payment_id,
+            row[0],
+            row[1],
+            row[2],
+            PaymentAmount(row[3], row[4]),
+            PaymentStatus(row[5]),
+            row[6],
+        )
+
+    def authorize(
+        self,
+        payment_id: str,
+        user_id: str,
+        project_id: str,
+        provider_reference: str,
+    ) -> OnlinePayment:
+        return self._transition(
+            payment_id,
+            user_id,
+            project_id,
+            lambda payment: payment.authorize(provider_reference),
+        )
+
+    def capture(
+        self, payment_id: str, user_id: str, project_id: str
+    ) -> OnlinePayment:
+        return self._transition(
+            payment_id, user_id, project_id, lambda payment: payment.capture()
+        )
+
+    def void(
+        self, payment_id: str, user_id: str, project_id: str
+    ) -> OnlinePayment:
+        return self._transition(
+            payment_id, user_id, project_id, lambda payment: payment.void()
+        )
+
+    def _transition(self, payment_id, user_id, project_id, transition):
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT user_id, project_id, job_id, amount_minor_units,
+                       currency, status, provider_reference
+                FROM online_payments
+                WHERE payment_id = ?
+                """,
+                (payment_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(payment_id)
+            if row[0] != user_id or row[1] != project_id:
+                raise PermissionError("payment ownership mismatch")
+            current = OnlinePayment(
+                payment_id,
+                row[0],
+                row[1],
+                row[2],
+                PaymentAmount(row[3], row[4]),
+                PaymentStatus(row[5]),
+                row[6],
+            )
+            updated = transition(current)
+            connection.execute(
+                """
+                UPDATE online_payments
+                SET status = ?, provider_reference = ?
+                WHERE payment_id = ?
+                """,
+                (updated.status.value, updated.provider_reference, payment_id),
+            )
+            connection.commit()
+            return updated
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
