@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
 
+from mcm_solarcheck.services.payment_methods import PaymentMethod
+
 
 class PaymentStatus(str, Enum):
     CREATED = "created"
@@ -47,6 +49,7 @@ class OnlinePayment:
     amount: PaymentAmount | None
     status: PaymentStatus = PaymentStatus.CREATED
     provider_reference: str | None = None
+    method: PaymentMethod | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -90,6 +93,7 @@ class OnlinePayment:
             self.amount,
             PaymentStatus.CAPTURED,
             self.provider_reference,
+            self.method,
         )
 
     def void(self) -> "OnlinePayment":
