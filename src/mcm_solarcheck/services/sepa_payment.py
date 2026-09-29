@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from mcm_solarcheck.services.billing import ComputeJobBillingStore
+
 from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
 from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.sepa import SepaMandate, SepaMandateStatus
@@ -57,6 +59,7 @@ class SepaPaymentService:
         provider_id: str,
         collections: SepaCollectionStore | None = None,
         submissions: SepaSubmissionStore | None = None,
+        billing: ComputeJobBillingStore | None = None,
     ) -> None:
         if not isinstance(provider_id, str) or not provider_id.strip():
             raise ValueError("provider_id must be non-empty")
@@ -66,6 +69,7 @@ class SepaPaymentService:
         self._provider_id = provider_id.strip()
         self._collections = collections
         self._submissions = submissions
+        self._billing = billing
 
     def submit(
         self,
@@ -84,6 +88,18 @@ class SepaPaymentService:
             raise ValueError("SEPA submission requires created payment")
         if payment.amount is None:
             raise ValueError("SEPA submission requires payable amount")
+
+        if self._billing is not None:
+            billing = self._billing.get(payment.job_id)
+            if (
+                billing.delivery.user_id != payment.user_id
+                or billing.delivery.project_id != payment.project_id
+            ):
+                raise PermissionError("payment billing identity mismatch")
+            if not billing.billing_released:
+                raise ValueError(
+                    "billing must be released before SEPA submission"
+                )
 
         mandate = self._mandates.get(mandate_id)
         if mandate.user_id != user_id:
