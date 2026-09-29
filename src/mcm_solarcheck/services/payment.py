@@ -12,6 +12,7 @@ class PaymentStatus(str, Enum):
     AUTHORIZED = "authorized"
     CAPTURED = "captured"
     VOIDED = "voided"
+    SETTLED = "settled"
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,7 @@ class OnlinePayment:
     user_id: str
     project_id: str
     job_id: str
-    amount: PaymentAmount
+    amount: PaymentAmount | None
     status: PaymentStatus = PaymentStatus.CREATED
     provider_reference: str | None = None
 
@@ -56,6 +57,12 @@ class OnlinePayment:
         ):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must be a non-empty string")
+        if self.amount is None and self.status is not PaymentStatus.SETTLED:
+            raise ValueError("zero-amount payment must be settled")
+        if self.amount is not None and self.status is PaymentStatus.SETTLED:
+            raise ValueError("settled payment must have zero payable amount")
+        if self.status is PaymentStatus.SETTLED and self.provider_reference is not None:
+            raise ValueError("settled payment cannot have provider reference")
 
     def authorize(self, provider_reference: str) -> "OnlinePayment":
         if self.status is not PaymentStatus.CREATED:
