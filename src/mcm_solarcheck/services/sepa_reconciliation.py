@@ -53,6 +53,13 @@ class SepaReconciliationService:
     def __init__(self, collections: SepaReconciliationStore) -> None:
         self._collections = collections
 
+    def resolve(
+        self, provider_id: str, provider_reference: str
+    ) -> SepaCollection:
+        return self._collections.get_by_provider_reference(
+            provider_id, provider_reference
+        )
+
     def apply(self, event: SepaProviderEvent) -> SepaCollection:
         collection = self._collections.get_by_provider_reference(
             event.provider_id,
