@@ -24,6 +24,8 @@ class FlightPlanVoucherPolicy:
 
     def __post_init__(self) -> None:
         _require_discount_percent(self.discount_percent)
+        if self.discount_percent != 10:
+            raise ValueError("FlightPlan voucher discount must be 10 percent")
         if not isinstance(self.version, int) or isinstance(self.version, bool):
             raise ValueError("version must be an integer")
         if self.version <= 0:
@@ -31,9 +33,9 @@ class FlightPlanVoucherPolicy:
         if not isinstance(self.active, bool):
             raise ValueError("active must be boolean")
 
-    def supersede(self, *, discount_percent: int) -> "FlightPlanVoucherPolicy":
+    def supersede(self) -> "FlightPlanVoucherPolicy":
         return FlightPlanVoucherPolicy(
-            discount_percent,
+            10,
             self.version + 1,
             True,
         )
