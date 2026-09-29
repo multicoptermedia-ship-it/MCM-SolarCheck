@@ -6,6 +6,7 @@ from mcm_solarcheck.infrastructure.sqlite_sepa_collection import (
 from mcm_solarcheck.infrastructure.sqlite_sepa_submission import (
     SQLiteSepaSubmissionStore,
 )
+from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
 from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.sepa import SepaMandate
@@ -13,6 +14,22 @@ from mcm_solarcheck.services.sepa_payment import SepaPaymentService
 from mcm_solarcheck.services.sepa_submission import SepaSubmission, SepaSubmissionStatus
 
 import pytest
+
+
+class MemoryBillingStore:
+    def get(self, job_id):
+        if job_id != "job-a":
+            raise KeyError(job_id)
+        return ComputeJobBilling(
+            ComputeJobDelivery(
+                "job-a",
+                "user-a",
+                "project-a",
+                export_completed=True,
+                report_retrieved=True,
+            ),
+            billing_released=True,
+        )
 
 
 class IdempotentSepaGateway:
@@ -66,6 +83,7 @@ def test_sepa_retry_reuses_reserved_provider_idempotency_key(tmp_path) -> None:
         "provider-a",
         collections,
         submissions,
+        billing=MemoryBillingStore(),
     )
 
     try:
