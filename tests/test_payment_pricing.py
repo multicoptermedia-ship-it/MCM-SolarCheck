@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
+from mcm_solarcheck.infrastructure.sqlite_priced_payment import SQLitePricedPaymentStore
 from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherStore
 from mcm_solarcheck.services.payment import PaymentAmount, PaymentStatus
 from mcm_solarcheck.services.payment_pricing import PaymentPricingService
@@ -22,7 +23,10 @@ def test_voucher_discount_is_fixed_in_payment_before_authorization(tmp_path) -> 
         )
     )
     service = PaymentPricingService(
-        payments, vouchers, FlightPlanVoucherPolicy(10)
+        payments,
+        vouchers,
+        FlightPlanVoucherPolicy(10),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
     )
 
     payment = service.create_payment(
@@ -55,7 +59,10 @@ def test_later_policy_change_does_not_reprice_existing_payment(tmp_path) -> None
         )
     )
     PaymentPricingService(
-        payments, vouchers, FlightPlanVoucherPolicy(10)
+        payments,
+        vouchers,
+        FlightPlanVoucherPolicy(10),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
     ).create_payment(
         "payment-a",
         user_id="user-a",
@@ -103,7 +110,10 @@ def test_full_discount_persists_settled_payment_without_provider_amount(tmp_path
         )
     )
     service = PaymentPricingService(
-        payments, vouchers, FlightPlanVoucherPolicy(100)
+        payments,
+        vouchers,
+        FlightPlanVoucherPolicy(100),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
     )
 
     payment = service.create_payment(
