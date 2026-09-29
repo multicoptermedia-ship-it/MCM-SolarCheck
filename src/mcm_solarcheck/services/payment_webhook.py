@@ -27,6 +27,17 @@ class PaymentWebhookRequest:
             raise ValueError("webhook signature must be non-empty")
 
 
+class PaymentWebhookReplayStore(Protocol):
+    def reserve(self, provider_id: str, event_id: str) -> bool:
+        ...
+
+    def mark_processed(self, provider_id: str, event_id: str) -> None:
+        ...
+
+    def release(self, provider_id: str, event_id: str) -> None:
+        ...
+
+
 class PaymentWebhookVerifier(Protocol):
     """Provider adapter authenticates and normalizes a raw webhook."""
 
@@ -39,11 +50,13 @@ class PaymentWebhookService:
         self,
         verifiers: dict[str, PaymentWebhookVerifier],
         reconciliation: SepaReconciliationService,
+        replay: PaymentWebhookReplayStore | None = None,
     ) -> None:
         if not verifiers:
             raise ValueError("at least one payment webhook verifier is required")
         self._verifiers = dict(verifiers)
         self._reconciliation = reconciliation
+        self._replay = replay
 
     def handle(self, request: PaymentWebhookRequest) -> SepaCollection:
         try:
@@ -54,4 +67,20 @@ class PaymentWebhookService:
         event = verifier.verify(request)
         if event.provider_id != request.provider_id:
             raise PermissionError("verified webhook provider mismatch")
-        return self._reconciliation.apply(event)
+        if self._replay is None or event.event_id is None:
+            return self._reconciliation.apply(event)
+
+        if not self._replay.reserve(event.provider_id, event.event_id):
+            collection = self._reconciliation._collections.get_by_provider_reference(
+                event.provider_id,
+                event.provider_reference,
+            )
+            return collection
+
+        try:
+            result = self._reconciliation.apply(event)
+            self._replay.mark_processed(event.provider_id, event.event_id)
+            return result
+        except Exception:
+            self._replay.release(event.provider_id, event.event_id)
+            raise
