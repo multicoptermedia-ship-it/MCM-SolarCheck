@@ -16,7 +16,8 @@ from mcm_solarcheck.services.voucher_admin import (
 
 def test_admin_policy_defaults_to_ten_percent() -> None:
     assert FlightPlanVoucherPolicy().discount_percent == 10
-    assert FlightPlanVoucherPolicy(12).discount_percent == 12
+    with pytest.raises(ValueError, match="must be 10 percent"):
+        FlightPlanVoucherPolicy(12)
 
 
 def test_admin_creates_voucher_validity_without_individual_value(tmp_path) -> None:
@@ -48,7 +49,7 @@ def test_admin_cannot_create_duplicate_voucher_code(tmp_path) -> None:
 def test_voucher_policy_history_is_versioned_and_current_is_latest(tmp_path) -> None:
     store = SQLiteFlightPlanVoucherPolicyStore(tmp_path / "voucher.sqlite")
     first = FlightPlanVoucherPolicy()
-    second = first.supersede(discount_percent=20)
+    second = first.supersede()
 
     store.save(first)
     store.save(second)
@@ -74,4 +75,4 @@ def test_voucher_policy_requires_strict_sequential_versions(tmp_path) -> None:
     store.save(FlightPlanVoucherPolicy())
 
     with pytest.raises(ValueError, match="version is not next"):
-        store.save(FlightPlanVoucherPolicy(20, version=3))
+        store.save(FlightPlanVoucherPolicy(10, version=3))
