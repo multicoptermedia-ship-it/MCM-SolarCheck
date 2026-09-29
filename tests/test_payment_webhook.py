@@ -9,10 +9,13 @@ from mcm_solarcheck.infrastructure.sqlite_payment_webhook import (
 from mcm_solarcheck.infrastructure.sqlite_sepa_collection import (
     SQLiteSepaCollectionStore,
 )
+from mcm_solarcheck.payment_webhook_contracts import (
+    WebhookReplayReservation,
+    WebhookReplayStatus,
+)
 from mcm_solarcheck.services.payment_webhook import (
     PaymentWebhookRequest,
     PaymentWebhookService,
-    WebhookReplayStatus,
 )
 from mcm_solarcheck.services.sepa_collection import (
     SepaCollection,
@@ -261,7 +264,6 @@ class MarkFailsReplay:
         self.released = False
 
     def reserve(self, provider_id, event_id, fingerprint, *, now):
-        from mcm_solarcheck.services.payment_webhook import WebhookReplayReservation
         return WebhookReplayReservation(WebhookReplayStatus.ACQUIRED, "lease-a")
 
     def mark_processed(self, provider_id, event_id, lease_token):
@@ -286,3 +288,11 @@ def test_successful_reconciliation_does_not_release_lost_webhook_lease(tmp_path)
 
     assert store.get("collection-a").status is SepaCollectionStatus.SUCCEEDED
     assert replay.released is False
+
+
+def test_webhook_replay_contract_rejects_invalid_token_state() -> None:
+    with pytest.raises(ValueError, match="requires token"):
+        WebhookReplayReservation(WebhookReplayStatus.ACQUIRED)
+
+    with pytest.raises(ValueError, match="cannot carry token"):
+        WebhookReplayReservation(WebhookReplayStatus.PROCESSED, "stale-token")
