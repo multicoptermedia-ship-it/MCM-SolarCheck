@@ -38,6 +38,16 @@ class SQLiteOnlineRegistrationStore:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS registration_notification_outbox (
+                    user_id TEXT PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    sent_at TEXT,
+                    FOREIGN KEY(user_id) REFERENCES online_registrations(user_id)
+                )
+                """
+            )
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.database)
@@ -157,6 +167,14 @@ class SQLiteOnlineRegistrationStore:
                 """,
                 (now.isoformat(), digest),
             )
+            connection.execute(
+                """
+                INSERT INTO registration_notification_outbox (
+                    user_id, created_at, sent_at
+                ) VALUES (?, ?, NULL)
+                """,
+                (verified.user_id, now.isoformat()),
+            )
             connection.commit()
             return verified
         except Exception:
@@ -164,6 +182,31 @@ class SQLiteOnlineRegistrationStore:
             raise
         finally:
             connection.close()
+
+    def pending_notification_user_ids(self) -> list[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT user_id
+                FROM registration_notification_outbox
+                WHERE sent_at IS NULL
+                ORDER BY created_at, user_id
+                """
+            ).fetchall()
+        return [row[0] for row in rows]
+
+    def mark_notification_sent(self, user_id: str, *, now: datetime) -> None:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE registration_notification_outbox
+                SET sent_at = ?
+                WHERE user_id = ? AND sent_at IS NULL
+                """,
+                (now.isoformat(), user_id),
+            )
+            if cursor.rowcount != 1:
+                raise KeyError(user_id)
 
 
 def _digest(token: str) -> str:
