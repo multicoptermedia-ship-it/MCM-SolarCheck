@@ -16,6 +16,7 @@ class SepaProviderEvent:
     provider_id: str
     provider_reference: str
     status: SepaCollectionStatus
+    event_id: str | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -24,6 +25,10 @@ class SepaProviderEvent:
         ):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must be non-empty")
+        if self.event_id is not None and (
+            not isinstance(self.event_id, str) or not self.event_id.strip()
+        ):
+            raise ValueError(\"event_id must be non-empty when configured\")
         if self.status is SepaCollectionStatus.SUBMITTED:
             raise ValueError("provider reconciliation cannot submit collections")
 
