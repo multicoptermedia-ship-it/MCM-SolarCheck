@@ -125,7 +125,7 @@ class SQLiteOnlinePaymentStore:
             row = connection.execute(
                 """
                 SELECT user_id, project_id, job_id, amount_minor_units,
-                       currency, status, provider_reference
+                       currency, status, provider_reference, method
                 FROM online_payments
                 WHERE payment_id = ?
                 """,
