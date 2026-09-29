@@ -67,3 +67,29 @@ def test_compute_job_billing_release_is_one_time() -> None:
     assert released.billing_released is True
     with pytest.raises(ValueError, match="already released"):
         released.release()
+
+
+def test_released_billing_cannot_be_constructed_without_complete_delivery() -> None:
+    with pytest.raises(ValueError, match="export and report retrieval"):
+        ComputeJobBilling(
+            ComputeJobDelivery(
+                "job-a",
+                "user-a",
+                "project-a",
+                export_completed=True,
+                report_retrieved=False,
+            ),
+            billing_released=True,
+        )
+
+    with pytest.raises(ValueError, match="export and report retrieval"):
+        ComputeJobBilling(
+            ComputeJobDelivery(
+                "job-a",
+                "user-a",
+                "project-a",
+                export_completed=False,
+                report_retrieved=True,
+            ),
+            billing_released=True,
+        )
