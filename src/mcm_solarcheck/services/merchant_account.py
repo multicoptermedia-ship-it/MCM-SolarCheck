@@ -6,6 +6,24 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+_CREDENTIAL_REFERENCE_PREFIXES = ("env:", "secret:")
+
+
+def _validate_credential_reference(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("credential_key must be non-empty when configured")
+    reference = value.strip()
+    if not reference.startswith(_CREDENTIAL_REFERENCE_PREFIXES):
+        raise ValueError(
+            "credential_key must be a secret reference, not credential material"
+        )
+    if ":" not in reference or not reference.split(":", 1)[1].strip():
+        raise ValueError("credential_key secret reference must include a key")
+    return reference
+
+
 class MerchantAccountKind(str, Enum):
     BANK = "bank"
     PAYPAL = "paypal"
@@ -34,8 +52,8 @@ class MerchantAccount:
             raise ValueError("version must be an integer")
         if self.version <= 0:
             raise ValueError("version must be positive")
-        if self.credential_key is not None and not self.credential_key.strip():
-            raise ValueError("credential_key must be non-empty when configured")
+        credential_reference = _validate_credential_reference(self.credential_key)
+        object.__setattr__(self, "credential_key", credential_reference)
 
     def deactivate(self) -> "MerchantAccount":
         if not self.active:
