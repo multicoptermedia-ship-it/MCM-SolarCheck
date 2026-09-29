@@ -96,3 +96,28 @@ class OnlinePayment:
             PaymentStatus.VOIDED,
             self.provider_reference,
         )
+
+
+class OnlinePaymentStore(Protocol):
+    """Persistent server-owned payment state transitions."""
+
+    def create(self, payment: OnlinePayment) -> None:
+        ...
+
+    def get(self, payment_id: str) -> OnlinePayment:
+        ...
+
+    def authorize(
+        self, payment_id: str, user_id: str, project_id: str, provider_reference: str
+    ) -> OnlinePayment:
+        ...
+
+    def capture(
+        self, payment_id: str, user_id: str, project_id: str
+    ) -> OnlinePayment:
+        ...
+
+    def void(
+        self, payment_id: str, user_id: str, project_id: str
+    ) -> OnlinePayment:
+        ...
