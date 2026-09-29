@@ -76,3 +76,24 @@ def test_payment_operation_rejects_changed_idempotency_key(tmp_path) -> None:
                 "changed-key",
             )
         )
+
+
+@pytest.mark.parametrize(
+    "status",
+    [PaymentOperationStatus.PROVIDER_SUCCEEDED, PaymentOperationStatus.COMPLETED],
+)
+def test_new_payment_operation_cannot_skip_reserved_state(tmp_path, status) -> None:
+    store = SQLitePaymentOperationIntentStore(tmp_path / "operations.sqlite")
+
+    with pytest.raises(ValueError, match="must be reserved"):
+        store.reserve(
+            PaymentOperationIntent(
+                "payment-a",
+                PaymentOperation.CAPTURE,
+                "payment:payment-a:capture",
+                status,
+            )
+        )
+
+    with pytest.raises(KeyError):
+        store.get("payment-a")
