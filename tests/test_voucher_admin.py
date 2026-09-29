@@ -76,3 +76,39 @@ def test_voucher_policy_requires_strict_sequential_versions(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="version is not next"):
         store.save(FlightPlanVoucherPolicy(10, version=3))
+
+
+def test_legacy_database_bootstraps_default_policy_once(tmp_path) -> None:
+    database = tmp_path / "voucher.sqlite"
+    vouchers = SQLiteFlightPlanVoucherStore(database)
+    start = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(
+        __import__(
+            "mcm_solarcheck.services.voucher",
+            fromlist=["FlightPlanVoucher"],
+        ).FlightPlanVoucher(
+            "LEGACY-CODE",
+            start,
+            start + timedelta(days=30),
+        )
+    )
+
+    policies = SQLiteFlightPlanVoucherPolicyStore(database)
+    first = policies.bootstrap_default()
+    second = policies.bootstrap_default()
+
+    assert first == FlightPlanVoucherPolicy(10, version=1)
+    assert second == first
+    assert policies.current() == first
+    assert vouchers.get("LEGACY-CODE").code == "LEGACY-CODE"
+
+
+def test_bootstrap_never_overwrites_existing_policy_history(tmp_path) -> None:
+    policies = SQLiteFlightPlanVoucherPolicyStore(tmp_path / "voucher.sqlite")
+    policies.save(FlightPlanVoucherPolicy())
+    inactive = FlightPlanVoucherPolicy().deactivate()
+    policies.save(inactive)
+
+    assert policies.bootstrap_default() == inactive
+    assert policies.get(1).active
+    assert not policies.get(2).active
