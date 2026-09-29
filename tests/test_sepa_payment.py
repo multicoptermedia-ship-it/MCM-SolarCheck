@@ -1,5 +1,7 @@
 import pytest
 
+from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.infrastructure.sqlite_sepa import SQLiteSepaMandateStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_collection import SQLiteSepaCollectionStore
@@ -111,3 +113,97 @@ def test_successful_sepa_submission_is_persisted_as_submitted(tmp_path) -> None:
     item = collections.get("sepa:payment-a")
     assert item.status is SepaCollectionStatus.SUBMITTED
     assert item.provider_reference == "provider-debit-a"
+
+
+class MemoryBillingStore:
+    def __init__(self, billing):
+        self.billing = billing
+
+    def get(self, job_id):
+        if job_id != self.billing.delivery.job_id:
+            raise KeyError(job_id)
+        return self.billing
+
+
+def delivery_billing(*, released, project_id="project-a"):
+    return ComputeJobBilling(
+        ComputeJobDelivery(
+            "job-a",
+            "user-a",
+            project_id,
+            export_completed=True,
+            report_retrieved=True,
+        ),
+        billing_released=released,
+    )
+
+
+def test_sepa_submission_requires_released_delivered_result(tmp_path) -> None:
+    payments, mandates = setup_payment(tmp_path)
+    mandates.activate("mandate-a", "user-a", "provider-mandate-a")
+    gateway = RecordingSepaGateway()
+    service = SepaPaymentService(
+        payments,
+        mandates,
+        gateway,
+        "provider-a",
+        billing=MemoryBillingStore(delivery_billing(released=False)),
+    )
+
+    with pytest.raises(ValueError, match="billing must be released"):
+        service.submit(
+            "payment-a",
+            "mandate-a",
+            user_id="user-a",
+            project_id="project-a",
+        )
+
+    assert gateway.submitted == []
+
+
+def test_sepa_submission_rejects_foreign_billing_identity(tmp_path) -> None:
+    payments, mandates = setup_payment(tmp_path)
+    mandates.activate("mandate-a", "user-a", "provider-mandate-a")
+    gateway = RecordingSepaGateway()
+    service = SepaPaymentService(
+        payments,
+        mandates,
+        gateway,
+        "provider-a",
+        billing=MemoryBillingStore(
+            delivery_billing(released=True, project_id="project-b")
+        ),
+    )
+
+    with pytest.raises(PermissionError, match="billing identity mismatch"):
+        service.submit(
+            "payment-a",
+            "mandate-a",
+            user_id="user-a",
+            project_id="project-a",
+        )
+
+    assert gateway.submitted == []
+
+
+def test_sepa_submission_runs_after_billing_release(tmp_path) -> None:
+    payments, mandates = setup_payment(tmp_path)
+    mandates.activate("mandate-a", "user-a", "provider-mandate-a")
+    gateway = RecordingSepaGateway()
+    service = SepaPaymentService(
+        payments,
+        mandates,
+        gateway,
+        "provider-a",
+        billing=MemoryBillingStore(delivery_billing(released=True)),
+    )
+
+    reference = service.submit(
+        "payment-a",
+        "mandate-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    assert reference == "provider-debit-a"
+    assert len(gateway.submitted) == 1
