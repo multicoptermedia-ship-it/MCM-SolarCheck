@@ -3,28 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Protocol
 
+from mcm_solarcheck.payment_webhook_contracts import (
+    WebhookReplayReservation,
+    WebhookReplayStatus,
+)
 from mcm_solarcheck.services.sepa_collection import SepaCollection
 from mcm_solarcheck.services.sepa_reconciliation import (
     SepaProviderEvent,
     SepaReconciliationService,
 )
-
-
-class WebhookReplayStatus(str, Enum):
-    ACQUIRED = "acquired"
-    PROCESSING = "processing"
-    PROCESSED = "processed"
-
-
-@dataclass(frozen=True)
-class WebhookReplayReservation:
-    status: WebhookReplayStatus
-    lease_token: str | None = None
 
 
 @dataclass(frozen=True)
