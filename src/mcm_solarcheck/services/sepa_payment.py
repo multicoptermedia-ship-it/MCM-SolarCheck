@@ -8,10 +8,21 @@ from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, P
 from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.sepa import SepaMandate, SepaMandateStatus
 from mcm_solarcheck.services.sepa_collection import SepaCollection
+from mcm_solarcheck.services.sepa_submission import SepaSubmission
 
 
 class SepaMandateStore(Protocol):
     def get(self, mandate_id: str) -> SepaMandate:
+        ...
+
+
+class SepaSubmissionStore(Protocol):
+    def reserve(self, submission: SepaSubmission) -> SepaSubmission:
+        ...
+
+    def mark_submitted(
+        self, payment_id: str, provider_reference: str
+    ) -> SepaSubmission:
         ...
 
 
@@ -45,6 +56,7 @@ class SepaPaymentService:
         gateway: SepaPaymentGateway,
         provider_id: str,
         collections: SepaCollectionStore | None = None,
+        submissions: SepaSubmissionStore | None = None,
     ) -> None:
         if not isinstance(provider_id, str) or not provider_id.strip():
             raise ValueError("provider_id must be non-empty")
@@ -53,6 +65,7 @@ class SepaPaymentService:
         self._gateway = gateway
         self._provider_id = provider_id.strip()
         self._collections = collections
+        self._submissions = submissions
 
     def submit(
         self,
@@ -82,20 +95,47 @@ class SepaPaymentService:
         if mandate.provider_reference is None:
             raise ValueError("active SEPA mandate requires provider reference")
 
-        provider_reference = self._gateway.submit(
-            payment,
-            mandate.provider_reference,
-            idempotency_key=sepa_submission_key(payment_id),
-        )
-        if self._collections is not None:
-            self._collections.create(
-                SepaCollection(
-                    f"sepa:{payment_id}",
+        idempotency_key = sepa_submission_key(payment_id)
+        if self._submissions is not None:
+            self._submissions.reserve(
+                SepaSubmission(
                     payment_id,
+                    mandate_id,
                     user_id,
                     project_id,
                     self._provider_id,
-                    provider_reference,
+                    idempotency_key,
                 )
             )
+
+        provider_reference = self._gateway.submit(
+            payment,
+            mandate.provider_reference,
+            idempotency_key=idempotency_key,
+        )
+        if self._submissions is not None:
+            self._submissions.mark_submitted(payment_id, provider_reference)
+        if self._collections is not None:
+            try:
+                self._collections.create(
+                    SepaCollection(
+                        f"sepa:{payment_id}",
+                        payment_id,
+                        user_id,
+                        project_id,
+                        self._provider_id,
+                        provider_reference,
+                    )
+                )
+            except Exception:
+                # A retry may encounter the collection created by an earlier
+                # attempt. The submission intent remains the source of truth.
+                existing = getattr(self._collections, "get", lambda _: None)(
+                    f"sepa:{payment_id}"
+                )
+                if (
+                    existing is None
+                    or existing.provider_reference != provider_reference
+                ):
+                    raise
         return provider_reference
