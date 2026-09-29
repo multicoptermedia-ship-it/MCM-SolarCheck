@@ -50,6 +50,8 @@ class OnlinePayment:
     status: PaymentStatus = PaymentStatus.CREATED
     provider_reference: str | None = None
     method: PaymentMethod | None = None
+    merchant_account_id: str | None = None
+    merchant_account_version: int | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -66,6 +68,10 @@ class OnlinePayment:
             raise ValueError("settled payment must have zero payable amount")
         if self.status is PaymentStatus.SETTLED and self.provider_reference is not None:
             raise ValueError("settled payment cannot have provider reference")
+        if (self.merchant_account_id is None) != (self.merchant_account_version is None):
+            raise ValueError("merchant account id and version must be configured together")
+        if self.merchant_account_version is not None and self.merchant_account_version <= 0:
+            raise ValueError("merchant account version must be positive")
 
     def authorize(self, provider_reference: str) -> "OnlinePayment":
         if self.status is not PaymentStatus.CREATED:
@@ -81,6 +87,8 @@ class OnlinePayment:
             PaymentStatus.AUTHORIZED,
             provider_reference.strip(),
             self.method,
+            self.merchant_account_id,
+            self.merchant_account_version,
         )
 
     def capture(self) -> "OnlinePayment":
@@ -95,6 +103,8 @@ class OnlinePayment:
             PaymentStatus.CAPTURED,
             self.provider_reference,
             self.method,
+            self.merchant_account_id,
+            self.merchant_account_version,
         )
 
     def void(self) -> "OnlinePayment":
@@ -109,6 +119,8 @@ class OnlinePayment:
             PaymentStatus.VOIDED,
             self.provider_reference,
             self.method,
+            self.merchant_account_id,
+            self.merchant_account_version,
         )
 
 
