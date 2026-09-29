@@ -7,6 +7,10 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Protocol
 
+from mcm_solarcheck.infrastructure.sqlite_payment_webhook import (
+    WebhookReplayReservation,
+    WebhookReplayStatus,
+)
 from mcm_solarcheck.services.sepa_collection import SepaCollection
 from mcm_solarcheck.services.sepa_reconciliation import (
     SepaProviderEvent,
@@ -32,13 +36,17 @@ class PaymentWebhookRequest:
 class PaymentWebhookReplayStore(Protocol):
     def reserve(
         self, provider_id: str, event_id: str, fingerprint: str, *, now: datetime
-    ) -> bool:
+    ) -> WebhookReplayReservation:
         ...
 
-    def mark_processed(self, provider_id: str, event_id: str) -> None:
+    def mark_processed(
+        self, provider_id: str, event_id: str, lease_token: str
+    ) -> None:
         ...
 
-    def release(self, provider_id: str, event_id: str) -> None:
+    def release(
+        self, provider_id: str, event_id: str, lease_token: str
+    ) -> None:
         ...
 
 
@@ -75,20 +83,33 @@ class PaymentWebhookService:
             return self._reconciliation.apply(event)
 
         fingerprint = sha256(request.payload).hexdigest()
-        if not self._replay.reserve(
+        reservation = self._replay.reserve(
             event.provider_id,
             event.event_id,
             fingerprint,
             now=datetime.now(timezone.utc),
-        ):
+        )
+        if reservation.status is WebhookReplayStatus.PROCESSED:
             return self._reconciliation.resolve(
                 event.provider_id, event.provider_reference
             )
+        if reservation.status is WebhookReplayStatus.PROCESSING:
+            raise RuntimeError("webhook event is already being processed")
+        if reservation.lease_token is None:
+            raise RuntimeError("acquired webhook replay lease has no token")
 
         try:
             result = self._reconciliation.apply(event)
-            self._replay.mark_processed(event.provider_id, event.event_id)
+            self._replay.mark_processed(
+                event.provider_id,
+                event.event_id,
+                reservation.lease_token,
+            )
             return result
         except Exception:
-            self._replay.release(event.provider_id, event.event_id)
+            self._replay.release(
+                event.provider_id,
+                event.event_id,
+                reservation.lease_token,
+            )
             raise
