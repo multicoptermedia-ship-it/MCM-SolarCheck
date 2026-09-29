@@ -58,8 +58,16 @@ class ComputeJobBillingStore(Protocol):
         """Load authoritative billing state for one job."""
         ...
 
-    def replace(self, billing: ComputeJobBilling) -> None:
-        """Persist updated authoritative billing state."""
+    def mark_export_completed(
+        self, job_id: str, user_id: str, project_id: str
+    ) -> ComputeJobBilling:
+        """Atomically persist export delivery evidence."""
+        ...
+
+    def mark_report_retrieved(
+        self, job_id: str, user_id: str, project_id: str
+    ) -> ComputeJobBilling:
+        """Atomically persist report retrieval evidence."""
         ...
 
     def release(
@@ -105,21 +113,7 @@ class ComputeJobBillingService:
         user_id: str,
         project_id: str,
     ) -> ComputeJobBilling:
-        current = self._owned(job_id, user_id, project_id)
-        if current.delivery.export_completed:
-            return current
-        updated = ComputeJobBilling(
-            ComputeJobDelivery(
-                job_id,
-                current.delivery.user_id,
-                current.delivery.project_id,
-                export_completed=True,
-                report_retrieved=current.delivery.report_retrieved,
-            ),
-            billing_released=current.billing_released,
-        )
-        self.store.replace(updated)
-        return updated
+        return self.store.mark_export_completed(job_id, user_id, project_id)
 
     def mark_report_retrieved(
         self,
@@ -128,21 +122,7 @@ class ComputeJobBillingService:
         user_id: str,
         project_id: str,
     ) -> ComputeJobBilling:
-        current = self._owned(job_id, user_id, project_id)
-        if current.delivery.report_retrieved:
-            return current
-        updated = ComputeJobBilling(
-            ComputeJobDelivery(
-                job_id,
-                current.delivery.user_id,
-                current.delivery.project_id,
-                export_completed=current.delivery.export_completed,
-                report_retrieved=True,
-            ),
-            billing_released=current.billing_released,
-        )
-        self.store.replace(updated)
-        return updated
+        return self.store.mark_report_retrieved(job_id, user_id, project_id)
 
     def release(
         self,
