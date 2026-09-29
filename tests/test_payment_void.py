@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
+from mcm_solarcheck.infrastructure.sqlite_payment_operation import SQLitePaymentOperationIntentStore
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount, PaymentStatus
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationResult
 from mcm_solarcheck.services.payment_void import PaymentVoidService
@@ -38,7 +39,11 @@ def test_authorized_payment_uses_stable_provider_void_key(tmp_path) -> None:
     )
     gateway = RecordingGateway()
 
-    voided = PaymentVoidService(payments, gateway).void(
+    voided = PaymentVoidService(
+        payments,
+        gateway,
+        SQLitePaymentOperationIntentStore(tmp_path / "operations.sqlite"),
+    ).void(
         "payment-a", user_id="user-a", project_id="project-a"
     )
 
