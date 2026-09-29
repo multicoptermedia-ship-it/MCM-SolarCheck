@@ -28,7 +28,9 @@ class SQLiteOnlinePaymentStore:
                     currency TEXT,
                     status TEXT NOT NULL,
                     provider_reference TEXT,
-                    method TEXT
+                    method TEXT,
+                    merchant_account_id TEXT,
+                    merchant_account_version INTEGER
                 )
                 """
             )
@@ -40,6 +42,14 @@ class SQLiteOnlinePaymentStore:
                 connection.execute(
                     "ALTER TABLE online_payments ADD COLUMN method TEXT"
                 )
+            if "merchant_account_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE online_payments ADD COLUMN merchant_account_id TEXT"
+                )
+            if "merchant_account_version" not in columns:
+                connection.execute(
+                    "ALTER TABLE online_payments ADD COLUMN merchant_account_version INTEGER"
+                )
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.database)
@@ -50,8 +60,9 @@ class SQLiteOnlinePaymentStore:
                 """
                 INSERT INTO online_payments (
                     payment_id, user_id, project_id, job_id,
-                    amount_minor_units, currency, status, provider_reference, method
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    amount_minor_units, currency, status, provider_reference, method,
+                    merchant_account_id, merchant_account_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payment.payment_id,
@@ -63,6 +74,8 @@ class SQLiteOnlinePaymentStore:
                     payment.status.value,
                     payment.provider_reference,
                     payment.method.value if payment.method else None,
+                    payment.merchant_account_id,
+                    payment.merchant_account_version,
                 ),
             )
 
@@ -71,7 +84,8 @@ class SQLiteOnlinePaymentStore:
             row = connection.execute(
                 """
                 SELECT user_id, project_id, job_id, amount_minor_units,
-                       currency, status, provider_reference, method
+                       currency, status, provider_reference, method,
+                       merchant_account_id, merchant_account_version
                 FROM online_payments
                 WHERE payment_id = ?
                 """,
@@ -88,6 +102,8 @@ class SQLiteOnlinePaymentStore:
             PaymentStatus(row[5]),
             row[6],
             PaymentMethod(row[7]) if row[7] is not None else None,
+            row[8],
+            row[9],
         )
 
     def authorize(
@@ -125,7 +141,8 @@ class SQLiteOnlinePaymentStore:
             row = connection.execute(
                 """
                 SELECT user_id, project_id, job_id, amount_minor_units,
-                       currency, status, provider_reference, method
+                       currency, status, provider_reference, method,
+                       merchant_account_id, merchant_account_version
                 FROM online_payments
                 WHERE payment_id = ?
                 """,
@@ -144,6 +161,8 @@ class SQLiteOnlinePaymentStore:
                 PaymentStatus(row[5]),
                 row[6],
                 PaymentMethod(row[7]) if row[7] is not None else None,
+                row[8],
+                row[9],
             )
             updated = transition(current)
             connection.execute(
