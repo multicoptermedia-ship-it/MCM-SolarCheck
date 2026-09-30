@@ -299,3 +299,49 @@ verification secret.
 SMTP/API credentials and other mail-provider secrets belong only in server-side
 deployment secrets. They must not be committed to the repository or exposed to
 the browser/client.
+
+
+## 15. Payment, voucher, and financial persistence boundary
+
+SolarCheck keeps payment method, payment provider, merchant account, and
+commercial pricing as separate server-owned concepts. Provider adapters may
+change without changing the inspection workflow or historical payment records.
+
+- Supported payment-method concepts include SEPA direct debit, PayPal, and card.
+  A concrete provider must explicitly advertise which methods it supports.
+- Merchant receiving accounts are versioned configuration. Payments retain the
+  merchant-account and provider binding used when they were created; later
+  account changes do not rewrite financial history. Provider credentials are
+  referenced through deployment secrets and are never persisted as plaintext
+  application configuration.
+- SEPA customer bank details remain with the payment provider where possible.
+  SolarCheck persists mandate/provider references and collection state rather
+  than raw customer IBAN credentials.
+- Provider authorization and mandate setup may happen before expensive compute,
+  but capture/debit eligibility is not created by compute success. Billing
+  release requires both successful export and successful report retrieval.
+  Repeated retrieval does not create repeated charges.
+- A FlightPlan voucher grants exactly 10 percent discount to exactly one
+  SolarCheck payment. The code is consumed atomically with creation of the
+  discounted payment and cannot discount a later SolarCheck. Without a new
+  valid FlightPlan code, later SolarChecks use full price.
+- Voucher-policy versions are append-only configuration for future redemption.
+  Existing payment and redemption snapshots are not repriced by later policy
+  lifecycle changes. Deactivating voucher redemption must not block ordinary
+  full-price payments.
+- Provider terminal operations and asynchronous SEPA/webhook processing use
+  persisted idempotency/fencing state so crashes and retries cannot silently
+  manufacture duplicate terminal operations.
+
+For the current SQLite adapter, a voucher redemption and its payment are
+committed through one transaction spanning the payment and voucher databases.
+SQLite does not provide the required cross-database crash-atomicity when an
+attached database uses WAL mode, so the adapter rejects that configuration
+rather than claiming a stronger financial guarantee than SQLite provides.
+Production deployments that require WAL or independent database scaling should
+place the authoritative financial records in one transactional database or use
+a database system with an explicit equivalent atomicity guarantee.
+
+Legacy migrations fail closed when financial uniqueness cannot be established
+safely, for example duplicate SEPA provider references. Startup/readiness
+validation should surface such conditions before payment traffic is accepted.
