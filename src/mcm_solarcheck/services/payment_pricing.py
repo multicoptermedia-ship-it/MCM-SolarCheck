@@ -74,13 +74,16 @@ class PaymentPricingService:
         voucher_code: str | None = None,
     ) -> OnlinePayment:
         amount = base_amount
-        policy = (
-            self._voucher_policy.current()
-            if hasattr(self._voucher_policy, "current")
-            else self._voucher_policy
-        )
-        discount_percent = policy.discount_percent
+        discount_percent: int | None = None
         if voucher_code is not None:
+            policy = (
+                self._voucher_policy.current()
+                if hasattr(self._voucher_policy, "current")
+                else self._voucher_policy
+            )
+            if not policy.active:
+                raise ValueError("voucher policy is inactive")
+            discount_percent = policy.discount_percent
             if self._atomic_store is None:
                 raise ValueError(
                     "voucher payment requires atomic payment persistence"
