@@ -60,3 +60,23 @@ def test_invoice_delivery_rejects_empty_document_without_email(tmp_path) -> None
         service.deliver("invoice-42", b"")
 
     assert sender.messages == []
+
+
+def test_invoice_package_archives_pdf_and_csv_but_emails_only_pdf(tmp_path) -> None:
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    sender = RecordingEmailSender()
+    service = InvoiceAdminDeliveryService(
+        archive, sender, sender_address="solarcheck@mcm-solarcheck.de"
+    )
+    pdf = b"%PDF-1.4 invoice"
+    csv_content = b"invoice_id;item_number\\ninvoice-42;81011\\n"
+
+    service.deliver("invoice-42", pdf, csv_content)
+
+    assert archive.path_for("invoice-42").read_bytes() == pdf
+    assert archive.csv_path_for("invoice-42").read_bytes() == csv_content
+    assert len(sender.messages) == 1
+    assert len(sender.messages[0].attachments) == 1
+    assert sender.messages[0].attachments[0].filename == "invoice-42.pdf"
+    assert "invoice-42.csv" in sender.messages[0].text
+    assert list(archive.root.glob("*.tmp")) == []
