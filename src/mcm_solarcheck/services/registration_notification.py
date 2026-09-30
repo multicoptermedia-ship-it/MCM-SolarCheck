@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from mcm_solarcheck.services.admin_notification import ADMIN_NOTIFICATION_EMAIL
 from mcm_solarcheck.services.email import (
     EmailMessage,
     EmailSender,
@@ -30,7 +31,7 @@ class RegistrationNotificationService:
         self._sender.send(
             EmailMessage(
                 sender=self._config.sender,
-                recipient=self._config.notify_to,
+                recipient=ADMIN_NOTIFICATION_EMAIL,
                 subject="SolarCheck Online: E-Mail verifiziert",
                 text=(
                     "Eine Online-Registrierung wurde erfolgreich verifiziert.\n\n"
