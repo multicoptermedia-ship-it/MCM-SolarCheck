@@ -45,7 +45,7 @@ class PrivateReportExportService:
         destination.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary_name = tempfile.mkstemp(
             prefix=f".{destination.stem}-",
-            suffix=f"{self._reports.suffix}.tmp",
+            suffix=self._reports.suffix,
             dir=destination.parent,
         )
         os.close(descriptor)
