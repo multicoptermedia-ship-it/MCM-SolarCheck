@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import pytest
+from datetime import datetime, timezone
 
 from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
-from mcm_solarcheck.services.invoice import InvoiceBasisService
+from mcm_solarcheck.services.invoice import InvoiceBasisService, invoice_customer_from_registration
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
+from mcm_solarcheck.services.registration import OnlineRegistration, RegistrationStatus
 
 
 class BillingStore:
@@ -97,3 +99,37 @@ def test_invoice_basis_blocked_without_report_delivery() -> None:
             "invoice-a", "payment-a",
             job_id="job-a", user_id="user-a", project_id="project-a",
         )
+
+
+def test_invoice_customer_uses_verified_registration_billing_address() -> None:
+    registration = OnlineRegistration(
+        "user-a", "Testkunde GmbH", "kunde@example.com",
+        RegistrationStatus.VERIFIED, datetime(2026, 9, 30, tzinfo=timezone.utc),
+        "Musterweg 1", "50181", "Bedburg",
+    )
+
+    customer = invoice_customer_from_registration(registration)
+
+    assert customer.name == "Testkunde GmbH"
+    assert customer.address_lines == ("Musterweg 1", "50181 Bedburg")
+    assert customer.email == "kunde@example.com"
+
+
+def test_invoice_customer_rejects_unverified_registration() -> None:
+    registration = OnlineRegistration(
+        "user-a", "Testkunde GmbH", "kunde@example.com",
+        street="Musterweg 1", postal_code="50181", city="Bedburg",
+    )
+
+    with pytest.raises(ValueError, match="verified registration"):
+        invoice_customer_from_registration(registration)
+
+
+def test_legacy_verified_registration_without_address_cannot_be_invoiced() -> None:
+    registration = OnlineRegistration(
+        "user-a", "Altbestand", "alt@example.com",
+        RegistrationStatus.VERIFIED, datetime(2026, 9, 30, tzinfo=timezone.utc),
+    )
+
+    with pytest.raises(ValueError, match="complete billing address"):
+        invoice_customer_from_registration(registration)
