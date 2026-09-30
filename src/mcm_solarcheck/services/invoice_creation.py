@@ -61,11 +61,11 @@ class InvoiceCreationService:
             root = Path(temporary)
             pdf_path = render_invoice_pdf(
                 invoice,
-                root / f"{invoice_id}.pdf",
+                root / "invoice.pdf",
                 company_lines=self._config.company_lines,
                 payment_text=self._config.payment_text,
             )
-            csv_path = render_invoice_csv(invoice, root / f"{invoice_id}.csv")
+            csv_path = render_invoice_csv(invoice, root / "invoice.csv")
             pdf = pdf_path.read_bytes()
             csv_content = csv_path.read_bytes()
 
