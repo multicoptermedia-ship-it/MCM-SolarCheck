@@ -6,6 +6,7 @@ import pytest
 
 from mcm_solarcheck.infrastructure.sqlite_merchant_account import SQLiteMerchantAccountStore
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
+from mcm_solarcheck.infrastructure.sqlite_solarcheck_tariff import SQLiteSolarCheckTariffStore
 from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherStore
 from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
 from mcm_solarcheck.services.merchant_binding import MerchantAccountBindingService
@@ -23,6 +24,7 @@ from mcm_solarcheck.services.payment_provider import (
 )
 from mcm_solarcheck.services.payment_routing import PaymentProviderRoutingService
 from mcm_solarcheck.services.voucher_admin import FlightPlanVoucherPolicy
+from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
 
 
 class RecordingGateway:
@@ -55,6 +57,12 @@ def build_checkout(tmp_path, method, kind):
     providers = PaymentProviderRegistry(
         (PaymentProviderCapabilities("provider-a", frozenset({method})),)
     )
+    tariffs = SQLiteSolarCheckTariffStore(tmp_path / "tariffs.sqlite")
+    tariffs.save(
+        initial_solarcheck_tariff(
+            datetime(2026, 9, 30, 0, 0, tzinfo=timezone.utc)
+        )
+    )
     gateway = RecordingGateway()
     checkout = OnlinePaymentCheckoutService(
         PaymentPricingService(payments, vouchers, FlightPlanVoucherPolicy()),
@@ -67,6 +75,7 @@ def build_checkout(tmp_path, method, kind):
             "provider-a",
         ),
         payments,
+        tariffs,
     )
     return checkout, payments, gateway
 
@@ -83,7 +92,7 @@ def test_checkout_persists_card_routing_snapshot_before_authorization(tmp_path) 
         user_id="user-a",
         project_id="project-a",
         job_id="job-a",
-        base_amount=PaymentAmount(50000, "EUR"),
+        plant_kwp=750,
         method=PaymentMethod.CARD,
         provider_id="provider-a",
         merchant_account_id="merchant-a",
@@ -91,6 +100,7 @@ def test_checkout_persists_card_routing_snapshot_before_authorization(tmp_path) 
     )
 
     assert result.status is PaymentStatus.AUTHORIZED
+    assert result.amount == PaymentAmount(14500, "EUR")
     assert result.method is PaymentMethod.CARD
     assert result.merchant_account_id == "merchant-a"
     assert result.merchant_account_version == 1
@@ -117,7 +127,7 @@ def test_checkout_does_not_send_sepa_through_authorization_gateway(tmp_path) -> 
             user_id="user-a",
             project_id="project-a",
             job_id="job-sepa",
-            base_amount=PaymentAmount(50000, "EUR"),
+            plant_kwp=750,
             method=PaymentMethod.SEPA_DIRECT_DEBIT,
             provider_id="provider-a",
             merchant_account_id="merchant-a",
@@ -125,7 +135,5 @@ def test_checkout_does_not_send_sepa_through_authorization_gateway(tmp_path) -> 
         )
 
     assert gateway.authorizations == []
-    persisted = payments.get("payment-sepa")
-    assert persisted.status is PaymentStatus.CREATED
-    assert persisted.method is None
-    assert persisted.provider_id is None
+    with pytest.raises(KeyError):
+        payments.get("payment-sepa")
