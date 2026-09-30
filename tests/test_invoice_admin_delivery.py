@@ -178,3 +178,32 @@ def test_sent_invoice_admin_email_is_not_resent_after_service_restart(tmp_path) 
 
     assert len(sender.messages) == 1
     assert archive.path_for("invoice-42").read_bytes() == pdf
+
+
+def test_invoice_id_cannot_replace_archived_pdf_with_different_content(tmp_path) -> None:
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    original = b"%PDF original"
+    archive.store("invoice-42", original)
+
+    with pytest.raises(ValueError, match="different content"):
+        archive.store("invoice-42", b"%PDF changed")
+
+    assert archive.path_for("invoice-42").read_bytes() == original
+
+
+def test_invoice_package_retry_requires_identical_pdf_and_csv(tmp_path) -> None:
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    pdf = b"%PDF original"
+    csv_content = b"invoice_id;item_number\ninvoice-42;81011\n"
+    archive.store_package("invoice-42", pdf, csv_content)
+
+    assert archive.store_package("invoice-42", pdf, csv_content) == (
+        archive.path_for("invoice-42"),
+        archive.csv_path_for("invoice-42"),
+    )
+
+    with pytest.raises(ValueError, match="different content"):
+        archive.store_package("invoice-42", pdf, b"changed csv")
+
+    assert archive.path_for("invoice-42").read_bytes() == pdf
+    assert archive.csv_path_for("invoice-42").read_bytes() == csv_content
