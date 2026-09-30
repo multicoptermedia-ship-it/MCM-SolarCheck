@@ -72,6 +72,8 @@ class PaymentPricingService:
         base_amount: PaymentAmount,
         now: datetime,
         voucher_code: str | None = None,
+        tariff_version: int | None = None,
+        plant_kwp: int | None = None,
     ) -> OnlinePayment:
         amount = base_amount
         discount_percent: int | None = None
@@ -105,6 +107,8 @@ class PaymentPricingService:
             job_id,
             amount,
             PaymentStatus.SETTLED if amount is None else PaymentStatus.CREATED,
+            tariff_version=tariff_version,
+            plant_kwp=plant_kwp,
         )
         if voucher_code is not None:
             self._atomic_store.create_with_voucher(
