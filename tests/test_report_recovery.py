@@ -200,3 +200,82 @@ def test_active_pending_recovery_claim_prevents_parallel_send(tmp_path) -> None:
 
     assert first.claim("job-a", "export") is True
     assert second.claim("job-a", "export") is False
+
+
+def test_legacy_recovery_claim_migrates_as_sent_without_duplicate_alert(tmp_path) -> None:
+    database = tmp_path / "legacy-recovery.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE report_recovery_notification (
+                job_id TEXT NOT NULL,
+                phase TEXT NOT NULL,
+                PRIMARY KEY (job_id, phase)
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO report_recovery_notification (job_id, phase)
+            VALUES (?, ?)
+            """,
+            ("job-a", "delivery"),
+        )
+
+    sender = RecordingEmailSender()
+    notifications = ReportRecoveryNotificationService(
+        sender,
+        ReportRecoveryEmailConfig(
+            sender="solarcheck@mcm-dronetech.com",
+            notify_to="solarcheck@mcm-dronetech.com",
+        ),
+    )
+    service = ReportRecoveryService(
+        notifications,
+        SQLiteReportRecoveryStore(database),
+    )
+
+    assert service.record_failure(
+        job_id="job-a",
+        project_id="project-a",
+        phase="delivery",
+        report_path=tmp_path / "job-a.pdf",
+        terminal=True,
+    ) is False
+    assert sender.messages == []
+
+    with sqlite3.connect(database) as connection:
+        status, lease_until = connection.execute(
+            """
+            SELECT status, lease_until
+            FROM report_recovery_notification
+            WHERE job_id = ? AND phase = ?
+            """,
+            ("job-a", "delivery"),
+        ).fetchone()
+    assert status == "sent"
+    assert lease_until is None
+
+
+def test_export_and_delivery_recovery_are_independent_for_same_job(tmp_path) -> None:
+    sender, service = recovery_service(tmp_path)
+    report_path = tmp_path / "job-a.pdf"
+
+    assert service.record_failure(
+        job_id="job-a",
+        project_id="project-a",
+        phase="export",
+        report_path=report_path,
+        terminal=True,
+    ) is True
+    assert service.record_failure(
+        job_id="job-a",
+        project_id="project-a",
+        phase="delivery",
+        report_path=report_path,
+        terminal=True,
+    ) is True
+
+    assert len(sender.messages) == 2
+    assert "export" in sender.messages[0].text
+    assert "delivery" in sender.messages[1].text
