@@ -31,7 +31,7 @@ def test_delivery_and_recovery_email_failure_never_unlock_billing_or_payment(tmp
     billing_store = SQLiteComputeJobBillingStore(tmp_path / "billing.sqlite")
     billing = ComputeJobBillingService(billing_store)
     billing.create("job-a", user_id="user-a", project_id="project-a")
-    billing.mark_export_completed("job-a", "user-a", "project-a")
+    billing.mark_export_completed("job-a", user_id="user-a", project_id="project-a")
 
     payments = SQLiteOnlinePaymentStore(tmp_path / "payment.sqlite")
     payments.create(
@@ -86,7 +86,7 @@ def test_transient_delivery_failure_does_not_claim_recovery(tmp_path) -> None:
     billing_store = SQLiteComputeJobBillingStore(tmp_path / "billing.sqlite")
     billing = ComputeJobBillingService(billing_store)
     billing.create("job-a", user_id="user-a", project_id="project-a")
-    billing.mark_export_completed("job-a", "user-a", "project-a")
+    billing.mark_export_completed("job-a", user_id="user-a", project_id="project-a")
 
     claims = SQLiteReportRecoveryStore(tmp_path / "recovery.sqlite")
     recovery = ReportRecoveryService(
