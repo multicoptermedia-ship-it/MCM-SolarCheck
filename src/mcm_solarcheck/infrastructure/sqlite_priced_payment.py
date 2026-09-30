@@ -16,6 +16,30 @@ class SQLitePricedPaymentStore:
     def __init__(self, payment_database: str | Path, voucher_database: str | Path) -> None:
         self.payment_database = str(payment_database)
         self.voucher_database = str(voucher_database)
+        self._validate_schema()
+
+    def _validate_schema(self) -> None:
+        connection = sqlite3.connect(self.payment_database, timeout=30)
+        try:
+            connection.execute("ATTACH DATABASE ? AS vouchers", (self.voucher_database,))
+            payment_table = connection.execute(
+                """
+                SELECT 1 FROM main.sqlite_master
+                WHERE type = 'table' AND name = 'online_payments'
+                """
+            ).fetchone()
+            voucher_table = connection.execute(
+                """
+                SELECT 1 FROM vouchers.sqlite_master
+                WHERE type = 'table' AND name = 'flightplan_vouchers'
+                """
+            ).fetchone()
+            if payment_table is None:
+                raise ValueError("payment database schema is not initialized")
+            if voucher_table is None:
+                raise ValueError("voucher database schema is not initialized")
+        finally:
+            connection.close()
 
     def create_with_voucher(
         self,
