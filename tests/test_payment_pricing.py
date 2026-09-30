@@ -3,6 +3,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
+import sqlite3
+
 import pytest
 
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
@@ -454,3 +456,29 @@ def test_atomic_priced_payment_store_requires_initialized_voucher_schema(tmp_pat
             payments.database,
             tmp_path / "uninitialized-vouchers.sqlite",
         )
+
+
+def test_atomic_priced_payment_store_rejects_wal_payment_database(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    connection = sqlite3.connect(payments.database)
+    try:
+        assert connection.execute("PRAGMA journal_mode=WAL").fetchone()[0].lower() == "wal"
+    finally:
+        connection.close()
+
+    with pytest.raises(ValueError, match="does not support WAL"):
+        SQLitePricedPaymentStore(payments.database, vouchers.database)
+
+
+def test_atomic_priced_payment_store_rejects_wal_voucher_database(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    connection = sqlite3.connect(vouchers.database)
+    try:
+        assert connection.execute("PRAGMA journal_mode=WAL").fetchone()[0].lower() == "wal"
+    finally:
+        connection.close()
+
+    with pytest.raises(ValueError, match="does not support WAL"):
+        SQLitePricedPaymentStore(payments.database, vouchers.database)
