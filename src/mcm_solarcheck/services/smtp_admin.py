@@ -41,6 +41,7 @@ class SMTPAdminStatus:
     timeout_seconds: float
     password_is_set: bool
     security: SMTPSecurity
+    sender_address: str
 
 
 class SMTPAdminService:
@@ -58,6 +59,7 @@ class SMTPAdminService:
             config.timeout_seconds,
             self._secrets.is_set(),
             config.security_mode,
+            config.effective_sender_address,
         )
 
     def save_settings(self, config: SMTPConfig) -> SMTPAdminStatus:
@@ -75,7 +77,7 @@ class SMTPAdminService:
         password = self._secrets.resolve_for_delivery()
         SMTPEmailSender(config, password).send(
             EmailMessage(
-                sender=config.username,
+                sender=config.effective_sender_address,
                 recipient=ADMIN_NOTIFICATION_EMAIL,
                 subject="SolarCheck SMTP-Test",
                 text=(
