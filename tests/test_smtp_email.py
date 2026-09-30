@@ -4,7 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPEmailSender
+from mcm_solarcheck.infrastructure.smtp_email import (
+    SMTPConfig,
+    SMTPEmailSender,
+    SMTPSecurity,
+)
 from mcm_solarcheck.services.email import EmailAttachment, EmailMessage
 
 
@@ -34,6 +38,42 @@ def test_smtp_sender_builds_pdf_mime_attachment_and_uses_starttls() -> None:
     assert attachments[0].get_filename() == "R-1.pdf"
     assert attachments[0].get_content_type() == "application/pdf"
     assert attachments[0].get_payload(decode=True) == b"%PDF invoice"
+
+
+def test_smtp_sender_supports_implicit_tls() -> None:
+    config = SMTPConfig(
+        "smtp.example.com",
+        465,
+        "solarcheck@example.com",
+        security=SMTPSecurity.TLS,
+    )
+    sender = SMTPEmailSender(config, "secret-password")
+    message = EmailMessage(
+        sender="solarcheck@example.com",
+        recipient="solarcheck@mcm-dronetech.com",
+        subject="TLS test",
+        text="test",
+    )
+    smtp = MagicMock()
+    smtp.__enter__.return_value = smtp
+
+    with patch(
+        "mcm_solarcheck.infrastructure.smtp_email.smtplib.SMTP_SSL",
+        return_value=smtp,
+    ) as smtp_ssl:
+        sender.send(message)
+
+    smtp_ssl.assert_called_once()
+    smtp.starttls.assert_not_called()
+    smtp.login.assert_called_once_with("solarcheck@example.com", "secret-password")
+    smtp.send_message.assert_called_once()
+
+
+def test_smtp_config_rejects_unencrypted_mode() -> None:
+    config = SMTPConfig("smtp.example.com", 25, "user", use_starttls=False)
+
+    with pytest.raises(ValueError, match="unencrypted"):
+        _ = config.security_mode
 
 
 def test_smtp_config_rejects_invalid_port() -> None:
