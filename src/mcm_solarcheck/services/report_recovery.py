@@ -3,17 +3,31 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Protocol
 
 from mcm_solarcheck.services.report_recovery_notification import (
     ReportRecoveryNotificationService,
 )
 
 
-class ReportRecoveryService:
-    """Notify operations only after the caller declares a report failure terminal."""
+class ReportRecoveryClaimStore(Protocol):
+    def claim(self, job_id: str, phase: str) -> bool:
+        ...
 
-    def __init__(self, notifications: ReportRecoveryNotificationService) -> None:
+    def release(self, job_id: str, phase: str) -> None:
+        ...
+
+
+class ReportRecoveryService:
+    """Notify operations once after the caller declares a report failure terminal."""
+
+    def __init__(
+        self,
+        notifications: ReportRecoveryNotificationService,
+        claims: ReportRecoveryClaimStore,
+    ) -> None:
         self._notifications = notifications
+        self._claims = claims
 
     def record_failure(
         self,
@@ -30,11 +44,17 @@ class ReportRecoveryService:
             raise ValueError("terminal must be a boolean")
         if not terminal:
             return False
+        if not self._claims.claim(job_id, phase):
+            return False
 
-        self._notifications.notify(
-            job_id=job_id,
-            project_id=project_id,
-            phase=phase,
-            report_path=report_path,
-        )
+        try:
+            self._notifications.notify(
+                job_id=job_id,
+                project_id=project_id,
+                phase=phase,
+                report_path=report_path,
+            )
+        except Exception:
+            self._claims.release(job_id, phase)
+            raise
         return True
