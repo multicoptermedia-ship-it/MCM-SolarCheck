@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig
-from mcm_solarcheck.services.smtp_admin import SMTPAdminService
+from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPSecurity
+from mcm_solarcheck.services.smtp_admin import SMTPAdminService, SMTPAdminSettingsInput
 
 
 class Settings:
@@ -112,3 +112,74 @@ def test_admin_keeps_smtp_login_separate_from_visible_sender() -> None:
     assert message.sender == "solarcheck@mcm-dronetech.com"
     assert message.recipient == "solarcheck@mcm-dronetech.com"
     assert "provider-login" not in message.text
+
+
+def test_admin_settings_input_saves_only_non_secret_secure_values() -> None:
+    settings = Settings()
+    secrets = Secrets()
+    secrets.replace("existing-secret")
+    service = SMTPAdminService(settings, secrets)
+
+    status = service.save_admin_settings(
+        SMTPAdminSettingsInput(
+            host="smtp.provider.example",
+            port=465,
+            username="technical-login",
+            sender_address="solarcheck@mcm-dronetech.com",
+            security=SMTPSecurity.TLS,
+            timeout_seconds=20.0,
+        )
+    )
+
+    assert settings.config.host == "smtp.provider.example"
+    assert settings.config.security_mode is SMTPSecurity.TLS
+    assert status.sender_address == "solarcheck@mcm-dronetech.com"
+    assert status.password_is_set is True
+    assert secrets.password == "existing-secret"
+
+
+@pytest.mark.parametrize(
+    "values, message",
+    [
+        (
+            SMTPAdminSettingsInput("", 587, "login", "solarcheck@mcm-dronetech.com", SMTPSecurity.STARTTLS),
+            "host",
+        ),
+        (
+            SMTPAdminSettingsInput("smtp.example.com", 0, "login", "solarcheck@mcm-dronetech.com", SMTPSecurity.STARTTLS),
+            "port",
+        ),
+        (
+            SMTPAdminSettingsInput("smtp.example.com", 587, "", "solarcheck@mcm-dronetech.com", SMTPSecurity.STARTTLS),
+            "username",
+        ),
+        (
+            SMTPAdminSettingsInput("smtp.example.com", 587, "login", "", SMTPSecurity.STARTTLS),
+            "sender",
+        ),
+    ],
+)
+def test_admin_rejects_invalid_settings_before_save(values, message) -> None:
+    settings = Settings()
+    service = SMTPAdminService(settings, Secrets())
+    original = settings.config
+
+    with pytest.raises(ValueError, match=message):
+        service.save_admin_settings(values)
+
+    assert settings.config == original
+
+
+def test_admin_input_rejects_unencrypted_security_value() -> None:
+    settings = Settings()
+    service = SMTPAdminService(settings, Secrets())
+    values = SMTPAdminSettingsInput(
+        "smtp.example.com",
+        587,
+        "login",
+        "solarcheck@mcm-dronetech.com",
+        "plain",  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(ValueError, match="security"):
+        service.save_admin_settings(values)
