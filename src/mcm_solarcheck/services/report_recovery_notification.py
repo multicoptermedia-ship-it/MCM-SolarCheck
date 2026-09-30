@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from mcm_solarcheck.services.admin_notification import ADMIN_NOTIFICATION_EMAIL
 from mcm_solarcheck.services.email import (
     EmailMessage,
     EmailSender,
@@ -45,7 +46,7 @@ class ReportRecoveryNotificationService:
         self._sender.send(
             EmailMessage(
                 sender=self._config.sender,
-                recipient=self._config.notify_to,
+                recipient=ADMIN_NOTIFICATION_EMAIL,
                 subject="SolarCheck: Report manuell pruefen",
                 text=(
                     "Die automatische Report-Verarbeitung benoetigt eine "
