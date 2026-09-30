@@ -248,3 +248,23 @@ def test_submitted_sepa_reservation_returns_persisted_reference(tmp_path) -> Non
 
     assert retry.status is SepaSubmissionStatus.SUBMITTED
     assert retry.provider_reference == "provider-debit-a"
+
+
+def test_pending_sepa_submission_requires_complete_lease_pair() -> None:
+    kwargs = dict(
+        payment_id="payment-a",
+        mandate_id="mandate-a",
+        user_id="user-a",
+        project_id="project-a",
+        provider_id="provider-a",
+        idempotency_key="payment:payment-a:sepa-submit",
+    )
+
+    with pytest.raises(ValueError, match="set together"):
+        SepaSubmission(**kwargs, lease_token="token-a")
+
+    with pytest.raises(ValueError, match="set together"):
+        SepaSubmission(
+            **kwargs,
+            lease_until="2026-09-30T08:01:00+00:00",
+        )
