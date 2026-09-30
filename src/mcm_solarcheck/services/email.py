@@ -59,3 +59,16 @@ class RegistrationEmailConfig:
             + "/verify-email?token="
             + quote(token, safe="")
         )
+
+
+@dataclass(frozen=True)
+class ReportRecoveryEmailConfig:
+    """Deployment-owned addresses for internal report recovery alerts."""
+
+    sender: str
+    notify_to: str
+
+    def __post_init__(self) -> None:
+        for address in (self.sender, self.notify_to):
+            if address.count("@") != 1:
+                raise ValueError("configured email address must be plausible")
