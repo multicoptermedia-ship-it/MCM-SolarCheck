@@ -5,7 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from mcm_solarcheck.services.billing import ComputeJobBilling
-from mcm_solarcheck.services.report_delivery import ReportDeliveryService, ReportSender
+from mcm_solarcheck.services.report_delivery import (
+    ReportDeliveryAccessError,
+    ReportDeliveryNotReadyError,
+    ReportDeliveryService,
+    ReportSender,
+)
 from mcm_solarcheck.services.report_recovery import ReportRecoveryService
 
 
@@ -37,6 +42,8 @@ class ReportDeliveryRecoveryService:
                 project_id=project_id,
                 send=send,
             )
+        except (ReportDeliveryAccessError, ReportDeliveryNotReadyError):
+            raise
         except Exception as delivery_error:
             try:
                 self._recovery.record_failure(
