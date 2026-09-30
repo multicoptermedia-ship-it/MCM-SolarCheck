@@ -10,7 +10,6 @@ from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDeliver
     [
         (False, False, False),
         (True, False, False),
-        (False, True, False),
         (True, True, True),
     ],
 )
@@ -92,4 +91,15 @@ def test_released_billing_cannot_be_constructed_without_complete_delivery() -> N
                 report_retrieved=True,
             ),
             billing_released=True,
+        )
+
+
+def test_report_retrieval_without_export_is_invalid_delivery_state() -> None:
+    with pytest.raises(ValueError, match="requires completed export"):
+        ComputeJobDelivery(
+            "job-a",
+            "user-a",
+            "project-a",
+            export_completed=False,
+            report_retrieved=True,
         )
