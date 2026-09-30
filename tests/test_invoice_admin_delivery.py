@@ -207,3 +207,33 @@ def test_invoice_package_retry_requires_identical_pdf_and_csv(tmp_path) -> None:
 
     assert archive.path_for("invoice-42").read_bytes() == pdf
     assert archive.csv_path_for("invoice-42").read_bytes() == csv_content
+
+
+def test_invoice_package_ready_marker_exists_only_after_complete_package(tmp_path) -> None:
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    pdf = b"%PDF invoice"
+    csv_content = b"invoice_id;item_number\ninvoice-42;81011\n"
+
+    assert archive.package_is_ready("invoice-42") is False
+
+    archive.store_package("invoice-42", pdf, csv_content)
+
+    assert archive.path_for("invoice-42").read_bytes() == pdf
+    assert archive.csv_path_for("invoice-42").read_bytes() == csv_content
+    assert archive.package_is_ready("invoice-42") is True
+    assert archive.ready_path_for("invoice-42").read_bytes() == b"ready\n"
+
+
+def test_incomplete_existing_invoice_package_is_never_marked_ready(tmp_path) -> None:
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    archive.store("invoice-42", b"%PDF invoice")
+
+    with pytest.raises(ValueError, match="incomplete"):
+        archive.store_package(
+            "invoice-42",
+            b"%PDF invoice",
+            b"invoice_id;item_number\ninvoice-42;81011\n",
+        )
+
+    assert archive.package_is_ready("invoice-42") is False
+    assert archive.csv_path_for("invoice-42").exists() is False
