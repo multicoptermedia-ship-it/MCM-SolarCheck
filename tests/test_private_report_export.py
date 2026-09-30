@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
+from unittest.mock import patch
 
 from mcm_solarcheck.infrastructure.filesystem_report import FileSystemReportArtifactStore
 from mcm_solarcheck.infrastructure.sqlite_billing import SQLiteComputeJobBillingStore
@@ -92,3 +93,42 @@ def test_export_rejects_wrong_user_before_writing_artifact(tmp_path) -> None:
 
     assert artifacts.path_for("job-a").exists() is False
     assert billing.get("job-a").delivery.export_completed is False
+
+
+def test_partial_failed_export_never_publishes_final_report(tmp_path) -> None:
+    billing, artifacts, service = setup_export(tmp_path)
+
+    def fail_after_partial_write(report, destination, **kwargs) -> None:
+        destination.write_bytes(b"partial report")
+        raise RuntimeError("renderer failed")
+
+    with patch(
+        "mcm_solarcheck.services.private_report_export.export_report",
+        side_effect=fail_after_partial_write,
+    ):
+        with pytest.raises(RuntimeError, match="renderer failed"):
+            service.export(
+                report(),
+                "job-a",
+                user_id="user-a",
+                project_id="project-a",
+            )
+
+    assert artifacts.path_for("job-a").exists() is False
+    assert list(artifacts.root.glob(".*.tmp")) == []
+    assert billing.get("job-a").delivery.export_completed is False
+
+
+def test_atomic_export_publishes_only_final_report_name(tmp_path) -> None:
+    billing, artifacts, service = setup_export(tmp_path)
+
+    service.export(
+        report(),
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    assert artifacts.path_for("job-a").is_file()
+    assert list(artifacts.root.glob(".*.tmp")) == []
+    assert billing.get("job-a").delivery.export_completed is True
