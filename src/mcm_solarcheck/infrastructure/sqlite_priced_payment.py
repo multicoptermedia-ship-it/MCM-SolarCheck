@@ -38,6 +38,17 @@ class SQLitePricedPaymentStore:
                 raise ValueError("payment database schema is not initialized")
             if voucher_table is None:
                 raise ValueError("voucher database schema is not initialized")
+            payment_journal = connection.execute(
+                "PRAGMA main.journal_mode"
+            ).fetchone()[0].lower()
+            voucher_journal = connection.execute(
+                "PRAGMA vouchers.journal_mode"
+            ).fetchone()[0].lower()
+            if "wal" in {payment_journal, voucher_journal}:
+                raise ValueError(
+                    "atomic voucher payment persistence does not support WAL "
+                    "across attached databases"
+                )
         finally:
             connection.close()
 
