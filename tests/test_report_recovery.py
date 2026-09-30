@@ -1,3 +1,4 @@
+import sqlite3
 from __future__ import annotations
 
 import pytest
@@ -142,3 +143,59 @@ def test_recovery_rejects_unknown_phase_before_sending(tmp_path) -> None:
         )
 
     assert sender.messages == []
+
+
+def test_expired_pending_recovery_claim_is_retried_after_restart(tmp_path) -> None:
+    database = tmp_path / "recovery.sqlite"
+    claims = SQLiteReportRecoveryStore(database)
+    assert claims.claim("job-a", "delivery") is True
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            UPDATE report_recovery_notification
+            SET lease_until = 0
+            WHERE job_id = ? AND phase = ?
+            """,
+            ("job-a", "delivery"),
+        )
+
+    sender = RecordingEmailSender()
+    notifications = ReportRecoveryNotificationService(
+        sender,
+        ReportRecoveryEmailConfig(
+            sender="solarcheck@mcm-dronetech.com",
+            notify_to="solarcheck@mcm-dronetech.com",
+        ),
+    )
+    restarted = ReportRecoveryService(
+        notifications,
+        SQLiteReportRecoveryStore(database),
+    )
+
+    assert restarted.record_failure(
+        job_id="job-a",
+        project_id="project-a",
+        phase="delivery",
+        report_path=tmp_path / "job-a.pdf",
+        terminal=True,
+    ) is True
+    assert len(sender.messages) == 1
+
+    assert restarted.record_failure(
+        job_id="job-a",
+        project_id="project-a",
+        phase="delivery",
+        report_path=tmp_path / "job-a.pdf",
+        terminal=True,
+    ) is False
+    assert len(sender.messages) == 1
+
+
+def test_active_pending_recovery_claim_prevents_parallel_send(tmp_path) -> None:
+    database = tmp_path / "recovery.sqlite"
+    first = SQLiteReportRecoveryStore(database)
+    second = SQLiteReportRecoveryStore(database)
+
+    assert first.claim("job-a", "export") is True
+    assert second.claim("job-a", "export") is False
