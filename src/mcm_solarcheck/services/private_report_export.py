@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 
 from mcm_solarcheck.infrastructure.filesystem_report import FileSystemReportArtifactStore
@@ -41,13 +43,24 @@ class PrivateReportExportService:
 
         destination = self._reports.path_for(job_id)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        export_report(
-            report,
-            destination,
-            format=self._reports.suffix.lstrip("."),
-            banner_path=banner_path,
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{destination.stem}-",
+            suffix=f"{self._reports.suffix}.tmp",
+            dir=destination.parent,
         )
-        if not destination.is_file():
-            raise RuntimeError("report export did not create artifact")
+        os.close(descriptor)
+        temporary = Path(temporary_name)
+        try:
+            export_report(
+                report,
+                temporary,
+                format=self._reports.suffix.lstrip("."),
+                banner_path=banner_path,
+            )
+            if not temporary.is_file() or temporary.stat().st_size == 0:
+                raise RuntimeError("report export did not create artifact")
+            temporary.replace(destination)
+        finally:
+            temporary.unlink(missing_ok=True)
 
         return self._billing.mark_export_completed(job_id, user_id, project_id)
