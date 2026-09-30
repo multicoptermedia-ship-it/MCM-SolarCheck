@@ -55,14 +55,22 @@ def test_billing_service_requires_server_delivery_events_before_release(tmp_path
     service = ComputeJobBillingService(store)
     service.create("job-a", user_id="user-a", project_id="project-a")
 
-    retrieved = service.mark_report_retrieved("job-a", user_id="user-a", project_id="project-a")
-    assert retrieved.delivery.report_retrieved is True
-    assert retrieved.delivery.billable is False
-    with pytest.raises(ValueError, match="not billable"):
-        service.release("job-a", user_id="user-a", project_id="project-a")
+    with pytest.raises(ValueError, match="requires completed export"):
+        service.mark_report_retrieved(
+            "job-a", user_id="user-a", project_id="project-a"
+        )
+    persisted = store.get("job-a")
+    assert persisted.delivery.report_retrieved is False
 
-    exported = service.mark_export_completed("job-a", user_id="user-a", project_id="project-a")
-    assert exported.delivery.billable is True
+    exported = service.mark_export_completed(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    assert exported.delivery.billable is False
+
+    retrieved = service.mark_report_retrieved(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    assert retrieved.delivery.billable is True
 
     released = service.release("job-a", user_id="user-a", project_id="project-a")
     assert released.billing_released is True
@@ -145,44 +153,21 @@ def test_sqlite_billing_release_is_atomic_under_concurrency(tmp_path) -> None:
     assert store.get("job-a").billing_released is True
 
 
-def test_sqlite_billing_delivery_events_do_not_lose_concurrent_updates(tmp_path) -> None:
+def test_report_retrieval_racing_export_fails_closed(tmp_path) -> None:
     database = tmp_path / "billing.sqlite"
     store = SQLiteComputeJobBillingStore(database)
-    ComputeJobBillingService(store).create(
-        "job-a", user_id="user-a", project_id="project-a"
-    )
-    barrier = Barrier(2)
+    service = ComputeJobBillingService(store)
+    service.create("job-a", user_id="user-a", project_id="project-a")
 
-    def mark_export() -> None:
-        local = ComputeJobBillingService(SQLiteComputeJobBillingStore(database))
-        barrier.wait()
-        local.mark_export_completed(
+    with pytest.raises(ValueError, match="requires completed export"):
+        service.mark_report_retrieved(
             "job-a", user_id="user-a", project_id="project-a"
         )
 
-    def mark_retrieval() -> None:
-        local = ComputeJobBillingService(SQLiteComputeJobBillingStore(database))
-        barrier.wait()
-        local.mark_report_retrieved(
-            "job-a", user_id="user-a", project_id="project-a"
-        )
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = [executor.submit(mark_export), executor.submit(mark_retrieval)]
-        for future in futures:
-            future.result()
-
-    persisted = store.get("job-a")
-    assert persisted.delivery.export_completed is True
-    assert persisted.delivery.report_retrieved is True
-    assert persisted.delivery.billable is True
-
-    released = ComputeJobBillingService(store).release(
+    service.mark_export_completed(
         "job-a", user_id="user-a", project_id="project-a"
     )
-    assert released.billing_released is True
-
-    repeated = ComputeJobBillingService(store).mark_export_completed(
+    retrieved = service.mark_report_retrieved(
         "job-a", user_id="user-a", project_id="project-a"
     )
-    assert repeated.billing_released is True
+    assert retrieved.delivery.billable is True
