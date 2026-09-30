@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobBillingService
-from mcm_solarcheck.services.payment import OnlinePayment
+from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
 
 
@@ -22,9 +22,11 @@ class PaymentDeliveryService:
         self,
         billing: ComputeJobBillingService,
         capture: PaymentCaptureService,
+        payments: OnlinePaymentStore,
     ) -> None:
         self._billing = billing
         self._capture = capture
+        self._payments = payments
 
     def mark_export_completed(
         self,
@@ -76,6 +78,15 @@ class PaymentDeliveryService:
     ) -> PaymentDeliveryResult:
         if not billing.delivery.billable:
             return PaymentDeliveryResult(billing)
+
+        if billing.billing_released:
+            payment = self._payments.get(payment_id)
+            if payment.user_id != user_id or payment.project_id != project_id:
+                raise PermissionError("payment ownership mismatch")
+            if payment.job_id != billing.delivery.job_id:
+                raise ValueError("payment does not belong to delivered compute job")
+            if payment.status is PaymentStatus.CAPTURED:
+                return PaymentDeliveryResult(billing, payment)
 
         if not billing.billing_released:
             billing = self._billing.release(
