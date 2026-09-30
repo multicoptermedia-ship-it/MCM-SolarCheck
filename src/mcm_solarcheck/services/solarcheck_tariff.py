@@ -37,6 +37,8 @@ class SolarCheckTariff:
             raise ValueError("tariff version must be an integer")
         if self.version <= 0:
             raise ValueError("tariff version must be positive")
+        if self.effective_from.tzinfo is None or self.effective_from.utcoffset() is None:
+            raise ValueError("tariff effective_from must be timezone-aware")
         if not self.bands:
             raise ValueError("tariff requires at least one price band")
         currency = self.bands[0].amount.currency
@@ -73,6 +75,10 @@ def quote_solarcheck(
     plant_kwp: int,
     quoted_at: datetime,
 ) -> SolarCheckPriceQuote:
+    if quoted_at.tzinfo is None or quoted_at.utcoffset() is None:
+        raise ValueError("quoted_at must be timezone-aware")
+    if quoted_at < tariff.effective_from:
+        raise ValueError("tariff is not effective yet")
     if not tariff.active:
         raise ValueError("inactive tariff cannot create new quotes")
     return SolarCheckPriceQuote(
