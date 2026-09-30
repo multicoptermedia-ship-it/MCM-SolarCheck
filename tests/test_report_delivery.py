@@ -8,26 +8,30 @@ from mcm_solarcheck.services.report_delivery import ReportArtifact, ReportDelive
 
 
 class RecordingReportStore:
-    def __init__(self) -> None:
+    def __init__(self, *, artifact_job_id: str = "job-a") -> None:
         self.reads = 0
+        self.artifact_job_id = artifact_job_id
 
     def get(self, job_id: str) -> ReportArtifact:
         self.reads += 1
         return ReportArtifact(
-            job_id,
+            self.artifact_job_id,
             b"confidential SolarCheck report",
             "application/pdf",
             "solarcheck.pdf",
         )
 
 
-def test_report_bytes_are_not_readable_before_export(tmp_path) -> None:
+def setup_delivery(tmp_path):
     store = SQLiteComputeJobBillingStore(tmp_path / "billing.sqlite")
-    ComputeJobBillingService(store).create(
-        "job-a", user_id="user-a", project_id="project-a"
-    )
+    billing = ComputeJobBillingService(store)
+    billing.create("job-a", user_id="user-a", project_id="project-a")
     reports = RecordingReportStore()
-    delivery = ReportDeliveryService(store, reports)
+    return store, billing, reports, ReportDeliveryService(store, reports)
+
+
+def test_report_bytes_are_not_readable_before_export(tmp_path) -> None:
+    store, _billing, reports, delivery = setup_delivery(tmp_path)
 
     with pytest.raises(ValueError, match="unavailable until export"):
         delivery.retrieve(
@@ -37,18 +41,16 @@ def test_report_bytes_are_not_readable_before_export(tmp_path) -> None:
         )
 
     assert reports.reads == 0
+    assert store.get("job-a").delivery.report_retrieved is False
+    assert store.get("job-a").billing_released is False
 
 
 def test_report_becomes_readable_only_after_export(tmp_path) -> None:
-    store = SQLiteComputeJobBillingStore(tmp_path / "billing.sqlite")
-    billing = ComputeJobBillingService(store)
-    billing.create("job-a", user_id="user-a", project_id="project-a")
-    reports = RecordingReportStore()
-    delivery = ReportDeliveryService(store, reports)
-
+    store, billing, reports, delivery = setup_delivery(tmp_path)
     billing.mark_export_completed(
         "job-a", user_id="user-a", project_id="project-a"
     )
+
     report = delivery.retrieve(
         "job-a",
         user_id="user-a",
@@ -57,17 +59,15 @@ def test_report_becomes_readable_only_after_export(tmp_path) -> None:
 
     assert report.content == b"confidential SolarCheck report"
     assert reports.reads == 1
+    assert store.get("job-a").delivery.report_retrieved is False
+    assert store.get("job-a").billing_released is False
 
 
 def test_report_access_rejects_other_tenant_before_reading_artifact(tmp_path) -> None:
-    store = SQLiteComputeJobBillingStore(tmp_path / "billing.sqlite")
-    billing = ComputeJobBillingService(store)
-    billing.create("job-a", user_id="user-a", project_id="project-a")
+    store, billing, reports, delivery = setup_delivery(tmp_path)
     billing.mark_export_completed(
         "job-a", user_id="user-a", project_id="project-a"
     )
-    reports = RecordingReportStore()
-    delivery = ReportDeliveryService(store, reports)
 
     with pytest.raises(PermissionError, match="ownership mismatch"):
         delivery.retrieve(
@@ -77,3 +77,74 @@ def test_report_access_rejects_other_tenant_before_reading_artifact(tmp_path) ->
         )
 
     assert reports.reads == 0
+    assert store.get("job-a").billing_released is False
+
+
+def test_successful_delivery_persists_evidence_then_releases_billing(tmp_path) -> None:
+    store, billing, _reports, delivery = setup_delivery(tmp_path)
+    billing.mark_export_completed(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    sent = []
+
+    released = delivery.deliver(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        send=sent.append,
+    )
+
+    assert len(sent) == 1
+    assert sent[0].content == b"confidential SolarCheck report"
+    assert released.delivery.report_retrieved is True
+    assert released.billing_released is True
+    assert store.get("job-a") == released
+
+
+def test_failed_delivery_never_persists_evidence_or_releases_billing(tmp_path) -> None:
+    store, billing, _reports, delivery = setup_delivery(tmp_path)
+    billing.mark_export_completed(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+
+    def fail(_report: ReportArtifact) -> None:
+        raise OSError("client disconnected")
+
+    with pytest.raises(OSError, match="client disconnected"):
+        delivery.deliver(
+            "job-a",
+            user_id="user-a",
+            project_id="project-a",
+            send=fail,
+        )
+
+    persisted = store.get("job-a")
+    assert persisted.delivery.report_retrieved is False
+    assert persisted.billing_released is False
+
+
+def test_wrong_report_artifact_never_reaches_transport_or_billing(tmp_path) -> None:
+    store = SQLiteComputeJobBillingStore(tmp_path / "billing.sqlite")
+    billing = ComputeJobBillingService(store)
+    billing.create("job-a", user_id="user-a", project_id="project-a")
+    billing.mark_export_completed(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    delivery = ReportDeliveryService(
+        store,
+        RecordingReportStore(artifact_job_id="job-b"),
+    )
+    sent = []
+
+    with pytest.raises(ValueError, match="does not belong"):
+        delivery.deliver(
+            "job-a",
+            user_id="user-a",
+            project_id="project-a",
+            send=sent.append,
+        )
+
+    assert sent == []
+    persisted = store.get("job-a")
+    assert persisted.delivery.report_retrieved is False
+    assert persisted.billing_released is False
