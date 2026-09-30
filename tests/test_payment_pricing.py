@@ -336,3 +336,101 @@ def test_same_flightplan_code_cannot_discount_two_concurrent_solarchecks(tmp_pat
         except KeyError:
             pass
     assert persisted == results
+
+
+def test_inactive_persisted_voucher_policy_does_not_block_full_price_payment(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    policies = SQLiteFlightPlanVoucherPolicyStore(tmp_path / "vouchers.sqlite")
+    policies.save(FlightPlanVoucherPolicy())
+    policies.save(FlightPlanVoucherPolicy().deactivate())
+    service = PaymentPricingService(payments, vouchers, policies)
+
+    payment = service.create_payment(
+        "payment-full-price",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-a",
+        base_amount=PaymentAmount(50000, "EUR"),
+        now=datetime(2026, 9, 30, 9, 0, tzinfo=timezone.utc),
+    )
+
+    assert payment.amount == PaymentAmount(50000, "EUR")
+    assert payments.get(payment.payment_id) == payment
+
+
+def test_inactive_persisted_voucher_policy_blocks_voucher_payment(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    policies = SQLiteFlightPlanVoucherPolicyStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 9, 30, 9, 0, tzinfo=timezone.utc)
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-INACTIVE",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
+        )
+    )
+    policies.save(FlightPlanVoucherPolicy())
+    policies.save(FlightPlanVoucherPolicy().deactivate())
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        policies,
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+
+    with pytest.raises(ValueError, match="inactive"):
+        service.create_payment(
+            "payment-voucher",
+            user_id="user-a",
+            project_id="project-a",
+            job_id="job-a",
+            base_amount=PaymentAmount(50000, "EUR"),
+            voucher_code="FLIGHTPLAN-INACTIVE",
+            now=now,
+        )
+
+    assert vouchers.get("FLIGHTPLAN-INACTIVE").redeemed is False
+
+
+def test_inactive_static_voucher_policy_only_blocks_voucher_payment(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    inactive = FlightPlanVoucherPolicy().deactivate()
+    service = PaymentPricingService(payments, vouchers, inactive)
+    now = datetime(2026, 9, 30, 9, 0, tzinfo=timezone.utc)
+
+    regular = service.create_payment(
+        "payment-regular",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-a",
+        base_amount=PaymentAmount(50000, "EUR"),
+        now=now,
+    )
+    assert regular.amount == PaymentAmount(50000, "EUR")
+
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-STATIC-INACTIVE",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
+        )
+    )
+    atomic_service = PaymentPricingService(
+        payments,
+        vouchers,
+        inactive,
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+    with pytest.raises(ValueError, match="inactive"):
+        atomic_service.create_payment(
+            "payment-blocked",
+            user_id="user-a",
+            project_id="project-b",
+            job_id="job-b",
+            base_amount=PaymentAmount(50000, "EUR"),
+            voucher_code="FLIGHTPLAN-STATIC-INACTIVE",
+            now=now,
+        )
