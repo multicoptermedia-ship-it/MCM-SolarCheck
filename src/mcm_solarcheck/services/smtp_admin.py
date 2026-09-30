@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPEmailSender
+from mcm_solarcheck.infrastructure.smtp_email import (\n    SMTPConfig,\n    SMTPEmailSender,\n    SMTPSecurity,\n)
 from mcm_solarcheck.services.admin_notification import ADMIN_NOTIFICATION_EMAIL
 from mcm_solarcheck.services.email import EmailMessage
 
