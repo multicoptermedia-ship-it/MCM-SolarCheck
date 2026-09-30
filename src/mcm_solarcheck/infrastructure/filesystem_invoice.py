@@ -28,6 +28,12 @@ class FileSystemInvoiceArchive:
     def csv_path_for(self, invoice_id: str) -> Path:
         return self.root / f"{self._safe_invoice_id(invoice_id)}.csv"
 
+    def ready_path_for(self, invoice_id: str) -> Path:
+        return self.root / f".{self._safe_invoice_id(invoice_id)}.ready"
+
+    def package_is_ready(self, invoice_id: str) -> bool:
+        return self.ready_path_for(invoice_id).is_file()
+
     @staticmethod
     def _atomic_write(path: Path, content: bytes) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,6 +70,7 @@ class FileSystemInvoiceArchive:
             raise ValueError("invoice csv content must be non-empty bytes")
         pdf_path = self.path_for(invoice_id)
         csv_path = self.csv_path_for(invoice_id)
+        ready_path = self.ready_path_for(invoice_id)
         pdf_exists = pdf_path.exists()
         csv_exists = csv_path.exists()
         if pdf_exists or csv_exists:
@@ -71,12 +78,20 @@ class FileSystemInvoiceArchive:
                 raise ValueError("invoice package is incomplete")
             if pdf_path.read_bytes() != pdf or csv_path.read_bytes() != csv_content:
                 raise ValueError("invoice_id already exists with different content")
+            if not ready_path.is_file():
+                self._atomic_write(ready_path, b"ready\n")
             return pdf_path, csv_path
 
         self._atomic_write(pdf_path, pdf)
         try:
             self._atomic_write(csv_path, csv_content)
         except Exception:
+            pdf_path.unlink(missing_ok=True)
+            raise
+        try:
+            self._atomic_write(ready_path, b"ready\n")
+        except Exception:
+            csv_path.unlink(missing_ok=True)
             pdf_path.unlink(missing_ok=True)
             raise
         return pdf_path, csv_path
