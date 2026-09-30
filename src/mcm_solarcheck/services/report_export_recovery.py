@@ -6,7 +6,11 @@ from pathlib import Path
 
 from mcm_solarcheck.reporting.report_model import InspectionReport
 from mcm_solarcheck.services.billing import ComputeJobBilling
-from mcm_solarcheck.services.private_report_export import PrivateReportExportService
+from mcm_solarcheck.services.private_report_export import (
+    PrivateReportExportService,
+    ReportExportAccessError,
+    ReportExportProjectMismatchError,
+)
 from mcm_solarcheck.services.report_recovery import ReportRecoveryService
 
 
@@ -38,6 +42,8 @@ class ReportExportRecoveryService:
                 project_id=project_id,
                 banner_path=banner_path,
             )
+        except (ReportExportAccessError, ReportExportProjectMismatchError):
+            raise
         except Exception as export_error:
             try:
                 self._recovery.record_failure(
