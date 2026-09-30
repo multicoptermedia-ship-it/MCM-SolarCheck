@@ -82,3 +82,33 @@ def test_test_email_uses_configured_account_and_admin_destination() -> None:
     assert message.sender == "solarcheck@mcm-dronetech.com"
     assert message.recipient == "solarcheck@mcm-dronetech.com"
     assert message.subject == "SolarCheck SMTP-Test"
+
+
+def test_admin_keeps_smtp_login_separate_from_visible_sender() -> None:
+    settings = Settings()
+    settings.config = SMTPConfig(
+        "smtp.example.com",
+        587,
+        "provider-login",
+        sender_address="solarcheck@mcm-dronetech.com",
+    )
+    secrets = Secrets()
+    secrets.replace("secret")
+    service = SMTPAdminService(settings, secrets)
+    sender = MagicMock()
+
+    status = service.status()
+    assert status.username == "provider-login"
+    assert status.sender_address == "solarcheck@mcm-dronetech.com"
+
+    with patch(
+        "mcm_solarcheck.services.smtp_admin.SMTPEmailSender",
+        return_value=sender,
+    ) as sender_type:
+        service.send_test_email()
+
+    sender_type.assert_called_once_with(settings.config, "secret")
+    message = sender.send.call_args.args[0]
+    assert message.sender == "solarcheck@mcm-dronetech.com"
+    assert message.recipient == "solarcheck@mcm-dronetech.com"
+    assert "provider-login" not in message.text
