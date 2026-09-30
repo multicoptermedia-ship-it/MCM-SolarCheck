@@ -23,10 +23,17 @@ class SQLiteOnlineRegistrationStore:
                     display_name TEXT NOT NULL,
                     email TEXT NOT NULL,
                     status TEXT NOT NULL,
-                    verified_at TEXT
+                    verified_at TEXT,
+                    street TEXT,
+                    postal_code TEXT,
+                    city TEXT
                 )
                 """
             )
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(online_registrations)")}
+            for name in ("street", "postal_code", "city"):
+                if name not in columns:
+                    connection.execute(f"ALTER TABLE online_registrations ADD COLUMN {name} TEXT")
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS email_verifications (
@@ -64,8 +71,9 @@ class SQLiteOnlineRegistrationStore:
             connection.execute(
                 """
                 INSERT INTO online_registrations (
-                    user_id, display_name, email, status, verified_at
-                ) VALUES (?, ?, ?, ?, ?)
+                    user_id, display_name, email, status, verified_at,
+                    street, postal_code, city
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     registration.user_id,
@@ -73,6 +81,9 @@ class SQLiteOnlineRegistrationStore:
                     registration.email,
                     registration.status.value,
                     None,
+                    registration.street,
+                    registration.postal_code,
+                    registration.city,
                 ),
             )
             connection.execute(
@@ -88,7 +99,7 @@ class SQLiteOnlineRegistrationStore:
         with self._connect() as connection:
             row = connection.execute(
                 """
-                SELECT display_name, email, status, verified_at
+                SELECT display_name, email, status, verified_at, street, postal_code, city
                 FROM online_registrations
                 WHERE user_id = ?
                 """,
@@ -102,6 +113,7 @@ class SQLiteOnlineRegistrationStore:
             row[1],
             RegistrationStatus(row[2]),
             datetime.fromisoformat(row[3]) if row[3] is not None else None,
+            row[4], row[5], row[6],
         )
 
     def verify(self, token: str, *, now: datetime) -> OnlineRegistration:
@@ -127,7 +139,7 @@ class SQLiteOnlineRegistrationStore:
 
             registration_row = connection.execute(
                 """
-                SELECT display_name, email, status, verified_at
+                SELECT display_name, email, status, verified_at, street, postal_code, city
                 FROM online_registrations
                 WHERE user_id = ?
                 """,
@@ -145,6 +157,7 @@ class SQLiteOnlineRegistrationStore:
                     if registration_row[3] is not None
                     else None
                 ),
+                registration_row[4], registration_row[5], registration_row[6],
             )
             verified = registration.verify(now)
             connection.execute(
