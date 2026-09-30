@@ -24,6 +24,15 @@ class ReportArtifactStore(Protocol):
 ReportSender = Callable[[ReportArtifact], None]
 
 
+class ReportDeliveryAccessError(PermissionError):
+    """Caller does not own the requested report."""
+
+
+class ReportDeliveryNotReadyError(ValueError):
+    """Report cannot be delivered before export completion."""
+
+
+
 class ReportDeliveryService:
     """Deliver report bytes and release billing only after successful transport."""
 
@@ -46,9 +55,9 @@ class ReportDeliveryService:
         billing = self._billing.get(job_id)
         delivery = billing.delivery
         if delivery.user_id != user_id or delivery.project_id != project_id:
-            raise PermissionError("report delivery ownership mismatch")
+            raise ReportDeliveryAccessError("report delivery ownership mismatch")
         if not delivery.export_completed:
-            raise ValueError("report is unavailable until export is completed")
+            raise ReportDeliveryNotReadyError("report is unavailable until export is completed")
 
         report = self._reports.get(job_id)
         if report.job_id != job_id:
