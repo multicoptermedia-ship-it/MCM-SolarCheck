@@ -91,6 +91,8 @@ class OnlinePaymentCheckoutService:
             base_amount=quote.amount,
             now=now,
             voucher_code=voucher_code,
+            tariff_version=quote.tariff_version,
+            plant_kwp=quote.plant_kwp,
         )
         if payment.status is PaymentStatus.SETTLED:
             return payment
@@ -104,6 +106,8 @@ class OnlinePaymentCheckoutService:
             payment.status,
             payment.provider_reference,
             method,
+            tariff_version=payment.tariff_version,
+            plant_kwp=payment.plant_kwp,
         )
         bound = self._merchants.bind(
             proposed,
