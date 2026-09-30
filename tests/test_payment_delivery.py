@@ -56,7 +56,7 @@ def build_delivery_flow(tmp_path):
         SQLitePaymentOperationIntentStore(tmp_path / "operations.sqlite"),
     )
     return (
-        PaymentDeliveryService(billing, capture),
+        PaymentDeliveryService(billing, capture, payments),
         payments,
         billing_store,
         gateway,
@@ -145,4 +145,32 @@ def test_delivery_order_does_not_change_capture_gate(tmp_path) -> None:
 
     assert result.payment is not None
     assert result.payment.status is PaymentStatus.CAPTURED
+    assert len(gateway.captures) == 1
+
+
+def test_repeated_report_retrieval_after_capture_does_not_capture_again(tmp_path) -> None:
+    service, payments, billing, gateway = build_delivery_flow(tmp_path)
+
+    service.mark_export_completed(
+        "payment-a",
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    first = service.mark_report_retrieved(
+        "payment-a",
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    repeated = service.mark_report_retrieved(
+        "payment-a",
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    assert first.payment is not None
+    assert repeated.payment is not None
+    assert repeated.payment.status is PaymentStatus.CAPTURED
     assert len(gateway.captures) == 1
