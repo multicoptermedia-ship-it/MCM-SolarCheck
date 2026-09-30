@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Callable, Protocol
 
-from mcm_solarcheck.services.billing import ComputeJobBillingStore
+from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobBillingStore
 
 
 @dataclass(frozen=True)
@@ -21,8 +21,11 @@ class ReportArtifactStore(Protocol):
         ...
 
 
+ReportSender = Callable[[ReportArtifact], None]
+
+
 class ReportDeliveryService:
-    """Return report bytes only after authoritative export completion."""
+    """Deliver report bytes and release billing only after successful transport."""
 
     def __init__(
         self,
@@ -39,6 +42,7 @@ class ReportDeliveryService:
         user_id: str,
         project_id: str,
     ) -> ReportArtifact:
+        """Authorize and load a report without recording successful delivery."""
         billing = self._billing.get(job_id)
         delivery = billing.delivery
         if delivery.user_id != user_id or delivery.project_id != project_id:
@@ -50,3 +54,33 @@ class ReportDeliveryService:
         if report.job_id != job_id:
             raise ValueError("report artifact does not belong to compute job")
         return report
+
+    def deliver(
+        self,
+        job_id: str,
+        *,
+        user_id: str,
+        project_id: str,
+        send: ReportSender,
+    ) -> ComputeJobBilling:
+        """Send an authorized report, then persist evidence and release billing.
+
+        The sender must return only after the report has been delivered
+        successfully. If it raises, no retrieval evidence or billing release is
+        persisted.
+        """
+        report = self.retrieve(
+            job_id,
+            user_id=user_id,
+            project_id=project_id,
+        )
+        send(report)
+
+        delivered = self._billing.mark_report_retrieved(
+            job_id,
+            user_id,
+            project_id,
+        )
+        if delivered.billing_released:
+            return delivered
+        return self._billing.release(job_id, user_id, project_id)
