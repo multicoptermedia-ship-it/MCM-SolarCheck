@@ -6,8 +6,14 @@ import smtplib
 import ssl
 from dataclasses import dataclass
 from email.message import EmailMessage as MimeMessage
+from enum import Enum
 
 from mcm_solarcheck.services.email import EmailMessage, EmailSender
+
+
+class SMTPSecurity(str, Enum):
+    STARTTLS = "starttls"
+    TLS = "tls"
 
 
 @dataclass(frozen=True)
@@ -19,6 +25,7 @@ class SMTPConfig:
     username: str
     use_starttls: bool = True
     timeout_seconds: float = 30.0
+    security: SMTPSecurity | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.host, str) or not self.host.strip():
@@ -29,10 +36,20 @@ class SMTPConfig:
             raise ValueError("SMTP username must be non-empty")
         if self.timeout_seconds <= 0:
             raise ValueError("SMTP timeout must be positive")
+        if self.security is not None and not isinstance(self.security, SMTPSecurity):
+            raise ValueError("SMTP security must be STARTTLS or TLS")
+
+    @property
+    def security_mode(self) -> SMTPSecurity:
+        if self.security is not None:
+            return self.security
+        if self.use_starttls:
+            return SMTPSecurity.STARTTLS
+        raise ValueError("unencrypted SMTP is not supported")
 
 
 class SMTPEmailSender(EmailSender):
-    """Send MIME email via SMTP; the password is injected separately from settings."""
+    """Send MIME email via encrypted SMTP; the password is injected separately."""
 
     def __init__(self, config: SMTPConfig, password: str) -> None:
         if not isinstance(password, str) or not password:
@@ -61,12 +78,22 @@ class SMTPEmailSender(EmailSender):
 
     def send(self, message: EmailMessage) -> None:
         mime = self._mime(message)
-        with smtplib.SMTP(
-            self._config.host,
-            self._config.port,
-            timeout=self._config.timeout_seconds,
-        ) as smtp:
-            if self._config.use_starttls:
-                smtp.starttls(context=ssl.create_default_context())
+        context = ssl.create_default_context()
+        if self._config.security_mode is SMTPSecurity.TLS:
+            connection = smtplib.SMTP_SSL(
+                self._config.host,
+                self._config.port,
+                timeout=self._config.timeout_seconds,
+                context=context,
+            )
+        else:
+            connection = smtplib.SMTP(
+                self._config.host,
+                self._config.port,
+                timeout=self._config.timeout_seconds,
+            )
+        with connection as smtp:
+            if self._config.security_mode is SMTPSecurity.STARTTLS:
+                smtp.starttls(context=context)
             smtp.login(self._config.username, self._password)
             smtp.send_message(mime)
