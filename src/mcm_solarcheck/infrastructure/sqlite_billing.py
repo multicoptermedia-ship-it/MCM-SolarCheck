@@ -103,6 +103,17 @@ class SQLiteComputeJobBillingStore:
                 raise KeyError(job_id)
             if row[0] != user_id or row[1] != project_id:
                 raise PermissionError("compute job billing ownership mismatch")
+            if field == "report_retrieved":
+                export_completed = connection.execute(
+                    """
+                    SELECT export_completed
+                    FROM compute_job_billing
+                    WHERE job_id = ?
+                    """,
+                    (job_id,),
+                ).fetchone()[0]
+                if not export_completed:
+                    raise ValueError("report retrieval requires completed export")
             connection.execute(
                 f"UPDATE compute_job_billing SET {field} = 1 WHERE job_id = ?",
                 (job_id,),
