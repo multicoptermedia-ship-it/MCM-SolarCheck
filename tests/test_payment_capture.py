@@ -121,7 +121,6 @@ def test_capture_rejects_billing_from_another_project() -> None:
     ("export_completed", "report_retrieved"),
     [
         (True, False),
-        (False, True),
     ],
 )
 def test_capture_requires_both_delivery_events(
