@@ -24,6 +24,8 @@ class ComputeJobDelivery:
         ):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must be a non-empty string")
+        if self.report_retrieved and not self.export_completed:
+            raise ValueError("report retrieval requires completed export")
 
     @property
     def billable(self) -> bool:
