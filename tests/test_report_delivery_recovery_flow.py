@@ -115,3 +115,37 @@ def test_transient_delivery_failure_does_not_claim_recovery(tmp_path) -> None:
         )
 
     assert claims.claim("job-a", "delivery") is True
+
+
+def test_delivery_access_error_does_not_create_recovery_claim(tmp_path) -> None:
+    billing_store = SQLiteComputeJobBillingStore(tmp_path / "billing.sqlite")
+    billing = ComputeJobBillingService(billing_store)
+    billing.create("job-a", user_id="user-a", project_id="project-a")
+    billing.mark_export_completed("job-a", user_id="user-a", project_id="project-a")
+    claims = SQLiteReportRecoveryStore(tmp_path / "recovery.sqlite")
+    recovery = ReportRecoveryService(
+        ReportRecoveryNotificationService(
+            FailingEmailSender(),
+            ReportRecoveryEmailConfig(
+                sender="solarcheck@mcm-dronetech.com",
+                notify_to="solarcheck@mcm-dronetech.com",
+            ),
+        ),
+        claims,
+    )
+    service = ReportDeliveryRecoveryService(
+        ReportDeliveryService(billing_store, ReportStore()),
+        recovery,
+    )
+
+    with pytest.raises(PermissionError, match="ownership"):
+        service.deliver(
+            "job-a",
+            user_id="other-user",
+            project_id="project-a",
+            report_path=tmp_path / "job-a.pdf",
+            send=lambda _report: None,
+            terminal_on_failure=True,
+        )
+
+    assert claims.claim("job-a", "delivery") is True
