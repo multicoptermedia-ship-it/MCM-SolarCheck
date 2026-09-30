@@ -39,6 +39,7 @@ def test_registration_verification_and_entitlement_workflow(tmp_path) -> None:
         user_id="user-a",
         display_name="MCM Dronetech",
         email="User@Example.com",
+        street="Musterweg 1", postal_code="50181", city="Bedburg",
         now=start,
     )
 
@@ -99,6 +100,7 @@ def test_notification_failure_does_not_undo_verified_registration(tmp_path) -> N
         user_id="user-a",
         display_name="MCM Dronetech",
         email="user@example.com",
+        street="Musterweg 1", postal_code="50181", city="Bedburg",
         now=start,
     )
     link = next(
@@ -125,3 +127,30 @@ def test_notification_failure_does_not_undo_verified_registration(tmp_path) -> N
 
     assert store.get("user-a").status is RegistrationStatus.VERIFIED
     assert store.pending_notification_user_ids() == ["user-a"]
+
+
+def test_registration_requires_complete_billing_address(tmp_path) -> None:
+    store = SQLiteOnlineRegistrationStore(tmp_path / "registration.sqlite")
+    sender = RecordingEmailSender()
+    service = OnlineRegistrationService(
+        store,
+        sender,
+        RegistrationEmailConfig(
+            sender="solarcheck@mcm-solarcheck.de",
+            notify_to="solarcheck@mcm-dronetech.com",
+            public_base_url="https://app.mcm-solarcheck.de",
+        ),
+    )
+    start = datetime(2026, 9, 29, 14, 0, tzinfo=timezone.utc)
+
+    try:
+        service.register(
+            user_id="user-a", display_name="Testkunde", email="user@example.com",
+            street="", postal_code="50181", city="Bedburg", now=start,
+        )
+    except ValueError as exc:
+        assert "billing address" in str(exc)
+    else:
+        raise AssertionError("registration without street must fail")
+
+    assert sender.messages == []
