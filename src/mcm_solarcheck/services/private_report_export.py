@@ -12,6 +12,14 @@ from mcm_solarcheck.reporting.report_model import InspectionReport
 from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobBillingStore
 
 
+class ReportExportAccessError(PermissionError):
+    """Caller does not own the compute job."""
+
+
+class ReportExportProjectMismatchError(ValueError):
+    """Report belongs to a different project than the compute job."""
+
+
 class PrivateReportExportService:
     """Create a report artifact before making export completion authoritative."""
 
@@ -37,9 +45,9 @@ class PrivateReportExportService:
             current.delivery.user_id != user_id
             or current.delivery.project_id != project_id
         ):
-            raise PermissionError("report export ownership mismatch")
+            raise ReportExportAccessError("report export ownership mismatch")
         if report.project_id != project_id:
-            raise ValueError("report project does not match compute job")
+            raise ReportExportProjectMismatchError("report project does not match compute job")
 
         destination = self._reports.path_for(job_id)
         destination.parent.mkdir(parents=True, exist_ok=True)
