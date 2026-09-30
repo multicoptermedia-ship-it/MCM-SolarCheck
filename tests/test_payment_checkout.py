@@ -137,3 +137,52 @@ def test_checkout_does_not_send_sepa_through_authorization_gateway(tmp_path) -> 
     assert gateway.authorizations == []
     with pytest.raises(KeyError):
         payments.get("payment-sepa")
+
+
+def test_checkout_uses_new_tariff_version_after_effective_time(tmp_path) -> None:
+    checkout, payments, gateway = build_checkout(
+        tmp_path,
+        PaymentMethod.CARD,
+        MerchantAccountKind.CARD_PROCESSOR,
+    )
+    tariffs = SQLiteSolarCheckTariffStore(tmp_path / "tariffs.sqlite")
+    original = initial_solarcheck_tariff(
+        datetime(2026, 9, 30, 0, 0, tzinfo=timezone.utc)
+    )
+    from mcm_solarcheck.services.solarcheck_tariff import (
+        SolarCheckPriceBand,
+        SolarCheckTariff,
+    )
+
+    edited = SolarCheckTariff(
+        2,
+        tuple(
+            SolarCheckPriceBand(
+                band.min_kwp,
+                band.max_kwp,
+                PaymentAmount(
+                    16900 if band.min_kwp == 500 else band.amount.minor_units,
+                    "EUR",
+                ),
+            )
+            for band in original.bands
+        ),
+        datetime(2026, 10, 1, 0, 0, tzinfo=timezone.utc),
+    )
+    tariffs.save(edited)
+
+    result = checkout.checkout(
+        "payment-new-tariff",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-new-tariff",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-a",
+        now=datetime(2026, 10, 1, 10, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.amount == PaymentAmount(16900, "EUR")
+    assert payments.get("payment-new-tariff").amount == PaymentAmount(16900, "EUR")
+    assert len(gateway.authorizations) == 1
