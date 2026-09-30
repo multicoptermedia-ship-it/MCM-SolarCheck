@@ -8,6 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
 from mcm_solarcheck.services.payment import OnlinePaymentStore, PaymentAmount
+from mcm_solarcheck.services.registration import OnlineRegistration, RegistrationStatus
 
 SOLARCHECK_ITEM_NUMBER = "81011"
 SOLARCHECK_SERVICE_NAME = "SolarCheck – Thermografische Auswertung und Prüfbericht"
@@ -48,6 +49,25 @@ class InvoiceCustomer:
             not isinstance(line, str) or not line.strip() for line in self.address_lines
         ):
             raise ValueError("invoice customer address must be complete")
+
+
+def invoice_customer_from_registration(registration: OnlineRegistration) -> InvoiceCustomer:
+    """Use the verified registration as the authoritative invoice address."""
+    if registration.status is not RegistrationStatus.VERIFIED:
+        raise ValueError("invoice customer requires verified registration")
+    if not all(
+        isinstance(value, str) and value.strip()
+        for value in (registration.street, registration.postal_code, registration.city)
+    ):
+        raise ValueError("verified registration requires complete billing address")
+    assert registration.street is not None
+    assert registration.postal_code is not None
+    assert registration.city is not None
+    return InvoiceCustomer(
+        registration.display_name.strip(),
+        (registration.street.strip(), f"{registration.postal_code.strip()} {registration.city.strip()}"),
+        registration.email,
+    )
 
 
 @dataclass(frozen=True)
