@@ -57,6 +57,12 @@ class SMTPAdminSettingsInput:
 
 
 @dataclass(frozen=True)
+class SMTPTestResult:
+    success: bool
+    message: str
+
+
+@dataclass(frozen=True)
 class SMTPAdminStatus:
     host: str
     port: int
@@ -100,6 +106,17 @@ class SMTPAdminService:
             raise ValueError("SMTP password must be provided")
         self._secrets.replace(password)
         return self.status()
+
+    def test_connection(self) -> SMTPTestResult:
+        """UI-safe SMTP test result without exposing provider errors or secrets."""
+        try:
+            self.send_test_email()
+        except Exception:
+            return SMTPTestResult(
+                False,
+                "SMTP-Test fehlgeschlagen. Bitte Einstellungen und Zugangsdaten prüfen.",
+            )
+        return SMTPTestResult(True, "SMTP-Testmail wurde erfolgreich versendet.")
 
     def send_test_email(self) -> None:
         config = self._settings.get()
