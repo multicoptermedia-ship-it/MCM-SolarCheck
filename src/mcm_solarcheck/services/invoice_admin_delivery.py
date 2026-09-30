@@ -2,9 +2,22 @@
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
 from mcm_solarcheck.services.admin_notification import ADMIN_NOTIFICATION_EMAIL
 from mcm_solarcheck.services.email import EmailAttachment, EmailMessage, EmailSender
+
+
+class InvoiceAdminDeliveryStateStore(Protocol):
+    def claim(self, invoice_id: str) -> bool:
+        ...
+
+    def mark_sent(self, invoice_id: str) -> None:
+        ...
+
+    def release(self, invoice_id: str) -> None:
+        ...
 
 
 class InvoiceAdminDeliveryService:
@@ -16,10 +29,12 @@ class InvoiceAdminDeliveryService:
         sender: EmailSender,
         *,
         sender_address: str,
+        delivery_state: InvoiceAdminDeliveryStateStore | None = None,
     ) -> None:
         self._archive = archive
         self._sender = sender
         self._sender_address = sender_address
+        self._delivery_state = delivery_state
 
     def deliver(self, invoice_id: str, pdf: bytes, csv_content: bytes | None = None) -> None:
         if csv_content is None:
