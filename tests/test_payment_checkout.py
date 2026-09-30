@@ -101,6 +101,8 @@ def test_checkout_persists_card_routing_snapshot_before_authorization(tmp_path) 
 
     assert result.status is PaymentStatus.AUTHORIZED
     assert result.amount == PaymentAmount(14500, "EUR")
+    assert result.tariff_version == 1
+    assert result.plant_kwp == 750
     assert result.method is PaymentMethod.CARD
     assert result.merchant_account_id == "merchant-a"
     assert result.merchant_account_version == 1
@@ -184,5 +186,10 @@ def test_checkout_uses_new_tariff_version_after_effective_time(tmp_path) -> None
     )
 
     assert result.amount == PaymentAmount(16900, "EUR")
-    assert payments.get("payment-new-tariff").amount == PaymentAmount(16900, "EUR")
+    assert result.tariff_version == 2
+    assert result.plant_kwp == 750
+    persisted = payments.get("payment-new-tariff")
+    assert persisted.amount == PaymentAmount(16900, "EUR")
+    assert persisted.tariff_version == 2
+    assert persisted.plant_kwp == 750
     assert len(gateway.authorizations) == 1
