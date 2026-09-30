@@ -104,8 +104,9 @@ class SQLitePricedPaymentStore:
                 INSERT INTO online_payments (
                     payment_id, user_id, project_id, job_id,
                     amount_minor_units, currency, status, provider_reference, method,
-                    merchant_account_id, merchant_account_version, provider_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    merchant_account_id, merchant_account_version, provider_id,
+                    tariff_version, plant_kwp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payment.payment_id,
@@ -120,6 +121,8 @@ class SQLitePricedPaymentStore:
                     payment.merchant_account_id,
                     payment.merchant_account_version,
                     payment.provider_id,
+                    payment.tariff_version,
+                    payment.plant_kwp,
                 ),
             )
             connection.execute(
