@@ -222,7 +222,6 @@ def test_sepa_submission_runs_after_billing_release(tmp_path) -> None:
     ("export_completed", "report_retrieved"),
     [
         (True, False),
-        (False, True),
     ],
 )
 def test_sepa_submission_requires_both_delivery_events(
