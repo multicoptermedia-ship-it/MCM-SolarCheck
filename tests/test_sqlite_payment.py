@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import sqlite3
 from threading import Barrier
 
 import pytest
@@ -238,3 +239,58 @@ def test_concurrent_payment_creation_for_same_job_has_one_winner(tmp_path) -> No
         )
 
     assert sorted(results) == ["created", "rejected"]
+
+
+def test_legacy_payment_database_migrates_tariff_provenance_columns(tmp_path) -> None:
+    database = tmp_path / "legacy-payment.sqlite"
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """
+            CREATE TABLE online_payments (
+                payment_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                job_id TEXT NOT NULL,
+                amount_minor_units INTEGER,
+                currency TEXT,
+                status TEXT NOT NULL,
+                provider_reference TEXT,
+                method TEXT,
+                merchant_account_id TEXT,
+                merchant_account_version INTEGER,
+                provider_id TEXT
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO online_payments VALUES (
+                'legacy-payment', 'user-a', 'project-a', 'job-legacy',
+                12900, 'EUR', 'created', NULL, NULL, NULL, NULL, NULL
+            )
+            """
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    store = SQLiteOnlinePaymentStore(database)
+    legacy = store.get("legacy-payment")
+    assert legacy.tariff_version is None
+    assert legacy.plant_kwp is None
+
+    store.create(
+        OnlinePayment(
+            "new-payment",
+            "user-a",
+            "project-a",
+            "job-new",
+            PaymentAmount(14500, "EUR"),
+            tariff_version=1,
+            plant_kwp=750,
+        )
+    )
+    current = store.get("new-payment")
+    assert current.tariff_version == 1
+    assert current.plant_kwp == 750
