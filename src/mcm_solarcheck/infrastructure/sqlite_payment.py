@@ -133,6 +133,43 @@ class SQLiteOnlinePaymentStore:
             row[10],
         )
 
+    def bind_processing_snapshot(
+        self,
+        payment_id: str,
+        user_id: str,
+        project_id: str,
+        *,
+        method: PaymentMethod,
+        merchant_account_id: str,
+        merchant_account_version: int,
+        provider_id: str,
+    ) -> OnlinePayment:
+        def bind(payment: OnlinePayment) -> OnlinePayment:
+            if payment.status is not PaymentStatus.CREATED:
+                raise ValueError("payment processing binding requires created state")
+            if payment.method is not None or payment.merchant_account_id is not None:
+                raise ValueError("payment already has processing snapshot")
+            return OnlinePayment(
+                payment.payment_id,
+                payment.user_id,
+                payment.project_id,
+                payment.job_id,
+                payment.amount,
+                payment.status,
+                payment.provider_reference,
+                method,
+                merchant_account_id,
+                merchant_account_version,
+                provider_id,
+            )
+
+        return self._transition(
+            payment_id,
+            user_id,
+            project_id,
+            bind,
+        )
+
     def authorize(
         self,
         payment_id: str,
@@ -196,10 +233,20 @@ class SQLiteOnlinePaymentStore:
             connection.execute(
                 """
                 UPDATE online_payments
-                SET status = ?, provider_reference = ?
+                SET status = ?, provider_reference = ?, method = ?,
+                    merchant_account_id = ?, merchant_account_version = ?,
+                    provider_id = ?
                 WHERE payment_id = ?
                 """,
-                (updated.status.value, updated.provider_reference, payment_id),
+                (
+                    updated.status.value,
+                    updated.provider_reference,
+                    updated.method.value if updated.method else None,
+                    updated.merchant_account_id,
+                    updated.merchant_account_version,
+                    updated.provider_id,
+                    payment_id,
+                ),
             )
             connection.commit()
             return updated
