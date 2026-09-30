@@ -31,7 +31,9 @@ class SQLiteOnlinePaymentStore:
                     method TEXT,
                     merchant_account_id TEXT,
                     merchant_account_version INTEGER,
-                    provider_id TEXT
+                    provider_id TEXT,
+                    tariff_version INTEGER,
+                    plant_kwp INTEGER
                 )
                 """
             )
@@ -54,6 +56,14 @@ class SQLiteOnlinePaymentStore:
             if "provider_id" not in columns:
                 connection.execute(
                     "ALTER TABLE online_payments ADD COLUMN provider_id TEXT"
+                )
+            if "tariff_version" not in columns:
+                connection.execute(
+                    "ALTER TABLE online_payments ADD COLUMN tariff_version INTEGER"
+                )
+            if "plant_kwp" not in columns:
+                connection.execute(
+                    "ALTER TABLE online_payments ADD COLUMN plant_kwp INTEGER"
                 )
             duplicate = connection.execute(
                 """
@@ -86,8 +96,9 @@ class SQLiteOnlinePaymentStore:
                 INSERT INTO online_payments (
                     payment_id, user_id, project_id, job_id,
                     amount_minor_units, currency, status, provider_reference, method,
-                    merchant_account_id, merchant_account_version, provider_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    merchant_account_id, merchant_account_version, provider_id,
+                    tariff_version, plant_kwp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payment.payment_id,
@@ -102,6 +113,8 @@ class SQLiteOnlinePaymentStore:
                     payment.merchant_account_id,
                     payment.merchant_account_version,
                     payment.provider_id,
+                    payment.tariff_version,
+                    payment.plant_kwp,
                 ),
             )
 
@@ -111,7 +124,8 @@ class SQLiteOnlinePaymentStore:
                 """
                 SELECT user_id, project_id, job_id, amount_minor_units,
                        currency, status, provider_reference, method,
-                       merchant_account_id, merchant_account_version, provider_id
+                       merchant_account_id, merchant_account_version, provider_id,
+                       tariff_version, plant_kwp
                 FROM online_payments
                 WHERE payment_id = ?
                 """,
@@ -131,6 +145,8 @@ class SQLiteOnlinePaymentStore:
             row[8],
             row[9],
             row[10],
+            row[11],
+            row[12],
         )
 
     def bind_processing_snapshot(
@@ -206,7 +222,8 @@ class SQLiteOnlinePaymentStore:
                 """
                 SELECT user_id, project_id, job_id, amount_minor_units,
                        currency, status, provider_reference, method,
-                       merchant_account_id, merchant_account_version, provider_id
+                       merchant_account_id, merchant_account_version, provider_id,
+                       tariff_version, plant_kwp
                 FROM online_payments
                 WHERE payment_id = ?
                 """,
@@ -228,6 +245,8 @@ class SQLiteOnlinePaymentStore:
                 row[8],
                 row[9],
                 row[10],
+                row[11],
+                row[12],
             )
             updated = transition(current)
             connection.execute(
