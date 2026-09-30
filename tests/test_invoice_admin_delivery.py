@@ -3,11 +3,9 @@ from __future__ import annotations
 import pytest
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
+from mcm_solarcheck.services.admin_notification import ADMIN_NOTIFICATION_EMAIL
 from mcm_solarcheck.services.email import EmailMessage
-from mcm_solarcheck.services.invoice_admin_delivery import (
-    ADMIN_EMAIL,
-    InvoiceAdminDeliveryService,
-)
+from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
 
 
 class RecordingEmailSender:
@@ -34,7 +32,7 @@ def test_invoice_is_archived_privately_and_same_pdf_is_emailed_to_admin(tmp_path
     assert path.read_bytes() == pdf
     assert len(sender.messages) == 1
     message = sender.messages[0]
-    assert message.recipient == ADMIN_EMAIL == "solarcheck@mcm-dronetech.com"
+    assert message.recipient == ADMIN_NOTIFICATION_EMAIL == "solarcheck@mcm-dronetech.com"
     assert len(message.attachments) == 1
     assert message.attachments[0].filename == "invoice-42.pdf"
     assert message.attachments[0].content == pdf
