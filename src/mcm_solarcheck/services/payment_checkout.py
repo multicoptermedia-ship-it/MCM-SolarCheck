@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Protocol
 
 from mcm_solarcheck.services.merchant_binding import MerchantAccountBindingService
-from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount, PaymentStatus
+from mcm_solarcheck.services.payment import OnlinePayment, PaymentStatus
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService
 from mcm_solarcheck.services.payment_methods import (
     PaymentMethod,
@@ -14,6 +14,12 @@ from mcm_solarcheck.services.payment_methods import (
 )
 from mcm_solarcheck.services.payment_pricing import PaymentPricingService
 from mcm_solarcheck.services.payment_provider import PaymentProviderRegistry
+from mcm_solarcheck.services.solarcheck_tariff import SolarCheckTariff, quote_solarcheck
+
+
+class SolarCheckTariffStore(Protocol):
+    def current(self, at: datetime) -> SolarCheckTariff:
+        ...
 
 
 class PaymentProcessingSnapshotStore(Protocol):
@@ -41,12 +47,14 @@ class OnlinePaymentCheckoutService:
         providers: PaymentProviderRegistry,
         authorization: PaymentAuthorizationService,
         payments: PaymentProcessingSnapshotStore,
+        tariffs: SolarCheckTariffStore,
     ) -> None:
         self._pricing = pricing
         self._merchants = merchants
         self._providers = providers
         self._authorization = authorization
         self._payments = payments
+        self._tariffs = tariffs
 
     def checkout(
         self,
@@ -55,7 +63,7 @@ class OnlinePaymentCheckoutService:
         user_id: str,
         project_id: str,
         job_id: str,
-        base_amount: PaymentAmount,
+        plant_kwp: int,
         method: PaymentMethod,
         provider_id: str,
         merchant_account_id: str,
@@ -66,13 +74,21 @@ class OnlinePaymentCheckoutService:
             raise ValueError("payment method must be a PaymentMethod value")
         provider = self._providers.get(provider_id)
         provider.require(method)
+        capabilities = payment_method_capabilities(method)
+        if not capabilities.supports_authorize_capture:
+            raise ValueError(
+                f"payment method {method.value} requires its dedicated processing flow"
+            )
+
+        tariff = self._tariffs.current(now)
+        quote = quote_solarcheck(tariff, plant_kwp=plant_kwp, quoted_at=now)
 
         payment = self._pricing.create_payment(
             payment_id,
             user_id=user_id,
             project_id=project_id,
             job_id=job_id,
-            base_amount=base_amount,
+            base_amount=quote.amount,
             now=now,
             voucher_code=voucher_code,
         )
@@ -94,12 +110,6 @@ class OnlinePaymentCheckoutService:
             merchant_account_id,
             provider_id=provider.provider_id,
         )
-
-        capabilities = payment_method_capabilities(method)
-        if not capabilities.supports_authorize_capture:
-            raise ValueError(
-                f"payment method {method.value} requires its dedicated processing flow"
-            )
 
         self._payments.bind_processing_snapshot(
             payment.payment_id,
