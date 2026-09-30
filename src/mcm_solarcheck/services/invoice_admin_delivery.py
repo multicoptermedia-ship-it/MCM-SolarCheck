@@ -42,19 +42,28 @@ class InvoiceAdminDeliveryService:
             csv_path = None
         else:
             path, csv_path = self._archive.store_package(invoice_id, pdf, csv_content)
-        self._sender.send(
-            EmailMessage(
-                sender=self._sender_address,
-                recipient=ADMIN_NOTIFICATION_EMAIL,
-                subject=f"SolarCheck Rechnung {invoice_id}",
-                text=(
-                    "Eine SolarCheck-Rechnung wurde erstellt und im privaten "
-                    "Rechnungsarchiv abgelegt.\n"
-                    f"Rechnung: {path.name}\n"
-                    + (f"Begleitdatei: {csv_path.name}\n" if csv_path is not None else "")
-                ),
-                attachments=(
-                    EmailAttachment(path.name, pdf, "application/pdf"),
-                ),
+        if self._delivery_state is not None and not self._delivery_state.claim(invoice_id):
+            return
+        try:
+            self._sender.send(
+                EmailMessage(
+                    sender=self._sender_address,
+                    recipient=ADMIN_NOTIFICATION_EMAIL,
+                    subject=f"SolarCheck Rechnung {invoice_id}",
+                    text=(
+                        "Eine SolarCheck-Rechnung wurde erstellt und im privaten "
+                        "Rechnungsarchiv abgelegt.\n"
+                        f"Rechnung: {path.name}\n"
+                        + (f"Begleitdatei: {csv_path.name}\n" if csv_path is not None else "")
+                    ),
+                    attachments=(
+                        EmailAttachment(path.name, pdf, "application/pdf"),
+                    ),
+                )
             )
-        )
+        except Exception:
+            if self._delivery_state is not None:
+                self._delivery_state.release(invoice_id)
+            raise
+        if self._delivery_state is not None:
+            self._delivery_state.mark_sent(invoice_id)
