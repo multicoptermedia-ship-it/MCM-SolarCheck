@@ -73,9 +73,17 @@ class OnlineRegistrationService:
         user_id: str,
         display_name: str,
         email: str,
+        street: str,
+        postal_code: str,
+        city: str,
         now: datetime,
     ) -> OnlineRegistration:
-        registration = OnlineRegistration(user_id, display_name, email)
+        registration = OnlineRegistration(
+            user_id, display_name, email,
+            street=street, postal_code=postal_code, city=city,
+        )
+        if not all(value.strip() for value in (street, postal_code, city)):
+            raise ValueError("billing address is required for registration")
         token = secrets.token_urlsafe(32)
         self._store.create(
             registration,
