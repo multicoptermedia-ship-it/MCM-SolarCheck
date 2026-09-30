@@ -3,6 +3,9 @@ from __future__ import annotations
 import pytest
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
+from mcm_solarcheck.infrastructure.sqlite_invoice_admin_delivery import (
+    SQLiteInvoiceAdminDeliveryStore,
+)
 from mcm_solarcheck.services.admin_notification import ADMIN_NOTIFICATION_EMAIL
 from mcm_solarcheck.services.email import EmailMessage
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
@@ -80,3 +83,48 @@ def test_invoice_package_archives_pdf_and_csv_but_emails_only_pdf(tmp_path) -> N
     assert sender.messages[0].attachments[0].filename == "invoice-42.pdf"
     assert "invoice-42.csv" in sender.messages[0].text
     assert list(archive.root.glob("*.tmp")) == []
+
+
+class FailingOnceEmailSender(RecordingEmailSender):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail = True
+
+    def send(self, message: EmailMessage) -> None:
+        if self.fail:
+            self.fail = False
+            raise OSError("SMTP unavailable")
+        super().send(message)
+
+
+def test_invoice_admin_delivery_retry_keeps_archive_and_sends_once(tmp_path) -> None:
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    sender = FailingOnceEmailSender()
+    state = SQLiteInvoiceAdminDeliveryStore(tmp_path / "invoice-delivery.sqlite")
+    service = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=state,
+    )
+    pdf = b"%PDF invoice"
+
+    with pytest.raises(OSError, match="SMTP unavailable"):
+        service.deliver("invoice-42", pdf)
+
+    assert archive.path_for("invoice-42").read_bytes() == pdf
+
+    service.deliver("invoice-42", pdf)
+    service.deliver("invoice-42", pdf)
+
+    assert len(sender.messages) == 1
+    assert sender.messages[0].attachments[0].content == pdf
+
+
+def test_invoice_admin_delivery_active_lease_blocks_parallel_email(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    first = SQLiteInvoiceAdminDeliveryStore(database)
+    second = SQLiteInvoiceAdminDeliveryStore(database)
+
+    assert first.claim("invoice-42") is True
+    assert second.claim("invoice-42") is False
