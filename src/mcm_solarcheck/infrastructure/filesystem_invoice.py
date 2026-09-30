@@ -49,6 +49,10 @@ class FileSystemInvoiceArchive:
         if not isinstance(content, bytes) or not content:
             raise ValueError("invoice content must be non-empty bytes")
         path = self.path_for(invoice_id)
+        if path.exists():
+            if path.read_bytes() != content:
+                raise ValueError("invoice_id already exists with different content")
+            return path
         self._atomic_write(path, content)
         return path
 
@@ -60,6 +64,15 @@ class FileSystemInvoiceArchive:
             raise ValueError("invoice csv content must be non-empty bytes")
         pdf_path = self.path_for(invoice_id)
         csv_path = self.csv_path_for(invoice_id)
+        pdf_exists = pdf_path.exists()
+        csv_exists = csv_path.exists()
+        if pdf_exists or csv_exists:
+            if not (pdf_exists and csv_exists):
+                raise ValueError("invoice package is incomplete")
+            if pdf_path.read_bytes() != pdf or csv_path.read_bytes() != csv_content:
+                raise ValueError("invoice_id already exists with different content")
+            return pdf_path, csv_path
+
         self._atomic_write(pdf_path, pdf)
         try:
             self._atomic_write(csv_path, csv_content)
