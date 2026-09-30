@@ -53,6 +53,8 @@ class OnlinePayment:
     merchant_account_id: str | None = None
     merchant_account_version: int | None = None
     provider_id: str | None = None
+    tariff_version: int | None = None
+    plant_kwp: int | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -77,6 +79,20 @@ class OnlinePayment:
             not isinstance(self.provider_id, str) or not self.provider_id.strip()
         ):
             raise ValueError("provider_id must be non-empty when configured")
+        if (self.tariff_version is None) != (self.plant_kwp is None):
+            raise ValueError("tariff version and plant size must be configured together")
+        if self.tariff_version is not None and (
+            not isinstance(self.tariff_version, int)
+            or isinstance(self.tariff_version, bool)
+            or self.tariff_version <= 0
+        ):
+            raise ValueError("tariff_version must be a positive integer")
+        if self.plant_kwp is not None and (
+            not isinstance(self.plant_kwp, int)
+            or isinstance(self.plant_kwp, bool)
+            or self.plant_kwp < 0
+        ):
+            raise ValueError("plant_kwp must be a non-negative integer")
 
     def authorize(self, provider_reference: str) -> "OnlinePayment":
         if self.status is not PaymentStatus.CREATED:
@@ -95,6 +111,8 @@ class OnlinePayment:
             self.merchant_account_id,
             self.merchant_account_version,
             self.provider_id,
+            self.tariff_version,
+            self.plant_kwp,
         )
 
     def capture(self) -> "OnlinePayment":
@@ -112,6 +130,8 @@ class OnlinePayment:
             self.merchant_account_id,
             self.merchant_account_version,
             self.provider_id,
+            self.tariff_version,
+            self.plant_kwp,
         )
 
     def void(self) -> "OnlinePayment":
@@ -129,6 +149,8 @@ class OnlinePayment:
             self.merchant_account_id,
             self.merchant_account_version,
             self.provider_id,
+            self.tariff_version,
+            self.plant_kwp,
         )
 
 
