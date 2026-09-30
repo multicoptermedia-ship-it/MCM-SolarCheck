@@ -81,20 +81,23 @@ def test_export_alone_never_captures_payment(tmp_path) -> None:
     assert gateway.captures == []
 
 
-def test_report_retrieval_alone_never_captures_payment(tmp_path) -> None:
+def test_report_retrieval_before_export_is_rejected_without_capture(tmp_path) -> None:
     service, payments, billing, gateway = build_delivery_flow(tmp_path)
 
-    result = service.mark_report_retrieved(
-        "payment-a",
-        "job-a",
-        user_id="user-a",
-        project_id="project-a",
-    )
+    import pytest
 
-    assert result.payment is None
-    assert not result.billing.delivery.export_completed
-    assert result.billing.delivery.report_retrieved
-    assert not result.billing.billing_released
+    with pytest.raises(ValueError, match="requires completed export"):
+        service.mark_report_retrieved(
+            "payment-a",
+            "job-a",
+            user_id="user-a",
+            project_id="project-a",
+        )
+
+    persisted = billing.get("job-a")
+    assert not persisted.delivery.export_completed
+    assert not persisted.delivery.report_retrieved
+    assert not persisted.billing_released
     assert payments.get("payment-a").status is PaymentStatus.AUTHORIZED
     assert gateway.captures == []
 
@@ -127,25 +130,6 @@ def test_second_delivery_condition_releases_and_captures_once(tmp_path) -> None:
     ]
 
 
-def test_delivery_order_does_not_change_capture_gate(tmp_path) -> None:
-    service, payments, billing, gateway = build_delivery_flow(tmp_path)
-
-    service.mark_report_retrieved(
-        "payment-a",
-        "job-a",
-        user_id="user-a",
-        project_id="project-a",
-    )
-    result = service.mark_export_completed(
-        "payment-a",
-        "job-a",
-        user_id="user-a",
-        project_id="project-a",
-    )
-
-    assert result.payment is not None
-    assert result.payment.status is PaymentStatus.CAPTURED
-    assert len(gateway.captures) == 1
 
 
 def test_repeated_report_retrieval_after_capture_does_not_capture_again(tmp_path) -> None:
