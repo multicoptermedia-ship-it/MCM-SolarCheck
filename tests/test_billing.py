@@ -81,7 +81,7 @@ def test_released_billing_cannot_be_constructed_without_complete_delivery() -> N
             billing_released=True,
         )
 
-    with pytest.raises(ValueError, match="export and report retrieval"):
+    with pytest.raises(ValueError, match="requires completed export"):
         ComputeJobBilling(
             ComputeJobDelivery(
                 "job-a",
