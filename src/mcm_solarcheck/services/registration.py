@@ -21,6 +21,9 @@ class OnlineRegistration:
     email: str
     status: RegistrationStatus = RegistrationStatus.PENDING
     verified_at: datetime | None = None
+    street: str | None = None
+    postal_code: str | None = None
+    city: str | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -37,6 +40,10 @@ class OnlineRegistration:
         if not local or "." not in domain or domain.startswith(".") or domain.endswith("."):
             raise ValueError("email must be plausible")
         object.__setattr__(self, "email", normalized)
+        address_values = (self.street, self.postal_code, self.city)
+        if any(value is not None for value in address_values):
+            if any(not isinstance(value, str) or not value.strip() for value in address_values):
+                raise ValueError("billing address must include street, postal code and city")
         if self.status is RegistrationStatus.VERIFIED:
             if self.verified_at is None:
                 raise ValueError("verified registration requires verified_at")
@@ -55,6 +62,9 @@ class OnlineRegistration:
             self.email,
             RegistrationStatus.VERIFIED,
             now,
+            self.street,
+            self.postal_code,
+            self.city,
         )
 
 
