@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 
@@ -296,3 +297,82 @@ def test_webhook_replay_contract_rejects_invalid_token_state() -> None:
 
     with pytest.raises(ValueError, match="cannot carry token"):
         WebhookReplayReservation(WebhookReplayStatus.PROCESSED, "stale-token")
+
+
+def test_legacy_pending_webhook_row_is_migrated_and_reclaimed(tmp_path) -> None:
+    database = tmp_path / "legacy-replay.sqlite"
+    connection = sqlite3.connect(database)
+    connection.execute(
+        """
+        CREATE TABLE payment_webhook_events (
+            provider_id TEXT NOT NULL,
+            event_id TEXT NOT NULL,
+            processed INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (provider_id, event_id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO payment_webhook_events (provider_id, event_id, processed)
+        VALUES (?, ?, 0)
+        """,
+        ("provider-a", "event-legacy"),
+    )
+    connection.commit()
+    connection.close()
+
+    replay = SQLitePaymentWebhookReplayStore(database, lease_seconds=60)
+    now = datetime(2026, 9, 30, 8, 0, tzinfo=timezone.utc)
+    fingerprint = sha256(b"legacy-verified-payload").hexdigest()
+
+    reservation = replay.reserve(
+        "provider-a",
+        "event-legacy",
+        fingerprint,
+        now=now,
+    )
+
+    assert reservation.status is WebhookReplayStatus.ACQUIRED
+    assert reservation.lease_token is not None
+    replay.mark_processed(
+        "provider-a",
+        "event-legacy",
+        reservation.lease_token,
+    )
+    assert replay.is_processed("provider-a", "event-legacy")
+
+
+def test_legacy_processed_webhook_row_remains_processed_after_migration(tmp_path) -> None:
+    database = tmp_path / "legacy-processed-replay.sqlite"
+    connection = sqlite3.connect(database)
+    connection.execute(
+        """
+        CREATE TABLE payment_webhook_events (
+            provider_id TEXT NOT NULL,
+            event_id TEXT NOT NULL,
+            processed INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (provider_id, event_id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO payment_webhook_events (provider_id, event_id, processed)
+        VALUES (?, ?, 1)
+        """,
+        ("provider-a", "event-legacy"),
+    )
+    connection.commit()
+    connection.close()
+
+    replay = SQLitePaymentWebhookReplayStore(database)
+    reservation = replay.reserve(
+        "provider-a",
+        "event-legacy",
+        sha256(b"legacy-verified-payload").hexdigest(),
+        now=datetime(2026, 9, 30, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert reservation.status is WebhookReplayStatus.PROCESSED
+    assert reservation.lease_token is None
