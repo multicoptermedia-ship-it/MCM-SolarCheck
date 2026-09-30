@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+
 import pytest
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
@@ -128,3 +130,51 @@ def test_invoice_admin_delivery_active_lease_blocks_parallel_email(tmp_path) -> 
 
     assert first.claim("invoice-42") is True
     assert second.claim("invoice-42") is False
+
+
+def test_expired_invoice_admin_delivery_lease_is_recoverable_after_restart(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    first = SQLiteInvoiceAdminDeliveryStore(database)
+    assert first.claim("invoice-42") is True
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            UPDATE invoice_admin_delivery
+            SET lease_until = 0
+            WHERE invoice_id = ?
+            """,
+            ("invoice-42",),
+        )
+
+    restarted = SQLiteInvoiceAdminDeliveryStore(database)
+    assert restarted.claim("invoice-42") is True
+    restarted.mark_sent("invoice-42")
+
+    assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is False
+
+
+def test_sent_invoice_admin_email_is_not_resent_after_service_restart(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    sender = RecordingEmailSender()
+    pdf = b"%PDF invoice"
+
+    first = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=SQLiteInvoiceAdminDeliveryStore(database),
+    )
+    first.deliver("invoice-42", pdf)
+
+    restarted = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=SQLiteInvoiceAdminDeliveryStore(database),
+    )
+    restarted.deliver("invoice-42", pdf)
+
+    assert len(sender.messages) == 1
+    assert archive.path_for("invoice-42").read_bytes() == pdf
