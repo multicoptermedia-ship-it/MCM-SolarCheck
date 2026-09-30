@@ -43,6 +43,12 @@ class SepaSubmission:
             self.lease_token is not None or self.lease_until is not None
         ):
             raise ValueError("submitted SEPA intent cannot retain a lease")
+        if self.status is SepaSubmissionStatus.PENDING and (
+            (self.lease_token is None) != (self.lease_until is None)
+        ):
+            raise ValueError(
+                "pending SEPA intent lease token and expiry must be set together"
+            )
 
     def submitted(self, provider_reference: str) -> "SepaSubmission":
         if self.status is not SepaSubmissionStatus.PENDING:
