@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 from urllib.parse import quote, urlparse
+
+
+@dataclass(frozen=True)
+class EmailAttachment:
+    """Transport-neutral email attachment."""
+
+    filename: str
+    content: bytes
+    media_type: str
+
+    def __post_init__(self) -> None:
+        for name, value in (("filename", self.filename), ("media_type", self.media_type)):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} must be a non-empty string")
+        if not isinstance(self.content, bytes) or not self.content:
+            raise ValueError("attachment content must be non-empty bytes")
 
 
 @dataclass(frozen=True)
@@ -15,6 +31,7 @@ class EmailMessage:
     recipient: str
     subject: str
     text: str
+    attachments: tuple[EmailAttachment, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         for name, value in (
