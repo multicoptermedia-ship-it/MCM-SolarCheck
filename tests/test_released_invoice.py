@@ -61,3 +61,30 @@ def test_invoice_archived_and_emailed_only_after_billing_release(tmp_path) -> No
     assert len(sender.messages) == 1
     assert sender.messages[0].recipient == ADMIN_NOTIFICATION_EMAIL
     assert sender.messages[0].attachments[0].content == pdf
+
+
+def test_invoice_package_csv_is_also_gated_by_billing_release(tmp_path) -> None:
+    _, billing, archive, sender, service = setup(tmp_path)
+    billing.mark_export_completed("job-a", user_id="user-a", project_id="project-a")
+    csv_content = b"invoice_id;item_number\\ninvoice-a;81011\\n"
+
+    with pytest.raises(ValueError, match="report delivery"):
+        service.deliver(
+            "invoice-a", b"%PDF invoice", csv_content=csv_content,
+            job_id="job-a", user_id="user-a", project_id="project-a",
+        )
+
+    assert archive.path_for("invoice-a").exists() is False
+    assert archive.csv_path_for("invoice-a").exists() is False
+    assert sender.messages == []
+
+    billing.mark_report_retrieved("job-a", user_id="user-a", project_id="project-a")
+    billing.release("job-a", user_id="user-a", project_id="project-a")
+    service.deliver(
+        "invoice-a", b"%PDF invoice", csv_content=csv_content,
+        job_id="job-a", user_id="user-a", project_id="project-a",
+    )
+
+    assert archive.path_for("invoice-a").is_file()
+    assert archive.csv_path_for("invoice-a").read_bytes() == csv_content
+    assert len(sender.messages) == 1
