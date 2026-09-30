@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from mcm_solarcheck.infrastructure.smtp_email import (\n    SMTPConfig,\n    SMTPEmailSender,\n    SMTPSecurity,\n)
+from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPEmailSender, SMTPSecurity
 from mcm_solarcheck.services.admin_notification import ADMIN_NOTIFICATION_EMAIL
 from mcm_solarcheck.services.email import EmailMessage
 
@@ -40,6 +40,7 @@ class SMTPAdminStatus:
     use_starttls: bool
     timeout_seconds: float
     password_is_set: bool
+    security: SMTPSecurity
 
 
 class SMTPAdminService:
@@ -56,6 +57,7 @@ class SMTPAdminService:
             config.use_starttls,
             config.timeout_seconds,
             self._secrets.is_set(),
+            config.security_mode,
         )
 
     def save_settings(self, config: SMTPConfig) -> SMTPAdminStatus:
