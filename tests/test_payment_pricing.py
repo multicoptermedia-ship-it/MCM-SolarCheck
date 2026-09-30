@@ -434,3 +434,23 @@ def test_inactive_static_voucher_policy_only_blocks_voucher_payment(tmp_path) ->
             voucher_code="FLIGHTPLAN-STATIC-INACTIVE",
             now=now,
         )
+
+
+def test_atomic_priced_payment_store_requires_initialized_payment_schema(tmp_path) -> None:
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+
+    with pytest.raises(ValueError, match="payment database schema is not initialized"):
+        SQLitePricedPaymentStore(
+            tmp_path / "uninitialized-payments.sqlite",
+            vouchers.database,
+        )
+
+
+def test_atomic_priced_payment_store_requires_initialized_voucher_schema(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+
+    with pytest.raises(ValueError, match="voucher database schema is not initialized"):
+        SQLitePricedPaymentStore(
+            payments.database,
+            tmp_path / "uninitialized-vouchers.sqlite",
+        )
