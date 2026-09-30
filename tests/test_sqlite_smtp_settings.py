@@ -25,6 +25,7 @@ def test_smtp_settings_use_safe_default_then_persist_tls_changes(tmp_path) -> No
         "solarcheck@mcm-dronetech.com",
         timeout_seconds=15.0,
         security=SMTPSecurity.TLS,
+        sender_address="reports@mcm-dronetech.com",
     )
     store.save(changed)
 
@@ -34,6 +35,7 @@ def test_smtp_settings_use_safe_default_then_persist_tls_changes(tmp_path) -> No
     assert loaded.username == changed.username
     assert loaded.timeout_seconds == 15.0
     assert loaded.security_mode is SMTPSecurity.TLS
+    assert loaded.effective_sender_address == "reports@mcm-dronetech.com"
 
 
 def test_existing_starttls_row_is_migrated_without_breaking_it(tmp_path) -> None:
@@ -68,6 +70,7 @@ def test_existing_starttls_row_is_migrated_without_breaking_it(tmp_path) -> None
     loaded = store.get()
     assert loaded.host == "smtp.legacy.example"
     assert loaded.security_mode is SMTPSecurity.STARTTLS
+    assert loaded.effective_sender_address == "solarcheck@mcm-dronetech.com"
 
 
 def test_smtp_settings_database_has_no_password_column_or_secret_value(tmp_path) -> None:
@@ -85,5 +88,6 @@ def test_smtp_settings_database_has_no_password_column_or_secret_value(tmp_path)
     assert "password" not in columns
     assert "secret" not in columns
     assert "security" in columns
+    assert "sender_address" in columns
     assert row is not None
     assert all("password" not in str(value).lower() for value in row)
