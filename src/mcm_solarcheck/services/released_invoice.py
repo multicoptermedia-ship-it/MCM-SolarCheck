@@ -22,6 +22,7 @@ class ReleasedInvoiceService:
         invoice_id: str,
         pdf: bytes,
         *,
+        csv_content: bytes | None = None,
         job_id: str,
         user_id: str,
         project_id: str,
@@ -36,4 +37,4 @@ class ReleasedInvoiceService:
             raise ValueError("invoice requires completed report delivery")
         if not state.billing_released:
             raise ValueError("invoice requires billing release")
-        self._delivery.deliver(invoice_id, pdf)
+        self._delivery.deliver(invoice_id, pdf, csv_content)
