@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
+from mcm_solarcheck.services.admin_notification import ADMIN_NOTIFICATION_EMAIL
 from mcm_solarcheck.services.email import EmailAttachment, EmailMessage, EmailSender
-
-
-ADMIN_EMAIL = "solarcheck@mcm-dronetech.com"
 
 
 class InvoiceAdminDeliveryService:
@@ -28,7 +26,7 @@ class InvoiceAdminDeliveryService:
         self._sender.send(
             EmailMessage(
                 sender=self._sender_address,
-                recipient=ADMIN_EMAIL,
+                recipient=ADMIN_NOTIFICATION_EMAIL,
                 subject=f"SolarCheck Rechnung {invoice_id}",
                 text=(
                     "Eine SolarCheck-Rechnung wurde erstellt und im privaten "
