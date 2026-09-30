@@ -14,6 +14,9 @@ class ReportRecoveryClaimStore(Protocol):
     def claim(self, job_id: str, phase: str) -> bool:
         ...
 
+    def mark_sent(self, job_id: str, phase: str) -> None:
+        ...
+
     def release(self, job_id: str, phase: str) -> None:
         ...
 
@@ -57,4 +60,5 @@ class ReportRecoveryService:
         except Exception:
             self._claims.release(job_id, phase)
             raise
+        self._claims.mark_sent(job_id, phase)
         return True
