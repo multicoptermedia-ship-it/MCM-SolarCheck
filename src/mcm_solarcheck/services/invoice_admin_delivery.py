@@ -21,8 +21,12 @@ class InvoiceAdminDeliveryService:
         self._sender = sender
         self._sender_address = sender_address
 
-    def deliver(self, invoice_id: str, pdf: bytes) -> None:
-        path = self._archive.store(invoice_id, pdf)
+    def deliver(self, invoice_id: str, pdf: bytes, csv_content: bytes | None = None) -> None:
+        if csv_content is None:
+            path = self._archive.store(invoice_id, pdf)
+            csv_path = None
+        else:
+            path, csv_path = self._archive.store_package(invoice_id, pdf, csv_content)
         self._sender.send(
             EmailMessage(
                 sender=self._sender_address,
@@ -32,6 +36,7 @@ class InvoiceAdminDeliveryService:
                     "Eine SolarCheck-Rechnung wurde erstellt und im privaten "
                     "Rechnungsarchiv abgelegt.\n"
                     f"Rechnung: {path.name}\n"
+                    + (f"Begleitdatei: {csv_path.name}\n" if csv_path is not None else "")
                 ),
                 attachments=(
                     EmailAttachment(path.name, pdf, "application/pdf"),
