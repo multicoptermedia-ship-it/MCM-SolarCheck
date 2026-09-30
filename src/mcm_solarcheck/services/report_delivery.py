@@ -83,4 +83,12 @@ class ReportDeliveryService:
         )
         if delivered.billing_released:
             return delivered
-        return self._billing.release(job_id, user_id, project_id)
+        try:
+            return self._billing.release(job_id, user_id, project_id)
+        except ValueError as exc:
+            # Another successful delivery may have released billing after our
+            # evidence write. Treat that race as an idempotent success.
+            current = self._billing.get(job_id)
+            if current.billing_released:
+                return current
+            raise exc
