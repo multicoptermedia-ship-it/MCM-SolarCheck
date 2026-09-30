@@ -183,3 +183,41 @@ def test_admin_input_rejects_unencrypted_security_value() -> None:
 
     with pytest.raises(ValueError, match="security"):
         service.save_admin_settings(values)
+
+
+def test_ui_safe_smtp_test_reports_success_without_secret() -> None:
+    secrets = Secrets()
+    secrets.replace("super-secret")
+    service = SMTPAdminService(Settings(), secrets)
+
+    with patch.object(service, "send_test_email") as send:
+        result = service.test_connection()
+
+    send.assert_called_once_with()
+    assert result.success is True
+    assert "erfolgreich" in result.message
+    assert "super-secret" not in repr(result)
+
+
+def test_ui_safe_smtp_test_hides_provider_error_and_credentials() -> None:
+    secrets = Secrets()
+    secrets.replace("super-secret")
+    service = SMTPAdminService(Settings(), secrets)
+    provider_error = (
+        "535 authentication failed for solarcheck@mcm-dronetech.com "
+        "password=super-secret"
+    )
+
+    with patch.object(
+        service,
+        "send_test_email",
+        side_effect=RuntimeError(provider_error),
+    ):
+        result = service.test_connection()
+
+    assert result.success is False
+    assert "fehlgeschlagen" in result.message
+    assert "535" not in result.message
+    assert "solarcheck@mcm-dronetech.com" not in result.message
+    assert "super-secret" not in result.message
+    assert provider_error not in repr(result)
