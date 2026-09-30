@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from mcm_solarcheck.infrastructure.sqlite_report_recovery import SQLiteReportRecoveryStore
 from mcm_solarcheck.services.email import EmailMessage, ReportRecoveryEmailConfig
 from mcm_solarcheck.services.report_recovery import ReportRecoveryService
 from mcm_solarcheck.services.report_recovery_notification import (
@@ -12,12 +13,15 @@ from mcm_solarcheck.services.report_recovery_notification import (
 class RecordingEmailSender:
     def __init__(self) -> None:
         self.messages: list[EmailMessage] = []
+        self.fail = False
 
     def send(self, message: EmailMessage) -> None:
+        if self.fail:
+            raise RuntimeError("SMTP unavailable")
         self.messages.append(message)
 
 
-def recovery_service() -> tuple[RecordingEmailSender, ReportRecoveryService]:
+def recovery_service(tmp_path) -> tuple[RecordingEmailSender, ReportRecoveryService]:
     sender = RecordingEmailSender()
     notifications = ReportRecoveryNotificationService(
         sender,
@@ -26,12 +30,13 @@ def recovery_service() -> tuple[RecordingEmailSender, ReportRecoveryService]:
             notify_to="solarcheck@mcm-dronetech.com",
         ),
     )
-    return sender, ReportRecoveryService(notifications)
+    claims = SQLiteReportRecoveryStore(tmp_path / "recovery.sqlite")
+    return sender, ReportRecoveryService(notifications, claims)
 
 
 @pytest.mark.parametrize("phase", ["export", "delivery"])
 def test_transient_report_failure_does_not_alert_admin(phase, tmp_path) -> None:
-    sender, service = recovery_service()
+    sender, service = recovery_service(tmp_path)
 
     notified = service.record_failure(
         job_id="job-a",
@@ -46,11 +51,18 @@ def test_transient_report_failure_does_not_alert_admin(phase, tmp_path) -> None:
 
 
 @pytest.mark.parametrize("phase", ["export", "delivery"])
-def test_terminal_report_failure_alerts_admin_once_per_call(phase, tmp_path) -> None:
-    sender, service = recovery_service()
+def test_terminal_report_failure_alerts_admin_only_once(phase, tmp_path) -> None:
+    sender, service = recovery_service(tmp_path)
     report_path = tmp_path / "private" / "reports" / "job-a.pdf"
 
-    notified = service.record_failure(
+    first = service.record_failure(
+        job_id="job-a",
+        project_id="project-a",
+        phase=phase,
+        report_path=report_path,
+        terminal=True,
+    )
+    second = service.record_failure(
         job_id="job-a",
         project_id="project-a",
         phase=phase,
@@ -58,7 +70,8 @@ def test_terminal_report_failure_alerts_admin_once_per_call(phase, tmp_path) -> 
         terminal=True,
     )
 
-    assert notified is True
+    assert first is True
+    assert second is False
     assert len(sender.messages) == 1
     assert sender.messages[0].recipient == "solarcheck@mcm-dronetech.com"
     assert phase in sender.messages[0].text
@@ -66,8 +79,58 @@ def test_terminal_report_failure_alerts_admin_once_per_call(phase, tmp_path) -> 
     assert report_path.exists() is False
 
 
+def test_failed_admin_email_releases_claim_for_retry(tmp_path) -> None:
+    sender, service = recovery_service(tmp_path)
+    sender.fail = True
+
+    with pytest.raises(RuntimeError, match="SMTP unavailable"):
+        service.record_failure(
+            job_id="job-a",
+            project_id="project-a",
+            phase="delivery",
+            report_path=tmp_path / "job-a.pdf",
+            terminal=True,
+        )
+
+    sender.fail = False
+    assert service.record_failure(
+        job_id="job-a",
+        project_id="project-a",
+        phase="delivery",
+        report_path=tmp_path / "job-a.pdf",
+        terminal=True,
+    ) is True
+    assert len(sender.messages) == 1
+
+
+def test_recovery_claim_survives_service_restart(tmp_path) -> None:
+    sender, service = recovery_service(tmp_path)
+    path = tmp_path / "job-a.pdf"
+    assert service.record_failure(
+        job_id="job-a", project_id="project-a", phase="export",
+        report_path=path, terminal=True,
+    ) is True
+
+    notifications = ReportRecoveryNotificationService(
+        sender,
+        ReportRecoveryEmailConfig(
+            sender="solarcheck@mcm-dronetech.com",
+            notify_to="solarcheck@mcm-dronetech.com",
+        ),
+    )
+    restarted = ReportRecoveryService(
+        notifications,
+        SQLiteReportRecoveryStore(tmp_path / "recovery.sqlite"),
+    )
+    assert restarted.record_failure(
+        job_id="job-a", project_id="project-a", phase="export",
+        report_path=path, terminal=True,
+    ) is False
+    assert len(sender.messages) == 1
+
+
 def test_recovery_rejects_unknown_phase_before_sending(tmp_path) -> None:
-    sender, service = recovery_service()
+    sender, service = recovery_service(tmp_path)
 
     with pytest.raises(ValueError, match="phase"):
         service.record_failure(
