@@ -148,3 +148,66 @@ def test_wrong_report_artifact_never_reaches_transport_or_billing(tmp_path) -> N
     persisted = store.get("job-a")
     assert persisted.delivery.report_retrieved is False
     assert persisted.billing_released is False
+
+
+def test_repeated_successful_delivery_is_billing_idempotent(tmp_path) -> None:
+    store, billing, _reports, delivery = setup_delivery(tmp_path)
+    billing.mark_export_completed(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    sent = []
+
+    first = delivery.deliver(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        send=sent.append,
+    )
+    second = delivery.deliver(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        send=sent.append,
+    )
+
+    assert len(sent) == 2
+    assert first.billing_released is True
+    assert second == first
+    assert store.get("job-a") == first
+
+
+def test_failed_attempt_can_retry_once_then_release_billing(tmp_path) -> None:
+    store, billing, _reports, delivery = setup_delivery(tmp_path)
+    billing.mark_export_completed(
+        "job-a", user_id="user-a", project_id="project-a"
+    )
+    attempts = 0
+
+    def flaky(_report: ReportArtifact) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OSError("client disconnected")
+
+    with pytest.raises(OSError, match="client disconnected"):
+        delivery.deliver(
+            "job-a",
+            user_id="user-a",
+            project_id="project-a",
+            send=flaky,
+        )
+
+    blocked = store.get("job-a")
+    assert blocked.delivery.report_retrieved is False
+    assert blocked.billing_released is False
+
+    released = delivery.deliver(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        send=flaky,
+    )
+
+    assert attempts == 2
+    assert released.delivery.report_retrieved is True
+    assert released.billing_released is True
