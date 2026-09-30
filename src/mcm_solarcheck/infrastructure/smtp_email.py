@@ -26,6 +26,7 @@ class SMTPConfig:
     use_starttls: bool = True
     timeout_seconds: float = 30.0
     security: SMTPSecurity | None = None
+    sender_address: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.host, str) or not self.host.strip():
@@ -38,6 +39,14 @@ class SMTPConfig:
             raise ValueError("SMTP timeout must be positive")
         if self.security is not None and not isinstance(self.security, SMTPSecurity):
             raise ValueError("SMTP security must be STARTTLS or TLS")
+        if self.sender_address is not None and (
+            not isinstance(self.sender_address, str) or not self.sender_address.strip()
+        ):
+            raise ValueError("SMTP sender address must be non-empty")
+
+    @property
+    def effective_sender_address(self) -> str:
+        return self.sender_address.strip() if self.sender_address is not None else self.username.strip()
 
     @property
     def security_mode(self) -> SMTPSecurity:
