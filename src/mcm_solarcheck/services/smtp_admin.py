@@ -33,6 +33,30 @@ class SMTPSecretStore(Protocol):
 
 
 @dataclass(frozen=True)
+class SMTPAdminSettingsInput:
+    """Non-secret values accepted from a future administrative UI."""
+
+    host: str
+    port: int
+    username: str
+    sender_address: str
+    security: SMTPSecurity
+    timeout_seconds: float = 30.0
+
+    def to_config(self) -> SMTPConfig:
+        if not isinstance(self.security, SMTPSecurity):
+            raise ValueError("SMTP security must be STARTTLS or TLS")
+        return SMTPConfig(
+            host=self.host,
+            port=self.port,
+            username=self.username,
+            timeout_seconds=self.timeout_seconds,
+            security=self.security,
+            sender_address=self.sender_address,
+        )
+
+
+@dataclass(frozen=True)
 class SMTPAdminStatus:
     host: str
     port: int
@@ -63,6 +87,11 @@ class SMTPAdminService:
         )
 
     def save_settings(self, config: SMTPConfig) -> SMTPAdminStatus:
+        self._settings.save(config)
+        return self.status()
+
+    def save_admin_settings(self, values: SMTPAdminSettingsInput) -> SMTPAdminStatus:
+        config = values.to_config()
         self._settings.save(config)
         return self.status()
 
