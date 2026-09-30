@@ -88,3 +88,37 @@ def test_export_and_recovery_email_failure_keep_report_inaccessible(tmp_path) ->
     delivery = ReportDeliveryService(billing_store, reports)
     with pytest.raises(ValueError, match="unavailable until export"):
         delivery.retrieve("job-a", user_id="user-a", project_id="project-a")
+
+
+def test_export_project_mismatch_does_not_create_recovery_claim(tmp_path) -> None:
+    billing_store = SQLiteComputeJobBillingStore(tmp_path / "billing.sqlite")
+    billing = ComputeJobBillingService(billing_store)
+    billing.create("job-a", user_id="user-a", project_id="other-project")
+    reports = FileSystemReportArtifactStore(tmp_path / "private" / "reports")
+    claims = SQLiteReportRecoveryStore(tmp_path / "recovery.sqlite")
+    recovery = ReportRecoveryService(
+        ReportRecoveryNotificationService(
+            FailingEmailSender(),
+            ReportRecoveryEmailConfig(
+                sender="solarcheck@mcm-dronetech.com",
+                notify_to="solarcheck@mcm-dronetech.com",
+            ),
+        ),
+        claims,
+    )
+    service = ReportExportRecoveryService(
+        PrivateReportExportService(billing_store, reports),
+        recovery,
+    )
+
+    with pytest.raises(ValueError, match="project"):
+        service.export(
+            inspection_report(),
+            "job-a",
+            user_id="user-a",
+            project_id="other-project",
+            report_path=reports.path_for("job-a"),
+            terminal_on_failure=True,
+        )
+
+    assert claims.claim("job-a", "export") is True
