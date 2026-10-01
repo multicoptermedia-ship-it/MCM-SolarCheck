@@ -1098,3 +1098,47 @@ def test_only_explicit_uncertain_reset_writes_recovery_audit(tmp_path) -> None:
         ).fetchall()
 
     assert rows == [("invoice-uncertain", "uncertain_reset")]
+
+
+@pytest.mark.parametrize("target", ["missing", "pending", "sent"])
+def test_uncertain_reset_cannot_create_or_reopen_non_uncertain_state(
+    tmp_path, target
+) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+
+    token = "not-an-owner"
+    if target != "missing":
+        owned = state.claim(f"invoice-{target}")
+        assert owned is not None
+        token = owned
+        if target == "sent":
+            state.mark_sending("invoice-sent", owned)
+            state.mark_sent("invoice-sent", owned)
+
+    with sqlite3.connect(database) as connection:
+        before = connection.execute(
+            """
+            SELECT invoice_id, status, lease_until, claim_token
+            FROM invoice_admin_delivery
+            ORDER BY invoice_id
+            """
+        ).fetchall()
+
+    with pytest.raises(ValueError, match="not owned"):
+        state.reset_uncertain(f"invoice-{target}", token)
+
+    with sqlite3.connect(database) as connection:
+        after = connection.execute(
+            """
+            SELECT invoice_id, status, lease_until, claim_token
+            FROM invoice_admin_delivery
+            ORDER BY invoice_id
+            """
+        ).fetchall()
+        audit_count = connection.execute(
+            "SELECT COUNT(*) FROM invoice_admin_delivery_recovery_audit"
+        ).fetchone()
+
+    assert after == before
+    assert audit_count == (0,)
