@@ -74,6 +74,12 @@ class InvoiceAdminDeliveryService:
                 )
             )
         except Exception:
-            self._delivery_state.release(invoice_id, claim_token)
+            try:
+                self._delivery_state.release(invoice_id, claim_token)
+            except ValueError:
+                # The lease may have expired and been reclaimed while SMTP was
+                # in progress. Preserve the original send failure; the stale
+                # worker must not mutate the new owner's claim.
+                pass
             raise
         self._delivery_state.mark_sent(invoice_id, claim_token)
