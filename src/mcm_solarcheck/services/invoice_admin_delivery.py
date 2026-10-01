@@ -10,13 +10,13 @@ from mcm_solarcheck.services.email import EmailAttachment, EmailMessage, EmailSe
 
 
 class InvoiceAdminDeliveryStateStore(Protocol):
-    def claim(self, invoice_id: str) -> bool:
+    def claim(self, invoice_id: str) -> str | None:
         ...
 
-    def mark_sent(self, invoice_id: str) -> None:
+    def mark_sent(self, invoice_id: str, claim_token: str) -> None:
         ...
 
-    def release(self, invoice_id: str) -> None:
+    def release(self, invoice_id: str, claim_token: str) -> None:
         ...
 
 
@@ -53,7 +53,8 @@ class InvoiceAdminDeliveryService:
             csv_path = None
         else:
             path, csv_path = self._archive.store_package(invoice_id, pdf, csv_content)
-        if not self._delivery_state.claim(invoice_id):
+        claim_token = self._delivery_state.claim(invoice_id)
+        if claim_token is None:
             return
         try:
             self._sender.send(
@@ -73,6 +74,6 @@ class InvoiceAdminDeliveryService:
                 )
             )
         except Exception:
-            self._delivery_state.release(invoice_id)
+            self._delivery_state.release(invoice_id, claim_token)
             raise
-        self._delivery_state.mark_sent(invoice_id)
+        self._delivery_state.mark_sent(invoice_id, claim_token)
