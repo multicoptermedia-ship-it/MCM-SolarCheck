@@ -96,6 +96,13 @@ class SMTPAdminAuthorization(Protocol):
         ...
 
 
+class SMTPAdminMutationGuard(Protocol):
+    """Confirm that a state-changing admin request is intentional and protected."""
+
+    def require_mutation_allowed(self) -> None:
+        ...
+
+
 class SMTPAdminActions:
     """Framework-neutral actions exposed to a future administrative UI."""
 
@@ -103,9 +110,11 @@ class SMTPAdminActions:
         self,
         service: "SMTPAdminService",
         authorization: SMTPAdminAuthorization,
+        mutation_guard: SMTPAdminMutationGuard,
     ) -> None:
         self._service = service
         self._authorization = authorization
+        self._mutation_guard = mutation_guard
 
     def load(self) -> SMTPAdminView:
         self._authorization.require_admin()
@@ -113,16 +122,19 @@ class SMTPAdminActions:
 
     def save_settings(self, values: SMTPAdminSettingsInput) -> SMTPAdminView:
         self._authorization.require_admin()
+        self._mutation_guard.require_mutation_allowed()
         self._service.save_admin_settings(values)
         return self._service.view()
 
     def replace_password(self, password: str) -> SMTPAdminView:
         self._authorization.require_admin()
+        self._mutation_guard.require_mutation_allowed()
         self._service.replace_password(password)
         return self._service.view()
 
     def send_test_email(self) -> SMTPTestResult:
         self._authorization.require_admin()
+        self._mutation_guard.require_mutation_allowed()
         return self._service.test_connection()
 
 
