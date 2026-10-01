@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
 from mcm_solarcheck.services.payment_gateway import PaymentGateway, payment_idempotency_key
+from mcm_solarcheck.services.payment_methods import payment_method_capabilities
 from mcm_solarcheck.services.payment_operation import (
     PaymentOperation,
     PaymentOperationIntent,
@@ -47,6 +48,10 @@ class PaymentVoidService:
             raise ValueError("voided payment has inconsistent operation intent")
         if payment.status is not PaymentStatus.AUTHORIZED:
             raise ValueError("payment void requires authorized state")
+        if payment.method is not None and not payment_method_capabilities(
+            payment.method
+        ).supports_void:
+            raise ValueError("payment method does not support void")
         if payment.provider_reference is None:
             raise ValueError("authorized payment requires provider reference")
 
