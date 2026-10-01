@@ -78,6 +78,17 @@ class PaymentAuthorizationService:
             raise PermissionError("payment ownership mismatch")
         if payment.status is PaymentStatus.SETTLED:
             raise ValueError("settled payment requires no provider authorization")
+        if payment.status is PaymentStatus.AUTHORIZED and self._intents is not None:
+            try:
+                intent = self._intents.get(payment_id)
+            except KeyError:
+                intent = None
+            if (
+                intent is not None
+                and intent.status is PaymentAuthorizationIntentStatus.COMPLETED
+                and intent.provider_reference == payment.provider_reference
+            ):
+                return payment
         if payment.status is not PaymentStatus.CREATED:
             raise ValueError("payment authorization requires created state")
         if payment.amount is None:
