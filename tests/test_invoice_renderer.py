@@ -73,3 +73,20 @@ def test_invoice_pdf_rejects_missing_company_configuration(tmp_path) -> None:
             company_lines=(),
             payment_text="Bitte überweisen Sie den Rechnungsbetrag.",
         )
+
+
+def test_invoice_pdf_rendering_is_byte_stable_for_identical_invoice(tmp_path) -> None:
+    first = render_invoice_pdf(
+        invoice(),
+        tmp_path / "first.pdf",
+        company_lines=("MCM-Dronetech GmbH", "Ahornweg 3", "50181 Bedburg"),
+        payment_text="Bitte überweisen Sie den Rechnungsbetrag.",
+    )
+    second = render_invoice_pdf(
+        invoice(),
+        tmp_path / "second.pdf",
+        company_lines=("MCM-Dronetech GmbH", "Ahornweg 3", "50181 Bedburg"),
+        payment_text="Bitte überweisen Sie den Rechnungsbetrag.",
+    )
+
+    assert first.read_bytes() == second.read_bytes()
