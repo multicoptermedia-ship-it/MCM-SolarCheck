@@ -794,3 +794,49 @@ def test_uncertain_invoice_listing_is_read_only(tmp_path) -> None:
     assert after is not None
     assert after[0] == "sending"
     assert after[2] == token
+
+
+def test_mark_sent_storage_failure_with_real_state_never_auto_resends(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    sender = RecordingEmailSender()
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+    service = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=state,
+    )
+    original_mark_sent = state.mark_sent
+
+    def fail_after_smtp(invoice_id: str, claim_token: str) -> None:
+        raise OSError("delivery state unavailable")
+
+    state.mark_sent = fail_after_smtp  # type: ignore[method-assign]
+
+    with pytest.raises(OSError, match="delivery state unavailable"):
+        service.deliver("invoice-42", b"%PDF invoice")
+
+    assert len(sender.messages) == 1
+    assert SQLiteInvoiceAdminDeliveryStore(database).uncertain_invoice_ids() == (
+        "invoice-42",
+    )
+
+    restarted = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=SQLiteInvoiceAdminDeliveryStore(database),
+    )
+    restarted.deliver("invoice-42", b"%PDF invoice")
+
+    assert len(sender.messages) == 1
+
+    with sqlite3.connect(database) as connection:
+        row = connection.execute(
+            "SELECT status FROM invoice_admin_delivery WHERE invoice_id = ?",
+            ("invoice-42",),
+        ).fetchone()
+    assert row == ("sending",)
+
+    state.mark_sent = original_mark_sent  # type: ignore[method-assign]
