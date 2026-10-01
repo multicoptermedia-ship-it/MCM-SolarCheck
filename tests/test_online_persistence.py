@@ -9,6 +9,17 @@ from mcm_solarcheck.infrastructure.online_private_paths import OnlinePrivatePath
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPSecurity
 
 
+class FakeSecretStore:
+    def is_set(self) -> bool:
+        return False
+
+    def replace(self, password: str) -> None:
+        pass
+
+    def resolve_for_delivery(self) -> str:
+        raise RuntimeError("SMTP password is not configured")
+
+
 def test_online_persistence_uses_one_private_state_database(tmp_path) -> None:
     private = tmp_path / "private"
     paths = OnlinePrivatePaths(
@@ -26,6 +37,7 @@ def test_online_persistence_uses_one_private_state_database(tmp_path) -> None:
             "solarcheck@example.invalid",
             security=SMTPSecurity.TLS,
         ),
+        smtp_secrets=FakeSecretStore(),
     )
 
     database_backed = (
@@ -81,6 +93,7 @@ def test_online_persistence_requires_validated_private_paths(tmp_path) -> None:
                 "solarcheck@example.invalid",
                 security=SMTPSecurity.TLS,
             ),
+            smtp_secrets=FakeSecretStore(),
         )
 
 
@@ -93,4 +106,28 @@ def test_online_persistence_requires_explicit_smtp_configuration(tmp_path) -> No
     )
 
     with pytest.raises(TypeError, match="smtp_default"):
-        build_online_persistence(paths, smtp_default=None)  # type: ignore[arg-type]
+        build_online_persistence(
+            paths,
+            smtp_default=None,  # type: ignore[arg-type]
+            smtp_secrets=FakeSecretStore(),
+        )
+
+
+def test_online_persistence_requires_explicit_smtp_secret_backend(tmp_path) -> None:
+    private = tmp_path / "private"
+    paths = OnlinePrivatePaths(
+        private / "solarcheck.sqlite",
+        private / "reports",
+        private / "invoices",
+    )
+
+    with pytest.raises(TypeError):
+        build_online_persistence(
+            paths,
+            smtp_default=SMTPConfig(
+                "smtp.example.invalid",
+                465,
+                "solarcheck@example.invalid",
+                security=SMTPSecurity.TLS,
+            ),
+        )
