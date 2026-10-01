@@ -11,11 +11,15 @@ from mcm_solarcheck.services.email import ReportRecoveryEmailConfig
 from mcm_solarcheck.services.invoice import InvoiceBasisService
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
 from mcm_solarcheck.services.invoice_creation import InvoiceCreationService, InvoiceRenderConfig
+from mcm_solarcheck.services.payment_capture import PaymentCaptureService
 from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
+from mcm_solarcheck.services.payment_gateway import PaymentGateway
+from mcm_solarcheck.services.payment_void import PaymentVoidService
 from mcm_solarcheck.services.released_invoice import ReleasedInvoiceService
 from mcm_solarcheck.services.report_delivery import ReportDeliveryService
 from mcm_solarcheck.services.report_recovery import ReportRecoveryService
 from mcm_solarcheck.services.report_recovery_notification import ReportRecoveryNotificationService
+from mcm_solarcheck.services.sepa_payment import SepaPaymentGateway, SepaPaymentService
 from mcm_solarcheck.services.smtp_admin import SMTPAdminService
 
 
@@ -24,6 +28,9 @@ class OnlineServices:
     billing: ComputeJobBillingService
     report_delivery: ReportDeliveryService
     report_recovery: ReportRecoveryService
+    payment_capture: PaymentCaptureService
+    payment_void: PaymentVoidService
+    sepa_payment: SepaPaymentService
     payment_execution: PaymentExecutionEvidence
     invoice_creation: InvoiceCreationService
     smtp_admin: SMTPAdminService
@@ -33,6 +40,9 @@ def build_online_services(
     persistence: OnlinePersistence,
     *,
     invoice_render: InvoiceRenderConfig,
+    payment_gateway: PaymentGateway,
+    sepa_gateway: SepaPaymentGateway,
+    sepa_provider_id: str,
 ) -> OnlineServices:
     """Compose services from durable stores and deployment-owned SMTP state."""
     if not isinstance(persistence, OnlinePersistence):
@@ -59,6 +69,33 @@ def build_online_services(
         persistence.report_recovery,
     )
 
+    if payment_gateway is None:
+        raise TypeError("payment_gateway is required for online services")
+    if sepa_gateway is None:
+        raise TypeError("sepa_gateway is required for online services")
+    if not isinstance(sepa_provider_id, str) or not sepa_provider_id.strip():
+        raise ValueError("sepa_provider_id must be non-empty")
+
+    payment_capture = PaymentCaptureService(
+        persistence.payments,
+        persistence.billing,
+        payment_gateway,
+        persistence.payment_operations,
+    )
+    payment_void = PaymentVoidService(
+        persistence.payments,
+        payment_gateway,
+        persistence.payment_operations,
+    )
+    sepa_payment = SepaPaymentService(
+        persistence.payments,
+        persistence.sepa_mandates,
+        sepa_gateway,
+        sepa_provider_id,
+        collections=persistence.sepa_collections,
+        submissions=persistence.sepa_submissions,
+        billing=persistence.billing,
+    )
     payment_execution = PaymentExecutionEvidence(persistence.sepa_submissions)
     invoice_admin_delivery = InvoiceAdminDeliveryService(
         persistence.invoices,
@@ -85,6 +122,9 @@ def build_online_services(
         billing=billing,
         report_delivery=report_delivery,
         report_recovery=report_recovery,
+        payment_capture=payment_capture,
+        payment_void=payment_void,
+        sepa_payment=sepa_payment,
         payment_execution=payment_execution,
         invoice_creation=invoice_creation,
         smtp_admin=smtp_admin,
