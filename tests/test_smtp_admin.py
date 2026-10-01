@@ -534,3 +534,21 @@ def test_failed_settings_save_is_not_audited_as_success() -> None:
         actions.save_settings(values)
 
     assert audit.events == []
+
+
+def test_failed_smtp_test_records_only_fixed_secret_free_audit_event() -> None:
+    service = SMTPAdminService(Settings(), Secrets())
+    audit = Audit()
+    actions = SMTPAdminActions(service, AllowAdmin(), AllowMutation(), audit)
+    provider_error = RuntimeError(
+        "535 authentication failed password=super-secret"
+    )
+
+    with patch.object(service, "send_test_email", side_effect=provider_error):
+        result = actions.send_test_email()
+
+    assert result.success is False
+    assert audit.events == [SMTPAdminAuditEvent.TEST_EMAIL_FAILED]
+    assert "535" not in result.message
+    assert "super-secret" not in result.message
+    assert "super-secret" not in repr(audit.events)
