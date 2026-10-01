@@ -131,14 +131,15 @@ def test_invoice_admin_delivery_active_lease_blocks_parallel_email(tmp_path) -> 
     first = SQLiteInvoiceAdminDeliveryStore(database)
     second = SQLiteInvoiceAdminDeliveryStore(database)
 
-    assert first.claim("invoice-42") is True
-    assert second.claim("invoice-42") is False
+    assert first.claim("invoice-42") is not None
+    assert second.claim("invoice-42") is None
 
 
 def test_expired_invoice_admin_delivery_lease_is_recoverable_after_restart(tmp_path) -> None:
     database = tmp_path / "invoice-delivery.sqlite"
     first = SQLiteInvoiceAdminDeliveryStore(database)
-    assert first.claim("invoice-42") is True
+    first_token = first.claim("invoice-42")
+    assert first_token is not None
 
     with sqlite3.connect(database) as connection:
         connection.execute(
@@ -151,10 +152,11 @@ def test_expired_invoice_admin_delivery_lease_is_recoverable_after_restart(tmp_p
         )
 
     restarted = SQLiteInvoiceAdminDeliveryStore(database)
-    assert restarted.claim("invoice-42") is True
-    restarted.mark_sent("invoice-42")
+    restarted_token = restarted.claim("invoice-42")
+    assert restarted_token is not None
+    restarted.mark_sent("invoice-42", restarted_token)
 
-    assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is False
+    assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
 
 
 def test_sent_invoice_admin_email_is_not_resent_after_service_restart(tmp_path) -> None:
@@ -349,7 +351,7 @@ def test_stale_ready_marker_never_allows_invoice_content_replacement(
     [
         (None, "delivery_state must provide claim"),
         (
-            type("State", (), {"claim": lambda self, invoice_id: True})(),
+            type("State", (), {"claim": lambda self, invoice_id: "token"})(),
             "delivery_state must provide mark_sent",
         ),
         (
@@ -357,8 +359,8 @@ def test_stale_ready_marker_never_allows_invoice_content_replacement(
                 "State",
                 (),
                 {
-                    "claim": lambda self, invoice_id: True,
-                    "mark_sent": lambda self, invoice_id: None,
+                    "claim": lambda self, invoice_id: "token",
+                    "mark_sent": lambda self, invoice_id, claim_token: None,
                 },
             )(),
             "delivery_state must provide release",
@@ -375,3 +377,29 @@ def test_invoice_admin_delivery_rejects_incomplete_state_wiring(
             sender_address="solarcheck@mcm-solarcheck.de",
             delivery_state=delivery_state,  # type: ignore[arg-type]
         )
+
+
+def test_expired_invoice_delivery_claim_cannot_mutate_new_owner(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    old_worker = SQLiteInvoiceAdminDeliveryStore(database)
+    old_token = old_worker.claim("invoice-42")
+    assert old_token is not None
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE invoice_admin_delivery SET lease_until = 0 WHERE invoice_id = ?",
+            ("invoice-42",),
+        )
+
+    new_worker = SQLiteInvoiceAdminDeliveryStore(database)
+    new_token = new_worker.claim("invoice-42")
+    assert new_token is not None
+    assert new_token != old_token
+
+    with pytest.raises(ValueError, match="not pending"):
+        old_worker.mark_sent("invoice-42", old_token)
+    old_worker.release("invoice-42", old_token)
+
+    assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
+    new_worker.mark_sent("invoice-42", new_token)
+    assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
