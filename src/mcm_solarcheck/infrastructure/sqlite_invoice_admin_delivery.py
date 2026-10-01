@@ -65,7 +65,7 @@ class SQLiteInvoiceAdminDeliveryStore:
                 return claim_token
 
             status, current_lease = row
-            if status == "sent":
+            if status in ("sent", "sending"):
                 return None
             if status != "pending":
                 raise ValueError("invalid invoice admin delivery status")
@@ -81,18 +81,31 @@ class SQLiteInvoiceAdminDeliveryStore:
             )
             return claim_token
 
+    def mark_sending(self, invoice_id: str, claim_token: str) -> None:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE invoice_admin_delivery
+                SET status = 'sending'
+                WHERE invoice_id = ? AND status = 'pending' AND claim_token = ?
+                """,
+                (invoice_id, claim_token),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError("invoice admin delivery claim is not owned")
+
     def mark_sent(self, invoice_id: str, claim_token: str) -> None:
         with self._connect() as connection:
             cursor = connection.execute(
                 """
                 UPDATE invoice_admin_delivery
                 SET status = 'sent', lease_until = NULL
-                WHERE invoice_id = ? AND status = 'pending' AND claim_token = ?
+                WHERE invoice_id = ? AND status = 'sending' AND claim_token = ?
                 """,
                 (invoice_id, claim_token),
             )
             if cursor.rowcount != 1:
-                raise ValueError("invoice admin delivery is not pending")
+                raise ValueError("invoice admin delivery is not sending")
 
     def release(self, invoice_id: str, claim_token: str) -> None:
         with self._connect() as connection:
