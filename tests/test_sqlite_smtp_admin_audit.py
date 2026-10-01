@@ -4,7 +4,7 @@ import sqlite3
 
 import pytest
 
-from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig
+from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPSecurity
 from mcm_solarcheck.infrastructure.sqlite_smtp_admin_audit import SQLiteSMTPAdminAudit
 from mcm_solarcheck.infrastructure.sqlite_smtp_settings import SQLiteSMTPSettingsStore
 from mcm_solarcheck.services.smtp_admin import SMTPAdminAuditEvent
@@ -108,10 +108,7 @@ def test_smtp_admin_persistence_survives_store_restart(tmp_path) -> None:
         465,
         "smtp-login",
         timeout_seconds=15.0,
-        security=__import__(
-            "mcm_solarcheck.infrastructure.smtp_email",
-            fromlist=["SMTPSecurity"],
-        ).SMTPSecurity.TLS,
+        security=SMTPSecurity.TLS,
         sender_address="solarcheck@mcm-dronetech.com",
     )
 
@@ -130,5 +127,7 @@ def test_smtp_admin_persistence_survives_store_restart(tmp_path) -> None:
     assert loaded.host == "smtp.changed.example"
     assert loaded.port == 465
     assert loaded.username == "smtp-login"
+    assert loaded.security_mode is SMTPSecurity.TLS
+    assert loaded.timeout_seconds == 15.0
     assert loaded.effective_sender_address == "solarcheck@mcm-dronetech.com"
     assert [row[0] for row in events] == ["settings_changed"]
