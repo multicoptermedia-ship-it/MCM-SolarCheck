@@ -432,3 +432,32 @@ def test_failed_smtp_admin_change_is_not_audited_as_success() -> None:
         actions.replace_password("must-not-be-audited")
 
     assert audit.events == []
+
+
+@pytest.mark.parametrize(
+    ("dependency", "message"),
+    [
+        ("service", "service must provide view"),
+        ("authorization", "authorization must provide require_admin"),
+        ("mutation_guard", "mutation_guard must provide require_mutation_allowed"),
+        ("audit", "audit must provide record"),
+    ],
+)
+def test_smtp_admin_actions_reject_incomplete_security_wiring(
+    dependency, message
+) -> None:
+    values = {
+        "service": MagicMock(spec=SMTPAdminService),
+        "authorization": AllowAdmin(),
+        "mutation_guard": AllowMutation(),
+        "audit": Audit(),
+    }
+    values[dependency] = None
+
+    with pytest.raises(TypeError, match=message):
+        SMTPAdminActions(
+            values["service"],
+            values["authorization"],
+            values["mutation_guard"],
+            values["audit"],
+        )
