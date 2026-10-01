@@ -11,6 +11,7 @@ from mcm_solarcheck.infrastructure.sqlite_billing import SQLiteComputeJobBilling
 from mcm_solarcheck.infrastructure.sqlite_invoice_admin_delivery import SQLiteInvoiceAdminDeliveryStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_identity import SQLiteInvoiceIdentityStore
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
+from mcm_solarcheck.infrastructure.sqlite_payment_authorization import SQLitePaymentAuthorizationIntentStore
 from mcm_solarcheck.infrastructure.sqlite_payment_operation import SQLitePaymentOperationIntentStore
 from mcm_solarcheck.infrastructure.sqlite_report_recovery import SQLiteReportRecoveryStore
 from mcm_solarcheck.infrastructure.sqlite_sepa import SQLiteSepaMandateStore
@@ -29,6 +30,7 @@ class OnlinePersistence:
     billing: SQLiteComputeJobBillingStore
     payments: SQLiteOnlinePaymentStore
     payment_operations: SQLitePaymentOperationIntentStore
+    payment_authorizations: SQLitePaymentAuthorizationIntentStore
     sepa_mandates: SQLiteSepaMandateStore
     sepa_submissions: SQLiteSepaSubmissionStore
     sepa_collections: SQLiteSepaCollectionStore
@@ -63,6 +65,7 @@ def build_online_persistence(
         billing=SQLiteComputeJobBillingStore(database),
         payments=SQLiteOnlinePaymentStore(database),
         payment_operations=SQLitePaymentOperationIntentStore(database),
+        payment_authorizations=SQLitePaymentAuthorizationIntentStore(database),
         sepa_mandates=SQLiteSepaMandateStore(database),
         sepa_submissions=SQLiteSepaSubmissionStore(database),
         sepa_collections=SQLiteSepaCollectionStore(database),
