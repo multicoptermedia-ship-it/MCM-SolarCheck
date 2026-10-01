@@ -8,6 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
 from mcm_solarcheck.services.payment import OnlinePaymentStore, PaymentAmount
+from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
 from mcm_solarcheck.services.registration import OnlineRegistration, RegistrationStatus
 
 SOLARCHECK_ITEM_NUMBER = "81011"
@@ -108,9 +109,17 @@ class InvoiceDocument:
 class InvoiceBasisService:
     """Build invoice facts only after report delivery and billing release."""
 
-    def __init__(self, billing: ComputeJobBillingStore, payments: OnlinePaymentStore) -> None:
+    def __init__(
+        self,
+        billing: ComputeJobBillingStore,
+        payments: OnlinePaymentStore,
+        payment_execution: PaymentExecutionEvidence,
+    ) -> None:
+        if not callable(getattr(payment_execution, "require_succeeded", None)):
+            raise TypeError("payment_execution must provide require_succeeded()")
         self._billing = billing
         self._payments = payments
+        self._payment_execution = payment_execution
 
     def build(
         self, invoice_id: str, payment_id: str, *,
@@ -131,6 +140,7 @@ class InvoiceBasisService:
             or payment.project_id != project_id
         ):
             raise PermissionError("invoice payment identity mismatch")
+        self._payment_execution.require_succeeded(payment)
 
         return InvoiceBasis(
             invoice_id.strip(), payment.payment_id, payment.job_id,
