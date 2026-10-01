@@ -342,3 +342,36 @@ def test_stale_ready_marker_never_allows_invoice_content_replacement(
     assert archive.csv_path_for(invoice_id).read_bytes() == (
         wrong_csv if mismatched_component == "csv" else expected_csv
     )
+
+
+@pytest.mark.parametrize(
+    "delivery_state,message",
+    [
+        (None, "delivery_state must provide claim"),
+        (
+            type("State", (), {"claim": lambda self, invoice_id: True})(),
+            "delivery_state must provide mark_sent",
+        ),
+        (
+            type(
+                "State",
+                (),
+                {
+                    "claim": lambda self, invoice_id: True,
+                    "mark_sent": lambda self, invoice_id: None,
+                },
+            )(),
+            "delivery_state must provide release",
+        ),
+    ],
+)
+def test_invoice_admin_delivery_rejects_incomplete_state_wiring(
+    tmp_path, delivery_state, message
+) -> None:
+    with pytest.raises(TypeError, match=message):
+        InvoiceAdminDeliveryService(
+            FileSystemInvoiceArchive(tmp_path / "private" / "invoices"),
+            RecordingEmailSender(),
+            sender_address="solarcheck@mcm-solarcheck.de",
+            delivery_state=delivery_state,  # type: ignore[arg-type]
+        )
