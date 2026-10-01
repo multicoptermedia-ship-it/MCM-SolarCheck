@@ -300,3 +300,27 @@ def test_real_renderer_recovers_pdf_only_crash_state_on_retry(tmp_path) -> None:
     assert archive.csv_path_for(invoice.basis.invoice_id).is_file()
     assert archive.package_is_ready(invoice.basis.invoice_id) is True
     assert len(sender.messages) == 1
+
+
+def test_invoice_creation_rejects_missing_identity_store(tmp_path) -> None:
+    service, _, _ = setup_service(tmp_path, release=True)
+
+    with pytest.raises(TypeError, match="identity_store must provide reserve"):
+        InvoiceCreationService(
+            service._basis,
+            service._released,
+            service._config,
+            identity_store=None,  # type: ignore[arg-type]
+        )
+
+
+def test_invoice_creation_rejects_invalid_identity_store(tmp_path) -> None:
+    service, _, _ = setup_service(tmp_path, release=True)
+
+    with pytest.raises(TypeError, match="identity_store must provide reserve"):
+        InvoiceCreationService(
+            service._basis,
+            service._released,
+            service._config,
+            identity_store=object(),  # type: ignore[arg-type]
+        )
