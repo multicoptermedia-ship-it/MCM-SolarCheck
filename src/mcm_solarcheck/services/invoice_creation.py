@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import Protocol
 
 from mcm_solarcheck.reporting.invoice_renderer import render_invoice_csv, render_invoice_pdf
 from mcm_solarcheck.services.invoice import InvoiceBasisService, InvoiceCustomer, InvoiceDocument
 from mcm_solarcheck.services.released_invoice import ReleasedInvoiceService
+
+
+class InvoiceIdentityStore(Protocol):
+    def reserve(self, invoice_id: str, fingerprint: str) -> bool:
+        ...
 
 
 @dataclass(frozen=True)
@@ -34,10 +42,12 @@ class InvoiceCreationService:
         basis: InvoiceBasisService,
         released: ReleasedInvoiceService,
         config: InvoiceRenderConfig,
+        identity_store: InvoiceIdentityStore | None = None,
     ) -> None:
         self._basis = basis
         self._released = released
         self._config = config
+        self._identity_store = identity_store
 
     def create_and_deliver(
         self,
@@ -56,6 +66,33 @@ class InvoiceCreationService:
             job_id=job_id, user_id=user_id, project_id=project_id,
         )
         invoice = InvoiceDocument(basis, customer, invoice_date, service_date)
+
+        if self._identity_store is not None:
+            fingerprint_payload = {
+                "invoice_id": invoice.basis.invoice_id,
+                "payment_id": invoice.basis.payment_id,
+                "job_id": invoice.basis.job_id,
+                "user_id": invoice.basis.user_id,
+                "project_id": invoice.basis.project_id,
+                "amount_minor_units": invoice.gross_minor_units,
+                "currency": invoice.basis.amount.currency,
+                "customer_name": invoice.customer.name,
+                "customer_address": list(invoice.customer.address_lines),
+                "invoice_date": invoice.invoice_date.isoformat(),
+                "service_date": invoice.service_date.isoformat(),
+                "item_number": invoice.item_number,
+                "service_name": invoice.service_name,
+                "vat_percent": invoice.vat_percent,
+            }
+            fingerprint = hashlib.sha256(
+                json.dumps(
+                    fingerprint_payload,
+                    sort_keys=True,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            self._identity_store.reserve(invoice.basis.invoice_id, fingerprint)
 
         with tempfile.TemporaryDirectory(prefix="solarcheck-invoice-") as temporary:
             root = Path(temporary)
