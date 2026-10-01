@@ -113,7 +113,7 @@ class SQLiteInvoiceAdminDeliveryStore:
             cursor = connection.execute(
                 """
                 UPDATE invoice_admin_delivery
-                SET status = 'pending', lease_until = 0
+                SET status = 'pending', lease_until = 0, claim_token = NULL
                 WHERE invoice_id = ? AND status = 'sending' AND claim_token = ?
                 """,
                 (invoice_id, claim_token),
