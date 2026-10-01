@@ -113,6 +113,9 @@ def test_creation_produces_no_files_or_email_before_release(tmp_path) -> None:
     assert archive.csv_path_for("R20260930-11").exists() is False
     assert sender.messages == []
 
+    identity = SQLiteInvoiceIdentityStore(tmp_path / "invoice-identity.sqlite")
+    assert identity.reserve("R20260930-11", "after-release-attempt") is True
+
 
 def test_creation_allows_identical_invoice_retry(tmp_path) -> None:
     service, archive, sender = setup_service(tmp_path, release=True)
