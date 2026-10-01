@@ -39,7 +39,7 @@ class RecordingGateway:
         self.captures.append((provider_reference, idempotency_key))
 
 
-def setup_flow(tmp_path):
+def setup_flow(tmp_path, *, method=PaymentMethod.CARD):
     billing_store = SQLiteComputeJobBillingStore(tmp_path / "billing.sqlite")
     billing = ComputeJobBillingService(billing_store)
     billing.create("job-a", user_id="user-a", project_id="project-a")
@@ -55,7 +55,7 @@ def setup_flow(tmp_path):
             "project-a",
             "job-a",
             PaymentAmount(12900, "EUR"),
-            method=PaymentMethod.CARD,
+            method=method,
         )
     )
     payments.authorize(
@@ -176,6 +176,53 @@ def test_invoice_basis_requires_card_capture_after_delivery(tmp_path) -> None:
     assert captured.status is PaymentStatus.CAPTURED
     assert basis.payment_id == "payment-a"
     assert basis.job_id == "job-a"
+    assert basis.amount == PaymentAmount(12900, "EUR")
+    assert gateway.captures == [
+        ("provider-auth-a", "payment:payment-a:capture")
+    ]
+
+
+def test_invoice_basis_requires_paypal_capture_after_delivery(tmp_path) -> None:
+    billing, payments, gateway, capture, delivery = setup_flow(
+        tmp_path, method=PaymentMethod.PAYPAL
+    )
+    invoices = InvoiceBasisService(
+        billing,
+        payments,
+        PaymentExecutionEvidence(UnusedSepaSubmissions()),
+    )
+
+    delivery.deliver(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        send=lambda _report: None,
+    )
+
+    assert payments.get("payment-a").status is PaymentStatus.AUTHORIZED
+    with pytest.raises(ValueError, match="captured payment"):
+        invoices.build(
+            "invoice-a",
+            "payment-a",
+            job_id="job-a",
+            user_id="user-a",
+            project_id="project-a",
+        )
+
+    captured = capture.capture(
+        "payment-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    basis = invoices.build(
+        "invoice-a",
+        "payment-a",
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    assert captured.status is PaymentStatus.CAPTURED
     assert basis.amount == PaymentAmount(12900, "EUR")
     assert gateway.captures == [
         ("provider-auth-a", "payment:payment-a:capture")
