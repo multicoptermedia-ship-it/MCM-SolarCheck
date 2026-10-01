@@ -107,6 +107,19 @@ class SQLiteInvoiceAdminDeliveryStore:
             if cursor.rowcount != 1:
                 raise ValueError("invoice admin delivery is not sending")
 
+    def uncertain_invoice_ids(self) -> tuple[str, ...]:
+        """Return technical identifiers for sends with an unknown outcome."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT invoice_id
+                FROM invoice_admin_delivery
+                WHERE status = 'sending'
+                ORDER BY invoice_id
+                """
+            ).fetchall()
+        return tuple(row[0] for row in rows)
+
     def reset_uncertain(self, invoice_id: str, claim_token: str) -> None:
         """Explicitly allow retry of an uncertain send owned by this token."""
         with self._connect() as connection:
