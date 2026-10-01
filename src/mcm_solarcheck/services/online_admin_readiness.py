@@ -1,0 +1,68 @@
+"""Secret-free administrative readiness for SolarCheck Online."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Protocol
+
+from mcm_solarcheck.services.smtp_admin import SMTPAdminService
+
+
+class ConfigurationReadiness(Protocol):
+    """Deployment-owned readiness without exposing credentials or account data."""
+
+    def is_configured(self) -> bool:
+        ...
+
+
+@dataclass(frozen=True)
+class OnlineAdminReadiness:
+    smtp_configured: bool
+    payment_provider_configured: bool
+    sepa_provider_configured: bool
+
+    @property
+    def ready(self) -> bool:
+        return (
+            self.smtp_configured
+            and self.payment_provider_configured
+            and self.sepa_provider_configured
+        )
+
+
+class OnlineAdminReadinessService:
+    """Build a UI-safe readiness view; never return secret or account values."""
+
+    def __init__(
+        self,
+        smtp: SMTPAdminService,
+        payment_provider: ConfigurationReadiness,
+        sepa_provider: ConfigurationReadiness,
+    ) -> None:
+        for dependency, method, name in (
+            (smtp, "status", "smtp"),
+            (payment_provider, "is_configured", "payment_provider"),
+            (sepa_provider, "is_configured", "sepa_provider"),
+        ):
+            if not callable(getattr(dependency, method, None)):
+                raise TypeError(f"{name} must provide {method}()")
+        self._smtp = smtp
+        self._payment_provider = payment_provider
+        self._sepa_provider = sepa_provider
+
+    def status(self) -> OnlineAdminReadiness:
+        smtp = self._smtp.status()
+        smtp_configured = bool(
+            smtp.host
+            and smtp.port > 0
+            and smtp.username
+            and smtp.sender_address
+            and smtp.password_is_set
+        )
+        return OnlineAdminReadiness(
+            smtp_configured=smtp_configured,
+            payment_provider_configured=bool(
+                self._payment_provider.is_configured()
+            ),
+            sepa_provider_configured=bool(self._sepa_provider.is_configured()),
+        )
