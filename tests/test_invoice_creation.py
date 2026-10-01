@@ -6,6 +6,7 @@ import pytest
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
 from mcm_solarcheck.infrastructure.sqlite_billing import SQLiteComputeJobBillingStore
+from mcm_solarcheck.infrastructure.sqlite_invoice_identity import SQLiteInvoiceIdentityStore
 from mcm_solarcheck.services.billing import ComputeJobBillingService
 from mcm_solarcheck.services.email import EmailMessage
 from mcm_solarcheck.services.invoice import InvoiceBasisService, InvoiceCustomer
@@ -59,6 +60,7 @@ def setup_service(tmp_path, *, release: bool):
             ("MCM-Dronetech GmbH", "Ahornweg 3", "50181 Bedburg"),
             "Bitte überweisen Sie den Rechnungsbetrag.",
         ),
+        identity_store=SQLiteInvoiceIdentityStore(tmp_path / "invoice-identity.sqlite"),
     )
     return service, archive, sender
 
@@ -107,3 +109,55 @@ def test_creation_produces_no_files_or_email_before_release(tmp_path) -> None:
     assert archive.path_for("R20260930-11").exists() is False
     assert archive.csv_path_for("R20260930-11").exists() is False
     assert sender.messages == []
+
+
+def test_creation_allows_identical_invoice_retry(tmp_path) -> None:
+    service, archive, sender = setup_service(tmp_path, release=True)
+    customer = InvoiceCustomer("Testkunde", ("Musterweg 1", "50181 Bedburg"))
+    kwargs = dict(
+        invoice_date=date(2026, 9, 30),
+        service_date=date(2026, 9, 30),
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    first = service.create_and_deliver("R20260930-11", "payment-a", customer, **kwargs)
+    second = service.create_and_deliver("R20260930-11", "payment-a", customer, **kwargs)
+
+    assert first == second
+    assert archive.package_is_ready("R20260930-11") is True
+
+
+def test_creation_rejects_reused_invoice_id_for_different_facts(tmp_path) -> None:
+    service, archive, sender = setup_service(tmp_path, release=True)
+    service.create_and_deliver(
+        "R20260930-11",
+        "payment-a",
+        InvoiceCustomer("Testkunde", ("Musterweg 1", "50181 Bedburg")),
+        invoice_date=date(2026, 9, 30),
+        service_date=date(2026, 9, 30),
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    original_pdf = archive.path_for("R20260930-11").read_bytes()
+    original_csv = archive.csv_path_for("R20260930-11").read_bytes()
+    original_mail_count = len(sender.messages)
+
+    with pytest.raises(ValueError, match="different invoice facts"):
+        service.create_and_deliver(
+            "R20260930-11",
+            "payment-a",
+            InvoiceCustomer("Anderer Kunde", ("Andere Strasse 9", "50181 Bedburg")),
+            invoice_date=date(2026, 10, 1),
+            service_date=date(2026, 9, 30),
+            job_id="job-a",
+            user_id="user-a",
+            project_id="project-a",
+        )
+
+    assert archive.path_for("R20260930-11").read_bytes() == original_pdf
+    assert archive.csv_path_for("R20260930-11").read_bytes() == original_csv
+    assert archive.package_is_ready("R20260930-11") is True
+    assert len(sender.messages) == original_mail_count
