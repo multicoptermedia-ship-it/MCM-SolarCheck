@@ -1049,7 +1049,7 @@ def test_normal_invoice_delivery_contract_excludes_manual_recovery() -> None:
         def release(self, invoice_id: str, claim_token: str) -> None:
             return None
 
-    archive = MagicMock(spec=FileSystemInvoiceArchive)
+    archive = FileSystemInvoiceArchive(Path("unused-private-invoices"))
     sender = RecordingEmailSender()
 
     service = InvoiceAdminDeliveryService(
