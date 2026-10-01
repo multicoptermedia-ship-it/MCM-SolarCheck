@@ -13,7 +13,7 @@ from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryS
 from mcm_solarcheck.services.invoice_creation import InvoiceCreationService, InvoiceRenderConfig
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
 from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
-from mcm_solarcheck.services.payment_gateway import PaymentGateway
+from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService, PaymentGateway
 from mcm_solarcheck.services.payment_void import PaymentVoidService
 from mcm_solarcheck.services.released_invoice import ReleasedInvoiceService
 from mcm_solarcheck.services.report_delivery import ReportDeliveryService
@@ -28,6 +28,7 @@ class OnlineServices:
     billing: ComputeJobBillingService
     report_delivery: ReportDeliveryService
     report_recovery: ReportRecoveryService
+    payment_authorization: PaymentAuthorizationService
     payment_capture: PaymentCaptureService
     payment_void: PaymentVoidService
     sepa_payment: SepaPaymentService
@@ -71,7 +72,7 @@ def build_online_services(
 
     if payment_gateway is None:
         raise TypeError("payment_gateway is required for online services")
-    for method in ("capture", "void"):
+    for method in ("authorize", "capture", "void"):
         if not callable(getattr(payment_gateway, method, None)):
             raise TypeError(f"payment_gateway must provide {method}()")
     if sepa_gateway is None:
@@ -81,6 +82,10 @@ def build_online_services(
     if not isinstance(sepa_provider_id, str) or not sepa_provider_id.strip():
         raise ValueError("sepa_provider_id must be non-empty")
 
+    payment_authorization = PaymentAuthorizationService(
+        persistence.payments,
+        payment_gateway,
+    )
     payment_capture = PaymentCaptureService(
         persistence.payments,
         persistence.billing,
@@ -127,6 +132,7 @@ def build_online_services(
         billing=billing,
         report_delivery=report_delivery,
         report_recovery=report_recovery,
+        payment_authorization=payment_authorization,
         payment_capture=payment_capture,
         payment_void=payment_void,
         sepa_payment=sepa_payment,
