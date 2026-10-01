@@ -709,6 +709,18 @@ def test_uncertain_invoice_send_requires_owned_explicit_reset(tmp_path) -> None:
     assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
 
     state.reset_uncertain("invoice-42", token)
+    with sqlite3.connect(database) as connection:
+        reset_row = connection.execute(
+            "SELECT status, claim_token FROM invoice_admin_delivery WHERE invoice_id = ?",
+            ("invoice-42",),
+        ).fetchone()
+    assert reset_row == ("pending", None)
+
+    with pytest.raises(ValueError, match="not owned"):
+        state.mark_sending("invoice-42", token)
+    with pytest.raises(ValueError, match="not owned"):
+        state.release("invoice-42", token)
+
     retry_token = SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42")
     assert retry_token is not None
     assert retry_token != token
