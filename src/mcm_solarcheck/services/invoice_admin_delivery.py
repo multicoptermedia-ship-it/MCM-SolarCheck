@@ -36,6 +36,9 @@ class InvoiceAdminDeliveryService:
         self._sender_address = sender_address
         self._delivery_state = delivery_state
 
+    def package_is_ready(self, invoice_id: str) -> bool:
+        return self._archive.package_is_ready(invoice_id)
+
     def deliver(self, invoice_id: str, pdf: bytes, csv_content: bytes | None = None) -> None:
         if csv_content is None:
             path = self._archive.store(invoice_id, pdf)
