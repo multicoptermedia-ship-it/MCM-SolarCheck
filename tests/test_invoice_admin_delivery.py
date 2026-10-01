@@ -567,3 +567,52 @@ def test_lost_lease_during_failed_invoice_email_preserves_smtp_error(tmp_path) -
 
     with pytest.raises(OSError, match="SMTP unavailable"):
         service.deliver("invoice-42", b"%PDF invoice")
+
+
+def test_successful_email_with_expired_lease_cannot_mark_new_owner_sent(
+    tmp_path,
+) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    sender = RecordingEmailSender()
+    old_worker = SQLiteInvoiceAdminDeliveryStore(database)
+    service = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=old_worker,
+    )
+
+    original_mark_sent = old_worker.mark_sent
+    new_token: str | None = None
+
+    def lose_lease_then_mark(invoice_id: str, claim_token: str) -> None:
+        nonlocal new_token
+        with sqlite3.connect(database) as connection:
+            connection.execute(
+                "UPDATE invoice_admin_delivery SET lease_until = 0 WHERE invoice_id = ?",
+                (invoice_id,),
+            )
+        new_owner = SQLiteInvoiceAdminDeliveryStore(database)
+        new_token = new_owner.claim(invoice_id)
+        assert new_token is not None
+        assert new_token != claim_token
+        original_mark_sent(invoice_id, claim_token)
+
+    old_worker.mark_sent = lose_lease_then_mark  # type: ignore[method-assign]
+
+    with pytest.raises(ValueError, match="not pending"):
+        service.deliver("invoice-42", b"%PDF invoice")
+
+    assert len(sender.messages) == 1
+    assert new_token is not None
+    with sqlite3.connect(database) as connection:
+        row = connection.execute(
+            """
+            SELECT status, claim_token
+            FROM invoice_admin_delivery
+            WHERE invoice_id = ?
+            """,
+            ("invoice-42",),
+        ).fetchone()
+    assert row == ("pending", new_token)
