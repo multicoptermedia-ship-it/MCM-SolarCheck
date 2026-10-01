@@ -1035,7 +1035,7 @@ def test_invoice_recovery_audit_is_append_only_across_restarts(tmp_path) -> None
     assert delivery == ("sent", final_token)
 
 
-def test_normal_invoice_delivery_contract_excludes_manual_recovery() -> None:
+def test_normal_invoice_delivery_contract_excludes_manual_recovery(tmp_path) -> None:
     class DeliveryStateWithoutRecovery:
         def claim(self, invoice_id: str) -> str | None:
             return None
@@ -1049,7 +1049,7 @@ def test_normal_invoice_delivery_contract_excludes_manual_recovery() -> None:
         def release(self, invoice_id: str, claim_token: str) -> None:
             return None
 
-    archive = FileSystemInvoiceArchive(Path("unused-private-invoices"))
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
     sender = RecordingEmailSender()
 
     service = InvoiceAdminDeliveryService(
