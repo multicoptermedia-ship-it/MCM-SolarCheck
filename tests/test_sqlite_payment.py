@@ -294,3 +294,31 @@ def test_legacy_payment_database_migrates_tariff_provenance_columns(tmp_path) ->
     current = store.get("new-payment")
     assert current.tariff_version == 1
     assert current.plant_kwp == 750
+
+
+def test_online_payment_storage_schema_stays_payment_metadata_only(tmp_path) -> None:
+    database = tmp_path / "payment-schema.sqlite"
+    SQLiteOnlinePaymentStore(database)
+
+    with sqlite3.connect(database) as connection:
+        columns = [
+            row[1]
+            for row in connection.execute("PRAGMA table_info(online_payments)")
+        ]
+
+    assert columns == [
+        "payment_id",
+        "user_id",
+        "project_id",
+        "job_id",
+        "amount_minor_units",
+        "currency",
+        "status",
+        "provider_reference",
+        "method",
+        "merchant_account_id",
+        "merchant_account_version",
+        "provider_id",
+        "tariff_version",
+        "plant_kwp",
+    ]
