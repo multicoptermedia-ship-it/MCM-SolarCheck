@@ -352,7 +352,7 @@ def test_stale_ready_marker_never_allows_invoice_content_replacement(
         (None, "delivery_state must provide claim"),
         (
             type("State", (), {"claim": lambda self, invoice_id: "token"})(),
-            "delivery_state must provide mark_sent",
+            "delivery_state must provide mark_sending",
         ),
         (
             type(
@@ -360,6 +360,7 @@ def test_stale_ready_marker_never_allows_invoice_content_replacement(
                 (),
                 {
                     "claim": lambda self, invoice_id: "token",
+                    "mark_sending": lambda self, invoice_id, claim_token: None,
                     "mark_sent": lambda self, invoice_id, claim_token: None,
                 },
             )(),
@@ -491,6 +492,9 @@ class MarkSentFailingState:
     def claim(self, invoice_id: str) -> str | None:
         return "owned-token"
 
+    def mark_sending(self, invoice_id: str, claim_token: str) -> None:
+        pass
+
     def mark_sent(self, invoice_id: str, claim_token: str) -> None:
         raise OSError("delivery state unavailable")
 
@@ -526,11 +530,13 @@ def test_invoice_delivery_state_transitions_release_retry_then_sent_lock(
 
     failed_attempt = state.claim("invoice-42")
     assert failed_attempt is not None
+    state.mark_sending("invoice-42", failed_attempt)
     state.release("invoice-42", failed_attempt)
 
     retry = SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42")
     assert retry is not None
     assert retry != failed_attempt
+    SQLiteInvoiceAdminDeliveryStore(database).mark_sending("invoice-42", retry)
     SQLiteInvoiceAdminDeliveryStore(database).mark_sent("invoice-42", retry)
 
     restarted = SQLiteInvoiceAdminDeliveryStore(database)
@@ -544,6 +550,9 @@ def test_invoice_delivery_state_transitions_release_retry_then_sent_lock(
 class SendAndReleaseFailingState:
     def claim(self, invoice_id: str) -> str | None:
         return "expired-token"
+
+    def mark_sending(self, invoice_id: str, claim_token: str) -> None:
+        pass
 
     def mark_sent(self, invoice_id: str, claim_token: str) -> None:
         raise AssertionError("failed SMTP send must not be marked sent")
@@ -616,3 +625,27 @@ def test_successful_email_with_expired_lease_cannot_mark_new_owner_sent(
             ("invoice-42",),
         ).fetchone()
     assert row == ("pending", new_token)
+
+
+def test_expired_sending_invoice_is_not_automatically_retried(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+    token = state.claim("invoice-42")
+    assert token is not None
+    state.mark_sending("invoice-42", token)
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE invoice_admin_delivery SET lease_until = 0 WHERE invoice_id = ?",
+            ("invoice-42",),
+        )
+
+    restarted = SQLiteInvoiceAdminDeliveryStore(database)
+    assert restarted.claim("invoice-42") is None
+
+    with sqlite3.connect(database) as connection:
+        row = connection.execute(
+            "SELECT status, claim_token FROM invoice_admin_delivery WHERE invoice_id = ?",
+            ("invoice-42",),
+        ).fetchone()
+    assert row == ("sending", token)
