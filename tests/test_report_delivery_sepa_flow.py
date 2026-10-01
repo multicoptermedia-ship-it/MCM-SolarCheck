@@ -9,6 +9,8 @@ from mcm_solarcheck.infrastructure.sqlite_sepa_submission import SQLiteSepaSubmi
 from mcm_solarcheck.services.billing import ComputeJobBillingService
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
 from mcm_solarcheck.services.payment_methods import PaymentMethod
+from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
+from mcm_solarcheck.services.invoice import InvoiceBasisService
 from mcm_solarcheck.services.report_delivery import ReportArtifact, ReportDeliveryService
 from mcm_solarcheck.services.sepa import SepaMandate
 from mcm_solarcheck.services.sepa_payment import SepaPaymentService
@@ -68,11 +70,11 @@ def setup_flow(tmp_path):
         billing=billing_store,
     )
     delivery = ReportDeliveryService(billing_store, ReportStore())
-    return billing_store, gateway, submissions, sepa, delivery
+    return billing_store, payments, gateway, submissions, sepa, delivery
 
 
 def test_failed_report_delivery_blocks_sepa_submission(tmp_path) -> None:
-    billing, gateway, _submissions, sepa, delivery = setup_flow(tmp_path)
+    billing, _payments, gateway, _submissions, sepa, delivery = setup_flow(tmp_path)
 
     def disconnect(_report: ReportArtifact) -> None:
         raise OSError("client disconnected")
@@ -100,7 +102,7 @@ def test_failed_report_delivery_blocks_sepa_submission(tmp_path) -> None:
 
 
 def test_successful_delivery_allows_idempotent_sepa_submission(tmp_path) -> None:
-    billing, gateway, submissions, sepa, delivery = setup_flow(tmp_path)
+    billing, _payments, gateway, submissions, sepa, delivery = setup_flow(tmp_path)
 
     delivery.deliver(
         "job-a",
@@ -134,3 +136,49 @@ def test_successful_delivery_allows_idempotent_sepa_submission(tmp_path) -> None
         )
     ]
     assert submissions.get("payment-a").status is SepaSubmissionStatus.SUBMITTED
+
+
+def test_invoice_basis_requires_successful_sepa_submission_after_delivery(tmp_path) -> None:
+    billing, payments, gateway, submissions, sepa, delivery = setup_flow(tmp_path)
+    invoices = InvoiceBasisService(
+        billing,
+        payments,
+        PaymentExecutionEvidence(submissions),
+    )
+
+    delivery.deliver(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        send=lambda _report: None,
+    )
+
+    with pytest.raises(ValueError, match="submitted SEPA"):
+        invoices.build(
+            "invoice-a",
+            "payment-a",
+            job_id="job-a",
+            user_id="user-a",
+            project_id="project-a",
+        )
+
+    provider_reference = sepa.submit(
+        "payment-a",
+        "mandate-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    basis = invoices.build(
+        "invoice-a",
+        "payment-a",
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    assert provider_reference == "provider-debit-a"
+    assert basis.payment_id == "payment-a"
+    assert basis.job_id == "job-a"
+    assert basis.amount == PaymentAmount(12900, "EUR")
+    assert submissions.get("payment-a").status is SepaSubmissionStatus.SUBMITTED
+    assert len(gateway.calls) == 1
