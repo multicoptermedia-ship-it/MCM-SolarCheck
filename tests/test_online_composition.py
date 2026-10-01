@@ -45,6 +45,16 @@ def setup_persistence(tmp_path, *, secret_configured: bool):
     )
 
 
+class AllowAdmin:
+    def require_admin(self) -> None:
+        return None
+
+
+class AllowMutation:
+    def require_mutation_allowed(self) -> None:
+        return None
+
+
 class FakePaymentGateway:
     def authorize(self, payment, *, idempotency_key: str):
         from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationResult
@@ -80,6 +90,8 @@ def online_services(persistence, *, payment_ready=True, sepa_ready=True):
         sepa_provider_id="provider-a",
         payment_provider_readiness=FakeReadiness(payment_ready),
         sepa_provider_readiness=FakeReadiness(sepa_ready),
+        admin_authorization=AllowAdmin(),
+        admin_mutation_guard=AllowMutation(),
     )
 
 
@@ -113,6 +125,7 @@ def test_online_services_share_authoritative_persistence(tmp_path) -> None:
     assert services.payment_execution._sepa_submissions is persistence.sepa_submissions
     assert services.smtp_admin.status().password_is_set is True
     assert services.admin_readiness.status().ready is True
+    assert services.admin.load().readiness.ready is True
 
 
 def test_online_services_require_payment_gateways(tmp_path) -> None:
@@ -127,6 +140,8 @@ def test_online_services_require_payment_gateways(tmp_path) -> None:
             sepa_provider_id="provider-a",
             payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=FakeReadiness(),
+            admin_authorization=AllowAdmin(),
+            admin_mutation_guard=AllowMutation(),
         )
 
     with pytest.raises(TypeError, match="sepa_gateway is required"):
@@ -210,6 +225,8 @@ def test_online_services_require_provider_readiness_boundaries(tmp_path) -> None
             sepa_provider_id="provider-a",
             payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=object(),
+            admin_authorization=AllowAdmin(),
+            admin_mutation_guard=AllowMutation(),
         )
 
 
