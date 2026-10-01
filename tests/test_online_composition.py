@@ -153,6 +153,8 @@ def test_online_services_require_payment_gateways(tmp_path) -> None:
             sepa_provider_id="provider-a",
             payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=FakeReadiness(),
+            admin_authorization=AllowAdmin(),
+            admin_mutation_guard=AllowMutation(),
         )
 
 
@@ -184,6 +186,8 @@ def test_online_services_reject_malformed_payment_gateways(tmp_path) -> None:
             sepa_provider_id="provider-a",
             payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=FakeReadiness(),
+            admin_authorization=AllowAdmin(),
+            admin_mutation_guard=AllowMutation(),
         )
 
     with pytest.raises(TypeError, match=r"sepa_gateway must provide submit\(\)"):
@@ -195,6 +199,8 @@ def test_online_services_reject_malformed_payment_gateways(tmp_path) -> None:
             sepa_provider_id="provider-a",
             payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=FakeReadiness(),
+            admin_authorization=AllowAdmin(),
+            admin_mutation_guard=AllowMutation(),
         )
 
 
@@ -212,6 +218,8 @@ def test_online_services_require_provider_readiness_boundaries(tmp_path) -> None
             sepa_provider_id="provider-a",
             payment_provider_readiness=object(),
             sepa_provider_readiness=FakeReadiness(),
+            admin_authorization=AllowAdmin(),
+            admin_mutation_guard=AllowMutation(),
         )
 
     with pytest.raises(
