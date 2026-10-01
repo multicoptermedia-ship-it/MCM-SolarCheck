@@ -1,3 +1,5 @@
+import pytest
+
 from __future__ import annotations
 
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPSecurity
@@ -76,3 +78,31 @@ def test_online_admin_readiness_requires_safe_status_boundaries():
         assert "smtp must provide status()" in str(exc)
     else:
         raise AssertionError("malformed SMTP admin service must be rejected")
+
+
+def test_require_ready_returns_secret_free_status_when_complete():
+    status = service().require_ready()
+    assert status.ready is True
+    assert not hasattr(status, "password")
+    assert not hasattr(status, "account")
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "missing"),
+    (
+        ({"smtp": False}, "smtp"),
+        ({"payment": False}, "payment_provider"),
+        ({"sepa": False}, "sepa_provider"),
+    ),
+)
+def test_require_ready_fails_closed_with_missing_component(kwargs, missing):
+    with pytest.raises(RuntimeError, match=missing):
+        service(**kwargs).require_ready()
+
+
+def test_require_ready_reports_all_missing_components():
+    with pytest.raises(
+        RuntimeError,
+        match=r"smtp, payment_provider, sepa_provider",
+    ):
+        service(smtp=False, payment=False, sepa=False).require_ready()
