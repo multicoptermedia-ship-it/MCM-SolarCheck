@@ -104,6 +104,7 @@ def build_online_services(
     payment_authorization = PaymentAuthorizationService(
         persistence.payments,
         payment_gateway,
+        intents=persistence.payment_authorizations,
     )
     payment_capture = PaymentCaptureService(
         persistence.payments,
