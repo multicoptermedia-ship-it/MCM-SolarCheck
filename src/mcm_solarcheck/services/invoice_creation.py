@@ -92,7 +92,11 @@ class InvoiceCreationService:
                     separators=(",", ":"),
                 ).encode("utf-8")
             ).hexdigest()
-            self._identity_store.reserve(invoice.basis.invoice_id, fingerprint)
+            is_new_identity = self._identity_store.reserve(
+                invoice.basis.invoice_id, fingerprint
+            )
+            if not is_new_identity:
+                return invoice
 
         with tempfile.TemporaryDirectory(prefix="solarcheck-invoice-") as temporary:
             root = Path(temporary)
