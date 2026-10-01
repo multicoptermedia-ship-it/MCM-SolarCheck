@@ -1180,3 +1180,39 @@ def test_old_recovery_token_cannot_reset_or_audit_new_sending_owner(tmp_path) ->
 
     assert delivery == ("sending", new_token)
     assert audit_rows == [("invoice-42", "uncertain_reset")]
+
+
+def test_concurrent_uncertain_reset_can_be_audited_only_once(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    owner = SQLiteInvoiceAdminDeliveryStore(database)
+    token = owner.claim("invoice-42")
+    assert token is not None
+    owner.mark_sending("invoice-42", token)
+
+    first = SQLiteInvoiceAdminDeliveryStore(database)
+    second = SQLiteInvoiceAdminDeliveryStore(database)
+
+    first.reset_uncertain("invoice-42", token)
+
+    with pytest.raises(ValueError, match="not owned"):
+        second.reset_uncertain("invoice-42", token)
+
+    with sqlite3.connect(database) as connection:
+        delivery = connection.execute(
+            """
+            SELECT status, lease_until, claim_token
+            FROM invoice_admin_delivery
+            WHERE invoice_id = ?
+            """,
+            ("invoice-42",),
+        ).fetchone()
+        audit_rows = connection.execute(
+            """
+            SELECT invoice_id, event
+            FROM invoice_admin_delivery_recovery_audit
+            ORDER BY id
+            """
+        ).fetchall()
+
+    assert delivery == ("pending", 0.0, None)
+    assert audit_rows == [("invoice-42", "uncertain_reset")]
