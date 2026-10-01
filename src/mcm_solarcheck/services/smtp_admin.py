@@ -128,6 +128,15 @@ class SMTPAdminActions:
         mutation_guard: SMTPAdminMutationGuard,
         audit: SMTPAdminAudit,
     ) -> None:
+        required = (
+            (service, "view", "service"),
+            (authorization, "require_admin", "authorization"),
+            (mutation_guard, "require_mutation_allowed", "mutation_guard"),
+            (audit, "record", "audit"),
+        )
+        for dependency, method, name in required:
+            if not callable(getattr(dependency, method, None)):
+                raise TypeError(f"{name} must provide {method}()")
         self._service = service
         self._authorization = authorization
         self._mutation_guard = mutation_guard
