@@ -8,6 +8,7 @@ from mcm_solarcheck.infrastructure.sqlite_payment_operation import (
 )
 from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount, PaymentStatus
+from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
 from mcm_solarcheck.services.payment_operation import PaymentOperationStatus
 from mcm_solarcheck.services.payment_void import PaymentVoidService
@@ -257,3 +258,44 @@ def test_void_retry_reuses_idempotency_key_when_provider_success_was_not_persist
     assert gateway.voids[0][1] == gateway.voids[1][1]
     assert gateway.voids[0][1] == "payment:payment-a:void"
     assert durable_intents.get("payment-a").status is PaymentOperationStatus.COMPLETED
+
+
+@pytest.mark.parametrize("operation", ["capture", "void"])
+def test_sepa_cannot_enter_card_like_terminal_operation(tmp_path, operation) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / f"sepa-{operation}.sqlite")
+    payments.create(
+        OnlinePayment(
+            "payment-sepa",
+            "user-a",
+            "project-a",
+            "job-a",
+            PaymentAmount(12900, "EUR"),
+            method=PaymentMethod.SEPA_DIRECT_DEBIT,
+        )
+    )
+    payments.authorize(
+        "payment-sepa", "user-a", "project-a", "provider-auth-sepa"
+    )
+    intents = SQLitePaymentOperationIntentStore(
+        tmp_path / f"sepa-{operation}-operations.sqlite"
+    )
+    gateway = RecordingGateway()
+
+    if operation == "capture":
+        service = PaymentCaptureService(payments, BillingStore(), gateway, intents)
+        with pytest.raises(ValueError, match="does not support capture"):
+            service.capture(
+                "payment-sepa", user_id="user-a", project_id="project-a"
+            )
+    else:
+        service = PaymentVoidService(payments, gateway, intents)
+        with pytest.raises(ValueError, match="does not support void"):
+            service.void(
+                "payment-sepa", user_id="user-a", project_id="project-a"
+            )
+
+    assert payments.get("payment-sepa").status is PaymentStatus.AUTHORIZED
+    assert gateway.captures == []
+    assert gateway.voids == []
+    with pytest.raises(KeyError):
+        intents.get("payment-sepa")
