@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+import sqlite3
 
 from mcm_solarcheck.infrastructure.sqlite_payment_operation import (
     SQLitePaymentOperationIntentStore,
@@ -97,3 +98,18 @@ def test_new_payment_operation_cannot_skip_reserved_state(tmp_path, status) -> N
 
     with pytest.raises(KeyError):
         store.get("payment-a")
+
+
+def test_payment_operation_storage_stays_minimal(tmp_path) -> None:
+    database = tmp_path / "operations.sqlite"
+    SQLitePaymentOperationIntentStore(database)
+
+    with sqlite3.connect(database) as connection:
+        columns = [
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info(payment_operation_intents)"
+            )
+        ]
+
+    assert columns == ["payment_id", "operation", "idempotency_key", "status"]
