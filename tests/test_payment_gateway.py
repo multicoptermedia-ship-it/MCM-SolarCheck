@@ -275,16 +275,7 @@ def test_completed_authorization_retry_rejects_reference_mismatch(tmp_path) -> N
         "payment-mismatch", user_id="user-a", project_id="project-a"
     )
 
-    with intents._connect() as connection:
-        connection.execute(
-            """UPDATE payment_authorization_intents
-               SET provider_reference = ? WHERE payment_id = ?""",
-            ("provider-other", "payment-mismatch"),
-        )
-
-    with pytest.raises(ValueError, match="payment authorization requires created state"):
-        service.authorize(
-            "payment-mismatch", user_id="user-a", project_id="project-a"
-        )
+    with pytest.raises(ValueError, match="authorization provider reference mismatch"):
+        intents.mark_provider_succeeded("payment-mismatch", "provider-other")
 
     assert len(gateway.authorized) == 1
