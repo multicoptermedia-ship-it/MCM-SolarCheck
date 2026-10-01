@@ -88,3 +88,42 @@ def test_failed_or_returned_collection_cannot_be_reopened(tmp_path) -> None:
             "provider-a", "provider-debit-b", SepaCollectionStatus.SUCCEEDED
         )
     assert store.get("collection-b").status is SepaCollectionStatus.RETURNED
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        SepaCollectionStatus.PENDING,
+        SepaCollectionStatus.SUCCEEDED,
+        SepaCollectionStatus.FAILED,
+    ],
+)
+def test_duplicate_provider_update_is_idempotent(tmp_path, target) -> None:
+    store, service = setup_collection(tmp_path)
+
+    first = service.apply_verified_update(
+        "provider-a", "provider-debit-a", target
+    )
+    second = service.apply_verified_update(
+        "provider-a", "provider-debit-a", target
+    )
+
+    assert second == first
+    assert store.get("collection-a").status is target
+
+
+def test_duplicate_returned_provider_update_is_idempotent(tmp_path) -> None:
+    store, service = setup_collection(tmp_path)
+    service.apply_verified_update(
+        "provider-a", "provider-debit-a", SepaCollectionStatus.SUCCEEDED
+    )
+
+    first = service.apply_verified_update(
+        "provider-a", "provider-debit-a", SepaCollectionStatus.RETURNED
+    )
+    second = service.apply_verified_update(
+        "provider-a", "provider-debit-a", SepaCollectionStatus.RETURNED
+    )
+
+    assert second == first
+    assert store.get("collection-a").status is SepaCollectionStatus.RETURNED
