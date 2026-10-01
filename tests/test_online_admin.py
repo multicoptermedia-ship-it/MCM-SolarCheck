@@ -79,7 +79,7 @@ def actions():
     readiness = OnlineAdminReadinessService(
         smtp_service, Ready(), Ready()
     )
-    return OnlineAdminActions(readiness, smtp_actions), settings, secrets
+    return OnlineAdminActions(readiness, smtp_actions, Ready(), Ready()), settings, secrets
 
 
 def test_online_admin_view_is_secret_free():
@@ -89,6 +89,8 @@ def test_online_admin_view_is_secret_free():
 
     assert view.readiness.ready is True
     assert view.smtp.password_is_set is True
+    assert view.payment_provider.configured is True
+    assert view.sepa_provider.configured is True
     assert secrets.value not in repr(view)
     assert "password" not in view.smtp.__dict__
 
@@ -127,6 +129,8 @@ def test_online_admin_requires_safe_readiness_boundary():
         OnlineAdminActions(
             object(),  # type: ignore[arg-type]
             object(),  # type: ignore[arg-type]
+            Ready(),
+            Ready(),
         )
 
 
@@ -139,4 +143,45 @@ def test_online_admin_requires_secure_smtp_action_boundary():
         OnlineAdminActions(
             Readiness(),  # type: ignore[arg-type]
             object(),  # type: ignore[arg-type]
+            Ready(),
+            Ready(),
         )
+
+
+@pytest.mark.parametrize(
+    ("payment", "sepa"),
+    ((False, True), (True, False), (False, False)),
+)
+def test_online_admin_provider_status_exposes_only_boolean_state(payment, sepa):
+    class State:
+        def __init__(self, configured):
+            self.secret = "must-never-be-returned"
+            self.configured = configured
+
+        def is_configured(self):
+            return self.configured
+
+    settings = Settings()
+    secrets = Secrets()
+    smtp_service = SMTPAdminService(settings, secrets)
+    smtp_actions = SMTPAdminActions(
+        smtp_service, Admin(), Mutation(), Audit([])
+    )
+    payment_state = State(payment)
+    sepa_state = State(sepa)
+    admin = OnlineAdminActions(
+        OnlineAdminReadinessService(
+            smtp_service, payment_state, sepa_state
+        ),
+        smtp_actions,
+        payment_state,
+        sepa_state,
+    )
+
+    view = admin.load()
+
+    assert view.payment_provider.configured is payment
+    assert view.sepa_provider.configured is sepa
+    assert "must-never-be-returned" not in repr(view)
+    assert view.payment_provider.__dict__ == {"configured": payment}
+    assert view.sepa_provider.__dict__ == {"configured": sepa}
