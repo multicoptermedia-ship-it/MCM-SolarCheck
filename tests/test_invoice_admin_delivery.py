@@ -1061,3 +1061,40 @@ def test_normal_invoice_delivery_contract_excludes_manual_recovery(tmp_path) -> 
 
     assert service is not None
     assert not hasattr(service, "reset_uncertain")
+
+
+def test_only_explicit_uncertain_reset_writes_recovery_audit(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+
+    sent_token = state.claim("invoice-sent")
+    assert sent_token is not None
+    state.mark_sending("invoice-sent", sent_token)
+    state.mark_sent("invoice-sent", sent_token)
+
+    failed_token = state.claim("invoice-failed")
+    assert failed_token is not None
+    state.mark_sending("invoice-failed", failed_token)
+    state.release("invoice-failed", failed_token)
+
+    uncertain_token = state.claim("invoice-uncertain")
+    assert uncertain_token is not None
+    state.mark_sending("invoice-uncertain", uncertain_token)
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM invoice_admin_delivery_recovery_audit"
+        ).fetchone() == (0,)
+
+    state.reset_uncertain("invoice-uncertain", uncertain_token)
+
+    with sqlite3.connect(database) as connection:
+        rows = connection.execute(
+            """
+            SELECT invoice_id, event
+            FROM invoice_admin_delivery_recovery_audit
+            ORDER BY id
+            """
+        ).fetchall()
+
+    assert rows == [("invoice-uncertain", "uncertain_reset")]
