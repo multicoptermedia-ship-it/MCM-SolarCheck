@@ -87,7 +87,7 @@ class SQLiteInvoiceAdminDeliveryStore:
                 """
                 UPDATE invoice_admin_delivery
                 SET status = 'sending'
-                WHERE invoice_id = ? AND status = 'pending' AND claim_token = ?
+                WHERE invoice_id = ? AND status IN ('pending', 'sending') AND claim_token = ?
                 """,
                 (invoice_id, claim_token),
             )
