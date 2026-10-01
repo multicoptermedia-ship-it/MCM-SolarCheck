@@ -51,3 +51,38 @@ def test_authorized_payment_uses_stable_provider_void_key(tmp_path) -> None:
     assert gateway.voids == [
         ("provider-auth-a", "payment:payment-a:void")
     ]
+
+
+def test_repeated_void_calls_provider_exactly_once(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payment-repeat.sqlite")
+    payments.create(
+        OnlinePayment(
+            "payment-repeat",
+            "user-a",
+            "project-a",
+            "job-a",
+            PaymentAmount(45000, "EUR"),
+        )
+    )
+    payments.authorize(
+        "payment-repeat", "user-a", "project-a", "provider-auth-repeat"
+    )
+    gateway = RecordingGateway()
+    service = PaymentVoidService(
+        payments,
+        gateway,
+        SQLitePaymentOperationIntentStore(tmp_path / "operations-repeat.sqlite"),
+    )
+
+    first = service.void(
+        "payment-repeat", user_id="user-a", project_id="project-a"
+    )
+    second = service.void(
+        "payment-repeat", user_id="user-a", project_id="project-a"
+    )
+
+    assert first.status is PaymentStatus.VOIDED
+    assert second == first
+    assert gateway.voids == [
+        ("provider-auth-repeat", "payment:payment-repeat:void")
+    ]
