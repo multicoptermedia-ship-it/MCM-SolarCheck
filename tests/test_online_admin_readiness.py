@@ -1,6 +1,6 @@
-import pytest
-
 from __future__ import annotations
+
+import pytest
 
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPSecurity
 from mcm_solarcheck.services.online_admin_readiness import OnlineAdminReadinessService
