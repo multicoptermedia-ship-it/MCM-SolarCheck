@@ -41,6 +41,9 @@ class OnlineServices:
     smtp_admin: SMTPAdminService
     admin_readiness: OnlineAdminReadinessService
 
+    def require_production_ready(self) -> None:
+        self.admin_readiness.require_ready()
+
 
 def build_online_services(
     persistence: OnlinePersistence,
