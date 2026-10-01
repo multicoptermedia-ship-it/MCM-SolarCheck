@@ -34,7 +34,7 @@ class Settings:
 
 class Secrets:
     def __init__(self):
-        self.value = "configured"
+        self.value = "smtp-secret-sentinel"
 
     def is_set(self):
         return bool(self.value)
@@ -122,9 +122,21 @@ def test_online_admin_password_replacement_never_returns_secret():
     assert "replacement-value" not in repr(view)
 
 
-def test_online_admin_requires_secure_smtp_action_boundary():
-    with pytest.raises(TypeError, match="smtp must provide load"):
+def test_online_admin_requires_safe_readiness_boundary():
+    with pytest.raises(TypeError, match=r"readiness must provide status\(\)"):
         OnlineAdminActions(
             object(),  # type: ignore[arg-type]
+            object(),  # type: ignore[arg-type]
+        )
+
+
+def test_online_admin_requires_secure_smtp_action_boundary():
+    class Readiness:
+        def status(self):
+            raise AssertionError("status must not be called during construction")
+
+    with pytest.raises(TypeError, match=r"smtp must provide load\(\)"):
+        OnlineAdminActions(
+            Readiness(),  # type: ignore[arg-type]
             object(),  # type: ignore[arg-type]
         )
