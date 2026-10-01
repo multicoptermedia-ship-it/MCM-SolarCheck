@@ -29,8 +29,16 @@ class InvoiceAdminDeliveryService:
         sender: EmailSender,
         *,
         sender_address: str,
-        delivery_state: InvoiceAdminDeliveryStateStore | None = None,
+        delivery_state: InvoiceAdminDeliveryStateStore,
     ) -> None:
+        required = (
+            (delivery_state, "claim"),
+            (delivery_state, "mark_sent"),
+            (delivery_state, "release"),
+        )
+        for dependency, method in required:
+            if not callable(getattr(dependency, method, None)):
+                raise TypeError(f"delivery_state must provide {method}()")
         self._archive = archive
         self._sender = sender
         self._sender_address = sender_address
@@ -45,7 +53,7 @@ class InvoiceAdminDeliveryService:
             csv_path = None
         else:
             path, csv_path = self._archive.store_package(invoice_id, pdf, csv_content)
-        if self._delivery_state is not None and not self._delivery_state.claim(invoice_id):
+        if not self._delivery_state.claim(invoice_id):
             return
         try:
             self._sender.send(
@@ -65,8 +73,6 @@ class InvoiceAdminDeliveryService:
                 )
             )
         except Exception:
-            if self._delivery_state is not None:
-                self._delivery_state.release(invoice_id)
+            self._delivery_state.release(invoice_id)
             raise
-        if self._delivery_state is not None:
-            self._delivery_state.mark_sent(invoice_id)
+        self._delivery_state.mark_sent(invoice_id)
