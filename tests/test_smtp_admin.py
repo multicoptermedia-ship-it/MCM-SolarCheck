@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPSecurity
-from mcm_solarcheck.services.smtp_admin import SMTPAdminService, SMTPAdminSettingsInput
+from mcm_solarcheck.services.smtp_admin import SMTPAdminActions, SMTPAdminService, SMTPAdminSettingsInput
 
 
 class Settings:
@@ -251,3 +251,53 @@ def test_admin_view_exposes_only_ui_safe_configuration() -> None:
     assert "password" not in view.__dict__
     assert "super-secret" not in repr(view)
     assert "resolve_for_delivery" not in repr(view)
+
+
+def test_admin_actions_never_return_replaced_password() -> None:
+    settings = Settings()
+    secrets = Secrets()
+    actions = SMTPAdminActions(SMTPAdminService(settings, secrets))
+
+    view = actions.replace_password("replacement-secret")
+
+    assert secrets.password == "replacement-secret"
+    assert view.password_is_set is True
+    assert "replacement-secret" not in repr(view)
+    assert "password" not in view.__dict__
+
+
+def test_admin_actions_save_settings_without_changing_secret() -> None:
+    settings = Settings()
+    secrets = Secrets()
+    secrets.replace("existing-secret")
+    actions = SMTPAdminActions(SMTPAdminService(settings, secrets))
+
+    view = actions.save_settings(
+        SMTPAdminSettingsInput(
+            host="smtp.provider.example",
+            port=465,
+            username="provider-login",
+            sender_address="solarcheck@mcm-dronetech.com",
+            security=SMTPSecurity.TLS,
+            timeout_seconds=15.0,
+        )
+    )
+
+    assert view.host == "smtp.provider.example"
+    assert view.security is SMTPSecurity.TLS
+    assert view.password_is_set is True
+    assert secrets.password == "existing-secret"
+
+
+def test_admin_actions_test_email_returns_only_sanitized_result() -> None:
+    service = SMTPAdminService(Settings(), Secrets())
+    actions = SMTPAdminActions(service)
+    provider_error = RuntimeError("535 password=super-secret")
+
+    with patch.object(service, "send_test_email", side_effect=provider_error):
+        result = actions.send_test_email()
+
+    assert result.success is False
+    assert "fehlgeschlagen" in result.message
+    assert "535" not in result.message
+    assert "super-secret" not in result.message
