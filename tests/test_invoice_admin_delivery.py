@@ -634,3 +634,63 @@ def test_expired_sending_invoice_is_not_automatically_retried(tmp_path) -> None:
             ("invoice-42",),
         ).fetchone()
     assert row == ("sending", token)
+
+
+def test_persisted_sending_state_stays_locked_across_restarts(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database, lease_seconds=1)
+    token = state.claim("invoice-42")
+    assert token is not None
+    state.mark_sending("invoice-42", token)
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE invoice_admin_delivery SET lease_until = 0 WHERE invoice_id = ?",
+            ("invoice-42",),
+        )
+
+    first_restart = SQLiteInvoiceAdminDeliveryStore(database, lease_seconds=1)
+    second_restart = SQLiteInvoiceAdminDeliveryStore(database, lease_seconds=1)
+
+    assert first_restart.claim("invoice-42") is None
+    assert second_restart.claim("invoice-42") is None
+
+    with sqlite3.connect(database) as connection:
+        row = connection.execute(
+            """
+            SELECT status, claim_token
+            FROM invoice_admin_delivery
+            WHERE invoice_id = ?
+            """,
+            ("invoice-42",),
+        ).fetchone()
+    assert row == ("sending", token)
+
+
+def test_legacy_expired_pending_remains_recoverable_with_sending_state(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE invoice_admin_delivery (
+                invoice_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                lease_until REAL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO invoice_admin_delivery (invoice_id, status, lease_until)
+            VALUES (?, 'pending', 0)
+            """,
+            ("invoice-42",),
+        )
+
+    migrated = SQLiteInvoiceAdminDeliveryStore(database)
+    token = migrated.claim("invoice-42")
+
+    assert token is not None
+    migrated.mark_sending("invoice-42", token)
+    migrated.mark_sent("invoice-42", token)
+    assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
