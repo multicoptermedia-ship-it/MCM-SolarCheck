@@ -22,9 +22,10 @@ jobs:
           python -m pip install pytest
           python -m pip install -r requirements.txt
       - name: Install Qt runtime libraries
+        timeout-minutes: 3
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libegl1
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 install -y libegl1
       - name: Run tests
         env:
           PYTHONPATH: src
