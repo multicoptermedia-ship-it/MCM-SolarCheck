@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
+import sqlite3
+
 import pytest
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
@@ -337,3 +339,16 @@ def test_invoice_creation_rejects_invalid_identity_store(tmp_path) -> None:
             service._config,
             identity_store=object(),  # type: ignore[arg-type]
         )
+
+
+def test_invoice_identity_sqlite_schema_stays_minimal(tmp_path) -> None:
+    database = tmp_path / "invoice-identity.sqlite"
+    SQLiteInvoiceIdentityStore(database)
+
+    with sqlite3.connect(database) as connection:
+        columns = [
+            row[1]
+            for row in connection.execute("PRAGMA table_info(invoice_identity)")
+        ]
+
+    assert columns == ["invoice_id", "fingerprint"]
