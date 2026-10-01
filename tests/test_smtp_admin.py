@@ -506,3 +506,31 @@ def test_failed_password_replacement_is_not_audited_as_success() -> None:
         actions.replace_password("replacement-secret")
 
     assert audit.events == []
+
+
+def test_failed_settings_save_is_not_audited_as_success() -> None:
+    class FailingSettings(Settings):
+        def save(self, config: SMTPConfig) -> None:
+            raise RuntimeError("settings backend unavailable")
+
+    audit = Audit()
+    actions = SMTPAdminActions(
+        SMTPAdminService(FailingSettings(), Secrets()),
+        AllowAdmin(),
+        AllowMutation(),
+        audit,
+    )
+
+    values = SMTPAdminSettingsInput(
+        host="smtp.provider.example",
+        port=465,
+        username="provider-login",
+        sender_address="solarcheck@mcm-dronetech.com",
+        security=SMTPSecurity.TLS,
+        timeout_seconds=15.0,
+    )
+
+    with pytest.raises(RuntimeError, match="backend unavailable"):
+        actions.save_settings(values)
+
+    assert audit.events == []
