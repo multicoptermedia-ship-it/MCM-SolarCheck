@@ -8,11 +8,21 @@ from typing import Protocol
 from mcm_solarcheck.services.smtp_admin import SMTPAdminService
 
 
+@dataclass(frozen=True)
+class ConfigurationStatus:
+    """UI-safe provider state containing no identifier or credential value."""
+
+    configured: bool
+
+
 class ConfigurationReadiness(Protocol):
     """Deployment-owned readiness without exposing credentials or account data."""
 
     def is_configured(self) -> bool:
         ...
+
+    def status(self) -> ConfigurationStatus:
+        return ConfigurationStatus(configured=bool(self.is_configured()))
 
 
 @dataclass(frozen=True)
