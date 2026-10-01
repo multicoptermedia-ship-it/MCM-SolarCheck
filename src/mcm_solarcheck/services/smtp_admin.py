@@ -89,6 +89,27 @@ class SMTPAdminStatus:
     sender_address: str
 
 
+class SMTPAdminActions:
+    """Framework-neutral actions exposed to a future administrative UI."""
+
+    def __init__(self, service: "SMTPAdminService") -> None:
+        self._service = service
+
+    def load(self) -> SMTPAdminView:
+        return self._service.view()
+
+    def save_settings(self, values: SMTPAdminSettingsInput) -> SMTPAdminView:
+        self._service.save_admin_settings(values)
+        return self._service.view()
+
+    def replace_password(self, password: str) -> SMTPAdminView:
+        self._service.replace_password(password)
+        return self._service.view()
+
+    def send_test_email(self) -> SMTPTestResult:
+        return self._service.test_connection()
+
+
 class SMTPAdminService:
     def __init__(self, settings: SMTPSettingsStore, secrets: SMTPSecretStore) -> None:
         self._settings = settings
