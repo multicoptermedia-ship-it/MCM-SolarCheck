@@ -404,6 +404,7 @@ def test_expired_invoice_delivery_claim_cannot_mutate_new_owner(tmp_path) -> Non
         old_worker.release("invoice-42", old_token)
 
     assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
+    new_worker.mark_sending("invoice-42", new_token)
     new_worker.mark_sent("invoice-42", new_token)
     assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
 
