@@ -398,7 +398,8 @@ def test_expired_invoice_delivery_claim_cannot_mutate_new_owner(tmp_path) -> Non
 
     with pytest.raises(ValueError, match="not pending"):
         old_worker.mark_sent("invoice-42", old_token)
-    old_worker.release("invoice-42", old_token)
+    with pytest.raises(ValueError, match="not owned"):
+        old_worker.release("invoice-42", old_token)
 
     assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
     new_worker.mark_sent("invoice-42", new_token)
