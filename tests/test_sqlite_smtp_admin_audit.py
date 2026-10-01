@@ -1,0 +1,54 @@
+from __future__ import annotations
+
+import sqlite3
+
+import pytest
+
+from mcm_solarcheck.infrastructure.sqlite_smtp_admin_audit import SQLiteSMTPAdminAudit
+from mcm_solarcheck.services.smtp_admin import SMTPAdminAuditEvent
+
+
+def test_sqlite_smtp_admin_audit_appends_fixed_events_with_utc_timestamp(tmp_path) -> None:
+    database = tmp_path / "smtp-admin.sqlite"
+    audit = SQLiteSMTPAdminAudit(database)
+
+    audit.record(SMTPAdminAuditEvent.SETTINGS_CHANGED)
+    audit.record(SMTPAdminAuditEvent.PASSWORD_REPLACED)
+
+    with sqlite3.connect(database) as connection:
+        rows = connection.execute(
+            "SELECT event, created_at FROM smtp_admin_audit ORDER BY id"
+        ).fetchall()
+
+    assert [row[0] for row in rows] == [
+        "settings_changed",
+        "password_replaced",
+    ]
+    assert all(timestamp.endswith("Z") for _, timestamp in rows)
+
+
+def test_sqlite_smtp_admin_audit_rejects_arbitrary_text(tmp_path) -> None:
+    audit = SQLiteSMTPAdminAudit(tmp_path / "smtp-admin.sqlite")
+
+    with pytest.raises(TypeError, match="SMTPAdminAuditEvent"):
+        audit.record("password=must-never-be-stored")  # type: ignore[arg-type]
+
+    with sqlite3.connect(audit.database) as connection:
+        count = connection.execute(
+            "SELECT COUNT(*) FROM smtp_admin_audit"
+        ).fetchone()[0]
+
+    assert count == 0
+
+
+def test_sqlite_smtp_admin_audit_schema_contains_no_smtp_secret_fields(tmp_path) -> None:
+    database = tmp_path / "smtp-admin.sqlite"
+    SQLiteSMTPAdminAudit(database)
+
+    with sqlite3.connect(database) as connection:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(smtp_admin_audit)")
+        }
+
+    assert columns == {"id", "event", "created_at"}
