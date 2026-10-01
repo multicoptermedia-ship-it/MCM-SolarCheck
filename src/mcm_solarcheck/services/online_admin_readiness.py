@@ -50,6 +50,22 @@ class OnlineAdminReadinessService:
         self._payment_provider = payment_provider
         self._sepa_provider = sepa_provider
 
+    def require_ready(self) -> OnlineAdminReadiness:
+        """Fail closed before enabling commercial online operation."""
+        status = self.status()
+        missing = []
+        if not status.smtp_configured:
+            missing.append("smtp")
+        if not status.payment_provider_configured:
+            missing.append("payment_provider")
+        if not status.sepa_provider_configured:
+            missing.append("sepa_provider")
+        if missing:
+            raise RuntimeError(
+                "online services are not production-ready: " + ", ".join(missing)
+            )
+        return status
+
     def status(self) -> OnlineAdminReadiness:
         smtp = self._smtp.status()
         smtp_configured = bool(
