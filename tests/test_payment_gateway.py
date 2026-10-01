@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
+from mcm_solarcheck.infrastructure.sqlite_payment_authorization import SQLitePaymentAuthorizationIntentStore
 from mcm_solarcheck.services.payment import (
     OnlinePayment,
     PaymentAmount,
@@ -171,3 +172,55 @@ def test_authorization_cannot_switch_bound_payment_provider(tmp_path) -> None:
 
     assert gateway.authorized == []
     assert store.get("payment-bound").status is PaymentStatus.CREATED
+
+
+def test_authorization_retry_recovers_provider_success_without_second_call(tmp_path) -> None:
+    database = tmp_path / "payment-auth-recovery.sqlite"
+    store = SQLiteOnlinePaymentStore(database)
+    store.create(
+        OnlinePayment(
+            "payment-recovery",
+            "user-a",
+            "project-a",
+            "job-a",
+            PaymentAmount(45000, "EUR"),
+            method=PaymentMethod.CARD,
+        )
+    )
+    intents = SQLitePaymentAuthorizationIntentStore(database)
+    gateway = RecordingGateway()
+
+    class FailingOnceStore:
+        def __init__(self, inner):
+            self.inner = inner
+            self.failed = False
+
+        def get(self, payment_id):
+            return self.inner.get(payment_id)
+
+        def authorize(self, payment_id, user_id, project_id, provider_reference):
+            if not self.failed:
+                self.failed = True
+                raise RuntimeError("simulated local persistence failure")
+            return self.inner.authorize(
+                payment_id, user_id, project_id, provider_reference
+            )
+
+    flaky = FailingOnceStore(store)
+    service = PaymentAuthorizationService(flaky, gateway, intents=intents)
+
+    with pytest.raises(RuntimeError, match="simulated local persistence failure"):
+        service.authorize(
+            "payment-recovery", user_id="user-a", project_id="project-a"
+        )
+
+    assert len(gateway.authorized) == 1
+    assert store.get("payment-recovery").status is PaymentStatus.CREATED
+
+    recovered = service.authorize(
+        "payment-recovery", user_id="user-a", project_id="project-a"
+    )
+
+    assert recovered.status is PaymentStatus.AUTHORIZED
+    assert recovered.provider_reference == "provider-auth-a"
+    assert len(gateway.authorized) == 1
