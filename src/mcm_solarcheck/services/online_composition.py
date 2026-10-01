@@ -11,6 +11,7 @@ from mcm_solarcheck.services.email import ReportRecoveryEmailConfig
 from mcm_solarcheck.services.invoice import InvoiceBasisService
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
 from mcm_solarcheck.services.invoice_creation import InvoiceCreationService, InvoiceRenderConfig
+from mcm_solarcheck.services.online_admin import OnlineAdminActions
 from mcm_solarcheck.services.online_admin_readiness import (
     ConfigurationReadiness,
     OnlineAdminReadinessService,
@@ -24,7 +25,12 @@ from mcm_solarcheck.services.report_delivery import ReportDeliveryService
 from mcm_solarcheck.services.report_recovery import ReportRecoveryService
 from mcm_solarcheck.services.report_recovery_notification import ReportRecoveryNotificationService
 from mcm_solarcheck.services.sepa_payment import SepaPaymentGateway, SepaPaymentService
-from mcm_solarcheck.services.smtp_admin import SMTPAdminService
+from mcm_solarcheck.services.smtp_admin import (
+    SMTPAdminActions,
+    SMTPAdminAuthorization,
+    SMTPAdminMutationGuard,
+    SMTPAdminService,
+)
 
 
 @dataclass(frozen=True)
@@ -40,6 +46,7 @@ class OnlineServices:
     invoice_creation: InvoiceCreationService
     smtp_admin: SMTPAdminService
     admin_readiness: OnlineAdminReadinessService
+    admin: OnlineAdminActions
 
     def require_production_ready(self) -> None:
         """Fail closed before enabling customer-facing commercial operation."""
@@ -55,6 +62,8 @@ def build_online_services(
     sepa_provider_id: str,
     payment_provider_readiness: ConfigurationReadiness,
     sepa_provider_readiness: ConfigurationReadiness,
+    admin_authorization: SMTPAdminAuthorization,
+    admin_mutation_guard: SMTPAdminMutationGuard,
 ) -> OnlineServices:
     """Compose services from durable stores and deployment-owned SMTP state."""
     if not isinstance(persistence, OnlinePersistence):
@@ -103,6 +112,15 @@ def build_online_services(
         smtp_admin,
         payment_provider_readiness,
         sepa_provider_readiness,
+    )
+    admin = OnlineAdminActions(
+        admin_readiness,
+        SMTPAdminActions(
+            smtp_admin,
+            admin_authorization,
+            admin_mutation_guard,
+            persistence.smtp_admin_audit,
+        ),
     )
 
     payment_authorization = PaymentAuthorizationService(
@@ -164,4 +182,5 @@ def build_online_services(
         invoice_creation=invoice_creation,
         smtp_admin=smtp_admin,
         admin_readiness=admin_readiness,
+        admin=admin,
     )
