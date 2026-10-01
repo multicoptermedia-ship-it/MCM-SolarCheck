@@ -5,6 +5,7 @@ from datetime import date
 import pytest
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
+from mcm_solarcheck.infrastructure.sqlite_invoice_admin_delivery import SQLiteInvoiceAdminDeliveryStore
 from mcm_solarcheck.infrastructure.sqlite_billing import SQLiteComputeJobBillingStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_identity import SQLiteInvoiceIdentityStore
 from mcm_solarcheck.reporting.invoice_renderer import render_invoice_pdf
@@ -51,7 +52,8 @@ def setup_service(tmp_path, *, release: bool):
     archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
     sender = Sender()
     admin = InvoiceAdminDeliveryService(
-        archive, sender, sender_address="solarcheck@mcm-solarcheck.de"
+        archive, sender, sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=SQLiteInvoiceAdminDeliveryStore(tmp_path / "invoice-delivery.sqlite"),
     )
     released = ReleasedInvoiceService(billing_store, admin)
     service = InvoiceCreationService(
