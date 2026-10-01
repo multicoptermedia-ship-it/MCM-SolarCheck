@@ -13,6 +13,9 @@ class InvoiceAdminDeliveryStateStore(Protocol):
     def claim(self, invoice_id: str) -> str | None:
         ...
 
+    def mark_sending(self, invoice_id: str, claim_token: str) -> None:
+        ...
+
     def mark_sent(self, invoice_id: str, claim_token: str) -> None:
         ...
 
@@ -33,6 +36,7 @@ class InvoiceAdminDeliveryService:
     ) -> None:
         required = (
             (delivery_state, "claim"),
+            (delivery_state, "mark_sending"),
             (delivery_state, "mark_sent"),
             (delivery_state, "release"),
         )
@@ -56,6 +60,7 @@ class InvoiceAdminDeliveryService:
         claim_token = self._delivery_state.claim(invoice_id)
         if claim_token is None:
             return
+        self._delivery_state.mark_sending(invoice_id, claim_token)
         try:
             self._sender.send(
                 EmailMessage(
