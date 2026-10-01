@@ -487,3 +487,22 @@ def test_smtp_admin_service_requires_internal_secret_resolution() -> None:
 
     with pytest.raises(TypeError, match="resolve_for_delivery"):
         SMTPAdminService(Settings(), WriteOnlySecrets())  # type: ignore[arg-type]
+
+
+def test_failed_password_replacement_is_not_audited_as_success() -> None:
+    class FailingSecrets(Secrets):
+        def replace(self, password: str) -> None:
+            raise RuntimeError("secret backend unavailable")
+
+    audit = Audit()
+    actions = SMTPAdminActions(
+        SMTPAdminService(Settings(), FailingSecrets()),
+        AllowAdmin(),
+        AllowMutation(),
+        audit,
+    )
+
+    with pytest.raises(RuntimeError, match="backend unavailable"):
+        actions.replace_password("replacement-secret")
+
+    assert audit.events == []
