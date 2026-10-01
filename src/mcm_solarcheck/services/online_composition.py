@@ -71,8 +71,13 @@ def build_online_services(
 
     if payment_gateway is None:
         raise TypeError("payment_gateway is required for online services")
+    for method in ("capture", "void"):
+        if not callable(getattr(payment_gateway, method, None)):
+            raise TypeError(f"payment_gateway must provide {method}()")
     if sepa_gateway is None:
         raise TypeError("sepa_gateway is required for online services")
+    if not callable(getattr(sepa_gateway, "submit", None)):
+        raise TypeError("sepa_gateway must provide submit()")
     if not isinstance(sepa_provider_id, str) or not sepa_provider_id.strip():
         raise ValueError("sepa_provider_id must be non-empty")
 
