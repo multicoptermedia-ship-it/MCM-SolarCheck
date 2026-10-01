@@ -1033,3 +1033,31 @@ def test_invoice_recovery_audit_is_append_only_across_restarts(tmp_path) -> None
         ("invoice-42", "uncertain_reset"),
     ]
     assert delivery == ("sent", final_token)
+
+
+def test_normal_invoice_delivery_contract_excludes_manual_recovery() -> None:
+    class DeliveryStateWithoutRecovery:
+        def claim(self, invoice_id: str) -> str | None:
+            return None
+
+        def mark_sending(self, invoice_id: str, claim_token: str) -> None:
+            return None
+
+        def mark_sent(self, invoice_id: str, claim_token: str) -> None:
+            return None
+
+        def release(self, invoice_id: str, claim_token: str) -> None:
+            return None
+
+    archive = MagicMock(spec=FileSystemInvoiceArchive)
+    sender = RecordingEmailSender()
+
+    service = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=DeliveryStateWithoutRecovery(),
+    )
+
+    assert service is not None
+    assert not hasattr(service, "reset_uncertain")
