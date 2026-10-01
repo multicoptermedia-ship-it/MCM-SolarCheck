@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
+from mcm_solarcheck.infrastructure.sqlite_invoice_admin_delivery import SQLiteInvoiceAdminDeliveryStore
 from mcm_solarcheck.infrastructure.sqlite_billing import SQLiteComputeJobBillingStore
 from mcm_solarcheck.services.admin_notification import ADMIN_NOTIFICATION_EMAIL
 from mcm_solarcheck.services.billing import ComputeJobBillingService
@@ -26,7 +27,8 @@ def setup(tmp_path):
     archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
     sender = RecordingEmailSender()
     delivery = InvoiceAdminDeliveryService(
-        archive, sender, sender_address="solarcheck@mcm-solarcheck.de"
+        archive, sender, sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=SQLiteInvoiceAdminDeliveryStore(tmp_path / "invoice-delivery.sqlite"),
     )
     return store, billing, archive, sender, ReleasedInvoiceService(store, delivery)
 
