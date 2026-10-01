@@ -11,6 +11,10 @@ from mcm_solarcheck.services.email import ReportRecoveryEmailConfig
 from mcm_solarcheck.services.invoice import InvoiceBasisService
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
 from mcm_solarcheck.services.invoice_creation import InvoiceCreationService, InvoiceRenderConfig
+from mcm_solarcheck.services.online_admin_readiness import (
+    ConfigurationReadiness,
+    OnlineAdminReadinessService,
+)
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
 from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService, PaymentGateway
@@ -35,6 +39,7 @@ class OnlineServices:
     payment_execution: PaymentExecutionEvidence
     invoice_creation: InvoiceCreationService
     smtp_admin: SMTPAdminService
+    admin_readiness: OnlineAdminReadinessService
 
 
 def build_online_services(
@@ -44,6 +49,8 @@ def build_online_services(
     payment_gateway: PaymentGateway,
     sepa_gateway: SepaPaymentGateway,
     sepa_provider_id: str,
+    payment_provider_readiness: ConfigurationReadiness,
+    sepa_provider_readiness: ConfigurationReadiness,
 ) -> OnlineServices:
     """Compose services from durable stores and deployment-owned SMTP state."""
     if not isinstance(persistence, OnlinePersistence):
@@ -81,6 +88,18 @@ def build_online_services(
         raise TypeError("sepa_gateway must provide submit()")
     if not isinstance(sepa_provider_id, str) or not sepa_provider_id.strip():
         raise ValueError("sepa_provider_id must be non-empty")
+    for readiness, name in (
+        (payment_provider_readiness, "payment_provider_readiness"),
+        (sepa_provider_readiness, "sepa_provider_readiness"),
+    ):
+        if not callable(getattr(readiness, "is_configured", None)):
+            raise TypeError(f"{name} must provide is_configured()")
+
+    admin_readiness = OnlineAdminReadinessService(
+        smtp_admin,
+        payment_provider_readiness,
+        sepa_provider_readiness,
+    )
 
     payment_authorization = PaymentAuthorizationService(
         persistence.payments,
@@ -139,4 +158,5 @@ def build_online_services(
         payment_execution=payment_execution,
         invoice_creation=invoice_creation,
         smtp_admin=smtp_admin,
+        admin_readiness=admin_readiness,
     )
