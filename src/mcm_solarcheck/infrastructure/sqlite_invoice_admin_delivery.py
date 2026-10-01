@@ -35,6 +35,18 @@ class SQLiteInvoiceAdminDeliveryStore:
                 connection.execute(
                     "ALTER TABLE invoice_admin_delivery ADD COLUMN claim_token TEXT"
                 )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS invoice_admin_delivery_recovery_audit (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    invoice_id TEXT NOT NULL,
+                    event TEXT NOT NULL CHECK (event = 'uncertain_reset'),
+                    created_at TEXT NOT NULL DEFAULT (
+                        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                    )
+                )
+                """
+            )
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.database)
@@ -121,8 +133,9 @@ class SQLiteInvoiceAdminDeliveryStore:
         return tuple(row[0] for row in rows)
 
     def reset_uncertain(self, invoice_id: str, claim_token: str) -> None:
-        """Explicitly allow retry of an uncertain send owned by this token."""
+        """Explicitly allow retry and atomically audit the technical reset."""
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
             cursor = connection.execute(
                 """
                 UPDATE invoice_admin_delivery
@@ -133,6 +146,13 @@ class SQLiteInvoiceAdminDeliveryStore:
             )
             if cursor.rowcount != 1:
                 raise ValueError("uncertain invoice admin delivery is not owned")
+            connection.execute(
+                """
+                INSERT INTO invoice_admin_delivery_recovery_audit (invoice_id, event)
+                VALUES (?, 'uncertain_reset')
+                """,
+                (invoice_id,),
+            )
 
     def release(self, invoice_id: str, claim_token: str) -> None:
         with self._connect() as connection:
