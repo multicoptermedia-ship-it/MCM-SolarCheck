@@ -221,3 +221,33 @@ def test_ui_safe_smtp_test_hides_provider_error_and_credentials() -> None:
     assert "solarcheck@mcm-dronetech.com" not in result.message
     assert "super-secret" not in result.message
     assert provider_error not in repr(result)
+
+
+def test_admin_view_exposes_only_ui_safe_configuration() -> None:
+    settings = Settings()
+    settings.config = SMTPConfig(
+        "smtp.example.com",
+        465,
+        "provider-login",
+        timeout_seconds=20.0,
+        security=SMTPSecurity.TLS,
+        sender_address="solarcheck@mcm-dronetech.com",
+    )
+    secrets = Secrets()
+    secrets.replace("super-secret")
+    service = SMTPAdminService(settings, secrets)
+
+    view = service.view()
+
+    assert view.host == "smtp.example.com"
+    assert view.port == 465
+    assert view.username == "provider-login"
+    assert view.sender_address == "solarcheck@mcm-dronetech.com"
+    assert view.security is SMTPSecurity.TLS
+    assert view.timeout_seconds == 20.0
+    assert view.password_is_set is True
+    assert view.test_recipient == "solarcheck@mcm-dronetech.com"
+    assert view.allowed_security == (SMTPSecurity.STARTTLS, SMTPSecurity.TLS)
+    assert "password" not in view.__dict__
+    assert "super-secret" not in repr(view)
+    assert "resolve_for_delivery" not in repr(view)
