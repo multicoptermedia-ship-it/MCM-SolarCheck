@@ -461,3 +461,29 @@ def test_smtp_admin_actions_reject_incomplete_security_wiring(
             values["mutation_guard"],
             values["audit"],
         )
+
+
+@pytest.mark.parametrize(
+    "settings,secrets,missing",
+    [
+        (object(), Secrets(), "settings"),
+        (Settings(), object(), "secrets"),
+    ],
+)
+def test_smtp_admin_service_rejects_incomplete_persistence_backends(
+    settings, secrets, missing
+) -> None:
+    with pytest.raises(TypeError, match=missing):
+        SMTPAdminService(settings, secrets)  # type: ignore[arg-type]
+
+
+def test_smtp_admin_service_requires_internal_secret_resolution() -> None:
+    class WriteOnlySecrets:
+        def is_set(self) -> bool:
+            return True
+
+        def replace(self, password: str) -> None:
+            return None
+
+    with pytest.raises(TypeError, match="resolve_for_delivery"):
+        SMTPAdminService(Settings(), WriteOnlySecrets())  # type: ignore[arg-type]
