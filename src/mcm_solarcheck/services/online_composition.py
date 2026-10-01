@@ -42,6 +42,7 @@ class OnlineServices:
     admin_readiness: OnlineAdminReadinessService
 
     def require_production_ready(self) -> None:
+        """Fail closed before enabling customer-facing commercial operation."""
         self.admin_readiness.require_ready()
 
 
