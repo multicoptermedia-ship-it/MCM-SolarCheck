@@ -516,3 +516,26 @@ def test_successful_invoice_email_does_not_release_claim_if_mark_sent_fails(
 
     assert len(sender.messages) == 1
     assert state.released is False
+
+
+def test_invoice_delivery_state_transitions_release_retry_then_sent_lock(
+    tmp_path,
+) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+
+    failed_attempt = state.claim("invoice-42")
+    assert failed_attempt is not None
+    state.release("invoice-42", failed_attempt)
+
+    retry = SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42")
+    assert retry is not None
+    assert retry != failed_attempt
+    SQLiteInvoiceAdminDeliveryStore(database).mark_sent("invoice-42", retry)
+
+    restarted = SQLiteInvoiceAdminDeliveryStore(database)
+    assert restarted.claim("invoice-42") is None
+    with pytest.raises(ValueError, match="not owned"):
+        restarted.release("invoice-42", retry)
+    with pytest.raises(ValueError, match="not pending"):
+        restarted.mark_sent("invoice-42", retry)
