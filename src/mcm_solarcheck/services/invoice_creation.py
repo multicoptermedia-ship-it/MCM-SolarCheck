@@ -95,7 +95,7 @@ class InvoiceCreationService:
             is_new_identity = self._identity_store.reserve(
                 invoice.basis.invoice_id, fingerprint
             )
-            if not is_new_identity:
+            if not is_new_identity and self._released.is_ready(invoice.basis.invoice_id):
                 return invoice
 
         with tempfile.TemporaryDirectory(prefix="solarcheck-invoice-") as temporary:
