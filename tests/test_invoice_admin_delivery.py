@@ -308,3 +308,34 @@ def test_retry_repairs_package_with_stale_ready_marker(
     assert archive.path_for(invoice_id).read_bytes() == pdf
     assert archive.csv_path_for(invoice_id).read_bytes() == csv_content
     assert archive.package_is_ready(invoice_id) is True
+
+
+@pytest.mark.parametrize("mismatched_component", ["pdf", "csv"])
+def test_stale_ready_marker_never_allows_invoice_content_replacement(
+    tmp_path, mismatched_component
+) -> None:
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    invoice_id = "invoice-42"
+    expected_pdf = b"%PDF expected"
+    expected_csv = b"invoice_id;item_number\ninvoice-42;81011\n"
+    wrong_pdf = b"%PDF different"
+    wrong_csv = b"invoice_id;item_number\ninvoice-42;99999\n"
+    archive.root.mkdir(parents=True, exist_ok=True)
+    archive.ready_path_for(invoice_id).write_bytes(b"ready\n")
+
+    archive.path_for(invoice_id).write_bytes(
+        wrong_pdf if mismatched_component == "pdf" else expected_pdf
+    )
+    archive.csv_path_for(invoice_id).write_bytes(
+        wrong_csv if mismatched_component == "csv" else expected_csv
+    )
+
+    with pytest.raises(ValueError, match="different content"):
+        archive.store_package(invoice_id, expected_pdf, expected_csv)
+
+    assert archive.path_for(invoice_id).read_bytes() == (
+        wrong_pdf if mismatched_component == "pdf" else expected_pdf
+    )
+    assert archive.csv_path_for(invoice_id).read_bytes() == (
+        wrong_csv if mismatched_component == "csv" else expected_csv
+    )
