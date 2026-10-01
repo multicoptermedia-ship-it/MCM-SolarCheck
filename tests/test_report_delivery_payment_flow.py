@@ -10,6 +10,9 @@ from mcm_solarcheck.infrastructure.sqlite_payment_operation import (
 from mcm_solarcheck.services.billing import ComputeJobBillingService
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount, PaymentStatus
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
+from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
+from mcm_solarcheck.services.payment_methods import PaymentMethod
+from mcm_solarcheck.services.invoice import InvoiceBasisService
 from mcm_solarcheck.services.report_delivery import ReportArtifact, ReportDeliveryService
 
 
@@ -21,6 +24,11 @@ class ReportStore:
             "application/pdf",
             "solarcheck.pdf",
         )
+
+
+class UnusedSepaSubmissions:
+    def get(self, payment_id: str):
+        raise AssertionError("card invoice evidence must not read SEPA submissions")
 
 
 class RecordingGateway:
@@ -47,6 +55,7 @@ def setup_flow(tmp_path):
             "project-a",
             "job-a",
             PaymentAmount(12900, "EUR"),
+            method=PaymentMethod.CARD,
         )
     )
     payments.authorize(
@@ -121,6 +130,53 @@ def test_successful_delivery_allows_exactly_one_provider_capture(tmp_path) -> No
     assert first.status is PaymentStatus.CAPTURED
     assert second == first
     assert payments.get("payment-a") == first
+    assert gateway.captures == [
+        ("provider-auth-a", "payment:payment-a:capture")
+    ]
+
+
+def test_invoice_basis_requires_card_capture_after_delivery(tmp_path) -> None:
+    billing, payments, gateway, capture, delivery = setup_flow(tmp_path)
+    invoices = InvoiceBasisService(
+        billing,
+        payments,
+        PaymentExecutionEvidence(UnusedSepaSubmissions()),
+    )
+
+    delivery.deliver(
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+        send=lambda _report: None,
+    )
+
+    assert payments.get("payment-a").status is PaymentStatus.AUTHORIZED
+    with pytest.raises(ValueError, match="captured payment"):
+        invoices.build(
+            "invoice-a",
+            "payment-a",
+            job_id="job-a",
+            user_id="user-a",
+            project_id="project-a",
+        )
+
+    captured = capture.capture(
+        "payment-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    basis = invoices.build(
+        "invoice-a",
+        "payment-a",
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    assert captured.status is PaymentStatus.CAPTURED
+    assert basis.payment_id == "payment-a"
+    assert basis.job_id == "job-a"
+    assert basis.amount == PaymentAmount(12900, "EUR")
     assert gateway.captures == [
         ("provider-auth-a", "payment:payment-a:capture")
     ]
