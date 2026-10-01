@@ -29,6 +29,16 @@ class DenyAdmin:
         raise PermissionError("admin access required")
 
 
+class AllowMutation:
+    def require_mutation_allowed(self) -> None:
+        return None
+
+
+class DenyMutation:
+    def require_mutation_allowed(self) -> None:
+        raise PermissionError("protected mutation required")
+
+
 class Secrets:
     def __init__(self) -> None:
         self.password: str | None = None
@@ -266,7 +276,7 @@ def test_admin_view_exposes_only_ui_safe_configuration() -> None:
 def test_admin_actions_never_return_replaced_password() -> None:
     settings = Settings()
     secrets = Secrets()
-    actions = SMTPAdminActions(SMTPAdminService(settings, secrets), AllowAdmin())
+    actions = SMTPAdminActions(SMTPAdminService(settings, secrets), AllowAdmin(), AllowMutation())
 
     view = actions.replace_password("replacement-secret")
 
@@ -280,7 +290,7 @@ def test_admin_actions_save_settings_without_changing_secret() -> None:
     settings = Settings()
     secrets = Secrets()
     secrets.replace("existing-secret")
-    actions = SMTPAdminActions(SMTPAdminService(settings, secrets), AllowAdmin())
+    actions = SMTPAdminActions(SMTPAdminService(settings, secrets), AllowAdmin(), AllowMutation())
 
     view = actions.save_settings(
         SMTPAdminSettingsInput(
@@ -301,7 +311,7 @@ def test_admin_actions_save_settings_without_changing_secret() -> None:
 
 def test_admin_actions_test_email_returns_only_sanitized_result() -> None:
     service = SMTPAdminService(Settings(), Secrets())
-    actions = SMTPAdminActions(service, AllowAdmin())
+    actions = SMTPAdminActions(service, AllowAdmin(), AllowMutation())
     provider_error = RuntimeError("535 password=super-secret")
 
     with patch.object(service, "send_test_email", side_effect=provider_error):
@@ -340,3 +350,37 @@ def test_smtp_admin_actions_fail_closed_before_service_access(action) -> None:
 
     service.assert_not_called()
     assert secrets.password is None
+
+
+@pytest.mark.parametrize("action", ["save", "password", "test"])
+def test_smtp_admin_mutations_fail_closed_before_service_access(action) -> None:
+    service = MagicMock(spec=SMTPAdminService)
+    actions = SMTPAdminActions(service, AllowAdmin(), DenyMutation())
+
+    with pytest.raises(PermissionError, match="protected mutation"):
+        if action == "save":
+            actions.save_settings(
+                SMTPAdminSettingsInput(
+                    "smtp.example.com",
+                    587,
+                    "login",
+                    "solarcheck@mcm-dronetech.com",
+                    SMTPSecurity.STARTTLS,
+                )
+            )
+        elif action == "password":
+            actions.replace_password("must-not-be-used")
+        else:
+            actions.send_test_email()
+
+    service.assert_not_called()
+
+
+def test_smtp_admin_read_does_not_require_mutation_guard() -> None:
+    service = MagicMock(spec=SMTPAdminService)
+    expected = MagicMock()
+    service.view.return_value = expected
+    actions = SMTPAdminActions(service, AllowAdmin(), DenyMutation())
+
+    assert actions.load() is expected
+    service.view.assert_called_once_with()
