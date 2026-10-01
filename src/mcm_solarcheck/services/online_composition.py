@@ -121,6 +121,8 @@ def build_online_services(
             admin_mutation_guard,
             persistence.smtp_admin_audit,
         ),
+        payment_provider_readiness,
+        sepa_provider_readiness,
     )
 
     payment_authorization = PaymentAuthorizationService(
