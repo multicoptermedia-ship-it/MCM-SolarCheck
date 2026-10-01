@@ -19,6 +19,16 @@ class Settings:
         self.config = config
 
 
+class AllowAdmin:
+    def require_admin(self) -> None:
+        return None
+
+
+class DenyAdmin:
+    def require_admin(self) -> None:
+        raise PermissionError("admin access required")
+
+
 class Secrets:
     def __init__(self) -> None:
         self.password: str | None = None
@@ -256,7 +266,7 @@ def test_admin_view_exposes_only_ui_safe_configuration() -> None:
 def test_admin_actions_never_return_replaced_password() -> None:
     settings = Settings()
     secrets = Secrets()
-    actions = SMTPAdminActions(SMTPAdminService(settings, secrets))
+    actions = SMTPAdminActions(SMTPAdminService(settings, secrets), AllowAdmin())
 
     view = actions.replace_password("replacement-secret")
 
@@ -270,7 +280,7 @@ def test_admin_actions_save_settings_without_changing_secret() -> None:
     settings = Settings()
     secrets = Secrets()
     secrets.replace("existing-secret")
-    actions = SMTPAdminActions(SMTPAdminService(settings, secrets))
+    actions = SMTPAdminActions(SMTPAdminService(settings, secrets), AllowAdmin())
 
     view = actions.save_settings(
         SMTPAdminSettingsInput(
@@ -291,7 +301,7 @@ def test_admin_actions_save_settings_without_changing_secret() -> None:
 
 def test_admin_actions_test_email_returns_only_sanitized_result() -> None:
     service = SMTPAdminService(Settings(), Secrets())
-    actions = SMTPAdminActions(service)
+    actions = SMTPAdminActions(service, AllowAdmin())
     provider_error = RuntimeError("535 password=super-secret")
 
     with patch.object(service, "send_test_email", side_effect=provider_error):
@@ -301,3 +311,32 @@ def test_admin_actions_test_email_returns_only_sanitized_result() -> None:
     assert "fehlgeschlagen" in result.message
     assert "535" not in result.message
     assert "super-secret" not in result.message
+
+
+@pytest.mark.parametrize("action", ["load", "save", "password", "test"])
+def test_smtp_admin_actions_fail_closed_before_service_access(action) -> None:
+    settings = Settings()
+    secrets = Secrets()
+    service = MagicMock(spec=SMTPAdminService)
+    actions = SMTPAdminActions(service, DenyAdmin())
+
+    with pytest.raises(PermissionError, match="admin access"):
+        if action == "load":
+            actions.load()
+        elif action == "save":
+            actions.save_settings(
+                SMTPAdminSettingsInput(
+                    "smtp.example.com",
+                    587,
+                    "login",
+                    "solarcheck@mcm-dronetech.com",
+                    SMTPSecurity.STARTTLS,
+                )
+            )
+        elif action == "password":
+            actions.replace_password("must-not-be-used")
+        else:
+            actions.send_test_email()
+
+    service.assert_not_called()
+    assert secrets.password is None
