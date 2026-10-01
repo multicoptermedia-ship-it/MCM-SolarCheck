@@ -74,10 +74,19 @@ class FileSystemInvoiceArchive:
         pdf_exists = pdf_path.exists()
         csv_exists = csv_path.exists()
         if pdf_exists or csv_exists:
-            if not (pdf_exists and csv_exists):
-                raise ValueError("invoice package is incomplete")
-            if pdf_path.read_bytes() != pdf or csv_path.read_bytes() != csv_content:
+            if pdf_exists and pdf_path.read_bytes() != pdf:
                 raise ValueError("invoice_id already exists with different content")
+            if csv_exists and csv_path.read_bytes() != csv_content:
+                raise ValueError("invoice_id already exists with different content")
+            if not pdf_exists:
+                self._atomic_write(pdf_path, pdf)
+            if not csv_exists:
+                try:
+                    self._atomic_write(csv_path, csv_content)
+                except Exception:
+                    if not pdf_exists:
+                        pdf_path.unlink(missing_ok=True)
+                    raise
             if not ready_path.is_file():
                 self._atomic_write(ready_path, b"ready\n")
             return pdf_path, csv_path
