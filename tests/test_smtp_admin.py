@@ -552,3 +552,20 @@ def test_failed_smtp_test_records_only_fixed_secret_free_audit_event() -> None:
     assert "535" not in result.message
     assert "super-secret" not in result.message
     assert "super-secret" not in repr(audit.events)
+
+
+def test_successful_smtp_test_is_audited_only_after_send_succeeds() -> None:
+    secrets = Secrets()
+    secrets.replace("super-secret")
+    service = SMTPAdminService(Settings(), secrets)
+    audit = Audit()
+    actions = SMTPAdminActions(service, AllowAdmin(), AllowMutation(), audit)
+
+    with patch.object(service, "send_test_email") as send:
+        result = actions.send_test_email()
+
+    send.assert_called_once_with()
+    assert result.success is True
+    assert audit.events == [SMTPAdminAuditEvent.TEST_EMAIL_SUCCEEDED]
+    assert "super-secret" not in result.message
+    assert "super-secret" not in repr(audit.events)
