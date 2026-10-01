@@ -758,3 +758,39 @@ def test_uncertain_invoice_listing_contains_only_sending_technical_ids(tmp_path)
     state.mark_sent("invoice-sent", sent)
 
     assert state.uncertain_invoice_ids() == ("invoice-A", "invoice-B")
+
+
+def test_uncertain_invoice_listing_is_read_only(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database, lease_seconds=60)
+    token = state.claim("invoice-42")
+    assert token is not None
+    state.mark_sending("invoice-42", token)
+
+    with sqlite3.connect(database) as connection:
+        before = connection.execute(
+            """
+            SELECT status, lease_until, claim_token
+            FROM invoice_admin_delivery
+            WHERE invoice_id = ?
+            """,
+            ("invoice-42",),
+        ).fetchone()
+
+    assert state.uncertain_invoice_ids() == ("invoice-42",)
+    assert state.uncertain_invoice_ids() == ("invoice-42",)
+
+    with sqlite3.connect(database) as connection:
+        after = connection.execute(
+            """
+            SELECT status, lease_until, claim_token
+            FROM invoice_admin_delivery
+            WHERE invoice_id = ?
+            """,
+            ("invoice-42",),
+        ).fetchone()
+
+    assert after == before
+    assert after is not None
+    assert after[0] == "sending"
+    assert after[2] == token
