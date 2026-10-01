@@ -910,3 +910,80 @@ def test_failed_smtp_releases_real_sending_state_for_fresh_retry(tmp_path) -> No
     restarted.deliver("invoice-42", b"%PDF invoice")
 
     assert len(sender.messages) == 1
+
+
+def test_uncertain_reset_is_atomically_audited_without_claim_token(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+    token = state.claim("invoice-42")
+    assert token is not None
+    state.mark_sending("invoice-42", token)
+
+    with pytest.raises(ValueError, match="not owned"):
+        state.reset_uncertain("invoice-42", "wrong-token")
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM invoice_admin_delivery_recovery_audit"
+        ).fetchone() == (0,)
+
+    state.reset_uncertain("invoice-42", token)
+
+    with sqlite3.connect(database) as connection:
+        row = connection.execute(
+            """
+            SELECT invoice_id, event, created_at
+            FROM invoice_admin_delivery_recovery_audit
+            """
+        ).fetchone()
+        columns = {
+            item[1]
+            for item in connection.execute(
+                "PRAGMA table_info(invoice_admin_delivery_recovery_audit)"
+            )
+        }
+
+    assert row is not None
+    assert row[0] == "invoice-42"
+    assert row[1] == "uncertain_reset"
+    assert row[2]
+    assert "claim_token" not in columns
+    assert token not in repr(row)
+
+
+def test_uncertain_reset_rolls_back_when_audit_write_fails(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+    token = state.claim("invoice-42")
+    assert token is not None
+    state.mark_sending("invoice-42", token)
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TRIGGER fail_invoice_recovery_audit
+            BEFORE INSERT ON invoice_admin_delivery_recovery_audit
+            BEGIN
+                SELECT RAISE(ABORT, 'audit unavailable');
+            END
+            """
+        )
+
+    with pytest.raises(sqlite3.IntegrityError, match="audit unavailable"):
+        state.reset_uncertain("invoice-42", token)
+
+    with sqlite3.connect(database) as connection:
+        delivery = connection.execute(
+            """
+            SELECT status, claim_token
+            FROM invoice_admin_delivery
+            WHERE invoice_id = ?
+            """,
+            ("invoice-42",),
+        ).fetchone()
+        audit_count = connection.execute(
+            "SELECT COUNT(*) FROM invoice_admin_delivery_recovery_audit"
+        ).fetchone()
+
+    assert delivery == ("sending", token)
+    assert audit_count == (0,)
