@@ -96,10 +96,12 @@ class SQLiteInvoiceAdminDeliveryStore:
 
     def release(self, invoice_id: str, claim_token: str) -> None:
         with self._connect() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 DELETE FROM invoice_admin_delivery
                 WHERE invoice_id = ? AND status = 'pending' AND claim_token = ?
                 """,
                 (invoice_id, claim_token),
             )
+            if cursor.rowcount != 1:
+                raise ValueError("invoice admin delivery claim is not owned")
