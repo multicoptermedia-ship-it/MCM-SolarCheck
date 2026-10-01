@@ -17,6 +17,9 @@ class ReleasedInvoiceService:
         self._billing = billing
         self._delivery = delivery
 
+    def is_ready(self, invoice_id: str) -> bool:
+        return self._delivery.package_is_ready(invoice_id)
+
     def deliver(
         self,
         invoice_id: str,
