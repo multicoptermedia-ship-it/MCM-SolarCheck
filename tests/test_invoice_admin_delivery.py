@@ -539,3 +539,31 @@ def test_invoice_delivery_state_transitions_release_retry_then_sent_lock(
         restarted.release("invoice-42", retry)
     with pytest.raises(ValueError, match="not pending"):
         restarted.mark_sent("invoice-42", retry)
+
+
+class SendAndReleaseFailingState:
+    def claim(self, invoice_id: str) -> str | None:
+        return "expired-token"
+
+    def mark_sent(self, invoice_id: str, claim_token: str) -> None:
+        raise AssertionError("failed SMTP send must not be marked sent")
+
+    def release(self, invoice_id: str, claim_token: str) -> None:
+        raise ValueError("invoice admin delivery claim is not owned")
+
+
+class AlwaysFailingEmailSender:
+    def send(self, message: EmailMessage) -> None:
+        raise OSError("SMTP unavailable")
+
+
+def test_lost_lease_during_failed_invoice_email_preserves_smtp_error(tmp_path) -> None:
+    service = InvoiceAdminDeliveryService(
+        FileSystemInvoiceArchive(tmp_path / "private" / "invoices"),
+        AlwaysFailingEmailSender(),
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=SendAndReleaseFailingState(),
+    )
+
+    with pytest.raises(OSError, match="SMTP unavailable"):
+        service.deliver("invoice-42", b"%PDF invoice")
