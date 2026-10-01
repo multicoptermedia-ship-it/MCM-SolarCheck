@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
@@ -171,3 +172,23 @@ def test_report_retrieval_racing_export_fails_closed(tmp_path) -> None:
         "job-a", user_id="user-a", project_id="project-a"
     )
     assert retrieved.delivery.billable is True
+
+
+def test_billing_sqlite_schema_stays_state_only(tmp_path) -> None:
+    database = tmp_path / "billing.sqlite"
+    SQLiteComputeJobBillingStore(database)
+
+    with sqlite3.connect(database) as connection:
+        columns = [
+            row[1]
+            for row in connection.execute("PRAGMA table_info(compute_job_billing)")
+        ]
+
+    assert columns == [
+        "job_id",
+        "user_id",
+        "project_id",
+        "export_completed",
+        "report_retrieved",
+        "billing_released",
+    ]
