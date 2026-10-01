@@ -444,3 +444,40 @@ def test_legacy_invoice_delivery_database_migrates_and_reclaims_expired_lease(
 
     migrated.mark_sent("invoice-42", token)
     assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
+
+
+def test_legacy_active_invoice_delivery_lease_remains_locked_after_migration(
+    tmp_path,
+) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE invoice_admin_delivery (
+                invoice_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                lease_until REAL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO invoice_admin_delivery (invoice_id, status, lease_until)
+            VALUES (?, 'pending', ?)
+            """,
+            ("invoice-42", 4102444800.0),
+        )
+
+    migrated = SQLiteInvoiceAdminDeliveryStore(database)
+
+    assert migrated.claim("invoice-42") is None
+    with sqlite3.connect(database) as connection:
+        row = connection.execute(
+            """
+            SELECT status, claim_token
+            FROM invoice_admin_delivery
+            WHERE invoice_id = ?
+            """,
+            ("invoice-42",),
+        ).fetchone()
+    assert row == ("pending", None)
