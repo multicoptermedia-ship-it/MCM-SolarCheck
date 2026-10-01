@@ -154,6 +154,7 @@ def test_expired_invoice_admin_delivery_lease_is_recoverable_after_restart(tmp_p
     restarted = SQLiteInvoiceAdminDeliveryStore(database)
     restarted_token = restarted.claim("invoice-42")
     assert restarted_token is not None
+    restarted.mark_sending("invoice-42", restarted_token)
     restarted.mark_sent("invoice-42", restarted_token)
 
     assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
@@ -397,7 +398,7 @@ def test_expired_invoice_delivery_claim_cannot_mutate_new_owner(tmp_path) -> Non
     assert new_token is not None
     assert new_token != old_token
 
-    with pytest.raises(ValueError, match="not pending"):
+    with pytest.raises(ValueError, match="not sending"):
         old_worker.mark_sent("invoice-42", old_token)
     with pytest.raises(ValueError, match="not owned"):
         old_worker.release("invoice-42", old_token)
@@ -444,6 +445,7 @@ def test_legacy_invoice_delivery_database_migrates_and_reclaims_expired_lease(
         ).fetchone()
     assert row == ("pending", token)
 
+    migrated.mark_sending("invoice-42", token)
     migrated.mark_sent("invoice-42", token)
     assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
 
@@ -543,7 +545,7 @@ def test_invoice_delivery_state_transitions_release_retry_then_sent_lock(
     assert restarted.claim("invoice-42") is None
     with pytest.raises(ValueError, match="not owned"):
         restarted.release("invoice-42", retry)
-    with pytest.raises(ValueError, match="not pending"):
+    with pytest.raises(ValueError, match="not sending"):
         restarted.mark_sent("invoice-42", retry)
 
 
@@ -578,54 +580,36 @@ def test_lost_lease_during_failed_invoice_email_preserves_smtp_error(tmp_path) -
         service.deliver("invoice-42", b"%PDF invoice")
 
 
-def test_successful_email_with_expired_lease_cannot_mark_new_owner_sent(
+def test_successful_email_with_expired_sending_lease_stays_fail_closed(
     tmp_path,
 ) -> None:
     database = tmp_path / "invoice-delivery.sqlite"
     archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
     sender = RecordingEmailSender()
-    old_worker = SQLiteInvoiceAdminDeliveryStore(database)
+    state = SQLiteInvoiceAdminDeliveryStore(database)
     service = InvoiceAdminDeliveryService(
         archive,
         sender,
         sender_address="solarcheck@mcm-solarcheck.de",
-        delivery_state=old_worker,
+        delivery_state=state,
     )
 
-    original_mark_sent = old_worker.mark_sent
-    new_token: str | None = None
+    original_mark_sent = state.mark_sent
 
-    def lose_lease_then_mark(invoice_id: str, claim_token: str) -> None:
-        nonlocal new_token
+    def expire_then_mark(invoice_id: str, claim_token: str) -> None:
         with sqlite3.connect(database) as connection:
             connection.execute(
                 "UPDATE invoice_admin_delivery SET lease_until = 0 WHERE invoice_id = ?",
                 (invoice_id,),
             )
-        new_owner = SQLiteInvoiceAdminDeliveryStore(database)
-        new_token = new_owner.claim(invoice_id)
-        assert new_token is not None
-        assert new_token != claim_token
+        assert SQLiteInvoiceAdminDeliveryStore(database).claim(invoice_id) is None
         original_mark_sent(invoice_id, claim_token)
 
-    old_worker.mark_sent = lose_lease_then_mark  # type: ignore[method-assign]
-
-    with pytest.raises(ValueError, match="not pending"):
-        service.deliver("invoice-42", b"%PDF invoice")
+    state.mark_sent = expire_then_mark  # type: ignore[method-assign]
+    service.deliver("invoice-42", b"%PDF invoice")
 
     assert len(sender.messages) == 1
-    assert new_token is not None
-    with sqlite3.connect(database) as connection:
-        row = connection.execute(
-            """
-            SELECT status, claim_token
-            FROM invoice_admin_delivery
-            WHERE invoice_id = ?
-            """,
-            ("invoice-42",),
-        ).fetchone()
-    assert row == ("pending", new_token)
-
+    assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
 
 def test_expired_sending_invoice_is_not_automatically_retried(tmp_path) -> None:
     database = tmp_path / "invoice-delivery.sqlite"
