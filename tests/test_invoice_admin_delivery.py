@@ -28,6 +28,7 @@ def test_invoice_is_archived_privately_and_same_pdf_is_emailed_to_admin(tmp_path
         archive,
         sender,
         sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=SQLiteInvoiceAdminDeliveryStore(tmp_path / "invoice-delivery.sqlite"),
     )
     pdf = b"%PDF-1.4 invoice"
 
@@ -59,6 +60,7 @@ def test_invoice_delivery_rejects_empty_document_without_email(tmp_path) -> None
         archive,
         sender,
         sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=SQLiteInvoiceAdminDeliveryStore(tmp_path / "invoice-delivery.sqlite"),
     )
 
     with pytest.raises(ValueError, match="non-empty"):
@@ -71,7 +73,8 @@ def test_invoice_package_archives_pdf_and_csv_but_emails_only_pdf(tmp_path) -> N
     archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
     sender = RecordingEmailSender()
     service = InvoiceAdminDeliveryService(
-        archive, sender, sender_address="solarcheck@mcm-solarcheck.de"
+        archive, sender, sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=SQLiteInvoiceAdminDeliveryStore(tmp_path / "invoice-delivery.sqlite"),
     )
     pdf = b"%PDF-1.4 invoice"
     csv_content = b"invoice_id;item_number\\ninvoice-42;81011\\n"
