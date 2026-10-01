@@ -328,7 +328,7 @@ def test_smtp_admin_actions_fail_closed_before_service_access(action) -> None:
     settings = Settings()
     secrets = Secrets()
     service = MagicMock(spec=SMTPAdminService)
-    actions = SMTPAdminActions(service, DenyAdmin())
+    actions = SMTPAdminActions(service, DenyAdmin(), AllowMutation())
 
     with pytest.raises(PermissionError, match="admin access"):
         if action == "load":
