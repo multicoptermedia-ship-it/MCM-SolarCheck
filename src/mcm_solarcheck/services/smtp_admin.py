@@ -89,24 +89,40 @@ class SMTPAdminStatus:
     sender_address: str
 
 
+class SMTPAdminAuthorization(Protocol):
+    """Authorization boundary supplied by the future online application."""
+
+    def require_admin(self) -> None:
+        ...
+
+
 class SMTPAdminActions:
     """Framework-neutral actions exposed to a future administrative UI."""
 
-    def __init__(self, service: "SMTPAdminService") -> None:
+    def __init__(
+        self,
+        service: "SMTPAdminService",
+        authorization: SMTPAdminAuthorization,
+    ) -> None:
         self._service = service
+        self._authorization = authorization
 
     def load(self) -> SMTPAdminView:
+        self._authorization.require_admin()
         return self._service.view()
 
     def save_settings(self, values: SMTPAdminSettingsInput) -> SMTPAdminView:
+        self._authorization.require_admin()
         self._service.save_admin_settings(values)
         return self._service.view()
 
     def replace_password(self, password: str) -> SMTPAdminView:
+        self._authorization.require_admin()
         self._service.replace_password(password)
         return self._service.view()
 
     def send_test_email(self) -> SMTPTestResult:
+        self._authorization.require_admin()
         return self._service.test_connection()
 
 
