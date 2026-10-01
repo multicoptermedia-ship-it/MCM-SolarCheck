@@ -76,3 +76,17 @@ def test_payment_without_configured_method_is_not_invoice_evidence() -> None:
 def test_payment_execution_evidence_requires_sepa_store() -> None:
     with pytest.raises(TypeError, match="sepa_submissions must provide get"):
         PaymentExecutionEvidence(object())
+
+
+def test_zero_amount_settled_payment_is_not_payable_invoice_evidence() -> None:
+    settled = OnlinePayment(
+        "payment-free",
+        "user-a",
+        "project-a",
+        "job-a",
+        None,
+        status=PaymentStatus.SETTLED,
+    )
+
+    with pytest.raises(ValueError, match="configured payment method"):
+        PaymentExecutionEvidence(SubmissionStore()).require_succeeded(settled)
