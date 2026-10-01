@@ -70,7 +70,7 @@ class SQLiteInvoiceAdminDeliveryStore:
             if status != "pending":
                 raise ValueError("invalid invoice admin delivery status")
             if current_lease is not None and current_lease > now:
-                return False
+                return None
             connection.execute(
                 """
                 UPDATE invoice_admin_delivery
