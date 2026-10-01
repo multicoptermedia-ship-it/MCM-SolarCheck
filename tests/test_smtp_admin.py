@@ -569,3 +569,40 @@ def test_successful_smtp_test_is_audited_only_after_send_succeeds() -> None:
     assert audit.events == [SMTPAdminAuditEvent.TEST_EMAIL_SUCCEEDED]
     assert "super-secret" not in result.message
     assert "super-secret" not in repr(audit.events)
+
+
+@pytest.mark.parametrize("change", ["settings", "password"])
+def test_smtp_admin_audit_failure_does_not_hide_completed_change(change) -> None:
+    class FailingAudit:
+        def record(self, event: SMTPAdminAuditEvent) -> None:
+            raise RuntimeError("audit backend unavailable")
+
+    settings = Settings()
+    secrets = Secrets()
+    actions = SMTPAdminActions(
+        SMTPAdminService(settings, secrets),
+        AllowAdmin(),
+        AllowMutation(),
+        FailingAudit(),
+    )
+
+    with pytest.raises(RuntimeError, match="audit backend unavailable"):
+        if change == "settings":
+            actions.save_settings(
+                SMTPAdminSettingsInput(
+                    host="smtp.changed.example",
+                    port=465,
+                    username="provider-login",
+                    sender_address="solarcheck@mcm-dronetech.com",
+                    security=SMTPSecurity.TLS,
+                    timeout_seconds=15.0,
+                )
+            )
+        else:
+            actions.replace_password("replacement-secret")
+
+    if change == "settings":
+        assert settings.config.host == "smtp.changed.example"
+        assert settings.config.security_mode is SMTPSecurity.TLS
+    else:
+        assert secrets.password == "replacement-secret"
