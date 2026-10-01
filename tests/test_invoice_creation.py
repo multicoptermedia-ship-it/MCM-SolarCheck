@@ -14,7 +14,8 @@ from mcm_solarcheck.services.email import EmailMessage
 from mcm_solarcheck.services.invoice import InvoiceBasisService, InvoiceCustomer, InvoiceDocument
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
 from mcm_solarcheck.services.invoice_creation import InvoiceCreationService, InvoiceRenderConfig
-from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
+from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount, PaymentStatus
+from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.released_invoice import ReleasedInvoiceService
 
 
@@ -26,6 +27,12 @@ class PaymentStore:
         if payment_id != self.payment.payment_id:
             raise KeyError(payment_id)
         return self.payment
+
+
+class PaymentExecution:
+    def require_succeeded(self, payment: OnlinePayment) -> None:
+        if payment.status is not PaymentStatus.CAPTURED:
+            raise ValueError("invoice requires captured payment")
 
 
 class Sender:
@@ -46,7 +53,8 @@ def setup_service(tmp_path, *, release: bool):
         billing.release("job-a", user_id="user-a", project_id="project-a")
 
     payment = OnlinePayment(
-        "payment-a", "user-a", "project-a", "job-a", PaymentAmount(25000, "EUR")
+        "payment-a", "user-a", "project-a", "job-a", PaymentAmount(25000, "EUR"),
+        status=PaymentStatus.CAPTURED, method=PaymentMethod.CARD,
     )
     payments = PaymentStore(payment)
     archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
@@ -57,7 +65,7 @@ def setup_service(tmp_path, *, release: bool):
     )
     released = ReleasedInvoiceService(billing_store, admin)
     service = InvoiceCreationService(
-        InvoiceBasisService(billing_store, payments),
+        InvoiceBasisService(billing_store, payments, PaymentExecution()),
         released,
         InvoiceRenderConfig(
             ("MCM-Dronetech GmbH", "Ahornweg 3", "50181 Bedburg"),
