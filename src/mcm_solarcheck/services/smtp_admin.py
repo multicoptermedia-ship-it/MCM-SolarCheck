@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Protocol
 
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPEmailSender, SMTPSecurity
@@ -103,6 +104,20 @@ class SMTPAdminMutationGuard(Protocol):
         ...
 
 
+class SMTPAdminAuditEvent(str, Enum):
+    SETTINGS_CHANGED = "settings_changed"
+    PASSWORD_REPLACED = "password_replaced"
+    TEST_EMAIL_SUCCEEDED = "test_email_succeeded"
+    TEST_EMAIL_FAILED = "test_email_failed"
+
+
+class SMTPAdminAudit(Protocol):
+    """Record fixed, secret-free SMTP administration events."""
+
+    def record(self, event: SMTPAdminAuditEvent) -> None:
+        ...
+
+
 class SMTPAdminActions:
     """Framework-neutral actions exposed to a future administrative UI."""
 
@@ -111,10 +126,12 @@ class SMTPAdminActions:
         service: "SMTPAdminService",
         authorization: SMTPAdminAuthorization,
         mutation_guard: SMTPAdminMutationGuard,
+        audit: SMTPAdminAudit,
     ) -> None:
         self._service = service
         self._authorization = authorization
         self._mutation_guard = mutation_guard
+        self._audit = audit
 
     def load(self) -> SMTPAdminView:
         self._authorization.require_admin()
@@ -124,18 +141,26 @@ class SMTPAdminActions:
         self._authorization.require_admin()
         self._mutation_guard.require_mutation_allowed()
         self._service.save_admin_settings(values)
+        self._audit.record(SMTPAdminAuditEvent.SETTINGS_CHANGED)
         return self._service.view()
 
     def replace_password(self, password: str) -> SMTPAdminView:
         self._authorization.require_admin()
         self._mutation_guard.require_mutation_allowed()
         self._service.replace_password(password)
+        self._audit.record(SMTPAdminAuditEvent.PASSWORD_REPLACED)
         return self._service.view()
 
     def send_test_email(self) -> SMTPTestResult:
         self._authorization.require_admin()
         self._mutation_guard.require_mutation_allowed()
-        return self._service.test_connection()
+        result = self._service.test_connection()
+        self._audit.record(
+            SMTPAdminAuditEvent.TEST_EMAIL_SUCCEEDED
+            if result.success
+            else SMTPAdminAuditEvent.TEST_EMAIL_FAILED
+        )
+        return result
 
 
 class SMTPAdminService:
