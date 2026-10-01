@@ -58,6 +58,14 @@ class FakePaymentGateway:
         pass
 
 
+class FakeReadiness:
+    def __init__(self, configured: bool = True) -> None:
+        self.configured = configured
+
+    def is_configured(self) -> bool:
+        return self.configured
+
+
 class FakeSepaGateway:
     def submit(self, payment, mandate_reference: str, *, idempotency_key: str) -> str:
         return "provider-sepa-reference"
@@ -70,6 +78,8 @@ def online_services(persistence):
         payment_gateway=FakePaymentGateway(),
         sepa_gateway=FakeSepaGateway(),
         sepa_provider_id="provider-a",
+        payment_provider_readiness=FakeReadiness(),
+        sepa_provider_readiness=FakeReadiness(),
     )
 
 
@@ -102,6 +112,7 @@ def test_online_services_share_authoritative_persistence(tmp_path) -> None:
     assert services.report_delivery._reports is persistence.reports
     assert services.payment_execution._sepa_submissions is persistence.sepa_submissions
     assert services.smtp_admin.status().password_is_set is True
+    assert services.admin_readiness.status().ready is True
 
 
 def test_online_services_require_payment_gateways(tmp_path) -> None:
@@ -114,6 +125,8 @@ def test_online_services_require_payment_gateways(tmp_path) -> None:
             payment_gateway=None,
             sepa_gateway=FakeSepaGateway(),
             sepa_provider_id="provider-a",
+            payment_provider_readiness=FakeReadiness(),
+            sepa_provider_readiness=FakeReadiness(),
         )
 
     with pytest.raises(TypeError, match="sepa_gateway is required"):
@@ -123,6 +136,8 @@ def test_online_services_require_payment_gateways(tmp_path) -> None:
             payment_gateway=FakePaymentGateway(),
             sepa_gateway=None,
             sepa_provider_id="provider-a",
+            payment_provider_readiness=FakeReadiness(),
+            sepa_provider_readiness=FakeReadiness(),
         )
 
 
@@ -151,6 +166,8 @@ def test_online_services_reject_malformed_payment_gateways(tmp_path) -> None:
             payment_gateway=object(),
             sepa_gateway=FakeSepaGateway(),
             sepa_provider_id="provider-a",
+            payment_provider_readiness=FakeReadiness(),
+            sepa_provider_readiness=FakeReadiness(),
         )
 
     with pytest.raises(TypeError, match=r"sepa_gateway must provide submit\(\)"):
@@ -160,4 +177,36 @@ def test_online_services_reject_malformed_payment_gateways(tmp_path) -> None:
             payment_gateway=FakePaymentGateway(),
             sepa_gateway=object(),
             sepa_provider_id="provider-a",
+            payment_provider_readiness=FakeReadiness(),
+            sepa_provider_readiness=FakeReadiness(),
+        )
+
+
+def test_online_services_require_provider_readiness_boundaries(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+
+    with pytest.raises(
+        TypeError, match=r"payment_provider_readiness must provide is_configured\(\)"
+    ):
+        build_online_services(
+            persistence,
+            invoice_render=invoice_render_config(),
+            payment_gateway=FakePaymentGateway(),
+            sepa_gateway=FakeSepaGateway(),
+            sepa_provider_id="provider-a",
+            payment_provider_readiness=object(),
+            sepa_provider_readiness=FakeReadiness(),
+        )
+
+    with pytest.raises(
+        TypeError, match=r"sepa_provider_readiness must provide is_configured\(\)"
+    ):
+        build_online_services(
+            persistence,
+            invoice_render=invoice_render_config(),
+            payment_gateway=FakePaymentGateway(),
+            sepa_gateway=FakeSepaGateway(),
+            sepa_provider_id="provider-a",
+            payment_provider_readiness=FakeReadiness(),
+            sepa_provider_readiness=object(),
         )
