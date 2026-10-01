@@ -56,6 +56,8 @@ class SepaCollectionUpdateService:
         collection = self._collections.get_by_provider_reference(
             provider_id.strip(), provider_reference.strip()
         )
+        if collection.status is target:
+            return collection
         return self._collections.transition(
             collection.collection_id,
             user_id=collection.user_id,
