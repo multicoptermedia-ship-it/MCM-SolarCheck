@@ -14,6 +14,14 @@ class ReleasedInvoiceService:
         billing: ComputeJobBillingStore,
         delivery: InvoiceAdminDeliveryService,
     ) -> None:
+        required = (
+            (billing, "get", "billing"),
+            (delivery, "package_is_ready", "delivery"),
+            (delivery, "deliver", "delivery"),
+        )
+        for dependency, method, name in required:
+            if not callable(getattr(dependency, method, None)):
+                raise TypeError(f"{name} must provide {method}()")
         self._billing = billing
         self._delivery = delivery
 
