@@ -987,3 +987,49 @@ def test_uncertain_reset_rolls_back_when_audit_write_fails(tmp_path) -> None:
 
     assert delivery == ("sending", token)
     assert audit_count == (0,)
+
+
+def test_invoice_recovery_audit_is_append_only_across_restarts(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+
+    first = SQLiteInvoiceAdminDeliveryStore(database)
+    first_token = first.claim("invoice-42")
+    assert first_token is not None
+    first.mark_sending("invoice-42", first_token)
+    first.reset_uncertain("invoice-42", first_token)
+
+    second = SQLiteInvoiceAdminDeliveryStore(database)
+    second_token = second.claim("invoice-42")
+    assert second_token is not None
+    assert second_token != first_token
+    second.mark_sending("invoice-42", second_token)
+    second.reset_uncertain("invoice-42", second_token)
+
+    final = SQLiteInvoiceAdminDeliveryStore(database)
+    final_token = final.claim("invoice-42")
+    assert final_token is not None
+    final.mark_sending("invoice-42", final_token)
+    final.mark_sent("invoice-42", final_token)
+
+    with sqlite3.connect(database) as connection:
+        audit_rows = connection.execute(
+            """
+            SELECT invoice_id, event
+            FROM invoice_admin_delivery_recovery_audit
+            ORDER BY id
+            """
+        ).fetchall()
+        delivery = connection.execute(
+            """
+            SELECT status, claim_token
+            FROM invoice_admin_delivery
+            WHERE invoice_id = ?
+            """,
+            ("invoice-42",),
+        ).fetchone()
+
+    assert audit_rows == [
+        ("invoice-42", "uncertain_reset"),
+        ("invoice-42", "uncertain_reset"),
+    ]
+    assert delivery == ("sent", final_token)
