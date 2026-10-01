@@ -737,3 +737,24 @@ def test_uncertain_reset_cannot_reopen_sent_invoice(tmp_path) -> None:
     with pytest.raises(ValueError, match="not owned"):
         state.reset_uncertain("invoice-42", token)
     assert state.claim("invoice-42") is None
+
+
+def test_uncertain_invoice_listing_contains_only_sending_technical_ids(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+
+    sending_b = state.claim("invoice-B")
+    sending_a = state.claim("invoice-A")
+    pending = state.claim("invoice-pending")
+    sent = state.claim("invoice-sent")
+    assert sending_a is not None
+    assert sending_b is not None
+    assert pending is not None
+    assert sent is not None
+
+    state.mark_sending("invoice-B", sending_b)
+    state.mark_sending("invoice-A", sending_a)
+    state.mark_sending("invoice-sent", sent)
+    state.mark_sent("invoice-sent", sent)
+
+    assert state.uncertain_invoice_ids() == ("invoice-A", "invoice-B")
