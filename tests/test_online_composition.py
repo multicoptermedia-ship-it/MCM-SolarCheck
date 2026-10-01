@@ -126,6 +126,8 @@ def test_online_services_share_authoritative_persistence(tmp_path) -> None:
     assert services.smtp_admin.status().password_is_set is True
     assert services.admin_readiness.status().ready is True
     assert services.admin.load().readiness.ready is True
+    assert services.admin.load().payment_provider.configured is True
+    assert services.admin.load().sepa_provider.configured is True
 
 
 def test_online_services_require_payment_gateways(tmp_path) -> None:
