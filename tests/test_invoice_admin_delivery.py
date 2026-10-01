@@ -694,3 +694,34 @@ def test_legacy_expired_pending_remains_recoverable_with_sending_state(tmp_path)
     migrated.mark_sending("invoice-42", token)
     migrated.mark_sent("invoice-42", token)
     assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
+
+
+def test_uncertain_invoice_send_requires_owned_explicit_reset(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+    token = state.claim("invoice-42")
+    assert token is not None
+    state.mark_sending("invoice-42", token)
+
+    assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
+    with pytest.raises(ValueError, match="not owned"):
+        state.reset_uncertain("invoice-42", "wrong-token")
+    assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
+
+    state.reset_uncertain("invoice-42", token)
+    retry_token = SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42")
+    assert retry_token is not None
+    assert retry_token != token
+
+
+def test_uncertain_reset_cannot_reopen_sent_invoice(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+    token = state.claim("invoice-42")
+    assert token is not None
+    state.mark_sending("invoice-42", token)
+    state.mark_sent("invoice-42", token)
+
+    with pytest.raises(ValueError, match="not owned"):
+        state.reset_uncertain("invoice-42", token)
+    assert state.claim("invoice-42") is None
