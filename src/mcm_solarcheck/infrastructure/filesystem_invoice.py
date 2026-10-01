@@ -32,7 +32,12 @@ class FileSystemInvoiceArchive:
         return self.root / f".{self._safe_invoice_id(invoice_id)}.ready"
 
     def package_is_ready(self, invoice_id: str) -> bool:
-        return self.ready_path_for(invoice_id).is_file()
+        """A release marker is valid only while both package components exist."""
+        return (
+            self.ready_path_for(invoice_id).is_file()
+            and self.path_for(invoice_id).is_file()
+            and self.csv_path_for(invoice_id).is_file()
+        )
 
     @staticmethod
     def _atomic_write(path: Path, content: bytes) -> None:
