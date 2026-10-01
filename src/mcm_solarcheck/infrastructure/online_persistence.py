@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from mcm_solarcheck.infrastructure.environment_smtp_secret import EnvironmentSMTPSecretStore
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
 from mcm_solarcheck.infrastructure.filesystem_report import FileSystemReportArtifactStore
 from mcm_solarcheck.infrastructure.online_private_paths import OnlinePrivatePaths
@@ -20,6 +19,7 @@ from mcm_solarcheck.infrastructure.sqlite_sepa_submission import SQLiteSepaSubmi
 from mcm_solarcheck.infrastructure.sqlite_smtp_admin_audit import SQLiteSMTPAdminAudit
 from mcm_solarcheck.infrastructure.sqlite_smtp_settings import SQLiteSMTPSettingsStore
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig
+from mcm_solarcheck.services.smtp_admin import SMTPSecretStore
 
 
 @dataclass(frozen=True)
@@ -38,7 +38,7 @@ class OnlinePersistence:
     report_recovery: SQLiteReportRecoveryStore
     invoices: FileSystemInvoiceArchive
     smtp_settings: SQLiteSMTPSettingsStore
-    smtp_secrets: EnvironmentSMTPSecretStore
+    smtp_secrets: SMTPSecretStore
     smtp_admin_audit: SQLiteSMTPAdminAudit
 
 
@@ -46,7 +46,7 @@ def build_online_persistence(
     paths: OnlinePrivatePaths,
     *,
     smtp_default: SMTPConfig,
-    smtp_secrets: EnvironmentSMTPSecretStore | None = None,
+    smtp_secrets: SMTPSecretStore,
 ) -> OnlinePersistence:
     """Build durable online stores only from validated private deployment paths."""
     if not isinstance(paths, OnlinePrivatePaths):
@@ -72,6 +72,6 @@ def build_online_persistence(
         report_recovery=SQLiteReportRecoveryStore(database),
         invoices=FileSystemInvoiceArchive(paths.invoices_root),
         smtp_settings=SQLiteSMTPSettingsStore(database, smtp_default),
-        smtp_secrets=smtp_secrets or EnvironmentSMTPSecretStore(),
+        smtp_secrets=smtp_secrets,
         smtp_admin_audit=SQLiteSMTPAdminAudit(database),
     )
