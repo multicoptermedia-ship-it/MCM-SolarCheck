@@ -870,3 +870,43 @@ def test_mark_sending_failure_happens_before_any_invoice_email(tmp_path) -> None
             ("invoice-42",),
         ).fetchone()
     assert row == ("pending",)
+
+
+def test_failed_smtp_releases_real_sending_state_for_fresh_retry(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    sender = FailingOnceEmailSender()
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+    service = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=state,
+    )
+
+    with pytest.raises(OSError, match="SMTP unavailable"):
+        service.deliver("invoice-42", b"%PDF invoice")
+
+    assert state.uncertain_invoice_ids() == ()
+    with sqlite3.connect(database) as connection:
+        row = connection.execute(
+            "SELECT status, claim_token FROM invoice_admin_delivery WHERE invoice_id = ?",
+            ("invoice-42",),
+        ).fetchone()
+    assert row is None
+
+    retry_state = SQLiteInvoiceAdminDeliveryStore(database)
+    retry_token = retry_state.claim("invoice-42")
+    assert retry_token is not None
+    retry_state.release("invoice-42", retry_token)
+
+    restarted = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=SQLiteInvoiceAdminDeliveryStore(database),
+    )
+    restarted.deliver("invoice-42", b"%PDF invoice")
+    restarted.deliver("invoice-42", b"%PDF invoice")
+
+    assert len(sender.messages) == 1
