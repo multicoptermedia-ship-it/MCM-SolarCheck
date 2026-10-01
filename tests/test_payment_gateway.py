@@ -224,3 +224,67 @@ def test_authorization_retry_recovers_provider_success_without_second_call(tmp_p
     assert recovered.status is PaymentStatus.AUTHORIZED
     assert recovered.provider_reference == "provider-auth-a"
     assert len(gateway.authorized) == 1
+
+
+def test_completed_authorization_retry_is_idempotent(tmp_path) -> None:
+    database = tmp_path / "payment-auth-completed.sqlite"
+    store = SQLiteOnlinePaymentStore(database)
+    store.create(
+        OnlinePayment(
+            "payment-completed",
+            "user-a",
+            "project-a",
+            "job-a",
+            PaymentAmount(45000, "EUR"),
+            method=PaymentMethod.CARD,
+        )
+    )
+    intents = SQLitePaymentAuthorizationIntentStore(database)
+    gateway = RecordingGateway()
+    service = PaymentAuthorizationService(store, gateway, intents=intents)
+
+    first = service.authorize(
+        "payment-completed", user_id="user-a", project_id="project-a"
+    )
+    second = service.authorize(
+        "payment-completed", user_id="user-a", project_id="project-a"
+    )
+
+    assert first == second
+    assert second.status is PaymentStatus.AUTHORIZED
+    assert len(gateway.authorized) == 1
+
+
+def test_completed_authorization_retry_rejects_reference_mismatch(tmp_path) -> None:
+    database = tmp_path / "payment-auth-mismatch.sqlite"
+    store = SQLiteOnlinePaymentStore(database)
+    store.create(
+        OnlinePayment(
+            "payment-mismatch",
+            "user-a",
+            "project-a",
+            "job-a",
+            PaymentAmount(45000, "EUR"),
+            method=PaymentMethod.CARD,
+        )
+    )
+    intents = SQLitePaymentAuthorizationIntentStore(database)
+    gateway = RecordingGateway()
+    service = PaymentAuthorizationService(store, gateway, intents=intents)
+    service.authorize(
+        "payment-mismatch", user_id="user-a", project_id="project-a"
+    )
+
+    with intents._connect() as connection:
+        connection.execute(
+            """UPDATE payment_authorization_intents
+               SET provider_reference = ? WHERE payment_id = ?""",
+            ("provider-other", "payment-mismatch"),
+        )
+
+    with pytest.raises(ValueError, match="payment authorization requires created state"):
+        service.authorize(
+            "payment-mismatch", user_id="user-a", project_id="project-a"
+        )
+
+    assert len(gateway.authorized) == 1
