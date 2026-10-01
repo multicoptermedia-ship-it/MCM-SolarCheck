@@ -71,15 +71,15 @@ class FakeSepaGateway:
         return "provider-sepa-reference"
 
 
-def online_services(persistence):
+def online_services(persistence, *, payment_ready=True, sepa_ready=True):
     return build_online_services(
         persistence,
         invoice_render=invoice_render_config(),
         payment_gateway=FakePaymentGateway(),
         sepa_gateway=FakeSepaGateway(),
         sepa_provider_id="provider-a",
-        payment_provider_readiness=FakeReadiness(),
-        sepa_provider_readiness=FakeReadiness(),
+        payment_provider_readiness=FakeReadiness(payment_ready),
+        sepa_provider_readiness=FakeReadiness(sepa_ready),
     )
 
 
@@ -211,3 +211,19 @@ def test_online_services_require_provider_readiness_boundaries(tmp_path) -> None
             payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=object(),
         )
+
+
+def test_online_services_separate_admin_startup_from_production_readiness(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence, payment_ready=False)
+
+    assert services.admin_readiness.status().ready is False
+    with pytest.raises(RuntimeError, match="payment_provider"):
+        services.require_production_ready()
+
+
+def test_online_services_allow_explicit_production_readiness(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+
+    assert services.require_production_ready() is None
