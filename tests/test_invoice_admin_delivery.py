@@ -1216,3 +1216,30 @@ def test_concurrent_uncertain_reset_can_be_audited_only_once(tmp_path) -> None:
 
     assert delivery == ("pending", 0.0, None)
     assert audit_rows == [("invoice-42", "uncertain_reset")]
+
+
+def test_invoice_recovery_audit_schema_is_technical_metadata_only(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    SQLiteInvoiceAdminDeliveryStore(database)
+
+    with sqlite3.connect(database) as connection:
+        columns = [
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info(invoice_admin_delivery_recovery_audit)"
+            )
+        ]
+
+    assert columns == ["id", "invoice_id", "event", "created_at"]
+    forbidden = {
+        "claim_token",
+        "customer",
+        "customer_name",
+        "address",
+        "email",
+        "recipient",
+        "pdf",
+        "path",
+        "filename",
+    }
+    assert forbidden.isdisjoint(columns)
