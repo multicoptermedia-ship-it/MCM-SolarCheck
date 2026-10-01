@@ -63,6 +63,21 @@ class SMTPTestResult:
 
 
 @dataclass(frozen=True)
+class SMTPAdminView:
+    """UI-safe SMTP administration model containing no secret value."""
+
+    host: str
+    port: int
+    username: str
+    sender_address: str
+    security: SMTPSecurity
+    timeout_seconds: float
+    password_is_set: bool
+    test_recipient: str
+    allowed_security: tuple[SMTPSecurity, ...]
+
+
+@dataclass(frozen=True)
 class SMTPAdminStatus:
     host: str
     port: int
@@ -78,6 +93,21 @@ class SMTPAdminService:
     def __init__(self, settings: SMTPSettingsStore, secrets: SMTPSecretStore) -> None:
         self._settings = settings
         self._secrets = secrets
+
+    def view(self) -> SMTPAdminView:
+        """Return only values that an administrative UI may display."""
+        status = self.status()
+        return SMTPAdminView(
+            host=status.host,
+            port=status.port,
+            username=status.username,
+            sender_address=status.sender_address,
+            security=status.security,
+            timeout_seconds=status.timeout_seconds,
+            password_is_set=status.password_is_set,
+            test_recipient=ADMIN_NOTIFICATION_EMAIL,
+            allowed_security=(SMTPSecurity.STARTTLS, SMTPSecurity.TLS),
+        )
 
     def status(self) -> SMTPAdminStatus:
         config = self._settings.get()
