@@ -91,3 +91,52 @@ def test_smtp_settings_database_has_no_password_column_or_secret_value(tmp_path)
     assert "sender_address" in columns
     assert row is not None
     assert all("password" not in str(value).lower() for value in row)
+
+
+def test_legacy_smtp_settings_remain_secure_after_migration_and_restart(tmp_path) -> None:
+    database = tmp_path / "solarcheck.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE smtp_settings (
+                singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+                host TEXT NOT NULL,
+                port INTEGER NOT NULL,
+                username TEXT NOT NULL,
+                use_starttls INTEGER NOT NULL,
+                timeout_seconds REAL NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO smtp_settings
+            (singleton, host, port, username, use_starttls, timeout_seconds)
+            VALUES (1, ?, 587, ?, 1, 30.0)
+            """,
+            ("smtp.legacy.example", "solarcheck@mcm-dronetech.com"),
+        )
+
+    default = SMTPConfig(
+        "smtp.default.example",
+        587,
+        "solarcheck@mcm-dronetech.com",
+    )
+    first_store = SQLiteSMTPSettingsStore(database, default)
+    assert first_store.get().security_mode is SMTPSecurity.STARTTLS
+
+    restarted_store = SQLiteSMTPSettingsStore(database, default)
+    loaded = restarted_store.get()
+
+    with sqlite3.connect(database) as connection:
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(smtp_settings)")
+        }
+
+    assert loaded.host == "smtp.legacy.example"
+    assert loaded.security_mode is SMTPSecurity.STARTTLS
+    assert loaded.effective_sender_address == "solarcheck@mcm-dronetech.com"
+    assert "security" in columns
+    assert "sender_address" in columns
+    assert "password" not in columns
+    assert "secret" not in columns
