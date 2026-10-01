@@ -42,8 +42,10 @@ class InvoiceCreationService:
         basis: InvoiceBasisService,
         released: ReleasedInvoiceService,
         config: InvoiceRenderConfig,
-        identity_store: InvoiceIdentityStore | None = None,
+        identity_store: InvoiceIdentityStore,
     ) -> None:
+        if not callable(getattr(identity_store, "reserve", None)):
+            raise TypeError("identity_store must provide reserve()")
         self._basis = basis
         self._released = released
         self._config = config
@@ -67,8 +69,7 @@ class InvoiceCreationService:
         )
         invoice = InvoiceDocument(basis, customer, invoice_date, service_date)
 
-        if self._identity_store is not None:
-            fingerprint_payload = {
+        fingerprint_payload = {
                 "invoice_id": invoice.basis.invoice_id,
                 "payment_id": invoice.basis.payment_id,
                 "job_id": invoice.basis.job_id,
@@ -84,19 +85,19 @@ class InvoiceCreationService:
                 "service_name": invoice.service_name,
                 "vat_percent": invoice.vat_percent,
             }
-            fingerprint = hashlib.sha256(
-                json.dumps(
-                    fingerprint_payload,
-                    sort_keys=True,
-                    ensure_ascii=False,
-                    separators=(",", ":"),
-                ).encode("utf-8")
-            ).hexdigest()
-            is_new_identity = self._identity_store.reserve(
-                invoice.basis.invoice_id, fingerprint
-            )
-            if not is_new_identity and self._released.is_ready(invoice.basis.invoice_id):
-                return invoice
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                fingerprint_payload,
+                sort_keys=True,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        is_new_identity = self._identity_store.reserve(
+            invoice.basis.invoice_id, fingerprint
+        )
+        if not is_new_identity and self._released.is_ready(invoice.basis.invoice_id):
+            return invoice
 
         with tempfile.TemporaryDirectory(prefix="solarcheck-invoice-") as temporary:
             root = Path(temporary)
