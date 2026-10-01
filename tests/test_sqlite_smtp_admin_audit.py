@@ -92,3 +92,43 @@ def test_smtp_settings_and_admin_audit_share_database_without_secrets(tmp_path) 
     assert "secret" not in settings_columns
     assert audit_columns == {"id", "event", "created_at"}
     assert event == SMTPAdminAuditEvent.SETTINGS_CHANGED.value
+
+
+def test_smtp_admin_persistence_survives_store_restart(tmp_path) -> None:
+    database = tmp_path / "solarcheck.sqlite"
+    default = SMTPConfig(
+        "smtp.initial.example",
+        587,
+        "solarcheck@mcm-dronetech.com",
+    )
+    settings = SQLiteSMTPSettingsStore(database, default)
+    audit = SQLiteSMTPAdminAudit(database)
+    changed = SMTPConfig(
+        "smtp.changed.example",
+        465,
+        "smtp-login",
+        timeout_seconds=15.0,
+        security=__import__(
+            "mcm_solarcheck.infrastructure.smtp_email",
+            fromlist=["SMTPSecurity"],
+        ).SMTPSecurity.TLS,
+        sender_address="solarcheck@mcm-dronetech.com",
+    )
+
+    settings.save(changed)
+    audit.record(SMTPAdminAuditEvent.SETTINGS_CHANGED)
+
+    restarted_settings = SQLiteSMTPSettingsStore(database, default)
+    SQLiteSMTPAdminAudit(database)
+    loaded = restarted_settings.get()
+
+    with sqlite3.connect(database) as connection:
+        events = connection.execute(
+            "SELECT event FROM smtp_admin_audit ORDER BY id"
+        ).fetchall()
+
+    assert loaded.host == "smtp.changed.example"
+    assert loaded.port == 465
+    assert loaded.username == "smtp-login"
+    assert loaded.effective_sender_address == "solarcheck@mcm-dronetech.com"
+    assert [row[0] for row in events] == ["settings_changed"]
