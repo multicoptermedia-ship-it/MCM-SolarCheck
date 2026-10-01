@@ -840,3 +840,33 @@ def test_mark_sent_storage_failure_with_real_state_never_auto_resends(tmp_path) 
     assert row == ("sending",)
 
     state.mark_sent = original_mark_sent  # type: ignore[method-assign]
+
+
+def test_mark_sending_failure_happens_before_any_invoice_email(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    sender = RecordingEmailSender()
+    state = SQLiteInvoiceAdminDeliveryStore(database)
+    service = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=state,
+    )
+
+    def fail_before_smtp(invoice_id: str, claim_token: str) -> None:
+        raise OSError("delivery state unavailable")
+
+    state.mark_sending = fail_before_smtp  # type: ignore[method-assign]
+
+    with pytest.raises(OSError, match="delivery state unavailable"):
+        service.deliver("invoice-42", b"%PDF invoice")
+
+    assert sender.messages == []
+
+    with sqlite3.connect(database) as connection:
+        row = connection.execute(
+            "SELECT status FROM invoice_admin_delivery WHERE invoice_id = ?",
+            ("invoice-42",),
+        ).fetchone()
+    assert row == ("pending",)
