@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import sqlite3
+
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.infrastructure.sqlite_sepa import SQLiteSepaMandateStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_collection import (
@@ -268,3 +270,27 @@ def test_pending_sepa_submission_requires_complete_lease_pair() -> None:
             **kwargs,
             lease_until="2026-09-30T08:01:00+00:00",
         )
+
+
+def test_sepa_submission_storage_stays_execution_metadata_only(tmp_path) -> None:
+    database = tmp_path / "submissions.sqlite"
+    SQLiteSepaSubmissionStore(database)
+
+    with sqlite3.connect(database) as connection:
+        columns = [
+            row[1]
+            for row in connection.execute("PRAGMA table_info(sepa_submissions)")
+        ]
+
+    assert columns == [
+        "payment_id",
+        "mandate_id",
+        "user_id",
+        "project_id",
+        "provider_id",
+        "idempotency_key",
+        "status",
+        "provider_reference",
+        "lease_token",
+        "lease_until",
+    ]
