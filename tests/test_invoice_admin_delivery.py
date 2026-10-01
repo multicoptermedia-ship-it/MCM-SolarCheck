@@ -1243,3 +1243,32 @@ def test_invoice_recovery_audit_schema_is_technical_metadata_only(tmp_path) -> N
         "filename",
     }
     assert forbidden.isdisjoint(columns)
+
+
+def test_invoice_delivery_sqlite_schema_never_duplicates_document_data(tmp_path) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    SQLiteInvoiceAdminDeliveryStore(database)
+
+    with sqlite3.connect(database) as connection:
+        columns = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info(invoice_admin_delivery)"
+            )
+        }
+
+    assert columns == {"invoice_id", "status", "lease_until", "claim_token"}
+    forbidden = {
+        "pdf",
+        "csv",
+        "content",
+        "document",
+        "path",
+        "filename",
+        "customer",
+        "customer_name",
+        "address",
+        "email",
+        "recipient",
+    }
+    assert forbidden.isdisjoint(columns)
