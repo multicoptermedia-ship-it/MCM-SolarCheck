@@ -4,7 +4,9 @@ import sqlite3
 
 import pytest
 
+from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig
 from mcm_solarcheck.infrastructure.sqlite_smtp_admin_audit import SQLiteSMTPAdminAudit
+from mcm_solarcheck.infrastructure.sqlite_smtp_settings import SQLiteSMTPSettingsStore
 from mcm_solarcheck.services.smtp_admin import SMTPAdminAuditEvent
 
 
@@ -52,3 +54,41 @@ def test_sqlite_smtp_admin_audit_schema_contains_no_smtp_secret_fields(tmp_path)
         }
 
     assert columns == {"id", "event", "created_at"}
+
+
+def test_smtp_settings_and_admin_audit_share_database_without_secrets(tmp_path) -> None:
+    database = tmp_path / "solarcheck.sqlite"
+    settings = SQLiteSMTPSettingsStore(
+        database,
+        SMTPConfig("smtp.example.com", 587, "solarcheck@mcm-dronetech.com"),
+    )
+    audit = SQLiteSMTPAdminAudit(database)
+
+    settings.save(
+        SMTPConfig("smtp.example.com", 587, "solarcheck@mcm-dronetech.com")
+    )
+    audit.record(SMTPAdminAuditEvent.SETTINGS_CHANGED)
+
+    with sqlite3.connect(database) as connection:
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        settings_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(smtp_settings)")
+        }
+        audit_columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(smtp_admin_audit)")
+        }
+        event = connection.execute(
+            "SELECT event FROM smtp_admin_audit ORDER BY id DESC LIMIT 1"
+        ).fetchone()[0]
+
+    assert {"smtp_settings", "smtp_admin_audit"} <= tables
+    assert "password" not in settings_columns
+    assert "secret" not in settings_columns
+    assert audit_columns == {"id", "event", "created_at"}
+    assert event == SMTPAdminAuditEvent.SETTINGS_CHANGED.value
