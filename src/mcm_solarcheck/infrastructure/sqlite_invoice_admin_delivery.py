@@ -107,6 +107,20 @@ class SQLiteInvoiceAdminDeliveryStore:
             if cursor.rowcount != 1:
                 raise ValueError("invoice admin delivery is not sending")
 
+    def reset_uncertain(self, invoice_id: str, claim_token: str) -> None:
+        """Explicitly allow retry of an uncertain send owned by this token."""
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE invoice_admin_delivery
+                SET status = 'pending', lease_until = 0
+                WHERE invoice_id = ? AND status = 'sending' AND claim_token = ?
+                """,
+                (invoice_id, claim_token),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError("uncertain invoice admin delivery is not owned")
+
     def release(self, invoice_id: str, claim_token: str) -> None:
         with self._connect() as connection:
             cursor = connection.execute(
