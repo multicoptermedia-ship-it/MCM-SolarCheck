@@ -88,3 +88,26 @@ def test_invoice_package_csv_is_also_gated_by_billing_release(tmp_path) -> None:
     assert archive.path_for("invoice-a").is_file()
     assert archive.csv_path_for("invoice-a").read_bytes() == csv_content
     assert len(sender.messages) == 1
+
+
+@pytest.mark.parametrize(
+    "billing,delivery,message",
+    [
+        (object(), object(), "billing must provide get"),
+        (
+            type("Billing", (), {"get": lambda self, job_id: None})(),
+            object(),
+            "delivery must provide package_is_ready",
+        ),
+        (
+            type("Billing", (), {"get": lambda self, job_id: None})(),
+            type("Delivery", (), {"package_is_ready": lambda self, invoice_id: False})(),
+            "delivery must provide deliver",
+        ),
+    ],
+)
+def test_released_invoice_service_rejects_incomplete_wiring(
+    billing, delivery, message
+) -> None:
+    with pytest.raises(TypeError, match=message):
+        ReleasedInvoiceService(billing, delivery)  # type: ignore[arg-type]
