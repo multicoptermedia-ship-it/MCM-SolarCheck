@@ -41,7 +41,7 @@ def setup_persistence(tmp_path, *, secret_configured: bool):
             "solarcheck@example.invalid",
             security=SMTPSecurity.TLS,
         ),
-        smtp_secrets=FakeSecretStore(secret_configured),  # type: ignore[arg-type]
+        smtp_secrets=FakeSecretStore(secret_configured),
     )
 
 
@@ -147,6 +147,7 @@ def test_online_payment_services_use_durable_operation_state(tmp_path) -> None:
 
     assert services.payment_authorization._payments is persistence.payments
     assert services.payment_authorization._gateway is services.payment_capture._gateway
+    assert services.payment_authorization._intents is persistence.payment_authorizations
     assert services.payment_capture._payments is persistence.payments
     assert services.payment_capture._billing is persistence.billing
     assert services.payment_capture._operation_intents is persistence.payment_operations
