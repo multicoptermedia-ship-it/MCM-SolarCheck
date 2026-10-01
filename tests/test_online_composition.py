@@ -132,3 +132,25 @@ def test_online_payment_services_use_durable_operation_state(tmp_path) -> None:
     assert services.sepa_payment._submissions is persistence.sepa_submissions
     assert services.sepa_payment._collections is persistence.sepa_collections
     assert services.sepa_payment._billing is persistence.billing
+
+
+def test_online_services_reject_malformed_payment_gateways(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+
+    with pytest.raises(TypeError, match=r"payment_gateway must provide capture\(\)"):
+        build_online_services(
+            persistence,
+            invoice_render=invoice_render_config(),
+            payment_gateway=object(),
+            sepa_gateway=FakeSepaGateway(),
+            sepa_provider_id="provider-a",
+        )
+
+    with pytest.raises(TypeError, match=r"sepa_gateway must provide submit\(\)"):
+        build_online_services(
+            persistence,
+            invoice_render=invoice_render_config(),
+            payment_gateway=FakePaymentGateway(),
+            sepa_gateway=object(),
+            sepa_provider_id="provider-a",
+        )
