@@ -482,3 +482,37 @@ def test_legacy_active_invoice_delivery_lease_remains_locked_after_migration(
             ("invoice-42",),
         ).fetchone()
     assert row == ("pending", None)
+
+
+class MarkSentFailingState:
+    def __init__(self) -> None:
+        self.released = False
+
+    def claim(self, invoice_id: str) -> str | None:
+        return "owned-token"
+
+    def mark_sent(self, invoice_id: str, claim_token: str) -> None:
+        raise OSError("delivery state unavailable")
+
+    def release(self, invoice_id: str, claim_token: str) -> None:
+        self.released = True
+
+
+def test_successful_invoice_email_does_not_release_claim_if_mark_sent_fails(
+    tmp_path,
+) -> None:
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    sender = RecordingEmailSender()
+    state = MarkSentFailingState()
+    service = InvoiceAdminDeliveryService(
+        archive,
+        sender,
+        sender_address="solarcheck@mcm-solarcheck.de",
+        delivery_state=state,
+    )
+
+    with pytest.raises(OSError, match="delivery state unavailable"):
+        service.deliver("invoice-42", b"%PDF invoice")
+
+    assert len(sender.messages) == 1
+    assert state.released is False
