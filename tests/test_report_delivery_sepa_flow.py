@@ -107,7 +107,7 @@ def test_failed_report_delivery_blocks_sepa_submission(tmp_path) -> None:
 
 
 def test_successful_delivery_allows_idempotent_sepa_submission(tmp_path) -> None:
-    billing, _payments, gateway, submissions, sepa, delivery = setup_flow(tmp_path)
+    billing, _payments, gateway, submissions, _collections, sepa, delivery = setup_flow(tmp_path)
 
     delivery.deliver(
         "job-a",
