@@ -174,6 +174,16 @@ class SMTPAdminActions:
 
 class SMTPAdminService:
     def __init__(self, settings: SMTPSettingsStore, secrets: SMTPSecretStore) -> None:
+        required = (
+            (settings, "get", "settings"),
+            (settings, "save", "settings"),
+            (secrets, "is_set", "secrets"),
+            (secrets, "replace", "secrets"),
+            (secrets, "resolve_for_delivery", "secrets"),
+        )
+        for dependency, method, name in required:
+            if not callable(getattr(dependency, method, None)):
+                raise TypeError(f"{name} must provide {method}()")
         self._settings = settings
         self._secrets = secrets
 
