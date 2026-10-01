@@ -45,6 +45,29 @@ def setup_persistence(tmp_path, *, secret_configured: bool):
     )
 
 
+class FakePaymentGateway:
+    def capture(self, provider_reference: str, *, idempotency_key: str) -> None:
+        pass
+
+    def void(self, provider_reference: str, *, idempotency_key: str) -> None:
+        pass
+
+
+class FakeSepaGateway:
+    def submit(self, payment, mandate_reference: str, *, idempotency_key: str) -> str:
+        return "provider-sepa-reference"
+
+
+def online_services(persistence):
+    return build_online_services(
+        persistence,
+        invoice_render=invoice_render_config(),
+        payment_gateway=FakePaymentGateway(),
+        sepa_gateway=FakeSepaGateway(),
+        sepa_provider_id="provider-a",
+    )
+
+
 def invoice_render_config():
     return InvoiceRenderConfig(
         ("MCM-Dronetech GmbH",),
@@ -56,18 +79,12 @@ def test_online_services_fail_closed_without_smtp_secret(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=False)
 
     with pytest.raises(RuntimeError, match="SMTP password is not configured"):
-        build_online_services(
-            persistence,
-            invoice_render=invoice_render_config(),
-        )
+        online_services(persistence)
 
 
 def test_online_services_share_authoritative_persistence(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=True)
-    services = build_online_services(
-        persistence,
-        invoice_render=invoice_render_config(),
-    )
+    services = online_services(persistence)
 
     services.billing.create(
         "job-a",
@@ -80,3 +97,38 @@ def test_online_services_share_authoritative_persistence(tmp_path) -> None:
     assert services.report_delivery._reports is persistence.reports
     assert services.payment_execution._sepa_submissions is persistence.sepa_submissions
     assert services.smtp_admin.status().password_is_set is True
+
+
+def test_online_services_require_payment_gateways(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+
+    with pytest.raises(TypeError, match="payment_gateway is required"):
+        build_online_services(
+            persistence,
+            invoice_render=invoice_render_config(),
+            payment_gateway=None,
+            sepa_gateway=FakeSepaGateway(),
+            sepa_provider_id="provider-a",
+        )
+
+    with pytest.raises(TypeError, match="sepa_gateway is required"):
+        build_online_services(
+            persistence,
+            invoice_render=invoice_render_config(),
+            payment_gateway=FakePaymentGateway(),
+            sepa_gateway=None,
+            sepa_provider_id="provider-a",
+        )
+
+
+def test_online_payment_services_use_durable_operation_state(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+
+    assert services.payment_capture._payments is persistence.payments
+    assert services.payment_capture._billing is persistence.billing
+    assert services.payment_capture._operation_intents is persistence.payment_operations
+    assert services.payment_void._operation_intents is persistence.payment_operations
+    assert services.sepa_payment._submissions is persistence.sepa_submissions
+    assert services.sepa_payment._collections is persistence.sepa_collections
+    assert services.sepa_payment._billing is persistence.billing
