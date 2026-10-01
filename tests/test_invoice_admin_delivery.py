@@ -264,3 +264,22 @@ def test_mismatched_partial_invoice_package_is_rejected(tmp_path) -> None:
     assert archive.path_for("invoice-42").read_bytes() == b"%PDF different"
     assert archive.csv_path_for("invoice-42").exists() is False
     assert archive.package_is_ready("invoice-42") is False
+
+
+@pytest.mark.parametrize("missing_component", ["pdf", "csv"])
+def test_ready_marker_requires_both_invoice_package_components(
+    tmp_path, missing_component
+) -> None:
+    archive = FileSystemInvoiceArchive(tmp_path / "private" / "invoices")
+    invoice_id = "invoice-42"
+    archive.root.mkdir(parents=True, exist_ok=True)
+    archive.ready_path_for(invoice_id).write_bytes(b"ready\n")
+
+    if missing_component != "pdf":
+        archive.path_for(invoice_id).write_bytes(b"%PDF invoice")
+    if missing_component != "csv":
+        archive.csv_path_for(invoice_id).write_bytes(
+            b"invoice_id;item_number\ninvoice-42;81011\n"
+        )
+
+    assert archive.package_is_ready(invoice_id) is False
