@@ -7,6 +7,11 @@ from typing import Protocol
 
 from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
 from mcm_solarcheck.services.payment_routing import PaymentProviderRoutingService
+from mcm_solarcheck.services.payment_authorization_intent import (
+    PaymentAuthorizationIntent,
+    PaymentAuthorizationIntentStatus,
+    PaymentAuthorizationIntentStore,
+)
 
 
 @dataclass(frozen=True)
@@ -55,6 +60,7 @@ class PaymentAuthorizationService:
         gateway: PaymentGateway,
         routing: PaymentProviderRoutingService | None = None,
         provider_id: str | None = None,
+        intents: PaymentAuthorizationIntentStore | None = None,
     ) -> None:
         if (routing is None) != (provider_id is None):
             raise ValueError("routing and provider_id must be configured together")
@@ -62,6 +68,7 @@ class PaymentAuthorizationService:
         self._gateway = gateway
         self._routing = routing
         self._provider_id = provider_id
+        self._intents = intents
 
     def authorize(
         self, payment_id: str, *, user_id: str, project_id: str
@@ -79,13 +86,35 @@ class PaymentAuthorizationService:
         if self._routing is not None:
             self._routing.require_provider(payment, self._provider_id)
 
-        result = self._gateway.authorize(
-            payment,
-            idempotency_key=payment_idempotency_key(payment_id, "authorize"),
-        )
-        return self._payments.authorize(
+        idempotency_key = payment_idempotency_key(payment_id, "authorize")
+        intent = None
+        if self._intents is not None:
+            intent = self._intents.reserve(
+                PaymentAuthorizationIntent(payment_id, idempotency_key)
+            )
+
+        if (
+            intent is not None
+            and intent.status is not PaymentAuthorizationIntentStatus.RESERVED
+        ):
+            provider_reference = intent.provider_reference
+        else:
+            result = self._gateway.authorize(
+                payment,
+                idempotency_key=idempotency_key,
+            )
+            provider_reference = result.provider_reference
+            if self._intents is not None:
+                self._intents.mark_provider_succeeded(
+                    payment_id, provider_reference
+                )
+
+        authorized = self._payments.authorize(
             payment_id,
             user_id,
             project_id,
-            result.provider_reference,
+            provider_reference,
         )
+        if self._intents is not None:
+            self._intents.mark_completed(payment_id)
+        return authorized
