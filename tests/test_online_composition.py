@@ -46,6 +46,11 @@ def setup_persistence(tmp_path, *, secret_configured: bool):
 
 
 class FakePaymentGateway:
+    def authorize(self, payment, *, idempotency_key: str):
+        from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationResult
+
+        return PaymentAuthorizationResult("provider-payment-reference")
+
     def capture(self, provider_reference: str, *, idempotency_key: str) -> None:
         pass
 
@@ -125,6 +130,8 @@ def test_online_payment_services_use_durable_operation_state(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=True)
     services = online_services(persistence)
 
+    assert services.payment_authorization._payments is persistence.payments
+    assert services.payment_authorization._gateway is services.payment_capture._gateway
     assert services.payment_capture._payments is persistence.payments
     assert services.payment_capture._billing is persistence.billing
     assert services.payment_capture._operation_intents is persistence.payment_operations
@@ -137,7 +144,7 @@ def test_online_payment_services_use_durable_operation_state(tmp_path) -> None:
 def test_online_services_reject_malformed_payment_gateways(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=True)
 
-    with pytest.raises(TypeError, match=r"payment_gateway must provide capture\(\)"):
+    with pytest.raises(TypeError, match=r"payment_gateway must provide authorize\(\)"):
         build_online_services(
             persistence,
             invoice_render=invoice_render_config(),
