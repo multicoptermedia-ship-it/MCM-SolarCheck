@@ -81,6 +81,7 @@ def render_invoice_pdf(
         str(destination), pagesize=A4,
         rightMargin=18 * mm, leftMargin=18 * mm,
         topMargin=16 * mm, bottomMargin=16 * mm,
+        invariant=1,
     ).build(story)
     return destination
 
