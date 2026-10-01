@@ -403,3 +403,44 @@ def test_expired_invoice_delivery_claim_cannot_mutate_new_owner(tmp_path) -> Non
     assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
     new_worker.mark_sent("invoice-42", new_token)
     assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
+
+
+def test_legacy_invoice_delivery_database_migrates_and_reclaims_expired_lease(
+    tmp_path,
+) -> None:
+    database = tmp_path / "invoice-delivery.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE invoice_admin_delivery (
+                invoice_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                lease_until REAL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO invoice_admin_delivery (invoice_id, status, lease_until)
+            VALUES (?, 'pending', 0)
+            """,
+            ("invoice-42",),
+        )
+
+    migrated = SQLiteInvoiceAdminDeliveryStore(database)
+    token = migrated.claim("invoice-42")
+
+    assert token is not None
+    with sqlite3.connect(database) as connection:
+        row = connection.execute(
+            """
+            SELECT status, claim_token
+            FROM invoice_admin_delivery
+            WHERE invoice_id = ?
+            """,
+            ("invoice-42",),
+        ).fetchone()
+    assert row == ("pending", token)
+
+    migrated.mark_sent("invoice-42", token)
+    assert SQLiteInvoiceAdminDeliveryStore(database).claim("invoice-42") is None
