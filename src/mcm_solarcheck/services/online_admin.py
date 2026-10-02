@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from mcm_solarcheck.services.online_admin_readiness import (
     ConfigurationReadiness,
     ConfigurationStatus,
+    _configured,
     OnlineAdminReadiness,
     OnlineAdminReadinessService,
 )
@@ -56,10 +57,10 @@ class OnlineAdminActions:
             readiness=self._readiness.status(),
             smtp=self._smtp.load(),
             payment_provider=ConfigurationStatus(
-                configured=bool(self._payment_provider.is_configured())
+                configured=_configured(self._payment_provider)
             ),
             sepa_provider=ConfigurationStatus(
-                configured=bool(self._sepa_provider.is_configured())
+                configured=_configured(self._sepa_provider)
             ),
         )
 
