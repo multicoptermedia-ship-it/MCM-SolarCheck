@@ -48,6 +48,15 @@ class SepaReconciliationStore(Protocol):
     ) -> SepaCollection:
         ...
 
+    def apply_provider_event(
+        self,
+        provider_id: str,
+        provider_reference: str,
+        *,
+        target: SepaCollectionStatus,
+    ) -> SepaCollection:
+        ...
+
 
 class SepaReconciliationService:
     def __init__(self, collections: SepaReconciliationStore) -> None:
@@ -61,6 +70,14 @@ class SepaReconciliationService:
         )
 
     def apply(self, event: SepaProviderEvent) -> SepaCollection:
+        atomic_apply = getattr(self._collections, "apply_provider_event", None)
+        if callable(atomic_apply):
+            return atomic_apply(
+                event.provider_id,
+                event.provider_reference,
+                target=event.status,
+            )
+
         collection = self._collections.get_by_provider_reference(
             event.provider_id,
             event.provider_reference,
@@ -68,9 +85,9 @@ class SepaReconciliationService:
         if collection.status is event.status:
             return collection
 
-        # Provider webhooks are not guaranteed to arrive in lifecycle order.
-        # Once collection has reached a successful/returned terminal path,
-        # stale progress/failure events must not regress durable state.
+        # Non-transactional stores retain the same ordering contract. Durable
+        # stores should implement apply_provider_event() so this decision and
+        # the state mutation happen under one lock.
         stale_after_terminal = {
             SepaCollectionStatus.SUCCEEDED: {
                 SepaCollectionStatus.PENDING,
