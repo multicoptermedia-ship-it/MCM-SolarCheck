@@ -322,3 +322,53 @@ def test_online_payment_storage_schema_stays_payment_metadata_only(tmp_path) -> 
         "tariff_version",
         "plant_kwp",
     ]
+
+
+def test_oldest_payment_schema_migrates_all_optional_columns_and_restarts(tmp_path) -> None:
+    database = tmp_path / "oldest-payment.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE online_payments (
+                payment_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                job_id TEXT NOT NULL,
+                amount_minor_units INTEGER,
+                currency TEXT,
+                status TEXT NOT NULL,
+                provider_reference TEXT
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO online_payments VALUES (
+                'legacy-payment', 'user-a', 'project-a', 'job-legacy',
+                12900, 'EUR', 'created', NULL
+            )
+            """
+        )
+
+    first = SQLiteOnlinePaymentStore(database)
+    legacy = first.get("legacy-payment")
+    assert legacy.method is None
+    assert legacy.merchant_account_id is None
+    assert legacy.merchant_account_version is None
+    assert legacy.provider_id is None
+    assert legacy.tariff_version is None
+    assert legacy.plant_kwp is None
+
+    restarted = SQLiteOnlinePaymentStore(database)
+    assert restarted.get("legacy-payment") == legacy
+
+    columns = {
+        row[1]
+        for row in sqlite3.connect(database).execute(
+            "PRAGMA table_info(online_payments)"
+        )
+    }
+    assert {
+        "method", "merchant_account_id", "merchant_account_version",
+        "provider_id", "tariff_version", "plant_kwp",
+    } <= columns
