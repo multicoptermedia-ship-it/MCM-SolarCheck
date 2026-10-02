@@ -117,6 +117,74 @@ class SQLiteSepaCollectionStore:
             SepaCollectionStatus(row[5]),
         )
 
+    def apply_provider_event(
+        self,
+        provider_id: str,
+        provider_reference: str,
+        *,
+        target: SepaCollectionStatus,
+    ) -> SepaCollection:
+        """Apply provider status ordering atomically with the durable transition."""
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT collection_id, payment_id, user_id, project_id, status
+                FROM sepa_collections
+                WHERE provider_id = ? AND provider_reference = ?
+                """,
+                (provider_id, provider_reference),
+            ).fetchone()
+            if row is None:
+                raise KeyError((provider_id, provider_reference))
+
+            current = SepaCollection(
+                row[0], row[1], row[2], row[3], provider_id,
+                provider_reference, SepaCollectionStatus(row[4]),
+            )
+            if current.status is target:
+                connection.commit()
+                return current
+
+            stale_after_terminal = {
+                SepaCollectionStatus.SUCCEEDED: {
+                    SepaCollectionStatus.PENDING,
+                    SepaCollectionStatus.FAILED,
+                },
+                SepaCollectionStatus.RETURNED: {
+                    SepaCollectionStatus.PENDING,
+                    SepaCollectionStatus.SUCCEEDED,
+                    SepaCollectionStatus.FAILED,
+                },
+            }
+            if target in stale_after_terminal.get(current.status, set()):
+                connection.commit()
+                return current
+
+            transitions = {
+                SepaCollectionStatus.PENDING: current.pending,
+                SepaCollectionStatus.SUCCEEDED: current.succeed,
+                SepaCollectionStatus.FAILED: current.fail,
+                SepaCollectionStatus.RETURNED: current.returned,
+            }
+            try:
+                updated = transitions[target]()
+            except KeyError:
+                raise ValueError("unsupported SEPA collection transition") from None
+
+            connection.execute(
+                "UPDATE sepa_collections SET status = ? WHERE collection_id = ?",
+                (updated.status.value, current.collection_id),
+            )
+            connection.commit()
+            return updated
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def transition(
         self,
         collection_id: str,
