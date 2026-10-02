@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timezone
 
 import pytest
 
@@ -41,6 +42,8 @@ def test_online_persistence_uses_one_private_state_database(tmp_path) -> None:
     )
 
     database_backed = (
+        persistence.registrations,
+        persistence.compute_jobs,
         persistence.billing,
         persistence.payments,
         persistence.payment_operations,
@@ -70,6 +73,10 @@ def test_online_persistence_uses_one_private_state_database(tmp_path) -> None:
         }
 
     assert {
+        "online_registrations",
+        "email_verifications",
+        "registration_notification_outbox",
+        "compute_jobs",
         "compute_job_billing",
         "online_payments",
         "payment_operation_intents",
