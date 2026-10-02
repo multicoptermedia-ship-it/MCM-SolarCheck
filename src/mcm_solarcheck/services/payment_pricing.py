@@ -25,6 +25,7 @@ class VoucherRedemptionStore(Protocol):
         payment_id: str,
         *,
         discount_percent: int,
+        policy_version: int,
         now: datetime,
     ) -> FlightPlanVoucher:
         ...
@@ -37,6 +38,7 @@ class AtomicPricedPaymentStore(Protocol):
         *,
         voucher_code: str,
         discount_percent: int,
+        policy_version: int,
         now: datetime,
     ) -> FlightPlanVoucher:
         ...
@@ -77,6 +79,7 @@ class PaymentPricingService:
     ) -> OnlinePayment:
         amount = base_amount
         discount_percent: int | None = None
+        policy_version: int | None = None
         if voucher_code is not None:
             policy = (
                 self._voucher_policy.current()
@@ -86,6 +89,7 @@ class PaymentPricingService:
             if not policy.active:
                 raise ValueError("voucher policy is inactive")
             discount_percent = policy.discount_percent
+            policy_version = policy.version
             if self._atomic_store is None:
                 raise ValueError(
                     "voucher payment requires atomic payment persistence"
@@ -115,6 +119,7 @@ class PaymentPricingService:
                 payment,
                 voucher_code=voucher_code,
                 discount_percent=discount_percent,
+                policy_version=policy_version,
                 now=now,
             )
         else:
