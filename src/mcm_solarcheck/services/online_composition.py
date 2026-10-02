@@ -76,7 +76,7 @@ class OnlineServices:
     smtp_admin: SMTPAdminService
     admin_readiness: OnlineAdminReadinessService
     admin: OnlineAdminActions
-    production: OnlineProductionActivation
+    production: OnlineProductionActivation | None = None
 
     def require_production_ready(self) -> None:
         """Fail closed before enabling customer-facing commercial operation."""
@@ -84,10 +84,14 @@ class OnlineServices:
 
     def activate_production(self) -> None:
         """Explicitly activate customer-facing operation after all readiness gates."""
+        if self.production is None:
+            object.__setattr__(self, "production", OnlineProductionActivation(self))
         self.production.activate()
 
     def require_production_active(self) -> None:
         """Fail closed at customer-facing deployment entry boundaries."""
+        if self.production is None:
+            raise RuntimeError("SolarCheck Online production operation is not active")
         self.production.require_active()
 
 
@@ -173,7 +177,6 @@ def build_online_services(
         persistence.tariffs,
         persistence.merchant_accounts,
     )
-    production = OnlineProductionActivation(admin_readiness)
     admin = OnlineAdminActions(
         admin_readiness,
         SMTPAdminActions(
@@ -276,5 +279,4 @@ def build_online_services(
         smtp_admin=smtp_admin,
         admin_readiness=admin_readiness,
         admin=admin,
-        production=production,
     )
