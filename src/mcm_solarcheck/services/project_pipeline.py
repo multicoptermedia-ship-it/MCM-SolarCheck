@@ -11,6 +11,7 @@ from mcm_solarcheck.storage.queries import InspectionQueries, ProjectRecord
 from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, action_availability, record_attempt, require_action
 from mcm_solarcheck.services.product_entitlements import ProductCapabilities, ProductOperation, effective_output_availability
 from mcm_solarcheck.reporting.export import export_report
+from mcm_solarcheck.reporting.report_assembler import assemble_inspection_report
 
 
 @dataclass(frozen=True)
@@ -177,6 +178,29 @@ class ProjectApplicationService:
             workflow_blockers=workflow.blockers,
         )
 
+
+
+    def prepare_report(
+        self,
+        project_id: str,
+        report_id: str,
+        inspection_started_at,
+        *,
+        release_status: str = "draft",
+        asset_dir=None,
+        operator_profile=None,
+    ):
+        """Assemble a report only when persisted workflow evidence permits it."""
+        self.require(project_id, WorkflowAction.PREPARE_REPORT)
+        return assemble_inspection_report(
+            self.database,
+            project_id,
+            report_id,
+            inspection_started_at,
+            release_status=release_status,
+            asset_dir=asset_dir,
+            operator_profile=operator_profile,
+        )
 
 
     def export_report(
