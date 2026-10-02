@@ -482,3 +482,83 @@ def test_atomic_priced_payment_store_rejects_wal_voucher_database(tmp_path) -> N
 
     with pytest.raises(ValueError, match="does not support WAL"):
         SQLitePricedPaymentStore(payments.database, vouchers.database)
+
+
+def test_voucher_redemption_snapshots_persisted_policy_version(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    policies = SQLiteFlightPlanVoucherPolicyStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(
+        FlightPlanVoucher(
+            "FLIGHTPLAN-POLICY-V2",
+            now - timedelta(days=1),
+            now + timedelta(days=30),
+        )
+    )
+    policies.save(FlightPlanVoucherPolicy())
+    policies.save(FlightPlanVoucherPolicy().supersede())
+
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        policies,
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+    service.create_payment(
+        "payment-policy-v2",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-policy-v2",
+        base_amount=PaymentAmount(50000, "EUR"),
+        voucher_code="FLIGHTPLAN-POLICY-V2",
+        now=now,
+    )
+
+    redeemed = vouchers.get("FLIGHTPLAN-POLICY-V2")
+    assert redeemed.redeemed_discount_percent == 10
+    assert redeemed.redeemed_policy_version == 2
+    assert policies.get(redeemed.redeemed_policy_version).discount_percent == 10
+
+
+def test_legacy_voucher_schema_migrates_without_inventing_policy_version(tmp_path) -> None:
+    database = tmp_path / "legacy-vouchers.sqlite"
+    now = datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc)
+    connection = sqlite3.connect(database)
+    connection.execute(
+        """
+        CREATE TABLE flightplan_vouchers (
+            code TEXT PRIMARY KEY,
+            valid_from TEXT NOT NULL,
+            valid_until TEXT NOT NULL,
+            redeemed_payment_id TEXT,
+            redeemed_at TEXT,
+            redeemed_discount_percent INTEGER
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO flightplan_vouchers (
+            code, valid_from, valid_until, redeemed_payment_id,
+            redeemed_at, redeemed_discount_percent
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "FLIGHTPLAN-LEGACY",
+            (now - timedelta(days=1)).isoformat(),
+            (now + timedelta(days=30)).isoformat(),
+            "payment-legacy",
+            now.isoformat(),
+            10,
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    vouchers = SQLiteFlightPlanVoucherStore(database)
+    legacy = vouchers.get("FLIGHTPLAN-LEGACY")
+
+    assert legacy.redeemed_payment_id == "payment-legacy"
+    assert legacy.redeemed_discount_percent == 10
+    assert legacy.redeemed_policy_version is None
