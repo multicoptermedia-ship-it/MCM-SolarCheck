@@ -68,6 +68,23 @@ class SepaReconciliationService:
         if collection.status is event.status:
             return collection
 
+        # Provider webhooks are not guaranteed to arrive in lifecycle order.
+        # Once collection has reached a successful/returned terminal path,
+        # stale progress/failure events must not regress durable state.
+        stale_after_terminal = {
+            SepaCollectionStatus.SUCCEEDED: {
+                SepaCollectionStatus.PENDING,
+                SepaCollectionStatus.FAILED,
+            },
+            SepaCollectionStatus.RETURNED: {
+                SepaCollectionStatus.PENDING,
+                SepaCollectionStatus.SUCCEEDED,
+                SepaCollectionStatus.FAILED,
+            },
+        }
+        if event.status in stale_after_terminal.get(collection.status, set()):
+            return collection
+
         return self._collections.transition(
             collection.collection_id,
             user_id=collection.user_id,
