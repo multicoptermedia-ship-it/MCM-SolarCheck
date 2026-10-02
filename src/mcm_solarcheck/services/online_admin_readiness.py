@@ -22,7 +22,15 @@ class ConfigurationReadiness(Protocol):
         ...
 
     def status(self) -> ConfigurationStatus:
-        return ConfigurationStatus(configured=bool(self.is_configured()))
+        return ConfigurationStatus(configured=_configured(self))
+
+
+def _configured(readiness: ConfigurationReadiness) -> bool:
+    """Fail closed when a readiness adapter violates its boolean contract."""
+    configured = readiness.is_configured()
+    if type(configured) is not bool:
+        raise TypeError("is_configured() must return bool")
+    return configured
 
 
 @dataclass(frozen=True)
@@ -87,8 +95,6 @@ class OnlineAdminReadinessService:
         )
         return OnlineAdminReadiness(
             smtp_configured=smtp_configured,
-            payment_provider_configured=bool(
-                self._payment_provider.is_configured()
-            ),
-            sepa_provider_configured=bool(self._sepa_provider.is_configured()),
+            payment_provider_configured=_configured(self._payment_provider),
+            sepa_provider_configured=_configured(self._sepa_provider),
         )
