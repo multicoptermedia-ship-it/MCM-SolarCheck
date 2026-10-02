@@ -23,6 +23,7 @@ class FlightPlanVoucher:
     redeemed_payment_id: str | None = None
     redeemed_at: datetime | None = None
     redeemed_discount_percent: int | None = None
+    redeemed_policy_version: int | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.code, str) or not self.code.strip():
@@ -45,13 +46,24 @@ class FlightPlanVoucher:
             _require_utc(self.redeemed_at, "redeemed_at")
         if self.redeemed_discount_percent is not None:
             _require_discount_percent(self.redeemed_discount_percent)
+        if self.redeemed_policy_version is not None and (
+            not isinstance(self.redeemed_policy_version, int)
+            or isinstance(self.redeemed_policy_version, bool)
+            or self.redeemed_policy_version <= 0
+        ):
+            raise ValueError("redeemed_policy_version must be a positive integer")
 
     @property
     def redeemed(self) -> bool:
         return self.redeemed_payment_id is not None
 
     def redeem(
-        self, payment_id: str, *, discount_percent: int, now: datetime
+        self,
+        payment_id: str,
+        *,
+        discount_percent: int,
+        now: datetime,
+        policy_version: int | None = None,
     ) -> "FlightPlanVoucher":
         _require_utc(now, "now")
         _require_discount_percent(discount_percent)
@@ -68,6 +80,7 @@ class FlightPlanVoucher:
             payment_id.strip(),
             now,
             discount_percent,
+            policy_version,
         )
 
 
