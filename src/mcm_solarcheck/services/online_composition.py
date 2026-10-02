@@ -39,10 +39,25 @@ from mcm_solarcheck.services.smtp_admin import (
 )
 
 
+class EntitledComputeJobService:
+    """Online-only gate that requires durable product access before job creation."""
+
+    def __init__(self, jobs: ComputeJobService, entitlements) -> None:
+        self._jobs = jobs
+        self._entitlements = entitlements
+
+    def create(self, *, job_id: str, user_id: str, project_id: str):
+        self._entitlements.require_active(user_id)
+        return self._jobs.create(job_id=job_id, user_id=user_id, project_id=project_id)
+
+    def __getattr__(self, name):
+        return getattr(self._jobs, name)
+
+
 @dataclass(frozen=True)
 class OnlineServices:
     registration: OnlineRegistrationService
-    compute_jobs: ComputeJobService
+    compute_jobs: EntitledComputeJobService
     billing: ComputeJobBillingService
     report_delivery: ReportDeliveryService
     report_recovery: ReportRecoveryService
@@ -95,14 +110,16 @@ def build_online_services(
             notify_to="solarcheck@mcm-dronetech.com",
             public_base_url=public_base_url,
         ),
+        entitlements=persistence.entitlements,
     )
 
-    compute_jobs = ComputeJobService(
+    compute_jobs_core = ComputeJobService(
         persistence.compute_jobs,
         load=persistence.compute_jobs,
         admission=persistence.compute_jobs,
         claims=persistence.compute_jobs,
     )
+    compute_jobs = EntitledComputeJobService(compute_jobs_core, persistence.entitlements)
     billing = ComputeJobBillingService(persistence.billing, persistence.compute_jobs)
     report_delivery = ReportDeliveryService(persistence.billing, persistence.reports)
     report_notifications = ReportRecoveryNotificationService(
