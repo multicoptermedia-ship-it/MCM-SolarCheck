@@ -917,3 +917,94 @@ def test_online_sepa_checkout_delivery_submission_and_reconciliation_end_to_end(
     assert reconciled.status is SepaCollectionStatus.SUCCEEDED
     assert persistence.sepa_collections.get("sepa:payment-sepa-e2e").status is SepaCollectionStatus.SUCCEEDED
     assert persistence.payments.get("payment-sepa-e2e") == payment
+
+
+def test_online_failed_report_delivery_keeps_billing_unreleased_and_payment_authorized(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.payment import PaymentStatus
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-delivery-failure")
+    persistence.merchant_accounts.save(
+        MerchantAccount(
+            "merchant-delivery-failure",
+            "provider-a",
+            MerchantAccountKind.CARD_PROCESSOR,
+            "card merchant",
+        )
+    )
+    persistence.tariffs.save(
+        initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc))
+    )
+    services = online_services(persistence)
+
+    services.compute_jobs.create(
+        job_id="job-delivery-failure",
+        user_id="user-delivery-failure",
+        project_id="project-delivery-failure",
+    )
+    services.compute_jobs.start(
+        "job-delivery-failure",
+        user_id="user-delivery-failure",
+        project_id="project-delivery-failure",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+    services.compute_jobs.transition(
+        "job-delivery-failure",
+        ComputeJobStatus.COMPLETED,
+        user_id="user-delivery-failure",
+        project_id="project-delivery-failure",
+    )
+    services.billing.create(
+        "job-delivery-failure",
+        user_id="user-delivery-failure",
+        project_id="project-delivery-failure",
+    )
+    authorized = services.payment_checkout.checkout(
+        "payment-delivery-failure",
+        user_id="user-delivery-failure",
+        project_id="project-delivery-failure",
+        job_id="job-delivery-failure",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-delivery-failure",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
+    services.billing.mark_export_completed(
+        "job-delivery-failure",
+        user_id="user-delivery-failure",
+        project_id="project-delivery-failure",
+    )
+    persistence.reports.path_for("job-delivery-failure").write_bytes(
+        b"delivery-failure-report"
+    )
+
+    def fail_send(_report) -> None:
+        raise RuntimeError("delivery transport failed")
+
+    with pytest.raises(RuntimeError, match="delivery transport failed"):
+        services.report_delivery.deliver(
+            "job-delivery-failure",
+            user_id="user-delivery-failure",
+            project_id="project-delivery-failure",
+            send=fail_send,
+        )
+
+    billing = persistence.billing.get("job-delivery-failure")
+    payment = persistence.payments.get("payment-delivery-failure")
+    assert authorized.status is PaymentStatus.AUTHORIZED
+    assert billing.delivery.export_completed is True
+    assert billing.delivery.report_retrieved is False
+    assert billing.billing_released is False
+    assert payment.status is PaymentStatus.AUTHORIZED
+
+    with pytest.raises(ValueError, match="export and report retrieval"):
+        services.payment_capture.capture(
+            "payment-delivery-failure",
+            user_id="user-delivery-failure",
+            project_id="project-delivery-failure",
+        )
