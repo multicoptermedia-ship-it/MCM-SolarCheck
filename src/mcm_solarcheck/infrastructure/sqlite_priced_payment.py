@@ -58,6 +58,7 @@ class SQLitePricedPaymentStore:
         *,
         voucher_code: str,
         discount_percent: int,
+        policy_version: int,
         now: datetime,
     ) -> FlightPlanVoucher:
         connection = sqlite3.connect(self.payment_database, timeout=30)
@@ -68,7 +69,8 @@ class SQLitePricedPaymentStore:
             row = connection.execute(
                 """
                 SELECT valid_from, valid_until, redeemed_payment_id,
-                       redeemed_at, redeemed_discount_percent
+                       redeemed_at, redeemed_discount_percent,
+                       redeemed_policy_version
                 FROM vouchers.flightplan_vouchers
                 WHERE code = ?
                 """,
@@ -83,11 +85,13 @@ class SQLitePricedPaymentStore:
                 row[2],
                 datetime.fromisoformat(row[3]) if row[3] is not None else None,
                 row[4],
+                row[5],
             )
             redeemed = current.redeem(
                 payment.payment_id,
                 discount_percent=discount_percent,
                 now=now,
+                policy_version=policy_version,
             )
             existing_job = connection.execute(
                 """
@@ -129,13 +133,15 @@ class SQLitePricedPaymentStore:
                 """
                 UPDATE vouchers.flightplan_vouchers
                 SET redeemed_payment_id = ?, redeemed_at = ?,
-                    redeemed_discount_percent = ?
+                    redeemed_discount_percent = ?,
+                    redeemed_policy_version = ?
                 WHERE code = ?
                 """,
                 (
                     redeemed.redeemed_payment_id,
                     redeemed.redeemed_at.isoformat(),
                     redeemed.redeemed_discount_percent,
+                    redeemed.redeemed_policy_version,
                     normalized,
                 ),
             )
