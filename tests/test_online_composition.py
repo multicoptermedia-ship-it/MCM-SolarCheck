@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 
+from mcm_solarcheck.services.compute_jobs import ComputeJobStatus
+
 from mcm_solarcheck.infrastructure.online_persistence import build_online_persistence
 from mcm_solarcheck.infrastructure.online_private_paths import OnlinePrivatePaths
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPSecurity
@@ -113,6 +115,23 @@ def test_online_services_share_authoritative_persistence(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=True)
     services = online_services(persistence)
 
+    services.compute_jobs.create(
+        job_id="job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+    services.compute_jobs.transition(
+        "job-a",
+        ComputeJobStatus.RUNNING,
+        user_id="user-a",
+        project_id="project-a",
+    )
+    services.compute_jobs.transition(
+        "job-a",
+        ComputeJobStatus.COMPLETED,
+        user_id="user-a",
+        project_id="project-a",
+    )
     services.billing.create(
         "job-a",
         user_id="user-a",
