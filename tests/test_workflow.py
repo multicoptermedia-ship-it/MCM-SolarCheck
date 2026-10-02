@@ -462,3 +462,61 @@ def test_application_prepare_report_builds_ready_reviewed_project(tmp_path):
     assert report.report_id == "R-READY"
     assert report.project_id == "P1"
     assert report.customer_name == "Customer"
+
+
+
+def test_application_review_rejects_project_without_reviewable_evidence(tmp_path):
+    from datetime import datetime, timezone
+    from mcm_solarcheck.domain.models import Finding
+    from mcm_solarcheck.review.findings import ReviewStatus
+
+    database = _database(tmp_path)
+    service = ProjectApplicationService(database)
+    finding = Finding("F1", "T1", 1, 2)
+
+    with pytest.raises(ValueError, match="review action is blocked"):
+        service.review_finding(
+            "P1",
+            finding,
+            status=ReviewStatus.CONFIRMED,
+            reviewer="Inspector",
+            reviewed_at_utc=datetime(2026, 10, 2, 12, tzinfo=timezone.utc),
+        )
+
+    assert database.queries.findings("P1") == ()
+
+
+def test_application_review_persists_human_decision_and_rederives_state(tmp_path):
+    from datetime import datetime, timezone
+    from mcm_solarcheck.domain.models import Finding
+    from mcm_solarcheck.review.findings import ReviewStatus
+
+    database = _database_with_finding(
+        tmp_path, status="unreviewed", module_id="M1"
+    )
+    service = ProjectApplicationService(database)
+    finding = Finding(
+        "F1",
+        "T1",
+        1,
+        2,
+        module_id="M1",
+        reviewer_status="unreviewed",
+    )
+
+    reviewed, audit, state = service.review_finding(
+        "P1",
+        finding,
+        status=ReviewStatus.CONFIRMED,
+        reviewer="Inspector",
+        note="Confirmed from evidence",
+        reviewed_at_utc=datetime(2026, 10, 2, 12, tzinfo=timezone.utc),
+    )
+
+    assert reviewed.reviewer_status == "confirmed"
+    assert audit.status is ReviewStatus.CONFIRMED
+    persisted = database.queries.findings("P1")
+    assert len(persisted) == 1
+    assert persisted[0].reviewer_status == "confirmed"
+    assert state.readiness(WorkflowStage.REPORT).ready is True
+    assert state.readiness(WorkflowStage.EXPORT).ready is True
