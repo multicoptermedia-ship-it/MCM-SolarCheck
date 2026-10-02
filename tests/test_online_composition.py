@@ -463,3 +463,99 @@ def test_online_checkout_uses_composed_tariff_merchant_and_payment_state(tmp_pat
     assert payment.merchant_account_version == 1
     assert payment.provider_id == "provider-a"
     assert persistence.payments.get("payment-checkout-e2e") == payment
+
+
+def test_online_card_checkout_delivery_and_capture_end_to_end(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.payment import PaymentAmount, PaymentStatus
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.merchant_accounts.save(
+        MerchantAccount(
+            "merchant-card-e2e",
+            "provider-a",
+            MerchantAccountKind.CARD_PROCESSOR,
+            "merchant display",
+        )
+    )
+    persistence.tariffs.save(
+        initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc))
+    )
+    services = online_services(persistence)
+
+    services.compute_jobs.create(
+        job_id="job-card-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+    services.compute_jobs.start(
+        "job-card-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+    services.compute_jobs.transition(
+        "job-card-e2e",
+        ComputeJobStatus.COMPLETED,
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+    services.billing.create(
+        "job-card-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+
+    authorized = services.payment_checkout.checkout(
+        "payment-card-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+        job_id="job-card-e2e",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-card-e2e",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
+    assert authorized.status is PaymentStatus.AUTHORIZED
+    assert authorized.amount == PaymentAmount(14500, "EUR")
+
+    with pytest.raises(ValueError, match="export and report retrieval"):
+        services.payment_capture.capture(
+            "payment-card-e2e",
+            user_id="user-e2e",
+            project_id="project-e2e",
+        )
+
+    services.billing.mark_export_completed(
+        "job-card-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+    persistence.reports.path_for("job-card-e2e").write_bytes(b"card-e2e-report")
+    sent = []
+    released = services.report_delivery.deliver(
+        "job-card-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+        send=sent.append,
+    )
+    captured = services.payment_capture.capture(
+        "payment-card-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+
+    assert len(sent) == 1
+    assert sent[0].content == b"card-e2e-report"
+    assert released.delivery.billable is True
+    assert released.billing_released is True
+    assert captured.status is PaymentStatus.CAPTURED
+    assert captured.tariff_version == 1
+    assert captured.plant_kwp == 750
+    assert captured.merchant_account_id == "merchant-card-e2e"
+    assert captured.provider_id == "provider-a"
+    assert persistence.payments.get("payment-card-e2e") == captured
