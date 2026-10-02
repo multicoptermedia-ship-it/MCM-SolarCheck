@@ -27,13 +27,13 @@ Ein neuer Funktionsblock beginnt nicht, solange das vorherige Gate rot oder unge
 - Phase 10I: Voucher/Pricing System – Kernlogik und atomare Schutzmechanismen vorhanden.
 - Phase 10J: Payment/Webhook/Crash Safety – abgeschlossen.
 - Phase 10K: Persistence Migrations & Recovery Hardening – abgeschlossen.
-- Phase 10L: End-to-End Online Payment Integration – laufender Block.
-- Phase 10M: Operational Readiness / Deployment Gates – folgt erst nach vollständig grünem 10L.
+- Phase 10L: End-to-End Online Payment Integration – abgeschlossen.
+- Phase 10M: Operational Readiness / Deployment Gates – nächster Block.
 - Phase 11: öffentlicher Produktbetrieb / Expansion – nicht begonnen.
 
-## Phase 10L – verifizierter Teilstand
+## Phase 10L – abgeschlossen
 
-Die Teilblöcke **10L.1 bis 10L.9** sind implementiert und nach CI-Gate grün.
+Die End-to-End Online Payment Integration ist vollständig durch den vereinbarten Gesamtcheck gegangen.
 
 - 10L.1: Registration- und Compute-Persistenz produktiv komponiert.
 - 10L.2: Billing an autoritativ abgeschlossenen Compute Job gebunden.
@@ -44,8 +44,10 @@ Die Teilblöcke **10L.1 bis 10L.9** sind implementiert und nach CI-Gate grün.
 - 10L.7: verifiziertes Produkt-Entitlement persistent gemacht; Online-Compute-Erstellung erfordert aktives Entitlement.
 - 10L.8: Checkout erfordert einen zum Job, Nutzer und Projekt passenden Billing-Kontext; ohne diesen Kontext wird kein Payment erzeugt.
 - 10L.9: PayPal ist als vollständiger komponierter Authorize/Delivery-Release/Capture-Pfad verifiziert; Capture vor erfolgreicher Delivery bleibt gesperrt.
+- 10L.10: SEPA ist als eigener asynchroner Pricing/Checkout → Delivery Release → Submission → Reconciliation-Pfad produktiv komponiert; Pricing- und Merchant-Snapshots bleiben erhalten.
+- 10L.11: Fehlgeschlagene Reportzustellung lässt Report Retrieval und Billing Release aus und hält ein autorisiertes Payment unverändert; Capture bleibt gesperrt.
 
-Letztes verifiziertes Gate: 10L.9, GitHub Actions Run #1574, Python 3.11 und 3.12 erfolgreich.
+Gesamtcheck 10L: GitHub Actions Run #1582 auf PR #3 / Head `9e4f134`, Python 3.11 und 3.12 erfolgreich.
 
 ## Konsistente Online-Abfolge
 
@@ -75,15 +77,9 @@ Für SEPA gilt der eigene asynchrone Verarbeitungs- und Reconciliation-Pfad; er 
 - Voucher-Einlösung und Payment-Erzeugung sind atomar; 100%-Voucher vermeiden unnötige Provider-Aufrufe.
 - Persistierte Tarif-/Voucher-/Merchant-Snapshots schützen historische Payments vor späteren Konfigurationsänderungen.
 
-## Nächste Arbeit in 10L
+## Nächster Block: Phase 10M
 
-Die verbleibenden End-to-End-Pfade werden einzeln mit denselben Gates geschlossen. Priorität haben:
-
-1. SEPA als eigener asynchroner Online-Pfad einschließlich Reconciliation.
-2. Negativpfad: fehlgeschlagene Reportzustellung darf Billing Release und endgültige Zahlung nicht auslösen.
-3. Gesamtcheck von Phase 10L.
-
-Erst danach beginnt 10M.
+10M behandelt ausschließlich Operational Readiness und Deployment Gates. Die in 10L verifizierten fachlichen Payment-/Delivery-Sequenzen bleiben dabei unverändert und dürfen nicht durch Deployment- oder Admin-Hilfslogik umgangen werden.
 
 ## Spätere Produkt- und Release-Arbeitsströme
 
