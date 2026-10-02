@@ -30,7 +30,9 @@ from mcm_solarcheck.services.released_invoice import ReleasedInvoiceService
 from mcm_solarcheck.services.report_delivery import ReportDeliveryService
 from mcm_solarcheck.services.report_recovery import ReportRecoveryService
 from mcm_solarcheck.services.report_recovery_notification import ReportRecoveryNotificationService
+from mcm_solarcheck.services.sepa_checkout import OnlineSepaCheckoutService
 from mcm_solarcheck.services.sepa_payment import SepaPaymentGateway, SepaPaymentService
+from mcm_solarcheck.services.sepa_reconciliation import SepaReconciliationService
 from mcm_solarcheck.services.smtp_admin import (
     SMTPAdminActions,
     SMTPAdminAuthorization,
@@ -65,7 +67,9 @@ class OnlineServices:
     payment_authorization: PaymentAuthorizationService
     payment_capture: PaymentCaptureService
     payment_void: PaymentVoidService
+    sepa_checkout: OnlineSepaCheckoutService
     sepa_payment: SepaPaymentService
+    sepa_reconciliation: SepaReconciliationService
     payment_execution: PaymentExecutionEvidence
     invoice_creation: InvoiceCreationService
     smtp_admin: SMTPAdminService
@@ -174,14 +178,16 @@ def build_online_services(
         payment_gateway,
         intents=persistence.payment_authorizations,
     )
+    payment_pricing = PaymentPricingService(
+        persistence.payments,
+        persistence.vouchers,
+        persistence.voucher_policy,
+        persistence.priced_payments,
+    )
+    merchant_binding = MerchantAccountBindingService(persistence.merchant_accounts)
     payment_checkout = OnlinePaymentCheckoutService(
-        PaymentPricingService(
-            persistence.payments,
-            persistence.vouchers,
-            persistence.voucher_policy,
-            persistence.priced_payments,
-        ),
-        MerchantAccountBindingService(persistence.merchant_accounts),
+        payment_pricing,
+        merchant_binding,
         payment_providers,
         payment_authorization,
         persistence.payments,
@@ -199,6 +205,14 @@ def build_online_services(
         payment_gateway,
         persistence.payment_operations,
     )
+    sepa_checkout = OnlineSepaCheckoutService(
+        payment_pricing,
+        merchant_binding,
+        payment_providers,
+        persistence.payments,
+        persistence.tariffs,
+        persistence.billing,
+    )
     sepa_payment = SepaPaymentService(
         persistence.payments,
         persistence.sepa_mandates,
@@ -208,6 +222,7 @@ def build_online_services(
         submissions=persistence.sepa_submissions,
         billing=persistence.billing,
     )
+    sepa_reconciliation = SepaReconciliationService(persistence.sepa_collections)
     payment_execution = PaymentExecutionEvidence(persistence.sepa_submissions)
     invoice_admin_delivery = InvoiceAdminDeliveryService(
         persistence.invoices,
@@ -240,7 +255,9 @@ def build_online_services(
         payment_authorization=payment_authorization,
         payment_capture=payment_capture,
         payment_void=payment_void,
+        sepa_checkout=sepa_checkout,
         sepa_payment=sepa_payment,
+        sepa_reconciliation=sepa_reconciliation,
         payment_execution=payment_execution,
         invoice_creation=invoice_creation,
         smtp_admin=smtp_admin,

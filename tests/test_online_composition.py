@@ -797,3 +797,123 @@ def test_online_paypal_checkout_delivery_and_capture_end_to_end(tmp_path) -> Non
     assert captured.merchant_account_id == "merchant-paypal-e2e"
     assert captured.provider_id == "provider-a"
     assert persistence.payments.get("payment-paypal-e2e") == captured
+
+
+def test_online_sepa_checkout_delivery_submission_and_reconciliation_end_to_end(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.payment import PaymentAmount, PaymentStatus
+    from mcm_solarcheck.services.sepa import SepaMandate
+    from mcm_solarcheck.services.sepa_collection import SepaCollectionStatus
+    from mcm_solarcheck.services.sepa_reconciliation import SepaProviderEvent
+    from mcm_solarcheck.services.sepa_submission import SepaSubmissionStatus
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-sepa-e2e")
+    persistence.merchant_accounts.save(
+        MerchantAccount(
+            "merchant-sepa-e2e",
+            "provider-a",
+            MerchantAccountKind.BANK,
+            "SEPA settlement account",
+        )
+    )
+    persistence.tariffs.save(
+        initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc))
+    )
+    persistence.sepa_mandates.create(
+        SepaMandate("mandate-sepa-e2e", "user-sepa-e2e", "provider-a")
+    )
+    persistence.sepa_mandates.activate(
+        "mandate-sepa-e2e",
+        "user-sepa-e2e",
+        "provider-mandate-sepa-e2e",
+    )
+    services = online_services(persistence)
+
+    services.compute_jobs.create(
+        job_id="job-sepa-e2e",
+        user_id="user-sepa-e2e",
+        project_id="project-sepa-e2e",
+    )
+    services.compute_jobs.start(
+        "job-sepa-e2e",
+        user_id="user-sepa-e2e",
+        project_id="project-sepa-e2e",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+    services.compute_jobs.transition(
+        "job-sepa-e2e",
+        ComputeJobStatus.COMPLETED,
+        user_id="user-sepa-e2e",
+        project_id="project-sepa-e2e",
+    )
+    services.billing.create(
+        "job-sepa-e2e",
+        user_id="user-sepa-e2e",
+        project_id="project-sepa-e2e",
+    )
+
+    payment = services.sepa_checkout.checkout(
+        "payment-sepa-e2e",
+        user_id="user-sepa-e2e",
+        project_id="project-sepa-e2e",
+        job_id="job-sepa-e2e",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-sepa-e2e",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
+    assert payment.status is PaymentStatus.CREATED
+    assert payment.method is PaymentMethod.SEPA_DIRECT_DEBIT
+    assert payment.amount == PaymentAmount(14500, "EUR")
+    assert payment.tariff_version == 1
+    assert payment.merchant_account_id == "merchant-sepa-e2e"
+
+    with pytest.raises(ValueError, match="export and report retrieval"):
+        services.sepa_payment.submit(
+            "payment-sepa-e2e",
+            "mandate-sepa-e2e",
+            user_id="user-sepa-e2e",
+            project_id="project-sepa-e2e",
+        )
+
+    services.billing.mark_export_completed(
+        "job-sepa-e2e",
+        user_id="user-sepa-e2e",
+        project_id="project-sepa-e2e",
+    )
+    persistence.reports.path_for("job-sepa-e2e").write_bytes(b"sepa-e2e-report")
+    released = services.report_delivery.deliver(
+        "job-sepa-e2e",
+        user_id="user-sepa-e2e",
+        project_id="project-sepa-e2e",
+        send=lambda _report: None,
+    )
+    provider_reference = services.sepa_payment.submit(
+        "payment-sepa-e2e",
+        "mandate-sepa-e2e",
+        user_id="user-sepa-e2e",
+        project_id="project-sepa-e2e",
+    )
+
+    submission = persistence.sepa_submissions.get("payment-sepa-e2e")
+    collection = persistence.sepa_collections.get("sepa:payment-sepa-e2e")
+    reconciled = services.sepa_reconciliation.apply(
+        SepaProviderEvent(
+            "provider-a",
+            provider_reference,
+            SepaCollectionStatus.SUCCEEDED,
+            event_id="event-sepa-e2e-succeeded",
+        )
+    )
+
+    assert released.billing_released is True
+    assert provider_reference == "provider-sepa-reference"
+    assert submission.status is SepaSubmissionStatus.SUBMITTED
+    assert collection.status is SepaCollectionStatus.SUBMITTED
+    assert reconciled.status is SepaCollectionStatus.SUCCEEDED
+    assert persistence.sepa_collections.get("sepa:payment-sepa-e2e").status is SepaCollectionStatus.SUCCEEDED
+    assert persistence.payments.get("payment-sepa-e2e") == payment
