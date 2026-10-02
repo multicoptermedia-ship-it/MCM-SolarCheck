@@ -177,6 +177,8 @@ class SQLiteOnlinePaymentStore:
                 merchant_account_id,
                 merchant_account_version,
                 provider_id,
+                payment.tariff_version,
+                payment.plant_kwp,
             )
 
         return self._transition(
