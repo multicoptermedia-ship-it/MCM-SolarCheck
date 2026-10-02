@@ -277,3 +277,45 @@ def test_online_services_expose_authoritative_compute_job_flow(tmp_path) -> None
     assert created.status is ComputeJobStatus.QUEUED
     assert started.status is ComputeJobStatus.RUNNING
     assert persistence.compute_jobs.get("job-e2e") == started
+
+
+def test_online_billing_starts_only_after_completed_compute_job(tmp_path) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJobStatus
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+    services.compute_jobs.create(
+        job_id="job-billing-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+    services.compute_jobs.start(
+        "job-billing-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+
+    with pytest.raises(ValueError, match="completed compute job"):
+        services.billing.create(
+            "job-billing-e2e",
+            user_id="user-e2e",
+            project_id="project-e2e",
+        )
+
+    completed = services.compute_jobs.transition(
+        "job-billing-e2e",
+        ComputeJobStatus.COMPLETED,
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+    billing = services.billing.create(
+        "job-billing-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+
+    assert completed.status is ComputeJobStatus.COMPLETED
+    assert billing.delivery.job_id == completed.job_id
+    assert billing.delivery.export_completed is False
+    assert billing.billing_released is False
