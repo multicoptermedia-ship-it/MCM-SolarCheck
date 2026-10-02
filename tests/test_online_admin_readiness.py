@@ -47,6 +47,8 @@ def service(*, smtp=True, payment=True, sepa=True):
         SMTPAdminService(Settings(), Secrets(smtp)),
         Readiness(payment),
         Readiness(sepa),
+        Readiness(True),
+        Readiness(True),
     )
 
 
@@ -117,5 +119,7 @@ def test_online_admin_readiness_rejects_non_boolean_provider_state():
         OnlineAdminReadinessService(
             SMTPAdminService(Settings(), Secrets(True)),
             InvalidReadiness(),
+            Readiness(True),
+            Readiness(True),
             Readiness(True),
         ).status()

@@ -38,6 +38,8 @@ class OnlineAdminReadiness:
     smtp_configured: bool
     payment_provider_configured: bool
     sepa_provider_configured: bool
+    pricing_configured: bool
+    merchant_accounts_configured: bool
 
     @property
     def ready(self) -> bool:
@@ -45,6 +47,8 @@ class OnlineAdminReadiness:
             self.smtp_configured
             and self.payment_provider_configured
             and self.sepa_provider_configured
+            and self.pricing_configured
+            and self.merchant_accounts_configured
         )
 
 
@@ -56,17 +60,23 @@ class OnlineAdminReadinessService:
         smtp: SMTPAdminService,
         payment_provider: ConfigurationReadiness,
         sepa_provider: ConfigurationReadiness,
+        pricing: ConfigurationReadiness,
+        merchant_accounts: ConfigurationReadiness,
     ) -> None:
         for dependency, method, name in (
             (smtp, "status", "smtp"),
             (payment_provider, "is_configured", "payment_provider"),
             (sepa_provider, "is_configured", "sepa_provider"),
+            (pricing, "is_configured", "pricing"),
+            (merchant_accounts, "is_configured", "merchant_accounts"),
         ):
             if not callable(getattr(dependency, method, None)):
                 raise TypeError(f"{name} must provide {method}()")
         self._smtp = smtp
         self._payment_provider = payment_provider
         self._sepa_provider = sepa_provider
+        self._pricing = pricing
+        self._merchant_accounts = merchant_accounts
 
     def require_ready(self) -> OnlineAdminReadiness:
         """Fail closed before enabling commercial online operation."""
@@ -78,6 +88,10 @@ class OnlineAdminReadinessService:
             missing.append("payment_provider")
         if not status.sepa_provider_configured:
             missing.append("sepa_provider")
+        if not status.pricing_configured:
+            missing.append("pricing")
+        if not status.merchant_accounts_configured:
+            missing.append("merchant_accounts")
         if missing:
             raise RuntimeError(
                 "online services are not production-ready: " + ", ".join(missing)
@@ -97,4 +111,6 @@ class OnlineAdminReadinessService:
             smtp_configured=smtp_configured,
             payment_provider_configured=_configured(self._payment_provider),
             sepa_provider_configured=_configured(self._sepa_provider),
+            pricing_configured=_configured(self._pricing),
+            merchant_accounts_configured=_configured(self._merchant_accounts),
         )

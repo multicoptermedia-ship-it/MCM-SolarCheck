@@ -160,6 +160,8 @@ def build_online_services(
         smtp_admin,
         payment_provider_readiness,
         sepa_provider_readiness,
+        persistence.tariffs,
+        persistence.merchant_accounts,
     )
     admin = OnlineAdminActions(
         admin_readiness,

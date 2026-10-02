@@ -84,6 +84,23 @@ class SQLiteSolarCheckTariffStore:
         finally:
             connection.close()
 
+    def is_configured(self) -> bool:
+        """Return whether an active tariff is effective for current UTC time."""
+        from datetime import timezone
+
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT 1
+                FROM solarcheck_tariffs
+                WHERE active = 1 AND effective_from <= ?
+                LIMIT 1
+                """,
+                (now,),
+            ).fetchone()
+        return row is not None
+
     def current(self, at: datetime) -> SolarCheckTariff:
         with self._connect() as connection:
             row = connection.execute(

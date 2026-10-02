@@ -107,6 +107,25 @@ class SQLiteMerchantAccountStore:
             row[4],
         )
 
+    def is_configured(self) -> bool:
+        """Require active current accounts for card, PayPal and SEPA operation."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT m.kind, m.active
+                FROM merchant_accounts AS m
+                JOIN (
+                    SELECT account_id, MAX(version) AS version
+                    FROM merchant_accounts
+                    GROUP BY account_id
+                ) AS latest
+                  ON latest.account_id = m.account_id
+                 AND latest.version = m.version
+                """
+            ).fetchall()
+        active_kinds = {kind for kind, active in rows if bool(active)}
+        return active_kinds == {kind.value for kind in MerchantAccountKind}
+
     def current(self, account_id: str) -> MerchantAccount:
         with self._connect() as connection:
             row = connection.execute(
