@@ -431,8 +431,14 @@ def test_application_prepare_report_builds_ready_reviewed_project(tmp_path):
     from datetime import datetime, timezone
     from mcm_solarcheck.domain.project_profile import ProjectProfile
 
+    from mcm_solarcheck.domain.models import PVModule
+
     database = _database_with_finding(
         tmp_path, status="confirmed", module_id="M1"
+    )
+    database.save_modules(
+        "P1",
+        (PVModule("M1", "T1", ((0, 0), (1, 0), (1, 1)), 0.9, "test"),),
     )
     database.save_project_profile(
         "P1",
