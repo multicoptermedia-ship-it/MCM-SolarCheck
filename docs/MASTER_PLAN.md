@@ -28,7 +28,7 @@ Ein neuer Funktionsblock beginnt nicht, solange das vorherige Gate rot oder unge
 - Phase 10J: Payment/Webhook/Crash Safety – abgeschlossen.
 - Phase 10K: Persistence Migrations & Recovery Hardening – abgeschlossen.
 - Phase 10L: End-to-End Online Payment Integration – abgeschlossen.
-- Phase 10M: Operational Readiness / Deployment Gates – nächster Block.
+- Phase 10M: Operational Readiness / Deployment Gates – laufender Block.
 - Phase 11: öffentlicher Produktbetrieb / Expansion – nicht begonnen.
 
 ## Phase 10L – abgeschlossen
@@ -77,9 +77,12 @@ Für SEPA gilt der eigene asynchrone Verarbeitungs- und Reconciliation-Pfad; er 
 - Voucher-Einlösung und Payment-Erzeugung sind atomar; 100%-Voucher vermeiden unnötige Provider-Aufrufe.
 - Persistierte Tarif-/Voucher-/Merchant-Snapshots schützen historische Payments vor späteren Konfigurationsänderungen.
 
-## Nächster Block: Phase 10M
+## Phase 10M – Operational Readiness / Deployment Gates
 
 10M behandelt ausschließlich Operational Readiness und Deployment Gates. Die in 10L verifizierten fachlichen Payment-/Delivery-Sequenzen bleiben dabei unverändert und dürfen nicht durch Deployment- oder Admin-Hilfslogik umgangen werden.
+
+- 10M.1: Produktionsbereitschaft prüft fail-closed SMTP, Payment-/SEPA-Provider, einen aktuell wirksamen aktiven Tarif sowie aktive Merchant Accounts für Card, PayPal und SEPA. Verifiziert mit GitHub Actions Run #1588 auf Python 3.11 und 3.12.
+- 10M.2: nächster Block – explizite produktive Online-Aktivierungsgrenze. Der bestehende lokale Desktop-Einstieg bleibt davon getrennt; Online-Kundenbetrieb darf nur nach erfolgreichem Readiness-Gate aktiviert werden.
 
 ## Spätere Produkt- und Release-Arbeitsströme
 
