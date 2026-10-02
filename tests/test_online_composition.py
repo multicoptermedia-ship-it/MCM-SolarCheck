@@ -421,3 +421,44 @@ def test_online_completed_job_delivery_releases_billing_and_allows_capture(tmp_p
     assert released.billing_released is True
     assert captured.status is PaymentStatus.CAPTURED
     assert persistence.payments.get("payment-delivery-e2e") == captured
+
+
+def test_online_checkout_uses_composed_tariff_merchant_and_payment_state(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.payment import PaymentAmount, PaymentStatus
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.merchant_accounts.save(
+        MerchantAccount(
+            "merchant-e2e",
+            "provider-a",
+            MerchantAccountKind.CARD_PROCESSOR,
+            "merchant display",
+        )
+    )
+    persistence.tariffs.save(
+        initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc))
+    )
+    services = online_services(persistence)
+
+    payment = services.payment_checkout.checkout(
+        "payment-checkout-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+        job_id="job-checkout-e2e",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-e2e",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert payment.status is PaymentStatus.AUTHORIZED
+    assert payment.amount == PaymentAmount(14500, "EUR")
+    assert payment.tariff_version == 1
+    assert payment.merchant_account_id == "merchant-e2e"
+    assert payment.merchant_account_version == 1
+    assert payment.provider_id == "provider-a"
+    assert persistence.payments.get("payment-checkout-e2e") == payment
