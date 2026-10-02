@@ -89,6 +89,7 @@ def online_services(persistence, *, payment_ready=True, sepa_ready=True):
     return build_online_services(
         persistence,
         invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
         payment_gateway=FakePaymentGateway(),
         sepa_gateway=FakeSepaGateway(),
         sepa_provider_id="provider-a",
@@ -159,6 +160,7 @@ def test_online_services_require_payment_gateways(tmp_path) -> None:
         build_online_services(
             persistence,
             invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
             payment_gateway=None,
             sepa_gateway=FakeSepaGateway(),
             sepa_provider_id="provider-a",
@@ -173,6 +175,7 @@ def test_online_services_require_payment_gateways(tmp_path) -> None:
         build_online_services(
             persistence,
             invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
             payment_gateway=FakePaymentGateway(),
             sepa_gateway=None,
             sepa_provider_id="provider-a",
@@ -207,6 +210,7 @@ def test_online_services_reject_malformed_payment_gateways(tmp_path) -> None:
         build_online_services(
             persistence,
             invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
             payment_gateway=object(),
             sepa_gateway=FakeSepaGateway(),
             sepa_provider_id="provider-a",
@@ -221,6 +225,7 @@ def test_online_services_reject_malformed_payment_gateways(tmp_path) -> None:
         build_online_services(
             persistence,
             invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
             payment_gateway=FakePaymentGateway(),
             sepa_gateway=object(),
             sepa_provider_id="provider-a",
@@ -241,6 +246,7 @@ def test_online_services_require_provider_readiness_boundaries(tmp_path) -> None
         build_online_services(
             persistence,
             invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
             payment_gateway=FakePaymentGateway(),
             sepa_gateway=FakeSepaGateway(),
             sepa_provider_id="provider-a",
@@ -257,6 +263,7 @@ def test_online_services_require_provider_readiness_boundaries(tmp_path) -> None
         build_online_services(
             persistence,
             invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
             payment_gateway=FakePaymentGateway(),
             sepa_gateway=FakeSepaGateway(),
             sepa_provider_id="provider-a",
@@ -559,3 +566,25 @@ def test_online_card_checkout_delivery_and_capture_end_to_end(tmp_path) -> None:
     assert captured.merchant_account_id == "merchant-card-e2e"
     assert captured.provider_id == "provider-a"
     assert persistence.payments.get("payment-card-e2e") == captured
+
+
+def test_online_registration_is_composed_with_authoritative_persistence(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.registration import RegistrationStatus
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+    pending = services.registration.register(
+        user_id="user-registration-e2e",
+        display_name="SolarCheck Kunde",
+        email="kunde@example.com",
+        street="Musterweg 1",
+        postal_code="50181",
+        city="Bedburg",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert pending.status is RegistrationStatus.PENDING
+    persisted = persistence.registrations.get("user-registration-e2e")
+    assert persisted == pending
+    assert persisted.email == "kunde@example.com"
