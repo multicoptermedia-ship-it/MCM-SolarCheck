@@ -568,10 +568,14 @@ def test_online_card_checkout_delivery_and_capture_end_to_end(tmp_path) -> None:
     assert persistence.payments.get("payment-card-e2e") == captured
 
 
-def test_online_registration_is_composed_with_authoritative_persistence(tmp_path) -> None:
+def test_online_registration_is_composed_with_authoritative_persistence(tmp_path, monkeypatch) -> None:
     from datetime import datetime, timezone
     from mcm_solarcheck.services.registration import RegistrationStatus
 
+    from mcm_solarcheck.infrastructure.smtp_email import SMTPEmailSender
+
+    sent = []
+    monkeypatch.setattr(SMTPEmailSender, "send", lambda self, message: sent.append(message))
     persistence = setup_persistence(tmp_path, secret_configured=True)
     services = online_services(persistence)
     pending = services.registration.register(
@@ -588,3 +592,6 @@ def test_online_registration_is_composed_with_authoritative_persistence(tmp_path
     persisted = persistence.registrations.get("user-registration-e2e")
     assert persisted == pending
     assert persisted.email == "kunde@example.com"
+    assert len(sent) == 1
+    assert sent[0].recipient == "kunde@example.com"
+    assert "/verify-email?token=" in sent[0].text
