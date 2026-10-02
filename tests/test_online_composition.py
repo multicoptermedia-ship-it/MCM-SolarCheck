@@ -9,6 +9,8 @@ from mcm_solarcheck.infrastructure.online_private_paths import OnlinePrivatePath
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPSecurity
 from mcm_solarcheck.services.invoice_creation import InvoiceRenderConfig
 from mcm_solarcheck.services.online_composition import build_online_services
+from mcm_solarcheck.services.payment_methods import PaymentMethod
+from mcm_solarcheck.services.payment_provider import PaymentProviderCapabilities, PaymentProviderRegistry
 
 
 class FakeSecretStore:
@@ -90,6 +92,7 @@ def online_services(persistence, *, payment_ready=True, sepa_ready=True):
         payment_gateway=FakePaymentGateway(),
         sepa_gateway=FakeSepaGateway(),
         sepa_provider_id="provider-a",
+        payment_providers=PaymentProviderRegistry((PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.CARD, PaymentMethod.PAYPAL, PaymentMethod.SEPA_DIRECT_DEBIT})),)),
         payment_provider_readiness=FakeReadiness(payment_ready),
         sepa_provider_readiness=FakeReadiness(sepa_ready),
         admin_authorization=AllowAdmin(),
@@ -159,7 +162,8 @@ def test_online_services_require_payment_gateways(tmp_path) -> None:
             payment_gateway=None,
             sepa_gateway=FakeSepaGateway(),
             sepa_provider_id="provider-a",
-            payment_provider_readiness=FakeReadiness(),
+            payment_providers=PaymentProviderRegistry((PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.CARD, PaymentMethod.PAYPAL, PaymentMethod.SEPA_DIRECT_DEBIT})),)),
+        payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=FakeReadiness(),
             admin_authorization=AllowAdmin(),
             admin_mutation_guard=AllowMutation(),
@@ -172,7 +176,8 @@ def test_online_services_require_payment_gateways(tmp_path) -> None:
             payment_gateway=FakePaymentGateway(),
             sepa_gateway=None,
             sepa_provider_id="provider-a",
-            payment_provider_readiness=FakeReadiness(),
+            payment_providers=PaymentProviderRegistry((PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.CARD, PaymentMethod.PAYPAL, PaymentMethod.SEPA_DIRECT_DEBIT})),)),
+        payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=FakeReadiness(),
             admin_authorization=AllowAdmin(),
             admin_mutation_guard=AllowMutation(),
@@ -205,7 +210,8 @@ def test_online_services_reject_malformed_payment_gateways(tmp_path) -> None:
             payment_gateway=object(),
             sepa_gateway=FakeSepaGateway(),
             sepa_provider_id="provider-a",
-            payment_provider_readiness=FakeReadiness(),
+            payment_providers=PaymentProviderRegistry((PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.CARD, PaymentMethod.PAYPAL, PaymentMethod.SEPA_DIRECT_DEBIT})),)),
+        payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=FakeReadiness(),
             admin_authorization=AllowAdmin(),
             admin_mutation_guard=AllowMutation(),
@@ -218,7 +224,8 @@ def test_online_services_reject_malformed_payment_gateways(tmp_path) -> None:
             payment_gateway=FakePaymentGateway(),
             sepa_gateway=object(),
             sepa_provider_id="provider-a",
-            payment_provider_readiness=FakeReadiness(),
+            payment_providers=PaymentProviderRegistry((PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.CARD, PaymentMethod.PAYPAL, PaymentMethod.SEPA_DIRECT_DEBIT})),)),
+        payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=FakeReadiness(),
             admin_authorization=AllowAdmin(),
             admin_mutation_guard=AllowMutation(),
@@ -252,7 +259,8 @@ def test_online_services_require_provider_readiness_boundaries(tmp_path) -> None
             payment_gateway=FakePaymentGateway(),
             sepa_gateway=FakeSepaGateway(),
             sepa_provider_id="provider-a",
-            payment_provider_readiness=FakeReadiness(),
+            payment_providers=PaymentProviderRegistry((PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.CARD, PaymentMethod.PAYPAL, PaymentMethod.SEPA_DIRECT_DEBIT})),)),
+        payment_provider_readiness=FakeReadiness(),
             sepa_provider_readiness=object(),
             admin_authorization=AllowAdmin(),
             admin_mutation_guard=AllowMutation(),
