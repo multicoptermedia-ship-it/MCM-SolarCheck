@@ -75,6 +75,8 @@ def test_online_admin_readiness_requires_safe_status_boundaries():
             object(),
             Readiness(True),
             Readiness(True),
+            Readiness(True),
+            Readiness(True),
         )
     except TypeError as exc:
         assert "smtp must provide status()" in str(exc)

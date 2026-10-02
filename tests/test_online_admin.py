@@ -77,7 +77,7 @@ def actions():
         smtp_service, Admin(), Mutation(), Audit([])
     )
     readiness = OnlineAdminReadinessService(
-        smtp_service, Ready(), Ready()
+        smtp_service, Ready(), Ready(), Ready(), Ready()
     )
     return OnlineAdminActions(readiness, smtp_actions, Ready(), Ready()), settings, secrets
 
@@ -171,7 +171,7 @@ def test_online_admin_provider_status_exposes_only_boolean_state(payment, sepa):
     sepa_state = State(sepa)
     admin = OnlineAdminActions(
         OnlineAdminReadinessService(
-            smtp_service, payment_state, sepa_state
+            smtp_service, payment_state, sepa_state, Ready(), Ready()
         ),
         smtp_actions,
         payment_state,
@@ -200,7 +200,7 @@ def test_online_admin_provider_status_rejects_non_boolean_state():
     )
     invalid = InvalidState()
     admin = OnlineAdminActions(
-        OnlineAdminReadinessService(smtp_service, invalid, Ready()),
+        OnlineAdminReadinessService(smtp_service, invalid, Ready(), Ready(), Ready()),
         smtp_actions,
         invalid,
         Ready(),

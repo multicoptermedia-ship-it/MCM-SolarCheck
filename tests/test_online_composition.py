@@ -117,6 +117,24 @@ def grant_online_entitlement(persistence, user_id: str) -> None:
     )
 
 
+
+def configure_production_commerce(persistence) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence.tariffs.save(
+        initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc))
+    )
+    for account_id, kind in (
+        ("merchant-ready-card", MerchantAccountKind.CARD_PROCESSOR),
+        ("merchant-ready-paypal", MerchantAccountKind.PAYPAL),
+        ("merchant-ready-sepa", MerchantAccountKind.BANK),
+    ):
+        persistence.merchant_accounts.save(
+            MerchantAccount(account_id, "provider-a", kind, account_id)
+        )
+
 def test_online_services_fail_closed_without_smtp_secret(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=False)
 
@@ -126,6 +144,7 @@ def test_online_services_fail_closed_without_smtp_secret(tmp_path) -> None:
 
 def test_online_services_share_authoritative_persistence(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    configure_production_commerce(persistence)
     grant_online_entitlement(persistence, "user-a")
     services = online_services(persistence)
 
@@ -296,6 +315,7 @@ def test_online_services_separate_admin_startup_from_production_readiness(tmp_pa
 
 def test_online_services_allow_explicit_production_readiness(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    configure_production_commerce(persistence)
     services = online_services(persistence)
 
     assert services.require_production_ready() is None
