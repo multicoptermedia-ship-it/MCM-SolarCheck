@@ -595,3 +595,49 @@ def test_online_registration_is_composed_with_authoritative_persistence(tmp_path
     assert len(sent) == 1
     assert sent[0].recipient == "kunde@example.com"
     assert "/verify-email?token=" in sent[0].text
+
+
+def test_online_compute_job_requires_persisted_verified_entitlement(tmp_path, monkeypatch) -> None:
+    from datetime import datetime, timezone
+    from urllib.parse import parse_qs, urlparse
+    from mcm_solarcheck.infrastructure.smtp_email import SMTPEmailSender
+    from mcm_solarcheck.services.online_entitlement import OnlineProduct
+
+    sent = []
+    monkeypatch.setattr(SMTPEmailSender, "send", lambda self, message: sent.append(message))
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+
+    with pytest.raises(PermissionError, match="entitlement"):
+        services.compute_jobs.create(
+            job_id="job-before-verification",
+            user_id="user-entitled",
+            project_id="project-entitled",
+        )
+
+    services.registration.register(
+        user_id="user-entitled",
+        display_name="SolarCheck Kunde",
+        email="kunde@example.com",
+        street="Musterweg 1",
+        postal_code="50181",
+        city="Bedburg",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
+    link = next(line for line in sent[0].text.splitlines() if line.startswith("https://"))
+    token = parse_qs(urlparse(link).query)["token"][0]
+    entitlement = services.registration.verify_and_activate(
+        token,
+        product=OnlineProduct.TRIAL,
+        now=datetime(2026, 10, 2, 12, 1, tzinfo=timezone.utc),
+    )
+
+    assert entitlement.active is True
+    assert persistence.entitlements.get("user-entitled") == entitlement
+    job = services.compute_jobs.create(
+        job_id="job-after-verification",
+        user_id="user-entitled",
+        project_id="project-entitled",
+    )
+    assert job.user_id == "user-entitled"
+    assert persistence.compute_jobs.get("job-after-verification") == job
