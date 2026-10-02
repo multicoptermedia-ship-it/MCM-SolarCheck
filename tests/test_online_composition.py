@@ -1028,3 +1028,28 @@ def test_online_failed_report_delivery_keeps_billing_unreleased_and_payment_auth
             user_id="user-delivery-failure",
             project_id="project-delivery-failure",
         )
+
+
+def test_online_composition_requires_explicit_production_activation(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    configure_production_commerce(persistence)
+    services = online_services(persistence)
+
+    assert services.production.active is False
+    with pytest.raises(RuntimeError, match="production operation is not active"):
+        services.require_production_active()
+
+    services.activate_production()
+
+    assert services.production.active is True
+    services.require_production_active()
+
+
+def test_online_composition_failed_readiness_cannot_activate_production(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+
+    with pytest.raises(RuntimeError, match="pricing"):
+        services.activate_production()
+
+    assert services.production.active is False

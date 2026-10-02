@@ -13,6 +13,7 @@ from mcm_solarcheck.services.invoice import InvoiceBasisService
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
 from mcm_solarcheck.services.invoice_creation import InvoiceCreationService, InvoiceRenderConfig
 from mcm_solarcheck.services.merchant_binding import MerchantAccountBindingService
+from mcm_solarcheck.services.online_activation import OnlineProductionActivation
 from mcm_solarcheck.services.online_admin import OnlineAdminActions
 from mcm_solarcheck.services.online_registration import OnlineRegistrationService
 from mcm_solarcheck.services.online_admin_readiness import (
@@ -75,10 +76,19 @@ class OnlineServices:
     smtp_admin: SMTPAdminService
     admin_readiness: OnlineAdminReadinessService
     admin: OnlineAdminActions
+    production: OnlineProductionActivation
 
     def require_production_ready(self) -> None:
         """Fail closed before enabling customer-facing commercial operation."""
         self.admin_readiness.require_ready()
+
+    def activate_production(self) -> None:
+        """Explicitly activate customer-facing operation after all readiness gates."""
+        self.production.activate()
+
+    def require_production_active(self) -> None:
+        """Fail closed at customer-facing deployment entry boundaries."""
+        self.production.require_active()
 
 
 def build_online_services(
@@ -163,6 +173,7 @@ def build_online_services(
         persistence.tariffs,
         persistence.merchant_accounts,
     )
+    production = OnlineProductionActivation(admin_readiness)
     admin = OnlineAdminActions(
         admin_readiness,
         SMTPAdminActions(
@@ -265,4 +276,5 @@ def build_online_services(
         smtp_admin=smtp_admin,
         admin_readiness=admin_readiness,
         admin=admin,
+        production=production,
     )
