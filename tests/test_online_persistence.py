@@ -133,3 +133,33 @@ def test_online_persistence_requires_explicit_smtp_secret_backend(tmp_path) -> N
                 security=SMTPSecurity.TLS,
             ),
         )
+
+
+def test_online_persistence_includes_registration_and_compute_job_state(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path)
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+    from mcm_solarcheck.services.registration import OnlineRegistration
+
+    persistence.registrations.create(
+        OnlineRegistration(
+            "user-e2e",
+            "E2E User",
+            "e2e@example.invalid",
+            street="Testweg 1",
+            postal_code="50181",
+            city="Bedburg",
+        ),
+        token="verification-token",
+        expires_at=datetime(2026, 10, 2, 13, 0, tzinfo=timezone.utc),
+    )
+    persistence.compute_jobs.create(
+        ComputeJob(
+            "job-e2e",
+            "user-e2e",
+            "project-e2e",
+            ComputeJobStatus.QUEUED,
+        )
+    )
+
+    assert persistence.registrations.get("user-e2e").user_id == "user-e2e"
+    assert persistence.compute_jobs.get("job-e2e").status is ComputeJobStatus.QUEUED
