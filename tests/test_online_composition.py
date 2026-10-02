@@ -108,6 +108,15 @@ def invoice_render_config():
     )
 
 
+
+def grant_online_entitlement(persistence, user_id: str) -> None:
+    from mcm_solarcheck.services.online_entitlement import OnlineEntitlement, OnlineProduct
+
+    persistence.entitlements.save(
+        OnlineEntitlement(user_id, OnlineProduct.FULL, active=True)
+    )
+
+
 def test_online_services_fail_closed_without_smtp_secret(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=False)
 
@@ -117,6 +126,7 @@ def test_online_services_fail_closed_without_smtp_secret(tmp_path) -> None:
 
 def test_online_services_share_authoritative_persistence(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-a")
     services = online_services(persistence)
 
     services.compute_jobs.create(
@@ -295,6 +305,7 @@ def test_online_services_expose_authoritative_compute_job_flow(tmp_path) -> None
     from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJobStatus
 
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-e2e")
     services = online_services(persistence)
 
     created = services.compute_jobs.create(
@@ -318,6 +329,7 @@ def test_online_billing_starts_only_after_completed_compute_job(tmp_path) -> Non
     from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJobStatus
 
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-e2e")
     services = online_services(persistence)
     services.compute_jobs.create(
         job_id="job-billing-e2e",
@@ -362,6 +374,7 @@ def test_online_completed_job_delivery_releases_billing_and_allows_capture(tmp_p
     from mcm_solarcheck.services.payment_methods import PaymentMethod
 
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-e2e")
     services = online_services(persistence)
     services.compute_jobs.create(
         job_id="job-delivery-e2e",
@@ -480,6 +493,7 @@ def test_online_card_checkout_delivery_and_capture_end_to_end(tmp_path) -> None:
     from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
 
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-e2e")
     persistence.merchant_accounts.save(
         MerchantAccount(
             "merchant-card-e2e",
