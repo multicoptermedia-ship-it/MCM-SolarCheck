@@ -8,12 +8,13 @@ from mcm_solarcheck.infrastructure.online_persistence import OnlinePersistence
 from mcm_solarcheck.infrastructure.smtp_email import SMTPEmailSender
 from mcm_solarcheck.services.billing import ComputeJobBillingService
 from mcm_solarcheck.services.compute_jobs import ComputeJobService
-from mcm_solarcheck.services.email import ReportRecoveryEmailConfig
+from mcm_solarcheck.services.email import RegistrationEmailConfig, ReportRecoveryEmailConfig
 from mcm_solarcheck.services.invoice import InvoiceBasisService
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
 from mcm_solarcheck.services.invoice_creation import InvoiceCreationService, InvoiceRenderConfig
 from mcm_solarcheck.services.merchant_binding import MerchantAccountBindingService
 from mcm_solarcheck.services.online_admin import OnlineAdminActions
+from mcm_solarcheck.services.online_registration import OnlineRegistrationService
 from mcm_solarcheck.services.online_admin_readiness import (
     ConfigurationReadiness,
     OnlineAdminReadinessService,
@@ -40,6 +41,7 @@ from mcm_solarcheck.services.smtp_admin import (
 
 @dataclass(frozen=True)
 class OnlineServices:
+    registration: OnlineRegistrationService
     compute_jobs: ComputeJobService
     billing: ComputeJobBillingService
     report_delivery: ReportDeliveryService
@@ -64,6 +66,7 @@ def build_online_services(
     persistence: OnlinePersistence,
     *,
     invoice_render: InvoiceRenderConfig,
+    public_base_url: str,
     payment_gateway: PaymentGateway,
     sepa_gateway: SepaPaymentGateway,
     sepa_provider_id: str,
@@ -83,6 +86,16 @@ def build_online_services(
     smtp_config = persistence.smtp_settings.get()
     smtp_password = persistence.smtp_secrets.resolve_for_delivery()
     sender = SMTPEmailSender(smtp_config, smtp_password)
+
+    registration = OnlineRegistrationService(
+        persistence.registrations,
+        sender,
+        RegistrationEmailConfig(
+            sender=smtp_config.effective_sender_address,
+            notify_to="solarcheck@mcm-dronetech.com",
+            public_base_url=public_base_url,
+        ),
+    )
 
     compute_jobs = ComputeJobService(
         persistence.compute_jobs,
@@ -200,6 +213,7 @@ def build_online_services(
     )
 
     return OnlineServices(
+        registration=registration,
         compute_jobs=compute_jobs,
         billing=billing,
         payment_checkout=payment_checkout,
