@@ -186,6 +186,7 @@ def build_online_services(
         payment_authorization,
         persistence.payments,
         persistence.tariffs,
+        persistence.billing,
     )
     payment_capture = PaymentCaptureService(
         persistence.payments,
