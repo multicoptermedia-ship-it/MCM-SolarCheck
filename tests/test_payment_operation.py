@@ -113,3 +113,37 @@ def test_payment_operation_storage_stays_minimal(tmp_path) -> None:
         ]
 
     assert columns == ["payment_id", "operation", "idempotency_key", "status"]
+
+
+def test_legacy_payment_operation_migrates_and_restart_is_idempotent(tmp_path) -> None:
+    database = tmp_path / "legacy-operations.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE payment_operation_intents (
+                payment_id TEXT PRIMARY KEY,
+                operation TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO payment_operation_intents (payment_id, operation)
+            VALUES (?, ?)
+            """,
+            ("payment-a", PaymentOperation.CAPTURE.value),
+        )
+
+    first = SQLitePaymentOperationIntentStore(database)
+    migrated = first.get("payment-a")
+    assert migrated.idempotency_key == "payment:payment-a:capture"
+    assert migrated.status is PaymentOperationStatus.RESERVED
+
+    second = SQLitePaymentOperationIntentStore(database)
+    assert second.get("payment-a") == migrated
+
+    succeeded = second.mark_provider_succeeded("payment-a")
+    restarted = SQLitePaymentOperationIntentStore(database)
+    assert restarted.get("payment-a") == succeeded
+    completed = restarted.mark_completed("payment-a")
+    assert completed.status is PaymentOperationStatus.COMPLETED
