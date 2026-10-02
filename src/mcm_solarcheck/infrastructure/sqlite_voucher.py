@@ -22,10 +22,20 @@ class SQLiteFlightPlanVoucherStore:
                     valid_until TEXT NOT NULL,
                     redeemed_payment_id TEXT,
                     redeemed_at TEXT,
-                    redeemed_discount_percent INTEGER
+                    redeemed_discount_percent INTEGER,
+                    redeemed_policy_version INTEGER
                 )
                 """
             )
+            columns = {
+                row[1]
+                for row in connection.execute("PRAGMA table_info(flightplan_vouchers)")
+            }
+            if "redeemed_policy_version" not in columns:
+                connection.execute(
+                    "ALTER TABLE flightplan_vouchers "
+                    "ADD COLUMN redeemed_policy_version INTEGER"
+                )
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.database)
@@ -36,8 +46,9 @@ class SQLiteFlightPlanVoucherStore:
                 """
                 INSERT INTO flightplan_vouchers (
                     code, valid_from, valid_until, redeemed_payment_id,
-                    redeemed_at, redeemed_discount_percent
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    redeemed_at, redeemed_discount_percent,
+                    redeemed_policy_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     voucher.code,
@@ -46,6 +57,7 @@ class SQLiteFlightPlanVoucherStore:
                     voucher.redeemed_payment_id,
                     voucher.redeemed_at.isoformat() if voucher.redeemed_at else None,
                     voucher.redeemed_discount_percent,
+                    voucher.redeemed_policy_version,
                 ),
             )
 
@@ -54,7 +66,8 @@ class SQLiteFlightPlanVoucherStore:
             row = connection.execute(
                 """
                 SELECT valid_from, valid_until, redeemed_payment_id,
-                       redeemed_at, redeemed_discount_percent
+                       redeemed_at, redeemed_discount_percent,
+                       redeemed_policy_version
                 FROM flightplan_vouchers WHERE code = ?
                 """,
                 (code.strip(),),
@@ -69,6 +82,7 @@ class SQLiteFlightPlanVoucherStore:
         payment_id: str,
         *,
         discount_percent: int,
+        policy_version: int | None = None,
         now: datetime,
     ) -> FlightPlanVoucher:
         connection = self._connect()
@@ -78,7 +92,8 @@ class SQLiteFlightPlanVoucherStore:
             row = connection.execute(
                 """
                 SELECT valid_from, valid_until, redeemed_payment_id,
-                       redeemed_at, redeemed_discount_percent
+                       redeemed_at, redeemed_discount_percent,
+                       redeemed_policy_version
                 FROM flightplan_vouchers WHERE code = ?
                 """,
                 (normalized,),
@@ -87,19 +102,24 @@ class SQLiteFlightPlanVoucherStore:
                 raise KeyError(code)
             current = self._from_row(normalized, row)
             redeemed = current.redeem(
-                payment_id, discount_percent=discount_percent, now=now
+                payment_id,
+                discount_percent=discount_percent,
+                now=now,
+                policy_version=policy_version,
             )
             connection.execute(
                 """
                 UPDATE flightplan_vouchers
                 SET redeemed_payment_id = ?, redeemed_at = ?,
-                    redeemed_discount_percent = ?
+                    redeemed_discount_percent = ?,
+                    redeemed_policy_version = ?
                 WHERE code = ?
                 """,
                 (
                     redeemed.redeemed_payment_id,
                     redeemed.redeemed_at.isoformat(),
                     redeemed.redeemed_discount_percent,
+                    redeemed.redeemed_policy_version,
                     normalized,
                 ),
             )
@@ -120,6 +140,7 @@ class SQLiteFlightPlanVoucherStore:
             row[2],
             datetime.fromisoformat(row[3]) if row[3] is not None else None,
             row[4],
+            row[5],
         )
 
 
