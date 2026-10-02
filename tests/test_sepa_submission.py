@@ -294,3 +294,44 @@ def test_sepa_submission_storage_stays_execution_metadata_only(tmp_path) -> None
         "lease_token",
         "lease_until",
     ]
+
+
+def test_legacy_sepa_submission_migrates_lease_columns_and_restarts(tmp_path) -> None:
+    database = tmp_path / "legacy-submissions.sqlite"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE sepa_submissions (
+                payment_id TEXT PRIMARY KEY,
+                mandate_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                provider_id TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL UNIQUE,
+                status TEXT NOT NULL,
+                provider_reference TEXT
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO sepa_submissions (
+                payment_id, mandate_id, user_id, project_id, provider_id,
+                idempotency_key, status, provider_reference
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "payment-a", "mandate-a", "user-a", "project-a", "provider-a",
+                "payment:payment-a:sepa-submit", "submitted", "provider-debit-a",
+            ),
+        )
+
+    first = SQLiteSepaSubmissionStore(database)
+    assert first.get("payment-a").status is SepaSubmissionStatus.SUBMITTED
+    assert first.get("payment-a").provider_reference == "provider-debit-a"
+
+    restarted = SQLiteSepaSubmissionStore(database)
+    persisted = restarted.get("payment-a")
+    assert persisted.status is SepaSubmissionStatus.SUBMITTED
+    assert persisted.lease_token is None
+    assert persisted.lease_until is None
