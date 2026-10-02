@@ -8,12 +8,14 @@ from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceAr
 from mcm_solarcheck.infrastructure.filesystem_report import FileSystemReportArtifactStore
 from mcm_solarcheck.infrastructure.online_private_paths import OnlinePrivatePaths
 from mcm_solarcheck.infrastructure.sqlite_billing import SQLiteComputeJobBillingStore
+from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_admin_delivery import SQLiteInvoiceAdminDeliveryStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_identity import SQLiteInvoiceIdentityStore
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.infrastructure.sqlite_payment_authorization import SQLitePaymentAuthorizationIntentStore
 from mcm_solarcheck.infrastructure.sqlite_payment_operation import SQLitePaymentOperationIntentStore
 from mcm_solarcheck.infrastructure.sqlite_report_recovery import SQLiteReportRecoveryStore
+from mcm_solarcheck.infrastructure.sqlite_registration import SQLiteOnlineRegistrationStore
 from mcm_solarcheck.infrastructure.sqlite_sepa import SQLiteSepaMandateStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_collection import SQLiteSepaCollectionStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_submission import SQLiteSepaSubmissionStore
@@ -27,6 +29,8 @@ from mcm_solarcheck.services.smtp_admin import SMTPSecretStore
 class OnlinePersistence:
     """Authoritative persistent dependencies shared by the online service layer."""
 
+    registrations: SQLiteOnlineRegistrationStore
+    compute_jobs: SQLiteComputeJobStore
     billing: SQLiteComputeJobBillingStore
     payments: SQLiteOnlinePaymentStore
     payment_operations: SQLitePaymentOperationIntentStore
@@ -62,6 +66,8 @@ def build_online_persistence(
     paths.invoices_root.mkdir(parents=True, exist_ok=True)
 
     return OnlinePersistence(
+        registrations=SQLiteOnlineRegistrationStore(database),
+        compute_jobs=SQLiteComputeJobStore(database),
         billing=SQLiteComputeJobBillingStore(database),
         payments=SQLiteOnlinePaymentStore(database),
         payment_operations=SQLitePaymentOperationIntentStore(database),
