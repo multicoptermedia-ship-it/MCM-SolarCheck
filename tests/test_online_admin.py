@@ -185,3 +185,26 @@ def test_online_admin_provider_status_exposes_only_boolean_state(payment, sepa):
     assert "must-never-be-returned" not in repr(view)
     assert view.payment_provider.__dict__ == {"configured": payment}
     assert view.sepa_provider.__dict__ == {"configured": sepa}
+
+
+def test_online_admin_provider_status_rejects_non_boolean_state():
+    class InvalidState:
+        def is_configured(self):
+            return "false"
+
+    settings = Settings()
+    secrets = Secrets()
+    smtp_service = SMTPAdminService(settings, secrets)
+    smtp_actions = SMTPAdminActions(
+        smtp_service, Admin(), Mutation(), Audit([])
+    )
+    invalid = InvalidState()
+    admin = OnlineAdminActions(
+        OnlineAdminReadinessService(smtp_service, invalid, Ready()),
+        smtp_actions,
+        invalid,
+        Ready(),
+    )
+
+    with pytest.raises(TypeError, match=r"is_configured\(\) must return bool"):
+        admin.load()
