@@ -407,3 +407,52 @@ def test_application_export_writes_ready_full_online_report(tmp_path):
 
     assert result == destination
     assert destination.is_file()
+
+
+
+def test_application_prepare_report_rejects_blocked_workflow_before_asset_write(tmp_path):
+    from datetime import datetime, timezone
+
+    service = ProjectApplicationService(_database(tmp_path))
+    asset_dir = tmp_path / "blocked-assets"
+
+    with pytest.raises(ValueError, match="prepare_report action is blocked"):
+        service.prepare_report(
+            "P1",
+            "R-BLOCKED",
+            datetime(2026, 10, 2, 12, tzinfo=timezone.utc),
+            asset_dir=asset_dir,
+        )
+
+    assert not asset_dir.exists()
+
+
+def test_application_prepare_report_builds_ready_reviewed_project(tmp_path):
+    from datetime import datetime, timezone
+    from mcm_solarcheck.domain.project_profile import ProjectProfile
+
+    database = _database_with_finding(
+        tmp_path, status="confirmed", module_id="M1"
+    )
+    database.save_project_profile(
+        "P1",
+        ProjectProfile(
+            "Customer",
+            "Site",
+            "Street 1",
+            "12345",
+            "Town",
+            "Inspector",
+        ),
+    )
+    service = ProjectApplicationService(database)
+
+    report = service.prepare_report(
+        "P1",
+        "R-READY",
+        datetime(2026, 10, 2, 12, tzinfo=timezone.utc),
+    )
+
+    assert report.report_id == "R-READY"
+    assert report.project_id == "P1"
+    assert report.customer_name == "Customer"
