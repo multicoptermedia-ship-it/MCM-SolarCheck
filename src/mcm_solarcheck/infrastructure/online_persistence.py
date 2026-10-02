@@ -12,6 +12,7 @@ from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobSt
 from mcm_solarcheck.infrastructure.sqlite_invoice_admin_delivery import SQLiteInvoiceAdminDeliveryStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_identity import SQLiteInvoiceIdentityStore
 from mcm_solarcheck.infrastructure.sqlite_merchant_account import SQLiteMerchantAccountStore
+from mcm_solarcheck.infrastructure.sqlite_online_entitlement import SQLiteOnlineEntitlementStore
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.infrastructure.sqlite_payment_authorization import SQLitePaymentAuthorizationIntentStore
 from mcm_solarcheck.infrastructure.sqlite_payment_operation import SQLitePaymentOperationIntentStore
@@ -34,6 +35,7 @@ class OnlinePersistence:
     """Authoritative persistent dependencies shared by the online service layer."""
 
     registrations: SQLiteOnlineRegistrationStore
+    entitlements: SQLiteOnlineEntitlementStore
     compute_jobs: SQLiteComputeJobStore
     billing: SQLiteComputeJobBillingStore
     payments: SQLiteOnlinePaymentStore
@@ -80,6 +82,7 @@ def build_online_persistence(
     voucher_policy.bootstrap_default()
     return OnlinePersistence(
         registrations=SQLiteOnlineRegistrationStore(database),
+        entitlements=SQLiteOnlineEntitlementStore(database),
         compute_jobs=SQLiteComputeJobStore(database),
         billing=SQLiteComputeJobBillingStore(database),
         payments=payments,
