@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from mcm_solarcheck.services.compute_jobs import ComputeJobStatus, ComputeJobStore
+
 
 @dataclass(frozen=True)
 class ComputeJobDelivery:
@@ -93,6 +95,7 @@ class ComputeJobBillingService:
     """Server-owned delivery evidence and billing eligibility transitions."""
 
     store: ComputeJobBillingStore
+    jobs: ComputeJobStore | None = None
 
     def create(
         self,
@@ -101,6 +104,12 @@ class ComputeJobBillingService:
         user_id: str,
         project_id: str,
     ) -> ComputeJobBilling:
+        if self.jobs is not None:
+            job = self.jobs.get(job_id)
+            if job.user_id != user_id or job.project_id != project_id:
+                raise PermissionError("compute job billing ownership mismatch")
+            if job.status is not ComputeJobStatus.COMPLETED:
+                raise ValueError("billing requires a completed compute job")
         billing = ComputeJobBilling(ComputeJobDelivery(job_id, user_id, project_id))
         self.store.create(billing)
         return billing
