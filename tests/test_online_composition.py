@@ -698,3 +698,102 @@ def test_online_checkout_requires_compute_job_billing_context(tmp_path) -> None:
 
     with pytest.raises(KeyError):
         persistence.payments.get("payment-without-billing")
+
+
+def test_online_paypal_checkout_delivery_and_capture_end_to_end(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.payment import PaymentAmount, PaymentStatus
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-paypal-e2e")
+    persistence.merchant_accounts.save(
+        MerchantAccount(
+            "merchant-paypal-e2e",
+            "provider-a",
+            MerchantAccountKind.PAYPAL,
+            "paypal merchant",
+        )
+    )
+    persistence.tariffs.save(
+        initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc))
+    )
+    services = online_services(persistence)
+
+    services.compute_jobs.create(
+        job_id="job-paypal-e2e",
+        user_id="user-paypal-e2e",
+        project_id="project-paypal-e2e",
+    )
+    services.compute_jobs.start(
+        "job-paypal-e2e",
+        user_id="user-paypal-e2e",
+        project_id="project-paypal-e2e",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+    services.compute_jobs.transition(
+        "job-paypal-e2e",
+        ComputeJobStatus.COMPLETED,
+        user_id="user-paypal-e2e",
+        project_id="project-paypal-e2e",
+    )
+    services.billing.create(
+        "job-paypal-e2e",
+        user_id="user-paypal-e2e",
+        project_id="project-paypal-e2e",
+    )
+
+    authorized = services.payment_checkout.checkout(
+        "payment-paypal-e2e",
+        user_id="user-paypal-e2e",
+        project_id="project-paypal-e2e",
+        job_id="job-paypal-e2e",
+        plant_kwp=750,
+        method=PaymentMethod.PAYPAL,
+        provider_id="provider-a",
+        merchant_account_id="merchant-paypal-e2e",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
+    assert authorized.status is PaymentStatus.AUTHORIZED
+    assert authorized.amount == PaymentAmount(14500, "EUR")
+    assert authorized.method is PaymentMethod.PAYPAL
+
+    with pytest.raises(ValueError, match="export and report retrieval"):
+        services.payment_capture.capture(
+            "payment-paypal-e2e",
+            user_id="user-paypal-e2e",
+            project_id="project-paypal-e2e",
+        )
+
+    services.billing.mark_export_completed(
+        "job-paypal-e2e",
+        user_id="user-paypal-e2e",
+        project_id="project-paypal-e2e",
+    )
+    persistence.reports.path_for("job-paypal-e2e").write_bytes(b"paypal-e2e-report")
+    sent = []
+    released = services.report_delivery.deliver(
+        "job-paypal-e2e",
+        user_id="user-paypal-e2e",
+        project_id="project-paypal-e2e",
+        send=sent.append,
+    )
+    captured = services.payment_capture.capture(
+        "payment-paypal-e2e",
+        user_id="user-paypal-e2e",
+        project_id="project-paypal-e2e",
+    )
+
+    assert len(sent) == 1
+    assert sent[0].content == b"paypal-e2e-report"
+    assert released.delivery.billable is True
+    assert released.billing_released is True
+    assert captured.status is PaymentStatus.CAPTURED
+    assert captured.method is PaymentMethod.PAYPAL
+    assert captured.tariff_version == 1
+    assert captured.plant_kwp == 750
+    assert captured.merchant_account_id == "merchant-paypal-e2e"
+    assert captured.provider_id == "provider-a"
+    assert persistence.payments.get("payment-paypal-e2e") == captured
