@@ -655,3 +655,40 @@ def test_online_compute_job_requires_persisted_verified_entitlement(tmp_path, mo
     )
     assert job.user_id == "user-entitled"
     assert persistence.compute_jobs.get("job-after-verification") == job
+
+
+def test_online_checkout_requires_compute_job_billing_context(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.payment_methods import PaymentMethod
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.merchant_accounts.save(
+        MerchantAccount(
+            "merchant-checkout-gate",
+            "provider-a",
+            MerchantAccountKind.CARD_PROCESSOR,
+            "merchant display",
+        )
+    )
+    persistence.tariffs.save(
+        initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc))
+    )
+    services = online_services(persistence)
+
+    with pytest.raises(ValueError, match="compute job billing"):
+        services.payment_checkout.checkout(
+            "payment-without-billing",
+            user_id="user-e2e",
+            project_id="project-e2e",
+            job_id="missing-job",
+            plant_kwp=750,
+            method=PaymentMethod.CARD,
+            provider_id="provider-a",
+            merchant_account_id="merchant-checkout-gate",
+            now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+        )
+
+    with pytest.raises(KeyError):
+        persistence.payments.get("payment-without-billing")
