@@ -338,3 +338,78 @@ def test_online_billing_starts_only_after_completed_compute_job(tmp_path) -> Non
     assert billing.delivery.job_id == completed.job_id
     assert billing.delivery.export_completed is False
     assert billing.billing_released is False
+
+
+def test_online_completed_job_delivery_releases_billing_and_allows_capture(tmp_path) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount, PaymentStatus
+    from mcm_solarcheck.services.payment_methods import PaymentMethod
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+    services.compute_jobs.create(
+        job_id="job-delivery-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+    services.compute_jobs.start(
+        "job-delivery-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+    services.compute_jobs.transition(
+        "job-delivery-e2e",
+        ComputeJobStatus.COMPLETED,
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+    services.billing.create(
+        "job-delivery-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+    services.billing.mark_export_completed(
+        "job-delivery-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+    persistence.reports.path_for("job-delivery-e2e").write_bytes(b"report-e2e")
+
+    persistence.payments.create(
+        OnlinePayment(
+            "payment-delivery-e2e",
+            "user-e2e",
+            "project-e2e",
+            "job-delivery-e2e",
+            PaymentAmount(12900, "EUR"),
+            method=PaymentMethod.CARD,
+        )
+    )
+    persistence.payments.authorize(
+        "payment-delivery-e2e",
+        "user-e2e",
+        "project-e2e",
+        "provider-payment-reference",
+    )
+
+    sent = []
+    released = services.report_delivery.deliver(
+        "job-delivery-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+        send=sent.append,
+    )
+    captured = services.payment_capture.capture(
+        "payment-delivery-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+
+    assert len(sent) == 1
+    assert sent[0].content == b"report-e2e"
+    assert released.delivery.export_completed is True
+    assert released.delivery.report_retrieved is True
+    assert released.billing_released is True
+    assert captured.status is PaymentStatus.CAPTURED
+    assert persistence.payments.get("payment-delivery-e2e") == captured
