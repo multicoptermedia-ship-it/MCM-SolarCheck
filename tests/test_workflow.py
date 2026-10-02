@@ -483,7 +483,9 @@ def test_application_review_rejects_project_without_reviewable_evidence(tmp_path
             reviewed_at_utc=datetime(2026, 10, 2, 12, tzinfo=timezone.utc),
         )
 
-    assert database.queries.findings("P1") == ()
+    from mcm_solarcheck.storage.queries import InspectionQueries
+
+    assert InspectionQueries(database).findings("P1") == ()
 
 
 def test_application_review_persists_human_decision_and_rederives_state(tmp_path):
@@ -515,7 +517,9 @@ def test_application_review_persists_human_decision_and_rederives_state(tmp_path
 
     assert reviewed.reviewer_status == "confirmed"
     assert audit.status is ReviewStatus.CONFIRMED
-    persisted = database.queries.findings("P1")
+    from mcm_solarcheck.storage.queries import InspectionQueries
+
+    persisted = InspectionQueries(database).findings("P1")
     assert len(persisted) == 1
     assert persisted[0].reviewer_status == "confirmed"
     assert state.readiness(WorkflowStage.REPORT).ready is True
