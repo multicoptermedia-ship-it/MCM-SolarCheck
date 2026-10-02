@@ -11,16 +11,20 @@ from mcm_solarcheck.infrastructure.sqlite_billing import SQLiteComputeJobBilling
 from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_admin_delivery import SQLiteInvoiceAdminDeliveryStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_identity import SQLiteInvoiceIdentityStore
+from mcm_solarcheck.infrastructure.sqlite_merchant_account import SQLiteMerchantAccountStore
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.infrastructure.sqlite_payment_authorization import SQLitePaymentAuthorizationIntentStore
 from mcm_solarcheck.infrastructure.sqlite_payment_operation import SQLitePaymentOperationIntentStore
+from mcm_solarcheck.infrastructure.sqlite_priced_payment import SQLitePricedPaymentStore
 from mcm_solarcheck.infrastructure.sqlite_report_recovery import SQLiteReportRecoveryStore
 from mcm_solarcheck.infrastructure.sqlite_registration import SQLiteOnlineRegistrationStore
 from mcm_solarcheck.infrastructure.sqlite_sepa import SQLiteSepaMandateStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_collection import SQLiteSepaCollectionStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_submission import SQLiteSepaSubmissionStore
 from mcm_solarcheck.infrastructure.sqlite_smtp_admin_audit import SQLiteSMTPAdminAudit
+from mcm_solarcheck.infrastructure.sqlite_solarcheck_tariff import SQLiteSolarCheckTariffStore
 from mcm_solarcheck.infrastructure.sqlite_smtp_settings import SQLiteSMTPSettingsStore
+from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherPolicyStore, SQLiteFlightPlanVoucherStore
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig
 from mcm_solarcheck.services.smtp_admin import SMTPSecretStore
 
@@ -33,6 +37,11 @@ class OnlinePersistence:
     compute_jobs: SQLiteComputeJobStore
     billing: SQLiteComputeJobBillingStore
     payments: SQLiteOnlinePaymentStore
+    merchant_accounts: SQLiteMerchantAccountStore
+    tariffs: SQLiteSolarCheckTariffStore
+    vouchers: SQLiteFlightPlanVoucherStore
+    voucher_policy: SQLiteFlightPlanVoucherPolicyStore
+    priced_payments: SQLitePricedPaymentStore
     payment_operations: SQLitePaymentOperationIntentStore
     payment_authorizations: SQLitePaymentAuthorizationIntentStore
     sepa_mandates: SQLiteSepaMandateStore
@@ -65,11 +74,20 @@ def build_online_persistence(
     paths.reports_root.mkdir(parents=True, exist_ok=True)
     paths.invoices_root.mkdir(parents=True, exist_ok=True)
 
+    payments = SQLiteOnlinePaymentStore(database)
+    vouchers = SQLiteFlightPlanVoucherStore(database)
+    voucher_policy = SQLiteFlightPlanVoucherPolicyStore(database)
+    voucher_policy.bootstrap_default()
     return OnlinePersistence(
         registrations=SQLiteOnlineRegistrationStore(database),
         compute_jobs=SQLiteComputeJobStore(database),
         billing=SQLiteComputeJobBillingStore(database),
-        payments=SQLiteOnlinePaymentStore(database),
+        payments=payments,
+        merchant_accounts=SQLiteMerchantAccountStore(database),
+        tariffs=SQLiteSolarCheckTariffStore(database),
+        vouchers=vouchers,
+        voucher_policy=voucher_policy,
+        priced_payments=SQLitePricedPaymentStore(database, database),
         payment_operations=SQLitePaymentOperationIntentStore(database),
         payment_authorizations=SQLitePaymentAuthorizationIntentStore(database),
         sepa_mandates=SQLiteSepaMandateStore(database),
