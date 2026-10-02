@@ -45,6 +45,11 @@ class OnlineRegistrationStore(Protocol):
         ...
 
 
+class OnlineEntitlementStore(Protocol):
+    def save(self, entitlement: OnlineEntitlement) -> None:
+        ...
+
+
 class OnlineRegistrationService:
     """Coordinate registration, verification, notification and entitlement."""
 
@@ -54,6 +59,7 @@ class OnlineRegistrationService:
         email_sender: EmailSender,
         email_config: RegistrationEmailConfig,
         *,
+        entitlements: OnlineEntitlementStore | None = None,
         verification_duration: timedelta = timedelta(minutes=30),
     ) -> None:
         if verification_duration <= timedelta(0):
@@ -62,6 +68,7 @@ class OnlineRegistrationService:
         self._email_sender = email_sender
         self._email_config = email_config
         self._verification_duration = verification_duration
+        self._entitlement_store = entitlements
         self._notifications = RegistrationNotificationService(
             email_sender, email_config
         )
@@ -117,6 +124,8 @@ class OnlineRegistrationService:
             OnlineEntitlement(registration.user_id, product),
             registration,
         )
+        if self._entitlement_store is not None:
+            self._entitlement_store.save(entitlement)
         return entitlement
 
     def deliver_pending_notifications(self, *, now: datetime) -> int:
