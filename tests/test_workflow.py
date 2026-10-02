@@ -359,3 +359,51 @@ def test_application_service_import_verification_rejects_unknown_project(tmp_pat
 
     with pytest.raises(KeyError, match="Unknown project: missing"):
         service.import_verification("missing")
+
+
+
+def _inspection_report():
+    from datetime import datetime, timezone
+    from mcm_solarcheck.reporting.report_model import InspectionReport
+
+    return InspectionReport(
+        "R-P10",
+        "P1",
+        "Customer",
+        "Site",
+        datetime(2026, 10, 2, 12, tzinfo=timezone.utc),
+        "Inspector",
+        1,
+        0,
+        0,
+    )
+
+
+def test_application_export_rejects_blocked_workflow_before_file_write(tmp_path):
+    from mcm_solarcheck.services.product_entitlements import FULL_ONLINE
+
+    service = ProjectApplicationService(_database(tmp_path))
+    destination = tmp_path / "blocked" / "report.pdf"
+
+    with pytest.raises(ValueError, match="export action is blocked"):
+        service.export_report("P1", FULL_ONLINE, _inspection_report(), destination)
+
+    assert not destination.exists()
+    assert not destination.parent.exists()
+
+
+def test_application_export_writes_ready_full_online_report(tmp_path):
+    from mcm_solarcheck.services.product_entitlements import FULL_ONLINE
+
+    database = _database_with_finding(
+        tmp_path, status="confirmed", module_id="M1"
+    )
+    service = ProjectApplicationService(database)
+    destination = tmp_path / "released" / "report.pdf"
+
+    result = service.export_report(
+        "P1", FULL_ONLINE, _inspection_report(), destination
+    )
+
+    assert result == destination
+    assert destination.is_file()
