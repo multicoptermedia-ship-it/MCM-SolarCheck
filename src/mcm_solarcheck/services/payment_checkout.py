@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol
 
+from mcm_solarcheck.services.billing import ComputeJobBillingStore
+
 from mcm_solarcheck.services.merchant_binding import MerchantAccountBindingService
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentStatus
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService
@@ -48,6 +50,7 @@ class OnlinePaymentCheckoutService:
         authorization: PaymentAuthorizationService,
         payments: PaymentProcessingSnapshotStore,
         tariffs: SolarCheckTariffStore,
+        billing: ComputeJobBillingStore | None = None,
     ) -> None:
         self._pricing = pricing
         self._merchants = merchants
@@ -55,6 +58,7 @@ class OnlinePaymentCheckoutService:
         self._authorization = authorization
         self._payments = payments
         self._tariffs = tariffs
+        self._billing = billing
 
     def checkout(
         self,
@@ -70,6 +74,17 @@ class OnlinePaymentCheckoutService:
         now: datetime,
         voucher_code: str | None = None,
     ) -> OnlinePayment:
+        if self._billing is not None:
+            try:
+                billing = self._billing.get(job_id)
+            except KeyError as exc:
+                raise ValueError("checkout requires completed compute job billing") from exc
+            if (
+                billing.delivery.user_id != user_id
+                or billing.delivery.project_id != project_id
+            ):
+                raise PermissionError("checkout billing ownership mismatch")
+
         if not isinstance(method, PaymentMethod):
             raise ValueError("payment method must be a PaymentMethod value")
         provider = self._providers.get(provider_id)
