@@ -84,7 +84,7 @@ def build_online_services(
         admission=persistence.compute_jobs,
         claims=persistence.compute_jobs,
     )
-    billing = ComputeJobBillingService(persistence.billing)
+    billing = ComputeJobBillingService(persistence.billing, persistence.compute_jobs)
     report_delivery = ReportDeliveryService(persistence.billing, persistence.reports)
     report_notifications = ReportRecoveryNotificationService(
         sender,
