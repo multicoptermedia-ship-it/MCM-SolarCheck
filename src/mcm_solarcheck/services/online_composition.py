@@ -12,14 +12,18 @@ from mcm_solarcheck.services.email import ReportRecoveryEmailConfig
 from mcm_solarcheck.services.invoice import InvoiceBasisService
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
 from mcm_solarcheck.services.invoice_creation import InvoiceCreationService, InvoiceRenderConfig
+from mcm_solarcheck.services.merchant_binding import MerchantAccountBindingService
 from mcm_solarcheck.services.online_admin import OnlineAdminActions
 from mcm_solarcheck.services.online_admin_readiness import (
     ConfigurationReadiness,
     OnlineAdminReadinessService,
 )
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
+from mcm_solarcheck.services.payment_checkout import OnlinePaymentCheckoutService
 from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService, PaymentGateway
+from mcm_solarcheck.services.payment_pricing import PaymentPricingService
+from mcm_solarcheck.services.payment_provider import PaymentProviderRegistry
 from mcm_solarcheck.services.payment_void import PaymentVoidService
 from mcm_solarcheck.services.released_invoice import ReleasedInvoiceService
 from mcm_solarcheck.services.report_delivery import ReportDeliveryService
@@ -40,6 +44,7 @@ class OnlineServices:
     billing: ComputeJobBillingService
     report_delivery: ReportDeliveryService
     report_recovery: ReportRecoveryService
+    payment_checkout: OnlinePaymentCheckoutService
     payment_authorization: PaymentAuthorizationService
     payment_capture: PaymentCaptureService
     payment_void: PaymentVoidService
@@ -63,6 +68,7 @@ def build_online_services(
     sepa_gateway: SepaPaymentGateway,
     sepa_provider_id: str,
     payment_provider_readiness: ConfigurationReadiness,
+    payment_providers: PaymentProviderRegistry,
     sepa_provider_readiness: ConfigurationReadiness,
     admin_authorization: SMTPAdminAuthorization,
     admin_mutation_guard: SMTPAdminMutationGuard,
@@ -138,6 +144,19 @@ def build_online_services(
         payment_gateway,
         intents=persistence.payment_authorizations,
     )
+    payment_checkout = OnlinePaymentCheckoutService(
+        PaymentPricingService(
+            persistence.payments,
+            persistence.vouchers,
+            persistence.voucher_policy,
+            persistence.priced_payments,
+        ),
+        MerchantAccountBindingService(persistence.merchant_accounts),
+        payment_providers,
+        payment_authorization,
+        persistence.payments,
+        persistence.tariffs,
+    )
     payment_capture = PaymentCaptureService(
         persistence.payments,
         persistence.billing,
@@ -183,6 +202,7 @@ def build_online_services(
     return OnlineServices(
         compute_jobs=compute_jobs,
         billing=billing,
+        payment_checkout=payment_checkout,
         report_delivery=report_delivery,
         report_recovery=report_recovery,
         payment_authorization=payment_authorization,
