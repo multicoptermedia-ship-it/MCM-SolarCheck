@@ -254,3 +254,26 @@ def test_online_services_allow_explicit_production_readiness(tmp_path) -> None:
     services = online_services(persistence)
 
     assert services.require_production_ready() is None
+
+
+def test_online_services_expose_authoritative_compute_job_flow(tmp_path) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJobStatus
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+
+    created = services.compute_jobs.create(
+        job_id="job-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+    )
+    started = services.compute_jobs.start(
+        created.job_id,
+        user_id="user-e2e",
+        project_id="project-e2e",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+
+    assert created.status is ComputeJobStatus.QUEUED
+    assert started.status is ComputeJobStatus.RUNNING
+    assert persistence.compute_jobs.get("job-e2e") == started
