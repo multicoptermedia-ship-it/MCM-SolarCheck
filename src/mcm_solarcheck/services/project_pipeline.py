@@ -10,6 +10,7 @@ from mcm_solarcheck.storage.sqlite import ProjectDatabase
 from mcm_solarcheck.storage.queries import InspectionQueries, ProjectRecord
 from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, action_availability, record_attempt, require_action
 from mcm_solarcheck.services.product_entitlements import ProductCapabilities, ProductOperation, effective_output_availability
+from mcm_solarcheck.reporting.export import export_report
 
 
 @dataclass(frozen=True)
@@ -174,4 +175,30 @@ class ProjectApplicationService:
             operation,
             workflow_allowed=workflow.allowed,
             workflow_blockers=workflow.blockers,
+        )
+
+
+
+    def export_report(
+        self,
+        project_id: str,
+        capabilities: ProductCapabilities,
+        report,
+        destination: str | Path,
+        *,
+        format: str | None = None,
+        banner_path: str | Path | None = None,
+    ):
+        """Export only after both persisted workflow and product gates allow it."""
+        availability = self.output_availability(
+            project_id, capabilities, ProductOperation.EXPORT
+        )
+        if not availability.allowed:
+            reasons = "; ".join(availability.blockers)
+            raise ValueError(f"export action is blocked: {reasons}")
+        return export_report(
+            report,
+            destination,
+            format=format,
+            banner_path=banner_path,
         )
