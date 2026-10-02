@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from mcm_solarcheck.infrastructure.online_persistence import OnlinePersistence
 from mcm_solarcheck.infrastructure.smtp_email import SMTPEmailSender
 from mcm_solarcheck.services.billing import ComputeJobBillingService
+from mcm_solarcheck.services.compute_jobs import ComputeJobService
 from mcm_solarcheck.services.email import ReportRecoveryEmailConfig
 from mcm_solarcheck.services.invoice import InvoiceBasisService
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
@@ -35,6 +36,7 @@ from mcm_solarcheck.services.smtp_admin import (
 
 @dataclass(frozen=True)
 class OnlineServices:
+    compute_jobs: ComputeJobService
     billing: ComputeJobBillingService
     report_delivery: ReportDeliveryService
     report_recovery: ReportRecoveryService
@@ -76,6 +78,12 @@ def build_online_services(
     smtp_password = persistence.smtp_secrets.resolve_for_delivery()
     sender = SMTPEmailSender(smtp_config, smtp_password)
 
+    compute_jobs = ComputeJobService(
+        persistence.compute_jobs,
+        load=persistence.compute_jobs,
+        admission=persistence.compute_jobs,
+        claims=persistence.compute_jobs,
+    )
     billing = ComputeJobBillingService(persistence.billing)
     report_delivery = ReportDeliveryService(persistence.billing, persistence.reports)
     report_notifications = ReportRecoveryNotificationService(
@@ -173,6 +181,7 @@ def build_online_services(
     )
 
     return OnlineServices(
+        compute_jobs=compute_jobs,
         billing=billing,
         report_delivery=report_delivery,
         report_recovery=report_recovery,
