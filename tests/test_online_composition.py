@@ -463,6 +463,12 @@ def test_online_checkout_uses_composed_tariff_merchant_and_payment_state(tmp_pat
         initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc))
     )
     services = online_services(persistence)
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    persistence.billing.create(
+        ComputeJobBilling(
+            ComputeJobDelivery("job-checkout-e2e", "user-e2e", "project-e2e")
+        )
+    )
 
     payment = services.payment_checkout.checkout(
         "payment-checkout-e2e",
