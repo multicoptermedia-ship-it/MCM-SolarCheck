@@ -33,7 +33,7 @@ Ein neuer Funktionsblock beginnt nicht, solange das vorherige Gate rot oder unge
 
 ## Phase 10L – verifizierter Teilstand
 
-Die Teilblöcke **10L.1 bis 10L.8** sind implementiert und nach CI-Gate grün.
+Die Teilblöcke **10L.1 bis 10L.9** sind implementiert und nach CI-Gate grün.
 
 - 10L.1: Registration- und Compute-Persistenz produktiv komponiert.
 - 10L.2: Billing an autoritativ abgeschlossenen Compute Job gebunden.
@@ -43,8 +43,9 @@ Die Teilblöcke **10L.1 bis 10L.8** sind implementiert und nach CI-Gate grün.
 - 10L.6: Registration Service produktiv komponiert und persistiert.
 - 10L.7: verifiziertes Produkt-Entitlement persistent gemacht; Online-Compute-Erstellung erfordert aktives Entitlement.
 - 10L.8: Checkout erfordert einen zum Job, Nutzer und Projekt passenden Billing-Kontext; ohne diesen Kontext wird kein Payment erzeugt.
+- 10L.9: PayPal ist als vollständiger komponierter Authorize/Delivery-Release/Capture-Pfad verifiziert; Capture vor erfolgreicher Delivery bleibt gesperrt.
 
-Letztes verifiziertes Gate für 10L.8: GitHub Actions Run #1570, Python 3.11 und 3.12 erfolgreich.
+Letztes verifiziertes Gate: 10L.9, GitHub Actions Run #1574, Python 3.11 und 3.12 erfolgreich.
 
 ## Konsistente Online-Abfolge
 
@@ -78,10 +79,9 @@ Für SEPA gilt der eigene asynchrone Verarbeitungs- und Reconciliation-Pfad; er 
 
 Die verbleibenden End-to-End-Pfade werden einzeln mit denselben Gates geschlossen. Priorität haben:
 
-1. PayPal als vollständiger komponierter Online-Pfad einschließlich Delivery-Gate.
-2. SEPA als eigener asynchroner Online-Pfad einschließlich Reconciliation.
-3. Negativpfad: fehlgeschlagene Reportzustellung darf Billing Release und endgültige Zahlung nicht auslösen.
-4. Gesamtcheck von Phase 10L.
+1. SEPA als eigener asynchroner Online-Pfad einschließlich Reconciliation.
+2. Negativpfad: fehlgeschlagene Reportzustellung darf Billing Release und endgültige Zahlung nicht auslösen.
+3. Gesamtcheck von Phase 10L.
 
 Erst danach beginnt 10M.
 
