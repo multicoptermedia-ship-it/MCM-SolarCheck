@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 
 from mcm_solarcheck.infrastructure.sqlite_sepa_collection import (
@@ -176,4 +178,81 @@ def test_returned_is_terminal_against_stale_provider_events(tmp_path) -> None:
         )
         assert result.status is SepaCollectionStatus.RETURNED
 
+    assert store.get("collection-a").status is SepaCollectionStatus.RETURNED
+
+
+def test_concurrent_success_and_stale_pending_converge_to_success(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    service = SepaReconciliationService(store)
+    events = (
+        SepaProviderEvent(
+            "provider-a", "provider-debit-a", SepaCollectionStatus.SUCCEEDED
+        ),
+        SepaProviderEvent(
+            "provider-a", "provider-debit-a", SepaCollectionStatus.PENDING
+        ),
+    )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = tuple(executor.map(service.apply, events))
+
+    assert all(
+        result.status in {SepaCollectionStatus.PENDING, SepaCollectionStatus.SUCCEEDED}
+        for result in results
+    )
+    assert store.get("collection-a").status is SepaCollectionStatus.SUCCEEDED
+
+
+def test_concurrent_webhook_and_reconciliation_do_not_regress_success(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    service = SepaReconciliationService(store)
+    succeeded = SepaProviderEvent(
+        "provider-a", "provider-debit-a", SepaCollectionStatus.SUCCEEDED, "event-success"
+    )
+    stale_failed = SepaProviderEvent(
+        "provider-a", "provider-debit-a", SepaCollectionStatus.FAILED, "event-stale"
+    )
+
+    service.apply(succeeded)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = tuple(
+            executor.map(
+                service.apply,
+                (stale_failed, succeeded, stale_failed, succeeded),
+            )
+        )
+
+    assert all(result.status is SepaCollectionStatus.SUCCEEDED for result in results)
+    assert store.get("collection-a").status is SepaCollectionStatus.SUCCEEDED
+
+
+def test_concurrent_return_and_stale_events_leave_returned_terminal(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    service = SepaReconciliationService(store)
+    service.apply(
+        SepaProviderEvent(
+            "provider-a", "provider-debit-a", SepaCollectionStatus.SUCCEEDED
+        )
+    )
+    returned = SepaProviderEvent(
+        "provider-a", "provider-debit-a", SepaCollectionStatus.RETURNED
+    )
+    service.apply(returned)
+
+    stale_events = (
+        SepaProviderEvent(
+            "provider-a", "provider-debit-a", SepaCollectionStatus.PENDING
+        ),
+        SepaProviderEvent(
+            "provider-a", "provider-debit-a", SepaCollectionStatus.SUCCEEDED
+        ),
+        SepaProviderEvent(
+            "provider-a", "provider-debit-a", SepaCollectionStatus.FAILED
+        ),
+        returned,
+    )
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = tuple(executor.map(service.apply, stale_events))
+
+    assert all(result.status is SepaCollectionStatus.RETURNED for result in results)
     assert store.get("collection-a").status is SepaCollectionStatus.RETURNED
