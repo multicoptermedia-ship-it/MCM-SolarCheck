@@ -106,3 +106,16 @@ def test_require_ready_reports_all_missing_components():
         match=r"smtp, payment_provider, sepa_provider",
     ):
         service(smtp=False, payment=False, sepa=False).require_ready()
+
+
+def test_online_admin_readiness_rejects_non_boolean_provider_state():
+    class InvalidReadiness:
+        def is_configured(self):
+            return "false"
+
+    with pytest.raises(TypeError, match=r"is_configured\(\) must return bool"):
+        OnlineAdminReadinessService(
+            SMTPAdminService(Settings(), Secrets(True)),
+            InvalidReadiness(),
+            Readiness(True),
+        ).status()
