@@ -94,3 +94,86 @@ def test_return_event_requires_prior_success(tmp_path) -> None:
                 SepaCollectionStatus.RETURNED,
             )
         )
+
+
+
+def test_stale_pending_after_success_does_not_regress_collection(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    service = SepaReconciliationService(store)
+
+    service.apply(
+        SepaProviderEvent(
+            "provider-a",
+            "provider-debit-a",
+            SepaCollectionStatus.SUCCEEDED,
+        )
+    )
+    result = service.apply(
+        SepaProviderEvent(
+            "provider-a",
+            "provider-debit-a",
+            SepaCollectionStatus.PENDING,
+        )
+    )
+
+    assert result.status is SepaCollectionStatus.SUCCEEDED
+    assert store.get("collection-a").status is SepaCollectionStatus.SUCCEEDED
+
+
+def test_stale_failure_after_success_does_not_regress_collection(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    service = SepaReconciliationService(store)
+
+    service.apply(
+        SepaProviderEvent(
+            "provider-a",
+            "provider-debit-a",
+            SepaCollectionStatus.SUCCEEDED,
+        )
+    )
+    result = service.apply(
+        SepaProviderEvent(
+            "provider-a",
+            "provider-debit-a",
+            SepaCollectionStatus.FAILED,
+        )
+    )
+
+    assert result.status is SepaCollectionStatus.SUCCEEDED
+    assert store.get("collection-a").status is SepaCollectionStatus.SUCCEEDED
+
+
+def test_returned_is_terminal_against_stale_provider_events(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    service = SepaReconciliationService(store)
+
+    service.apply(
+        SepaProviderEvent(
+            "provider-a",
+            "provider-debit-a",
+            SepaCollectionStatus.SUCCEEDED,
+        )
+    )
+    service.apply(
+        SepaProviderEvent(
+            "provider-a",
+            "provider-debit-a",
+            SepaCollectionStatus.RETURNED,
+        )
+    )
+
+    for stale_status in (
+        SepaCollectionStatus.PENDING,
+        SepaCollectionStatus.SUCCEEDED,
+        SepaCollectionStatus.FAILED,
+    ):
+        result = service.apply(
+            SepaProviderEvent(
+                "provider-a",
+                "provider-debit-a",
+                stale_status,
+            )
+        )
+        assert result.status is SepaCollectionStatus.RETURNED
+
+    assert store.get("collection-a").status is SepaCollectionStatus.RETURNED
