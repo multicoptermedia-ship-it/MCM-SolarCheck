@@ -143,7 +143,23 @@ def test_online_persistence_requires_explicit_smtp_secret_backend(tmp_path) -> N
 
 
 def test_online_persistence_includes_registration_and_compute_job_state(tmp_path) -> None:
-    persistence = setup_persistence(tmp_path)
+    private = tmp_path / "private"
+    paths = OnlinePrivatePaths(
+        private / "solarcheck.sqlite",
+        private / "reports",
+        private / "invoices",
+        tmp_path / "public",
+    )
+    persistence = build_online_persistence(
+        paths,
+        smtp_default=SMTPConfig(
+            "smtp.example.invalid",
+            465,
+            "solarcheck@example.invalid",
+            security=SMTPSecurity.TLS,
+        ),
+        smtp_secrets=FakeSecretStore(),
+    )
     from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
     from mcm_solarcheck.services.registration import OnlineRegistration
 
