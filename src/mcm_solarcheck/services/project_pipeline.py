@@ -12,6 +12,7 @@ from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAct
 from mcm_solarcheck.services.product_entitlements import ProductCapabilities, ProductOperation, effective_output_availability
 from mcm_solarcheck.reporting.export import export_report
 from mcm_solarcheck.reporting.report_assembler import assemble_inspection_report
+from mcm_solarcheck.review.findings import ReviewStatus, review_finding
 
 
 @dataclass(frozen=True)
@@ -178,6 +179,29 @@ class ProjectApplicationService:
             workflow_blockers=workflow.blockers,
         )
 
+
+
+    def review_finding(
+        self,
+        project_id: str,
+        finding,
+        *,
+        status: ReviewStatus,
+        reviewer: str,
+        note: str | None = None,
+        reviewed_at_utc=None,
+    ):
+        """Apply and persist a human review only through the workflow boundary."""
+        self.require(project_id, WorkflowAction.REVIEW)
+        reviewed, audit = review_finding(
+            finding,
+            status=status,
+            reviewer=reviewer,
+            note=note,
+            reviewed_at_utc=reviewed_at_utc,
+        )
+        self.database.save_review(audit, project_id=project_id)
+        return reviewed, audit, self.state(project_id)
 
 
     def prepare_report(
