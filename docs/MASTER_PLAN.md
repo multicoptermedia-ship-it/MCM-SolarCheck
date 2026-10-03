@@ -83,7 +83,8 @@ Für SEPA gilt der eigene asynchrone Verarbeitungs- und Reconciliation-Pfad; er 
 
 - 10M.1: Produktionsbereitschaft prüft fail-closed SMTP, Payment-/SEPA-Provider, einen aktuell wirksamen aktiven Tarif sowie aktive Merchant Accounts für Card, PayPal und SEPA. Verifiziert mit GitHub Actions Run #1588 auf Python 3.11 und 3.12.
 - 10M.2: explizite fail-closed Online-Aktivierungsgrenze umgesetzt. Online startet INACTIVE und kann erst nach erfolgreichem Production-Readiness-Gate ACTIVE werden; ein fehlgeschlagener Aktivierungsversuch bleibt INACTIVE. Der Desktop-Einstieg bleibt getrennt. Verifiziert mit GitHub Actions Run #1592 auf Python 3.11 und 3.12.
-- 10M.3: nächster Block – Aktivierungsgrenze produktiv an die Online-Service-Komposition binden, ohne die fachlichen 10L-Sequenzen oder den Offline-Einstieg zu verändern.
+- 10M.3: produktive Activation Boundary an die Online-Service-Komposition gebunden. Die Komposition stellt den Zustand von Beginn an explizit als INACTIVE bereit; erst der vollständige Readiness-Gate erlaubt die explizite Umschaltung auf ACTIVE. Der Offline-Einstieg und die fachlichen 10L-Sequenzen bleiben unverändert. Verifiziert mit GitHub Actions Run #1600 auf Python 3.11 und 3.12.
+- 10M.4: nächster Block – produktive Online-Eintrittspunkte so absichern, dass kundenorientierte Operationen den ACTIVE-Zustand tatsächlich voraussetzen, ohne Admin-/Konfigurationszugriffe oder Offline Desktop unnötig zu sperren.
 
 ## Spätere Produkt- und Release-Arbeitsströme
 
