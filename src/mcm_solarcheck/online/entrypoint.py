@@ -11,6 +11,7 @@ def build_online_window(
     product: OnlineProduct,
     *,
     project_service=None,
+    registration_controller=None,
 ) -> SolarCheckMainWindow:
     """Build the online shell with the production entry gate wired by construction."""
     if not isinstance(product, OnlineProduct):
@@ -19,4 +20,14 @@ def build_online_window(
         DeploymentMode.ONLINE,
         project_service=project_service,
         customer_entry=product,
+        on_register=(
+            registration_controller.register
+            if registration_controller is not None
+            else None
+        ),
+        on_email_verification=(
+            registration_controller.verify_email_token
+            if registration_controller is not None
+            else None
+        ),
     )

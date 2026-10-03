@@ -4,17 +4,25 @@ from __future__ import annotations
 
 from typing import Callable
 
-from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFormLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from mcm_solarcheck.services.deployment import DeploymentMode
+from mcm_solarcheck.services.online_registration_controller import RegistrationRequest
 from mcm_solarcheck.services.shell_policy import shell_policy
 
 
 def make_entry_page(
     deployment: DeploymentMode,
     *,
-    on_register: Callable[[], None] | None = None,
-    on_email_verification: Callable[[], None] | None = None,
+    on_register: Callable[[RegistrationRequest], None] | None = None,
+    on_email_verification: Callable[[str], None] | None = None,
 ) -> QWidget:
     """Build the deployment entry page without duplicating product policy."""
     policy = shell_policy(deployment)
@@ -40,28 +48,68 @@ def make_entry_page(
         login_hint.setWordWrap(True)
         layout.addWidget(login_hint)
 
-        register = QPushButton("Registrieren", page)
+        form = QFormLayout()
+        fields = {}
+        for object_name, label, placeholder in (
+            ("registration_user_id", "Benutzer-ID", "Benutzer-ID"),
+            ("registration_display_name", "Name / Firma", "Name oder Firma"),
+            ("registration_email", "E-Mail", "name@beispiel.de"),
+            ("registration_street", "Straße", "Straße und Hausnummer"),
+            ("registration_postal_code", "PLZ", "Postleitzahl"),
+            ("registration_city", "Ort", "Ort"),
+        ):
+            field = QLineEdit(page)
+            field.setObjectName(object_name)
+            field.setPlaceholderText(placeholder)
+            fields[object_name] = field
+            form.addRow(label, field)
+        layout.addLayout(form)
+
+        register = QPushButton("Registrieren und Bestätigungslink senden", page)
         register.setObjectName("register_button")
         register.setEnabled(on_register is not None)
         if on_register is not None:
-            register.clicked.connect(on_register)
+            def submit_registration() -> None:
+                on_register(
+                    RegistrationRequest(
+                        user_id=fields["registration_user_id"].text(),
+                        display_name=fields["registration_display_name"].text(),
+                        email=fields["registration_email"].text(),
+                        street=fields["registration_street"].text(),
+                        postal_code=fields["registration_postal_code"].text(),
+                        city=fields["registration_city"].text(),
+                    )
+                )
+            register.clicked.connect(submit_registration)
         layout.addWidget(register)
+
+        verification_token = QLineEdit(page)
+        verification_token.setObjectName("email_verification_token")
+        verification_token.setPlaceholderText(
+            "Token aus dem Bestätigungslink (normalerweise automatisch übernommen)"
+        )
+        layout.addWidget(verification_token)
 
         verification = QPushButton("E-Mail bestätigen", page)
         verification.setObjectName("email_verification_button")
         verification.setToolTip(
-            "Öffnet den serverseitigen Bestätigungsablauf. "
-            "Der Einmal-Token wird nicht in der Oberfläche gespeichert."
+            "Bestätigt den serverseitig erzeugten Einmal-Token. "
+            "VERIFIED-Status und Produktfreigabe werden nicht in der Oberfläche entschieden."
         )
         verification.setEnabled(on_email_verification is not None)
         if on_email_verification is not None:
-            verification.clicked.connect(on_email_verification)
+            verification.clicked.connect(
+                lambda: on_email_verification(verification_token.text())
+            )
         layout.addWidget(verification)
 
         verification_hint = QLabel(
             "Nach der Registrierung senden wir einen zeitlich begrenzten "
             "Bestätigungslink an die angegebene E-Mail-Adresse. "
-            "Erst nach erfolgreicher Bestätigung wird der Online-Zugang freigeschaltet.",
+            "Der Link soll den Token automatisch an den Online-Dienst übergeben; "
+            "die Eingabe hier dient als sichere Fallback-Grenze. "
+            "Erst nach erfolgreicher serverseitiger Bestätigung und Produktfreigabe "
+            "wird der Online-Zugang freigeschaltet.",
             page,
         )
         verification_hint.setObjectName("email_verification_hint")
