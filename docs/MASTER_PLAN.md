@@ -105,6 +105,16 @@ Nach der Online-Betriebsreife bleiben insbesondere erhalten:
 - optionaler Flugplaner,
 - abschließende E2E-, Release- und Praxistests.
 
+## Datenbankstrategie Online / Offline
+
+- Offline Desktop bleibt lokal und verwendet SQLite; die Offline-Version darf keine produktive Online-Datenbank voraussetzen.
+- SolarCheck Online erhält eine austauschbare Persistence-Grenze. SQLite bleibt für Entwicklung und automatisierte Tests nutzbar.
+- Für den späteren produktiven IONOS-Betrieb ist ein MySQL-8.0-Adapter vorgesehen, sofern der konkrete IONOS-Tarif zum Deployment-Zeitpunkt MySQL 8.0 bereitstellt.
+- Domain-, Workflow-, Review-, Reporting-, Billing- und Payment-Logik dürfen nicht an SQLite- oder MySQL-spezifisches SQL gekoppelt werden.
+- SQLite-spezifische Konstrukte wie PRAGMA, BEGIN IMMEDIATE und Platzhaltersyntax bleiben auf Infrastrukturadapter begrenzt und werden nicht in den gemeinsamen Core übernommen.
+- Datenbank-Hostname, Port, Datenbankname und Benutzername sind Deployment-Konfiguration; Passwörter und weitere Zugangsdaten sind Secrets und werden weder im Repository noch in fachlichen Persistenzobjekten gespeichert.
+- Eine spätere SQLite→MySQL-Migration wird als eigener getesteter Deployment-/Persistence-Block durchgeführt. Sie darf die verifizierten Online-Fachsequenzen nicht verändern.
+
 ## Architekturprinzip Online / Offline
 
 Online und Offline teilen ab dem eigentlichen SolarCheck-Projektworkflow denselben fachlichen Domain-Core. Online ergänzt Identität, Entitlement, serverseitige Compute-/Delivery-/Billing-/Payment-Orchestrierung. Offline darf diese Online-spezifischen Zugangsschichten nicht benötigen, muss aber dieselben fachlichen Review-, Provenienz- und Report-Gates respektieren.
