@@ -103,3 +103,28 @@ def test_payment_intent_persistence_uses_crash_safe_protocols() -> None:
     assert authorizations.__name__ == "PaymentAuthorizationIntentStore"
     for method in ("reserve", "mark_provider_succeeded", "mark_completed", "get"):
         assert hasattr(authorizations, method)
+
+
+def test_sepa_persistence_preserves_asynchronous_lifecycle_contracts() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    mandates = hints["sepa_mandates"]
+    assert mandates.__name__ == "SepaMandatePersistence"
+    for method in ("create", "get", "activate", "revoke"):
+        assert hasattr(mandates, method)
+
+    submissions = hints["sepa_submissions"]
+    assert submissions.__name__ == "SepaSubmissionPersistence"
+    for method in ("reserve", "mark_submitted", "release", "get"):
+        assert hasattr(submissions, method)
+
+    collections = hints["sepa_collections"]
+    assert collections.__name__ == "SepaCollectionPersistence"
+    for method in (
+        "create",
+        "get",
+        "get_by_provider_reference",
+        "apply_provider_event",
+        "transition",
+    ):
+        assert hasattr(collections, method)

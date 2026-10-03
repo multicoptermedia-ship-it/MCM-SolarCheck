@@ -41,6 +41,9 @@ from mcm_solarcheck.services.voucher import FlightPlanVoucherPersistence
 from mcm_solarcheck.services.voucher_admin import FlightPlanVoucherPolicyPersistence
 from mcm_solarcheck.services.online_registration import OnlineRegistrationStore
 from mcm_solarcheck.services.smtp_admin import SMTPSecretStore
+from mcm_solarcheck.services.sepa import SepaMandatePersistence
+from mcm_solarcheck.services.sepa_submission import SepaSubmissionPersistence
+from mcm_solarcheck.services.sepa_collection import SepaCollectionPersistence
 
 
 @dataclass(frozen=True)
@@ -59,9 +62,9 @@ class OnlinePersistence:
     priced_payments: AtomicPricedPaymentStore
     payment_operations: PaymentOperationIntentStore
     payment_authorizations: PaymentAuthorizationIntentStore
-    sepa_mandates: Any
-    sepa_submissions: Any
-    sepa_collections: Any
+    sepa_mandates: SepaMandatePersistence
+    sepa_submissions: SepaSubmissionPersistence
+    sepa_collections: SepaCollectionPersistence
     invoice_identity: Any
     invoice_delivery: Any
     reports: Any

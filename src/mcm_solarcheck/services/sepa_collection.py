@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol
 
 
 class SepaCollectionStatus(str, Enum):
@@ -79,3 +80,38 @@ class SepaCollection:
             self.provider_reference,
             target,
         )
+
+
+
+class SepaCollectionPersistence(Protocol):
+    """Persistence for asynchronous SEPA collection and reconciliation."""
+
+    def create(self, collection: SepaCollection) -> None:
+        ...
+
+    def get(self, collection_id: str) -> SepaCollection:
+        ...
+
+    def get_by_provider_reference(
+        self, provider_id: str, provider_reference: str
+    ) -> SepaCollection:
+        ...
+
+    def apply_provider_event(
+        self,
+        provider_id: str,
+        provider_reference: str,
+        *,
+        target: SepaCollectionStatus,
+    ) -> SepaCollection:
+        """Apply provider event ordering atomically with the durable transition."""
+        ...
+
+    def transition(
+        self,
+        collection_id: str,
+        *,
+        user_id: str,
+        target: SepaCollectionStatus,
+    ) -> SepaCollection:
+        ...

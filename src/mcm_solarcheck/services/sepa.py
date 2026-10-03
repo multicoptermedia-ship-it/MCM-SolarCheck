@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol
 
 
 class SepaMandateStatus(str, Enum):
@@ -54,3 +55,22 @@ class SepaMandate:
             self.provider_reference,
             SepaMandateStatus.REVOKED,
         )
+
+
+
+class SepaMandatePersistence(Protocol):
+    """Provider-neutral persistence for the SEPA mandate lifecycle."""
+
+    def create(self, mandate: SepaMandate) -> None:
+        ...
+
+    def get(self, mandate_id: str) -> SepaMandate:
+        ...
+
+    def activate(
+        self, mandate_id: str, user_id: str, provider_reference: str
+    ) -> SepaMandate:
+        ...
+
+    def revoke(self, mandate_id: str, user_id: str) -> SepaMandate:
+        ...

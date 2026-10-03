@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Protocol
 
 
 class SepaSubmissionStatus(str, Enum):
@@ -67,3 +69,23 @@ class SepaSubmission:
             None,
             None,
         )
+
+
+
+class SepaSubmissionPersistence(Protocol):
+    """Crash-safe persistence for asynchronous SEPA provider submission."""
+
+    def reserve(self, submission: SepaSubmission, *, now: datetime) -> SepaSubmission:
+        """Reserve or lease one stable idempotent provider submission."""
+        ...
+
+    def mark_submitted(
+        self, payment_id: str, provider_reference: str, lease_token: str
+    ) -> SepaSubmission:
+        ...
+
+    def release(self, payment_id: str, lease_token: str) -> None:
+        ...
+
+    def get(self, payment_id: str) -> SepaSubmission:
+        ...
