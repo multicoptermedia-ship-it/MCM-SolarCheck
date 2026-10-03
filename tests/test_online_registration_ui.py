@@ -12,6 +12,12 @@ from mcm_solarcheck.services.online_registration_ui import RegistrationServiceCo
 class Credentials:
     def __init__(self) -> None:
         self.calls = []
+        self.validations = []
+
+    def validate_password(self, password) -> None:
+        self.validations.append(password)
+        if len(password) < 12:
+            raise ValueError("password must contain at least 12 characters")
 
     def set_password(self, user_id, password) -> None:
         self.calls.append((user_id, password))
@@ -82,6 +88,7 @@ def test_registration_controller_sets_password_outside_registration_service() ->
         )
     )
 
+    assert credentials.validations == ["correct horse battery staple"]
     assert credentials.calls == [("user-1", "correct horse battery staple")]
     assert "password" not in service.register_calls[0]
 
@@ -110,3 +117,30 @@ def test_registration_controller_rejects_non_utc_clock() -> None:
 
     with pytest.raises(ValueError, match="timezone-aware UTC"):
         controller.verify_email_token("opaque-token")
+
+
+def test_registration_controller_rejects_invalid_password_before_registration_side_effects() -> None:
+    service = RegistrationService()
+    credentials = Credentials()
+    controller = RegistrationServiceController(
+        service,
+        product=OnlineProduct.TRIAL,
+        credentials=credentials,
+    )
+
+    with pytest.raises(ValueError, match="at least 12"):
+        controller.register(
+            RegistrationRequest(
+                user_id="user-1",
+                display_name="MCM Dronetech",
+                email="user@example.com",
+                street="Musterweg 1",
+                postal_code="50181",
+                city="Bedburg",
+                password="too-short",
+            )
+        )
+
+    assert credentials.validations == ["too-short"]
+    assert credentials.calls == []
+    assert service.register_calls == []

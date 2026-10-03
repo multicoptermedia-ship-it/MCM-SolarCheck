@@ -34,6 +34,9 @@ class PasswordCredentialService:
     def __init__(self, store: CredentialStore) -> None:
         self._store = store
 
+    def validate_password(self, password: str) -> None:
+        _require_password(password)
+
     def set_password(self, user_id: str, password: str) -> None:
         user_id = _require_user_id(user_id)
         password_bytes = _require_password(password)

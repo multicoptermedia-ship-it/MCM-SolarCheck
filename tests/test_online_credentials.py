@@ -50,3 +50,14 @@ def test_password_service_rejects_short_password() -> None:
 
     with pytest.raises(ValueError, match="at least 12"):
         service.set_password("user-1", "too-short")
+
+
+def test_password_validation_reuses_password_policy_without_persisting() -> None:
+    store = Credentials()
+    service = PasswordCredentialService(store)
+
+    service.validate_password("correct horse battery staple")
+
+    assert store.values == {}
+    with pytest.raises(ValueError, match="at least 12"):
+        service.validate_password("too-short")

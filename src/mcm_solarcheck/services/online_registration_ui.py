@@ -30,8 +30,10 @@ class RegistrationServiceController:
         self._verified_user_id: str | None = None
 
     def register(self, request: RegistrationRequest) -> str:
-        if self._credentials is not None and not request.password:
-            raise ValueError("password is required for online registration")
+        if self._credentials is not None:
+            if not request.password:
+                raise ValueError("password is required for online registration")
+            self._credentials.validate_password(request.password)
         self._service.register(
             user_id=request.user_id,
             display_name=request.display_name,
