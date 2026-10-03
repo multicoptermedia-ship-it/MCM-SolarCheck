@@ -48,6 +48,6 @@ def test_online_entry_rejects_partial_identity_context() -> None:
 
 
 def test_offline_entry_does_not_require_online_identity() -> None:
-    gate = CustomerEntryGate(DeploymentMode.OFFLINE)
+    gate = CustomerEntryGate(DeploymentMode.OFFLINE_DESKTOP)
 
     gate.require_customer_entry()
