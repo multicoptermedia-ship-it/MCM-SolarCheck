@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from html import escape
+from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable
 from urllib.parse import parse_qs, urlparse
@@ -23,6 +24,7 @@ def verification_handler(
     login_service=None,
     session_service=None,
     secure_cookies: bool = False,
+    customer_entry=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
 
@@ -34,6 +36,9 @@ def verification_handler(
                     200,
                     "SolarCheck Online – Anmeldung und Registrierung werden hier bereitgestellt.",
                 )
+                return
+            if parsed.path == "/customer-entry" and session_service is not None and customer_entry is not None:
+                self._handle_customer_entry()
                 return
             if parsed.path != "/verify-email":
                 self._respond(404, "Not Found")
@@ -89,6 +94,24 @@ def verification_handler(
                 self._respond(400, "registration data is invalid")
                 return
             self._respond(202, message)
+
+        def _handle_customer_entry(self) -> None:
+            cookies = SimpleCookie()
+            try:
+                cookies.load(self.headers.get("Cookie", ""))
+                morsel = cookies.get("solarcheck_session")
+                if morsel is None:
+                    raise PermissionError("online session is invalid")
+                user_id = session_service.require_user(morsel.value)
+            except (CookieError, PermissionError, ValueError):
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+            self._respond(200, "SolarCheck Online Kundenzugang freigegeben.")
 
         def _handle_login(self) -> None:
             content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
@@ -164,6 +187,7 @@ def build_verification_server(
     login_service=None,
     session_service=None,
     secure_cookies: bool = False,
+    customer_entry=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -174,5 +198,6 @@ def build_verification_server(
             login_service,
             session_service,
             secure_cookies,
+            customer_entry,
         ),
     )

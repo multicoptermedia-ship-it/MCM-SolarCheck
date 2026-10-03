@@ -231,6 +231,11 @@ class SessionService:
         self.users.append(user_id)
         return self.Session()
 
+    def require_user(self, token):
+        if token != "opaque-session-token":
+            raise PermissionError("online session is invalid")
+        return "user-1"
+
 
 def test_local_http_adapter_routes_login() -> None:
     endpoint = Endpoint()
@@ -294,6 +299,87 @@ def test_local_http_adapter_masks_rejected_login() -> None:
             assert "invalid online login" in exc.read().decode("utf-8")
         else:
             raise AssertionError("rejected login must return 401")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_customer_entry_resolves_session_before_authorization() -> None:
+    endpoint = Endpoint()
+    sessions = SessionService()
+    users = []
+    server = build_verification_server(
+        endpoint,
+        session_service=sessions,
+        customer_entry=users.append,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/customer-entry",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            assert response.status == 200
+            assert "Kundenzugang freigegeben" in response.read().decode("utf-8")
+        assert users == ["user-1"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_customer_entry_rejects_missing_session_cookie() -> None:
+    endpoint = Endpoint()
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        try:
+            urlopen(f"http://{host}:{port}/customer-entry", timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 401
+        else:
+            raise AssertionError("missing session cookie must return 401")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_customer_entry_rejects_authorization_gate() -> None:
+    endpoint = Endpoint()
+
+    def reject(user_id):
+        raise PermissionError("entitlement inactive")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=reject,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/customer-entry",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 403
+        else:
+            raise AssertionError("customer entry gate rejection must return 403")
     finally:
         server.shutdown()
         server.server_close()

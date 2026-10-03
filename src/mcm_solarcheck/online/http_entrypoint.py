@@ -48,4 +48,5 @@ def build_online_verification_server(
         login_service=getattr(product.services, "login", None),
         session_service=OnlineSessionService(InMemorySessionStore(), now=now),
         secure_cookies=secure_cookies,
+        customer_entry=product.require_customer_entry,
     )
