@@ -123,12 +123,22 @@ Die Produktgrenzen sind inzwischen auch in den ausführbaren Einstiegspfaden kon
 - Online-Entry: Der Customer-Entry-Gate kann einen identifizierten Benutzerkontext verlangen und prüft dann zusätzlich zur aktiven Production-Freigabe das persistierte aktive Entitlement. Commit `0e140b5`, testseitig korrigiert mit `be7793a`; Run #1668 auf Python 3.11 und 3.12 erfolgreich.
 - Online-Verification: Der Registration-Controller übernimmt die Benutzer-ID ausschließlich aus dem vom serverseitigen Verification-Service zurückgegebenen aktiven Entitlement; vor erfolgreicher Verifikation existiert kein verifizierter Benutzerkontext. Commit `720030e`, Test-Double an die bestehende Service-Rückgabe angepasst mit `9db3187`; Run #1672 auf Python 3.11 und 3.12 erfolgreich.
 - Online-Workflow-Eintritt: Nach erfolgreicher Token-Verifikation wird die bestätigte Benutzer-ID an den Customer-Entry-Gate übergeben. Erst wenn Production ACTIVE und das persistierte Entitlement für genau diesen Benutzer bestätigt sind, wechselt die Shell auf die Projektseite; Fehler verbleiben fail-closed auf Login. Commit `e5686eb`, Run #1674 auf Python 3.11 und 3.12 erfolgreich.
+- Online-Verification HTTP: Eine transportneutrale HTTP-Grenze delegiert `/verify-email?token=…` an den autoritativen Registration-Service; ungültige oder abgelaufene Token bleiben fail-closed. Commit `45b4568`, Run #1678 auf Python 3.11 und 3.12 erfolgreich.
+- Online-Verification HTTP: Ein Standardbibliothek-Adapter stellt den lokalen/testbaren GET-Pfad bereit, ohne einen zusätzlichen Web-Framework-Stack einzuführen oder den Server-Lifecycle zu übernehmen. Commit `f5bdd77`, Run #1680 auf Python 3.11 und 3.12 erfolgreich.
+- Online-Verification Integration: Der HTTP-Adapter wird aus der bestehenden `OnlineProduct`-/Registration-Komposition aufgebaut. Der Integrationstest belegt Registrierung → Bestätigungslink → HTTP-Verifikation → VERIFIED → persistiertes aktives TRIAL-Entitlement. Commit `f4b608b`, Testimport korrigiert mit `54b6f19`; Run #1684 auf Python 3.11 und 3.12 erfolgreich.
 
 Die aktuell implementierte Eintrittssequenz lautet damit:
 
-**OnlineProduct / OnlineServices → Login / Registration → Bestätigungs-E-Mail → serverseitige Token-Verifikation → VERIFIED identity → aktives TRIAL-Entitlement → bestätigte Benutzer-ID → Customer-Entry-Gate (Production ACTIVE + persistiertes Benutzer-Entitlement) → Projektseite → gemeinsamer SolarCheck-Projektworkflow**
+**Website/Kundeneinstieg → OnlineProduct / OnlineServices → Login / Registration → Bestätigungs-E-Mail → /verify-email?token=… → serverseitige Token-Verifikation → VERIFIED identity → aktives TRIAL-Entitlement → bestätigte Benutzer-ID → Customer-Entry-Gate (Production ACTIVE + persistiertes Benutzer-Entitlement) → Projektseite → gemeinsamer SolarCheck-Projektworkflow**
 
-Ein produktiver Web-/API-Server bzw. automatisches Deep-Link-Routing des Bestätigungslinks ist damit noch nicht implementiert. Die manuelle Token-Eingabe im Login bleibt die vorhandene Fallback-Grenze. Ein solcher Server-/Web-Entrypoint darf später die bestehenden Registration-, Verification-, Entitlement- und Production-Activation-Gates nicht umgehen.
+Der lokale/testbare HTTP-Deep-Link-Pfad ist implementiert. Ein produktiver öffentlicher Webserver-/Deployment-Adapter für IONOS ist weiterhin ein eigener späterer Block und muss dieselben Registration-, Verification-, Entitlement- und Production-Activation-Gates verwenden. Die manuelle Token-Eingabe im Login bleibt bis zur vollständigen Webintegration als Fallback-Grenze erhalten.
+
+### Produktstrategie für Phase 11
+
+- **SolarCheck Online ist das primäre Kundenprodukt.** Die öffentliche Website `mcm-solarcheck.de` soll Kunden später ausschließlich in den Online-Einstieg führen; Registrierung, E-Mail-Verifikation, Entitlement und Production-Gate bleiben dabei verbindlich.
+- **SolarCheck Offline bleibt vorerst eine interne MCM-Arbeits- und Testversion.** Sie wird aktuell nicht öffentlich auf der Website angeboten und erhält keinen öffentlichen Downloadpfad.
+- Die Offline-Version dient der ausführlichen praktischen Erprobung des gemeinsamen SolarCheck-Cores. Eine spätere Vermarktung der Offline-Version ist eine gesonderte Produkt-/Release-Entscheidung nach ausreichenden Praxistests.
+- Die öffentliche Website darf Online- und Offline-Einstieg nicht vermischen. Ein späterer Offline-Installer, Lizenzierung, Update-Mechanismus, Preis und Download werden erst in einem eigenen Freigabeblock behandelt.
 
 ## Spätere Produkt- und Release-Arbeitsströme
 
