@@ -46,7 +46,10 @@ def build_online_verification_server(
         port=port,
         registration_controller=registration_controller,
         login_service=getattr(product.services, "login", None),
-        session_service=OnlineSessionService(InMemorySessionStore(), now=now),
+        session_service=OnlineSessionService(
+            getattr(product.services, "sessions", InMemorySessionStore()),
+            now=now,
+        ),
         secure_cookies=secure_cookies,
         customer_entry=product.require_customer_entry,
     )

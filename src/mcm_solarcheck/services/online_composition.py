@@ -93,6 +93,7 @@ class OnlineServices:
     production: OnlineProductionActivation
     entitlements: object
     credentials: object
+    sessions: object
 
     def require_production_ready(self) -> None:
         """Fail closed before enabling customer-facing commercial operation."""
@@ -301,4 +302,5 @@ def build_online_services(
         production=production,
         entitlements=persistence.entitlements,
         credentials=persistence.credentials,
+        sessions=persistence.sessions,
     )

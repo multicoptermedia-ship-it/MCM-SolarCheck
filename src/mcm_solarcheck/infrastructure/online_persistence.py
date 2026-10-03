@@ -23,6 +23,7 @@ from mcm_solarcheck.infrastructure.sqlite_registration import SQLiteOnlineRegist
 from mcm_solarcheck.infrastructure.sqlite_sepa import SQLiteSepaMandateStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_collection import SQLiteSepaCollectionStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_submission import SQLiteSepaSubmissionStore
+from mcm_solarcheck.infrastructure.sqlite_session import SQLiteSessionStore
 from mcm_solarcheck.infrastructure.sqlite_smtp_admin_audit import SQLiteSMTPAdminAudit
 from mcm_solarcheck.infrastructure.sqlite_solarcheck_tariff import SQLiteSolarCheckTariffStore
 from mcm_solarcheck.infrastructure.sqlite_smtp_settings import SQLiteSMTPSettingsStore
@@ -45,6 +46,7 @@ from mcm_solarcheck.services.payment_pricing import AtomicPricedPaymentStore
 from mcm_solarcheck.services.voucher import FlightPlanVoucherPersistence
 from mcm_solarcheck.services.voucher_admin import FlightPlanVoucherPolicyPersistence
 from mcm_solarcheck.services.online_registration import OnlineRegistrationStore
+from mcm_solarcheck.services.online_session import SessionStore
 from mcm_solarcheck.services.smtp_admin import SMTPAdminAudit, SMTPSecretStore, SMTPSettingsStore
 from mcm_solarcheck.services.sepa import SepaMandatePersistence
 from mcm_solarcheck.services.sepa_submission import SepaSubmissionPersistence
@@ -57,6 +59,7 @@ class OnlinePersistence:
 
     registrations: OnlineRegistrationStore
     credentials: CredentialStore
+    sessions: SessionStore
     entitlements: OnlineEntitlementStore
     compute_jobs: OnlineComputeJobPersistence
     billing: ComputeJobBillingStore
@@ -105,6 +108,7 @@ def build_online_persistence(
     return OnlinePersistence(
         registrations=SQLiteOnlineRegistrationStore(database),
         credentials=SQLiteCredentialStore(database),
+        sessions=SQLiteSessionStore(database),
         entitlements=SQLiteOnlineEntitlementStore(database),
         compute_jobs=SQLiteComputeJobStore(database),
         billing=SQLiteComputeJobBillingStore(database),
