@@ -1231,3 +1231,46 @@ def test_offline_routes_never_require_online_customer_entry(app: QApplication) -
     window.show_route(ShellRoute.IMPORT)
 
     assert window.current_route is ShellRoute.IMPORT
+
+
+def test_online_login_exposes_email_verification_flow(app: QApplication) -> None:
+    calls = []
+    window = SolarCheckMainWindow(
+        DeploymentMode.ONLINE,
+        on_register=lambda: calls.append("register"),
+        on_email_verification=lambda: calls.append("verify"),
+    )
+    register = window.findChild(QPushButton, "register_button")
+    verify = window.findChild(QPushButton, "email_verification_button")
+    hint = window.findChild(QLabel, "email_verification_hint")
+
+    assert register is not None and register.isEnabled()
+    assert verify is not None and verify.isEnabled()
+    assert hint is not None
+    assert "Bestätigungslink" in hint.text()
+    assert "freigeschaltet" in hint.text()
+
+    register.click()
+    verify.click()
+
+    assert calls == ["register", "verify"]
+
+
+def test_online_login_verification_controls_fail_closed_without_callbacks(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.ONLINE)
+    register = window.findChild(QPushButton, "register_button")
+    verify = window.findChild(QPushButton, "email_verification_button")
+
+    assert register is not None and not register.isEnabled()
+    assert verify is not None and not verify.isEnabled()
+
+
+def test_offline_entry_has_no_registration_or_email_verification_controls(
+    app: QApplication,
+) -> None:
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP)
+
+    assert window.findChild(QPushButton, "register_button") is None
+    assert window.findChild(QPushButton, "email_verification_button") is None

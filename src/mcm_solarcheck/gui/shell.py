@@ -33,11 +33,15 @@ class SolarCheckMainWindow(QMainWindow):
         *,
         project_service=None,
         customer_entry: CustomerEntry | None = None,
+        on_register=None,
+        on_email_verification=None,
     ) -> None:
         super().__init__()
         self._deployment = deployment
         self._project_service = project_service
         self._customer_entry = customer_entry
+        self._on_register = on_register
+        self._on_email_verification = on_email_verification
         self._navigation = shell_navigation(deployment)
         self._commands = shell_commands(deployment)
         self._actions: dict[ShellCommandId, QAction] = {}
@@ -76,7 +80,11 @@ class SolarCheckMainWindow(QMainWindow):
 
         for route in routes:
             if route is ShellRoute.LOGIN:
-                page = make_entry_page(self._deployment)
+                page = make_entry_page(
+                    self._deployment,
+                    on_register=self._on_register,
+                    on_email_verification=self._on_email_verification,
+                )
             elif route is ShellRoute.PROJECT:
                 projects = self._project_service.projects() if self._project_service is not None else ()
                 page = make_project_page(
