@@ -1,6 +1,6 @@
 # SolarCheck – Operativer Masterplan und Projektstatus
 
-Stand: 2026-10-02
+Stand: 2026-10-03
 
 Dieses Dokument ist die kanonische operative Statusreferenz im Repository. Es ersetzt die ältere Phasennummerierung für die laufende Entwicklung. Der tatsächlich implementierte Code und grüne CI-Gates bleiben maßgeblich.
 
@@ -28,8 +28,8 @@ Ein neuer Funktionsblock beginnt nicht, solange das vorherige Gate rot oder unge
 - Phase 10J: Payment/Webhook/Crash Safety – abgeschlossen.
 - Phase 10K: Persistence Migrations & Recovery Hardening – abgeschlossen.
 - Phase 10L: End-to-End Online Payment Integration – abgeschlossen.
-- Phase 10M: Operational Readiness / Deployment Gates – laufender Block.
-- Phase 11: öffentlicher Produktbetrieb / Expansion – nicht begonnen.
+- Phase 10M: Operational Readiness / Deployment Gates – abgeschlossen.
+- Phase 11: öffentlicher Produktbetrieb / Expansion – begonnen mit Produkttrennung und provider-neutraler Online-Persistence-Grenze.
 
 ## Phase 10L – abgeschlossen
 
@@ -87,9 +87,26 @@ Für SEPA gilt der eigene asynchrone Verarbeitungs- und Reconciliation-Pfad; er 
 - 10M.4: deployment-aware Customer-Entry-Gate umgesetzt. Online-Kundeneintritt setzt den ACTIVE-Zustand voraus; Offline Desktop bleibt unabhängig von Online-Production-Readiness. Da noch kein produktiver Web/API-Server-Entrypoint im Repository existiert, wurde kein fiktiver Server verdrahtet; künftige reale Online-Entrypoints müssen diese Service-Grenze verwenden. Verifiziert mit GitHub Actions Run #1604 auf Python 3.11 und 3.12.
 - Gesamtcheck 10M: PR #3 zeigt auf den verifizierten Head `82a2bc5`, ist offen und mergeable; GitHub Actions Run #1604 ist auf Python 3.11 und 3.12 erfolgreich. Die 10L Payment-/Delivery-Sequenzen und der Offline-Desktop-Einstieg bleiben unverändert.
 
-## Nächster Hauptblock: Phase 11 – Public Product Operation / Expansion
+## Phase 11 – Public Product Operation / Expansion
 
-Phase 11 beginnt erst nach grünem CI-Gate dieses 10M-Abschlussstands. Der konkrete erste Unterblock wird aus dem dann aktuellen Repository-Stand abgeleitet; bestehende Readiness-, Activation-, Customer-Entry- und 10L-Fachgates dürfen nicht umgangen werden.
+Phase 11 ist nach abgeschlossenem 10M-Gate begonnen. Online und Offline besitzen getrennte Produkt- und Kompositionsgrenzen, teilen aber weiterhin denselben fachlichen SolarCheck-Core. Die bestehenden Readiness-, Activation-, Customer-Entry- und 10L-Fachgates bleiben verbindlich.
+
+### Provider-neutrale Online-Persistence – Meilenstein abgeschlossen
+
+Der zentrale `OnlinePersistence`-Container ist vollständig über Service-/Domain-Ports typisiert; der zuvor verwendete Übergangstyp `Any` ist entfernt. Der aktuelle Builder verwendet weiterhin die vorhandenen SQLite- und privaten Filesystem-Adapter, ohne diese konkreten Typen in den zentralen Persistence-Vertrag zu tragen.
+
+Provider-neutral abgegrenzt sind Registration, Entitlements, Compute Jobs, Billing, Payments, Merchant Accounts, Tarife, Voucher und atomare Pricing-Persistenz, Payment Operation/Authorization Intents, SEPA Mandate/Submission/Collection, Invoice Identity/Delivery/Archive, Report Artifact/Recovery sowie SMTP Settings/Secrets/Audit.
+
+Dabei bleiben insbesondere erhalten:
+
+- Payment-Operation- und Authorization-Intents mit persistenter Crash-Recovery-Sequenz `RESERVED → PROVIDER_SUCCEEDED → COMPLETED` und stabilen Idempotency Keys.
+- Capture/Void bleiben gegenseitig ausschließend; Provider-Erfolg wird vor lokalem Abschluss dauerhaft belegt.
+- SEPA bleibt ein eigener asynchroner Mandate → Submission → Collection/Reconciliation-Pfad mit Lease-/Idempotency- und Event-Ordering-Schutz.
+- Voucher-Einlösung und Payment-Erzeugung bleiben atomar; Tarif-, Voucher-, Merchant- und Provider-Snapshots bleiben historisch reproduzierbar.
+- Report Retrieval/Delivery und Billing Release bleiben Voraussetzung für die nachgelagerte Rechnungsfreigabe.
+- SMTP-Secrets bleiben von nicht-geheimer Konfiguration und secret-freiem Admin-Audit getrennt.
+
+Verifiziert mit GitHub Actions Run #1640 auf Python 3.11 und 3.12. Der produktive MySQL-8.0-Adapter ist damit weiterhin ein späterer eigener Implementierungs-/Migrationsblock; dieser Meilenstein führt noch keinen MySQL-Treiber und keine MySQL-spezifische SQL-Logik ein.
 
 ## Spätere Produkt- und Release-Arbeitsströme
 
