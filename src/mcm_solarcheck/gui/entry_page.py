@@ -21,8 +21,8 @@ from mcm_solarcheck.services.shell_policy import shell_policy
 def make_entry_page(
     deployment: DeploymentMode,
     *,
-    on_register: Callable[[RegistrationRequest], None] | None = None,
-    on_email_verification: Callable[[str], None] | None = None,
+    on_register: Callable[[RegistrationRequest], str | None] | None = None,
+    on_email_verification: Callable[[str], str | None] | None = None,
 ) -> QWidget:
     """Build the deployment entry page without duplicating product policy."""
     policy = shell_policy(deployment)
@@ -65,13 +65,19 @@ def make_entry_page(
             form.addRow(label, field)
         layout.addLayout(form)
 
+        status = QLabel("", page)
+        status.setObjectName("registration_status")
+        status.setWordWrap(True)
+        layout.addWidget(status)
+
         register = QPushButton("Registrieren und Bestätigungslink senden", page)
         register.setObjectName("register_button")
         register.setEnabled(on_register is not None)
         if on_register is not None:
             def submit_registration() -> None:
-                on_register(
-                    RegistrationRequest(
+                try:
+                    message = on_register(
+                        RegistrationRequest(
                         user_id=fields["registration_user_id"].text(),
                         display_name=fields["registration_display_name"].text(),
                         email=fields["registration_email"].text(),
@@ -79,7 +85,11 @@ def make_entry_page(
                         postal_code=fields["registration_postal_code"].text(),
                         city=fields["registration_city"].text(),
                     )
-                )
+                    )
+                except (ValueError, RuntimeError) as exc:
+                    status.setText(str(exc))
+                else:
+                    status.setText(message or "Registrierung wurde verarbeitet.")
             register.clicked.connect(submit_registration)
         layout.addWidget(register)
 
@@ -98,9 +108,14 @@ def make_entry_page(
         )
         verification.setEnabled(on_email_verification is not None)
         if on_email_verification is not None:
-            verification.clicked.connect(
-                lambda: on_email_verification(verification_token.text())
-            )
+            def submit_verification() -> None:
+                try:
+                    message = on_email_verification(verification_token.text())
+                except (ValueError, RuntimeError) as exc:
+                    status.setText(str(exc))
+                else:
+                    status.setText(message or "E-Mail-Verifikation wurde verarbeitet.")
+            verification.clicked.connect(submit_verification)
         layout.addWidget(verification)
 
         verification_hint = QLabel(

@@ -19,8 +19,8 @@ class RegistrationRequest:
 class OnlineRegistrationController(Protocol):
     """UI-facing port; server/service code owns verification and entitlement policy."""
 
-    def register(self, request: RegistrationRequest) -> None:
+    def register(self, request: RegistrationRequest) -> str:
         ...
 
-    def verify_email_token(self, token: str) -> None:
+    def verify_email_token(self, token: str) -> str:
         ...
