@@ -1234,26 +1234,32 @@ def test_offline_routes_never_require_online_customer_entry(app: QApplication) -
 
 
 def test_online_login_exposes_email_verification_flow(app: QApplication) -> None:
-    calls = []
+    registrations = []
+    tokens = []
     window = SolarCheckMainWindow(
         DeploymentMode.ONLINE,
-        on_register=lambda: calls.append("register"),
-        on_email_verification=lambda: calls.append("verify"),
+        on_register=registrations.append,
+        on_email_verification=tokens.append,
     )
     register = window.findChild(QPushButton, "register_button")
     verify = window.findChild(QPushButton, "email_verification_button")
     hint = window.findChild(QLabel, "email_verification_hint")
+    token = window.findChild(QLineEdit, "email_verification_token")
 
     assert register is not None and register.isEnabled()
     assert verify is not None and verify.isEnabled()
     assert hint is not None
+    assert token is not None
     assert "Bestätigungslink" in hint.text()
     assert "freigeschaltet" in hint.text()
 
+    token.setText("opaque-token")
     register.click()
     verify.click()
 
-    assert calls == ["register", "verify"]
+    assert len(registrations) == 1
+    assert registrations[0].user_id == ""
+    assert tokens == ["opaque-token"]
 
 
 def test_online_login_verification_controls_fail_closed_without_callbacks(
