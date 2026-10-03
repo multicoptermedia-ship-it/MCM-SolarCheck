@@ -14,6 +14,9 @@ from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryS
 from mcm_solarcheck.services.invoice_creation import InvoiceCreationService, InvoiceRenderConfig
 from mcm_solarcheck.services.merchant_binding import MerchantAccountBindingService
 from mcm_solarcheck.services.online_activation import OnlineProductionActivation
+from mcm_solarcheck.services.online_authentication import OnlineAuthenticationService
+from mcm_solarcheck.services.online_credentials import PasswordCredentialService
+from mcm_solarcheck.services.online_login import OnlineLoginService
 from mcm_solarcheck.services.online_admin import OnlineAdminActions
 from mcm_solarcheck.services.online_registration import OnlineRegistrationService
 from mcm_solarcheck.services.online_admin_readiness import (
@@ -70,6 +73,7 @@ class _OnlineReadinessBoundary:
 @dataclass(frozen=True)
 class OnlineServices:
     registration: OnlineRegistrationService
+    login: OnlineLoginService
     compute_jobs: EntitledComputeJobService
     billing: ComputeJobBillingService
     report_delivery: ReportDeliveryService
@@ -136,6 +140,11 @@ def build_online_services(
             public_base_url=public_base_url,
         ),
         entitlements=persistence.entitlements,
+    )
+
+    login = OnlineLoginService(
+        PasswordCredentialService(persistence.credentials),
+        OnlineAuthenticationService(persistence.registrations),
     )
 
     compute_jobs_core = ComputeJobService(
@@ -271,6 +280,7 @@ def build_online_services(
 
     return OnlineServices(
         registration=registration,
+        login=login,
         compute_jobs=compute_jobs,
         billing=billing,
         payment_checkout=payment_checkout,
