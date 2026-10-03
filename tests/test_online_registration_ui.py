@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from mcm_solarcheck.services.online_entitlement import OnlineProduct
+from mcm_solarcheck.services.online_entitlement import OnlineEntitlement, OnlineProduct
 from mcm_solarcheck.services.online_registration_controller import RegistrationRequest
 from mcm_solarcheck.services.online_registration_ui import RegistrationServiceController
 
@@ -17,8 +17,9 @@ class RegistrationService:
     def register(self, **kwargs) -> None:
         self.register_calls.append(kwargs)
 
-    def verify_and_activate(self, token, *, product, now) -> None:
+    def verify_and_activate(self, token, *, product, now) -> OnlineEntitlement:
         self.verify_calls.append((token, product, now))
+        return OnlineEntitlement("user-1", product, active=True)
 
 
 def test_registration_controller_delegates_fields_with_utc_time() -> None:
