@@ -108,6 +108,25 @@ Dabei bleiben insbesondere erhalten:
 
 Verifiziert mit GitHub Actions Run #1640 auf Python 3.11 und 3.12. Der produktive MySQL-8.0-Adapter ist damit weiterhin ein späterer eigener Implementierungs-/Migrationsblock; dieser Meilenstein führt noch keinen MySQL-Treiber und keine MySQL-spezifische SQL-Logik ein.
 
+### Produkttrennung und Online-Login/Verification – aktueller Stand
+
+Die Produktgrenzen sind inzwischen auch in den ausführbaren Einstiegspfaden konkretisiert. Offline und Online bleiben physisch getrennt, während der gemeinsame SolarCheck-Projektworkflow im gemeinsamen Core verbleibt.
+
+- Offline: Der Desktop-Einstieg läuft über die explizite Offline-Produktkomposition. Commit `3334ab5`, GitHub Actions Run #1644, Python 3.11 und 3.12 erfolgreich.
+- Online: Der Shell-Workflow ist an den Customer-Entry-Gate gebunden. Commit `9f3b405`, Run #1646, Python 3.11 und 3.12 erfolgreich.
+- Online: Das Fenster wird über die explizite OnlineProduct-Komposition aufgebaut. Commit `6993235`, Run #1648, Python 3.11 und 3.12 erfolgreich.
+- Online-Login: Registrierungsfelder und E-Mail-Verifikation sind im Anmeldefenster sichtbar, ohne VERIFIED- oder Entitlement-Status in Qt zu erzeugen. Commit `04b388f`, Run #1650, Python 3.11 und 3.12 erfolgreich.
+- Online-Login: Registrierung und Token werden über eine UI-seitige Controller-Grenze geleitet. Nach zwei ausschließlich testseitigen Reparaturen (`3247a38`, `ba3e1d0`) war Run #1656 auf Python 3.11 und 3.12 erfolgreich.
+- Online-Login: Der Controller delegiert Registrierung und Verifikation an den vorhandenen `OnlineRegistrationService`; UTC-Zeit und Produktpolitik bleiben außerhalb der GUI. Commit `be4b92c`, Run #1658, Python 3.11 und 3.12 erfolgreich.
+- Online-Komposition: `build_online_window()` erzeugt den Registration-Controller aus dem komponierten Registration-Service; die aktuelle Verifikation aktiviert dabei das fest konfigurierte TRIAL-Entitlement. Commit `ea7b276`, Run #1660, Python 3.11 und 3.12 erfolgreich.
+- Online-Login: Erfolg und fachliche Validierungs-/Tokenfehler werden im Anmeldefenster sichtbar zurückgemeldet; die GUI entscheidet weiterhin nicht über VERIFIED oder Entitlement. Commit `ccef6d6`, Run #1662, Python 3.11 und 3.12 erfolgreich.
+
+Die aktuell implementierte Eintrittssequenz lautet damit:
+
+**OnlineProduct / OnlineServices → Login / Registration → Bestätigungs-E-Mail → serverseitige Token-Verifikation → VERIFIED identity → aktives TRIAL-Entitlement → Customer-Entry-Gate → gemeinsamer SolarCheck-Projektworkflow**
+
+Ein produktiver Web-/API-Server bzw. automatisches Deep-Link-Routing des Bestätigungslinks ist damit noch nicht implementiert. Die manuelle Token-Eingabe im Login bleibt die vorhandene Fallback-Grenze. Ein solcher Server-/Web-Entrypoint darf später die bestehenden Registration-, Verification-, Entitlement- und Production-Activation-Gates nicht umgehen.
+
 ## Spätere Produkt- und Release-Arbeitsströme
 
 Nach der Online-Betriebsreife bleiben insbesondere erhalten:
