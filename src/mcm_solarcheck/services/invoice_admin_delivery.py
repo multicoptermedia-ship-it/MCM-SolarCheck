@@ -2,11 +2,24 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Protocol
 
-from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
 from mcm_solarcheck.services.admin_notification import ADMIN_NOTIFICATION_EMAIL
 from mcm_solarcheck.services.email import EmailAttachment, EmailMessage, EmailSender
+
+
+class InvoiceArchive(Protocol):
+    def package_is_ready(self, invoice_id: str) -> bool:
+        ...
+
+    def store(self, invoice_id: str, content: bytes) -> Path:
+        ...
+
+    def store_package(
+        self, invoice_id: str, pdf: bytes, csv_content: bytes
+    ) -> tuple[Path, Path]:
+        ...
 
 
 class InvoiceAdminDeliveryStateStore(Protocol):
@@ -28,7 +41,7 @@ class InvoiceAdminDeliveryService:
 
     def __init__(
         self,
-        archive: FileSystemInvoiceArchive,
+        archive: InvoiceArchive,
         sender: EmailSender,
         *,
         sender_address: str,

@@ -29,6 +29,10 @@ from mcm_solarcheck.infrastructure.sqlite_smtp_settings import SQLiteSMTPSetting
 from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherPolicyStore, SQLiteFlightPlanVoucherStore
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
+from mcm_solarcheck.services.invoice_creation import InvoiceIdentityStore
+from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryStateStore, InvoiceArchive
+from mcm_solarcheck.services.report_delivery import ReportArtifactStore
+from mcm_solarcheck.services.report_recovery import ReportRecoveryClaimStore
 from mcm_solarcheck.services.compute_jobs import OnlineComputeJobPersistence
 from mcm_solarcheck.services.merchant_account import MerchantAccountPersistence
 from mcm_solarcheck.services.online_entitlement import OnlineEntitlementStore
@@ -65,11 +69,11 @@ class OnlinePersistence:
     sepa_mandates: SepaMandatePersistence
     sepa_submissions: SepaSubmissionPersistence
     sepa_collections: SepaCollectionPersistence
-    invoice_identity: Any
-    invoice_delivery: Any
-    reports: Any
-    report_recovery: Any
-    invoices: Any
+    invoice_identity: InvoiceIdentityStore
+    invoice_delivery: InvoiceAdminDeliveryStateStore
+    reports: ReportArtifactStore
+    report_recovery: ReportRecoveryClaimStore
+    invoices: InvoiceArchive
     smtp_settings: Any
     smtp_secrets: SMTPSecretStore
     smtp_admin_audit: Any

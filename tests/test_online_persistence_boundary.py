@@ -128,3 +128,30 @@ def test_sepa_persistence_preserves_asynchronous_lifecycle_contracts() -> None:
         "transition",
     ):
         assert hasattr(collections, method)
+
+
+def test_invoice_and_report_persistence_uses_service_layer_contracts() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    identity = hints["invoice_identity"]
+    assert identity.__name__ == "InvoiceIdentityStore"
+    assert hasattr(identity, "reserve")
+
+    delivery = hints["invoice_delivery"]
+    assert delivery.__name__ == "InvoiceAdminDeliveryStateStore"
+    for method in ("claim", "mark_sending", "mark_sent", "release"):
+        assert hasattr(delivery, method)
+
+    reports = hints["reports"]
+    assert reports.__name__ == "ReportArtifactStore"
+    assert hasattr(reports, "get")
+
+    recovery = hints["report_recovery"]
+    assert recovery.__name__ == "ReportRecoveryClaimStore"
+    for method in ("claim", "mark_sent", "release"):
+        assert hasattr(recovery, method)
+
+    archive = hints["invoices"]
+    assert archive.__name__ == "InvoiceArchive"
+    for method in ("package_is_ready", "store", "store_package"):
+        assert hasattr(archive, method)
