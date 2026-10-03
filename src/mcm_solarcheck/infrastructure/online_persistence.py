@@ -28,6 +28,7 @@ from mcm_solarcheck.infrastructure.sqlite_solarcheck_tariff import SQLiteSolarCh
 from mcm_solarcheck.infrastructure.sqlite_smtp_settings import SQLiteSMTPSettingsStore
 from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherPolicyStore, SQLiteFlightPlanVoucherStore
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig
+from mcm_solarcheck.services.billing import ComputeJobBillingStore
 from mcm_solarcheck.services.compute_jobs import OnlineComputeJobPersistence
 from mcm_solarcheck.services.online_entitlement import OnlineEntitlementStore
 from mcm_solarcheck.services.online_registration import OnlineRegistrationStore
@@ -41,7 +42,7 @@ class OnlinePersistence:
     registrations: OnlineRegistrationStore
     entitlements: OnlineEntitlementStore
     compute_jobs: OnlineComputeJobPersistence
-    billing: Any
+    billing: ComputeJobBillingStore
     payments: Any
     merchant_accounts: Any
     tariffs: Any

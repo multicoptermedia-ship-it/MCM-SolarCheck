@@ -36,3 +36,10 @@ def test_compute_job_persistence_uses_atomic_composition_protocol() -> None:
 
     assert hints["compute_jobs"].__name__ == "OnlineComputeJobPersistence"
     assert hints["compute_jobs"].__module__ == "mcm_solarcheck.services.compute_jobs"
+
+
+def test_billing_persistence_uses_delivery_release_protocol() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    assert hints["billing"].__name__ == "ComputeJobBillingStore"
+    assert hints["billing"].__module__ == "mcm_solarcheck.services.billing"
