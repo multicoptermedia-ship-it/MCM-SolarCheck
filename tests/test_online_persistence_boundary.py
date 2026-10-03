@@ -89,3 +89,17 @@ def test_voucher_persistence_preserves_one_time_redemption_contract() -> None:
     atomic = hints["priced_payments"]
     assert atomic.__name__ == "AtomicPricedPaymentStore"
     assert hasattr(atomic, "create_with_voucher")
+
+
+def test_payment_intent_persistence_uses_crash_safe_protocols() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    operations = hints["payment_operations"]
+    assert operations.__name__ == "PaymentOperationIntentStore"
+    for method in ("reserve", "mark_provider_succeeded", "mark_completed", "get"):
+        assert hasattr(operations, method)
+
+    authorizations = hints["payment_authorizations"]
+    assert authorizations.__name__ == "PaymentAuthorizationIntentStore"
+    for method in ("reserve", "mark_provider_succeeded", "mark_completed", "get"):
+        assert hasattr(authorizations, method)

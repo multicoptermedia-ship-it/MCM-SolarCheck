@@ -33,6 +33,8 @@ from mcm_solarcheck.services.compute_jobs import OnlineComputeJobPersistence
 from mcm_solarcheck.services.merchant_account import MerchantAccountPersistence
 from mcm_solarcheck.services.online_entitlement import OnlineEntitlementStore
 from mcm_solarcheck.services.payment import OnlinePaymentPersistence
+from mcm_solarcheck.services.payment_authorization_intent import PaymentAuthorizationIntentStore
+from mcm_solarcheck.services.payment_operation import PaymentOperationIntentStore
 from mcm_solarcheck.services.solarcheck_tariff import SolarCheckTariffPersistence
 from mcm_solarcheck.services.payment_pricing import AtomicPricedPaymentStore
 from mcm_solarcheck.services.voucher import FlightPlanVoucherPersistence
@@ -55,8 +57,8 @@ class OnlinePersistence:
     vouchers: FlightPlanVoucherPersistence
     voucher_policy: FlightPlanVoucherPolicyPersistence
     priced_payments: AtomicPricedPaymentStore
-    payment_operations: Any
-    payment_authorizations: Any
+    payment_operations: PaymentOperationIntentStore
+    payment_authorizations: PaymentAuthorizationIntentStore
     sepa_mandates: Any
     sepa_submissions: Any
     sepa_collections: Any
