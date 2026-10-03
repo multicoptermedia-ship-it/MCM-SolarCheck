@@ -22,7 +22,8 @@ def make_entry_page(
     deployment: DeploymentMode,
     *,
     on_register: Callable[[RegistrationRequest], str | None] | None = None,
-    on_email_verification: Callable[[str], str | None] | None = None,
+    on_email_verification: Callable[[str], str | tuple[str, str] | None] | None = None,
+    on_verified_entry: Callable[[str], None] | None = None,
 ) -> QWidget:
     """Build the deployment entry page without duplicating product policy."""
     policy = shell_policy(deployment)
@@ -110,8 +111,14 @@ def make_entry_page(
         if on_email_verification is not None:
             def submit_verification() -> None:
                 try:
-                    message = on_email_verification(verification_token.text())
-                except (ValueError, RuntimeError) as exc:
+                    result = on_email_verification(verification_token.text())
+                    if isinstance(result, tuple):
+                        message, user_id = result
+                        if on_verified_entry is not None:
+                            on_verified_entry(user_id)
+                    else:
+                        message = result
+                except (ValueError, RuntimeError, PermissionError) as exc:
                     status.setText(str(exc))
                 else:
                     status.setText(message or "E-Mail-Verifikation wurde verarbeitet.")

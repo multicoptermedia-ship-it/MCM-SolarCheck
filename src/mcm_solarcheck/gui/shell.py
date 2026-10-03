@@ -22,7 +22,7 @@ from mcm_solarcheck.services.shell_navigation import ShellRoute, shell_navigatio
 
 
 class CustomerEntry(Protocol):
-    def require_customer_entry(self) -> None:
+    def require_customer_entry(self, user_id: str | None = None) -> None:
         ...
 
 
@@ -84,6 +84,7 @@ class SolarCheckMainWindow(QMainWindow):
                     self._deployment,
                     on_register=self._on_register,
                     on_email_verification=self._on_email_verification,
+                    on_verified_entry=self._enter_verified_customer,
                 )
             elif route is ShellRoute.PROJECT:
                 projects = self._project_service.projects() if self._project_service is not None else ()
@@ -109,6 +110,13 @@ class SolarCheckMainWindow(QMainWindow):
 
         self.show_route(self._navigation.initial_route)
 
+
+    def _enter_verified_customer(self, user_id: str) -> None:
+        if self._customer_entry is None:
+            raise RuntimeError("online customer entry is unavailable")
+        self._customer_entry.require_customer_entry(user_id)
+        self._stack.setCurrentWidget(self._pages[ShellRoute.PROJECT])
+        self._workflow_navigation.set_current_route(ShellRoute.PROJECT)
 
     def _build_menu_bar(self) -> None:
         menus = {

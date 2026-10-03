@@ -39,14 +39,14 @@ class RegistrationServiceController:
         )
         return "Bestätigungs-E-Mail wurde gesendet."
 
-    def verify_email_token(self, token: str) -> str:
+    def verify_email_token(self, token: str) -> tuple[str, str]:
         entitlement = self._service.verify_and_activate(
             token,
             product=self._product,
             now=self._utc_now(),
         )
         self._verified_user_id = entitlement.user_id
-        return "E-Mail-Adresse wurde bestätigt."
+        return ("E-Mail-Adresse wurde bestätigt.", entitlement.user_id)
 
     @property
     def verified_user_id(self) -> str | None:
