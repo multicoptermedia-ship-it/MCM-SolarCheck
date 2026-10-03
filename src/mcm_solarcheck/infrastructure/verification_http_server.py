@@ -12,6 +12,10 @@ from mcm_solarcheck.services.online_registration_controller import RegistrationR
 from mcm_solarcheck.services.online_verification_http import EmailVerificationEndpoint
 
 
+MAX_REGISTRATION_BODY_BYTES = 16 * 1024
+REGISTRATION_FIELDS = ("user_id", "display_name", "email", "street", "postal_code", "city")
+
+
 def verification_handler(
     endpoint: EmailVerificationEndpoint,
     registration_controller=None,
@@ -39,10 +43,30 @@ def verification_handler(
             if parsed.path != "/register" or registration_controller is None:
                 self._respond(404, "Not Found")
                 return
+            content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            if content_type != "application/x-www-form-urlencoded":
+                self._respond(415, "registration content type is not supported")
+                return
             try:
-                length = int(self.headers.get("Content-Length", "0"))
-                form = parse_qs(self.rfile.read(length).decode("utf-8"))
-                field = lambda name: form.get(name, [""])[0]
+                length = int(self.headers.get("Content-Length", ""))
+            except ValueError:
+                self._respond(400, "registration data is invalid")
+                return
+            if length <= 0:
+                self._respond(400, "registration data is invalid")
+                return
+            if length > MAX_REGISTRATION_BODY_BYTES:
+                self._respond(413, "registration data is too large")
+                return
+            try:
+                form = parse_qs(
+                    self.rfile.read(length).decode("utf-8"),
+                    keep_blank_values=True,
+                    strict_parsing=True,
+                )
+                if any(len(form.get(name, [])) != 1 for name in REGISTRATION_FIELDS):
+                    raise ValueError("registration fields must occur exactly once")
+                field = lambda name: form[name][0]
                 message = registration_controller.register(
                     RegistrationRequest(
                         user_id=field("user_id"),
