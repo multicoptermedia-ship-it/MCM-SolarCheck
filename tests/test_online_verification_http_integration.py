@@ -6,6 +6,8 @@ from threading import Thread
 from urllib.parse import parse_qs, urlparse
 from urllib.request import urlopen
 
+import pytest
+
 from mcm_solarcheck.infrastructure.sqlite_online_entitlement import SQLiteOnlineEntitlementStore
 from mcm_solarcheck.infrastructure.sqlite_registration import SQLiteOnlineRegistrationStore
 from mcm_solarcheck.online.http_entrypoint import build_online_verification_server
@@ -80,3 +82,50 @@ def test_http_deep_link_verifies_registration_and_persists_entitlement(tmp_path)
     entitlement = entitlements.require_active("user-1")
     assert entitlement.product is EntitlementProduct.TRIAL
     assert entitlement.active
+
+
+def test_production_http_requires_secure_session_cookies(tmp_path) -> None:
+    registrations = SQLiteOnlineRegistrationStore(tmp_path / "registration.sqlite")
+    entitlements = SQLiteOnlineEntitlementStore(tmp_path / "entitlements.sqlite")
+    sender = Sender()
+    registration = OnlineRegistrationService(
+        registrations,
+        sender,
+        RegistrationEmailConfig(
+            sender="solarcheck@mcm-solarcheck.de",
+            notify_to="solarcheck@mcm-dronetech.com",
+            public_base_url="https://app.mcm-solarcheck.de",
+        ),
+        entitlements=entitlements,
+    )
+    product = OnlineProduct.compose(Services(registration, entitlements))
+
+    with pytest.raises(ValueError, match="production HTTP requires secure session cookies"):
+        build_online_verification_server(product, production=True)
+
+
+def test_production_http_accepts_explicit_secure_session_cookies(tmp_path) -> None:
+    registrations = SQLiteOnlineRegistrationStore(tmp_path / "registration.sqlite")
+    entitlements = SQLiteOnlineEntitlementStore(tmp_path / "entitlements.sqlite")
+    sender = Sender()
+    registration = OnlineRegistrationService(
+        registrations,
+        sender,
+        RegistrationEmailConfig(
+            sender="solarcheck@mcm-solarcheck.de",
+            notify_to="solarcheck@mcm-dronetech.com",
+            public_base_url="https://app.mcm-solarcheck.de",
+        ),
+        entitlements=entitlements,
+    )
+    product = OnlineProduct.compose(Services(registration, entitlements))
+
+    server = build_online_verification_server(
+        product,
+        production=True,
+        secure_cookies=True,
+    )
+    try:
+        assert server.server_address
+    finally:
+        server.server_close()

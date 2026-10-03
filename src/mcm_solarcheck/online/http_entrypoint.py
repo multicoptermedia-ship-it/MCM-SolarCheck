@@ -21,10 +21,13 @@ def build_online_verification_server(
     port: int = 0,
     now: Callable[[], datetime] | None = None,
     secure_cookies: bool = False,
+    production: bool = False,
 ):
     """Compose the verification HTTP adapter from the authoritative online services."""
     if not isinstance(product, OnlineProduct):
         raise TypeError("product must be OnlineProduct")
+    if production and not secure_cookies:
+        raise ValueError("production HTTP requires secure session cookies")
     endpoint = EmailVerificationEndpoint(
         product.services.registration,
         product=EntitlementProduct.TRIAL,
