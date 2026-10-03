@@ -6,7 +6,7 @@ from threading import Thread
 from urllib.parse import parse_qs, urlparse
 from urllib.request import urlopen
 
-from mcm_solarcheck.infrastructure.sqlite_entitlement import SQLiteOnlineEntitlementStore
+from mcm_solarcheck.infrastructure.sqlite_online_entitlement import SQLiteOnlineEntitlementStore
 from mcm_solarcheck.infrastructure.sqlite_registration import SQLiteOnlineRegistrationStore
 from mcm_solarcheck.online.http_entrypoint import build_online_verification_server
 from mcm_solarcheck.online.product import OnlineProduct
