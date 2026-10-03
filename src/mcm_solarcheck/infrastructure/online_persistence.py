@@ -31,6 +31,7 @@ from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
 from mcm_solarcheck.services.compute_jobs import OnlineComputeJobPersistence
 from mcm_solarcheck.services.online_entitlement import OnlineEntitlementStore
+from mcm_solarcheck.services.payment import OnlinePaymentPersistence
 from mcm_solarcheck.services.online_registration import OnlineRegistrationStore
 from mcm_solarcheck.services.smtp_admin import SMTPSecretStore
 
@@ -43,7 +44,7 @@ class OnlinePersistence:
     entitlements: OnlineEntitlementStore
     compute_jobs: OnlineComputeJobPersistence
     billing: ComputeJobBillingStore
-    payments: Any
+    payments: OnlinePaymentPersistence
     merchant_accounts: Any
     tariffs: Any
     vouchers: Any

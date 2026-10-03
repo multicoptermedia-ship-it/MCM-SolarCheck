@@ -177,3 +177,26 @@ class OnlinePaymentStore(Protocol):
         self, payment_id: str, user_id: str, project_id: str
     ) -> OnlinePayment:
         ...
+
+
+
+class OnlinePaymentPersistence(OnlinePaymentStore, Protocol):
+    """Full payment persistence contract required by online composition.
+
+    Processing snapshots bind a payment to the exact payment method, merchant
+    account version and provider selected at checkout. Concrete adapters must
+    preserve that historical binding across later configuration changes.
+    """
+
+    def bind_processing_snapshot(
+        self,
+        payment_id: str,
+        user_id: str,
+        project_id: str,
+        *,
+        method: PaymentMethod,
+        merchant_account_id: str,
+        merchant_account_version: int,
+        provider_id: str,
+    ) -> OnlinePayment:
+        ...

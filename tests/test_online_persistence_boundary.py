@@ -43,3 +43,11 @@ def test_billing_persistence_uses_delivery_release_protocol() -> None:
 
     assert hints["billing"].__name__ == "ComputeJobBillingStore"
     assert hints["billing"].__module__ == "mcm_solarcheck.services.billing"
+
+
+def test_payment_persistence_includes_processing_snapshot_contract() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    assert hints["payments"].__name__ == "OnlinePaymentPersistence"
+    assert hints["payments"].__module__ == "mcm_solarcheck.services.payment"
+    assert hasattr(hints["payments"], "bind_processing_snapshot")
