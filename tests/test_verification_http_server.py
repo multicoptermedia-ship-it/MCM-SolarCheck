@@ -27,6 +27,24 @@ def request(server, path: str):
     return urlopen(f"http://{host}:{port}{path}", timeout=2)
 
 
+def test_local_http_adapter_exposes_customer_entry_without_verification() -> None:
+    endpoint = Endpoint()
+    server = build_verification_server(endpoint)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with closing(request(server, "/")) as response:
+            body = response.read().decode("utf-8")
+            assert response.status == 200
+            assert "SolarCheck Online" in body
+            assert "Anmeldung und Registrierung" in body
+        assert endpoint.tokens == []
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
 def test_local_http_adapter_routes_verification_token() -> None:
     endpoint = Endpoint()
     server = build_verification_server(endpoint)

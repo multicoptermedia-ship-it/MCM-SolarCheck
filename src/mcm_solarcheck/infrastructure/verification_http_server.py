@@ -18,6 +18,12 @@ def verification_handler(
     class VerificationHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
+            if parsed.path == "/":
+                self._respond(
+                    200,
+                    "SolarCheck Online – Anmeldung und Registrierung werden hier bereitgestellt.",
+                )
+                return
             if parsed.path != "/verify-email":
                 self._respond(404, "Not Found")
                 return
