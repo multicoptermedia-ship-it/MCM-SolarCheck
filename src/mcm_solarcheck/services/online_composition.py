@@ -87,6 +87,7 @@ class OnlineServices:
     admin_readiness: OnlineAdminReadinessService
     admin: OnlineAdminActions
     production: OnlineProductionActivation
+    entitlements: object
 
     def require_production_ready(self) -> None:
         """Fail closed before enabling customer-facing commercial operation."""
@@ -287,4 +288,5 @@ def build_online_services(
         admin_readiness=admin_readiness,
         admin=admin,
         production=production,
+        entitlements=persistence.entitlements,
     )

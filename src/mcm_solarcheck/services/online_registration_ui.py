@@ -25,6 +25,7 @@ class RegistrationServiceController:
         self._service = service
         self._product = product
         self._now = now or (lambda: datetime.now(timezone.utc))
+        self._verified_user_id: str | None = None
 
     def register(self, request: RegistrationRequest) -> str:
         self._service.register(
@@ -39,12 +40,17 @@ class RegistrationServiceController:
         return "Bestätigungs-E-Mail wurde gesendet."
 
     def verify_email_token(self, token: str) -> str:
-        self._service.verify_and_activate(
+        entitlement = self._service.verify_and_activate(
             token,
             product=self._product,
             now=self._utc_now(),
         )
+        self._verified_user_id = entitlement.user_id
         return "E-Mail-Adresse wurde bestätigt."
+
+    @property
+    def verified_user_id(self) -> str | None:
+        return self._verified_user_id
 
     def _utc_now(self) -> datetime:
         value = self._now()
