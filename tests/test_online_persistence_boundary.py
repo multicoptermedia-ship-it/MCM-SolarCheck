@@ -22,3 +22,10 @@ def test_registration_persistence_uses_service_layer_protocol() -> None:
 
     assert hints["registrations"].__name__ == "OnlineRegistrationStore"
     assert hints["registrations"].__module__ == "mcm_solarcheck.services.online_registration"
+
+
+def test_entitlement_persistence_uses_service_layer_protocol() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    assert hints["entitlements"].__name__ == "OnlineEntitlementStore"
+    assert hints["entitlements"].__module__ == "mcm_solarcheck.services.online_entitlement"

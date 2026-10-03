@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol
 
 from mcm_solarcheck.services.registration import OnlineRegistration, RegistrationStatus
 
@@ -20,6 +21,19 @@ class OnlineEntitlement:
     user_id: str
     product: OnlineProduct
     active: bool = False
+
+
+class OnlineEntitlementStore(Protocol):
+    """Provider-neutral persistence boundary for online product access."""
+
+    def save(self, entitlement: OnlineEntitlement) -> None:
+        ...
+
+    def get(self, user_id: str) -> OnlineEntitlement:
+        ...
+
+    def require_active(self, user_id: str) -> OnlineEntitlement:
+        ...
 
 
 class OnlineEntitlementService:

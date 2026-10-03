@@ -28,6 +28,7 @@ from mcm_solarcheck.infrastructure.sqlite_solarcheck_tariff import SQLiteSolarCh
 from mcm_solarcheck.infrastructure.sqlite_smtp_settings import SQLiteSMTPSettingsStore
 from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherPolicyStore, SQLiteFlightPlanVoucherStore
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig
+from mcm_solarcheck.services.online_entitlement import OnlineEntitlementStore
 from mcm_solarcheck.services.online_registration import OnlineRegistrationStore
 from mcm_solarcheck.services.smtp_admin import SMTPSecretStore
 
@@ -37,7 +38,7 @@ class OnlinePersistence:
     """Provider-neutral persistent dependencies shared by the online service layer.\n\n    Concrete SQLite stores are assembled by ``build_online_persistence`` today.\n    The dependency container deliberately does not expose SQLite-specific types so a\n    production MySQL adapter can satisfy the same service-layer boundary later.\n    """
 
     registrations: OnlineRegistrationStore
-    entitlements: Any
+    entitlements: OnlineEntitlementStore
     compute_jobs: Any
     billing: Any
     payments: Any

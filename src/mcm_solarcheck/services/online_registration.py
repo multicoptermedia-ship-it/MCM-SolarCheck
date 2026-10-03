@@ -14,6 +14,7 @@ from mcm_solarcheck.services.email import (
 from mcm_solarcheck.services.online_entitlement import (
     OnlineEntitlement,
     OnlineEntitlementService,
+    OnlineEntitlementStore,
     OnlineProduct,
 )
 from mcm_solarcheck.services.registration import OnlineRegistration
@@ -42,11 +43,6 @@ class OnlineRegistrationStore(Protocol):
         ...
 
     def mark_notification_sent(self, user_id: str, *, now: datetime) -> None:
-        ...
-
-
-class OnlineEntitlementStore(Protocol):
-    def save(self, entitlement: OnlineEntitlement) -> None:
         ...
 
 
