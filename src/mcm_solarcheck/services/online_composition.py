@@ -141,7 +141,6 @@ def build_online_services(
             public_base_url=public_base_url,
         ),
         entitlements=persistence.entitlements,
-        credentials=persistence.credentials,
     )
 
     login = OnlineLoginService(

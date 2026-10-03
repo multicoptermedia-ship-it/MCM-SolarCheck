@@ -27,12 +27,16 @@ def build_online_verification_server(
         product.services.registration,
         product=EntitlementProduct.TRIAL,
         now=now,
-        credentials=PasswordCredentialService(product.services.credentials),
     )
     registration_controller = RegistrationServiceController(
         product.services.registration,
         product=EntitlementProduct.TRIAL,
         now=now,
+        credentials=(
+            PasswordCredentialService(product.services.credentials)
+            if hasattr(product.services, "credentials")
+            else None
+        ),
     )
     return build_verification_server(
         endpoint,
