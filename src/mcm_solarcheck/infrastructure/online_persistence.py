@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
 from mcm_solarcheck.infrastructure.filesystem_report import FileSystemReportArtifactStore
@@ -32,31 +33,31 @@ from mcm_solarcheck.services.smtp_admin import SMTPSecretStore
 
 @dataclass(frozen=True)
 class OnlinePersistence:
-    """Authoritative persistent dependencies shared by the online service layer."""
+    """Provider-neutral persistent dependencies shared by the online service layer.\n\n    Concrete SQLite stores are assembled by ``build_online_persistence`` today.\n    The dependency container deliberately does not expose SQLite-specific types so a\n    production MySQL adapter can satisfy the same service-layer boundary later.\n    """
 
-    registrations: SQLiteOnlineRegistrationStore
-    entitlements: SQLiteOnlineEntitlementStore
-    compute_jobs: SQLiteComputeJobStore
-    billing: SQLiteComputeJobBillingStore
-    payments: SQLiteOnlinePaymentStore
-    merchant_accounts: SQLiteMerchantAccountStore
-    tariffs: SQLiteSolarCheckTariffStore
-    vouchers: SQLiteFlightPlanVoucherStore
-    voucher_policy: SQLiteFlightPlanVoucherPolicyStore
-    priced_payments: SQLitePricedPaymentStore
-    payment_operations: SQLitePaymentOperationIntentStore
-    payment_authorizations: SQLitePaymentAuthorizationIntentStore
-    sepa_mandates: SQLiteSepaMandateStore
-    sepa_submissions: SQLiteSepaSubmissionStore
-    sepa_collections: SQLiteSepaCollectionStore
-    invoice_identity: SQLiteInvoiceIdentityStore
-    invoice_delivery: SQLiteInvoiceAdminDeliveryStore
-    reports: FileSystemReportArtifactStore
-    report_recovery: SQLiteReportRecoveryStore
-    invoices: FileSystemInvoiceArchive
-    smtp_settings: SQLiteSMTPSettingsStore
+    registrations: Any
+    entitlements: Any
+    compute_jobs: Any
+    billing: Any
+    payments: Any
+    merchant_accounts: Any
+    tariffs: Any
+    vouchers: Any
+    voucher_policy: Any
+    priced_payments: Any
+    payment_operations: Any
+    payment_authorizations: Any
+    sepa_mandates: Any
+    sepa_submissions: Any
+    sepa_collections: Any
+    invoice_identity: Any
+    invoice_delivery: Any
+    reports: Any
+    report_recovery: Any
+    invoices: Any
+    smtp_settings: Any
     smtp_secrets: SMTPSecretStore
-    smtp_admin_audit: SQLiteSMTPAdminAudit
+    smtp_admin_audit: Any
 
 
 def build_online_persistence(
