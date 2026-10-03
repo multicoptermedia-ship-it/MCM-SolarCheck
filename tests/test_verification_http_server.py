@@ -70,6 +70,7 @@ def test_local_http_adapter_routes_registration_without_verification() -> None:
             "street": "Musterweg 1",
             "postal_code": "50181",
             "city": "Bedburg",
+            "password": "correct horse battery staple",
         }).encode("utf-8")
         req = Request(
             f"http://{host}:{port}/register",

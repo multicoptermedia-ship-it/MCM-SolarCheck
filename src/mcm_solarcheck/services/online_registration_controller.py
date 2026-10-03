@@ -14,6 +14,7 @@ class RegistrationRequest:
     street: str
     postal_code: str
     city: str
+    password: str = ""
 
 
 class OnlineRegistrationController(Protocol):

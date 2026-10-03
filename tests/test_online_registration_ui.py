@@ -9,6 +9,14 @@ from mcm_solarcheck.services.online_registration_controller import RegistrationR
 from mcm_solarcheck.services.online_registration_ui import RegistrationServiceController
 
 
+class Credentials:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def set_password(self, user_id, password) -> None:
+        self.calls.append((user_id, password))
+
+
 class RegistrationService:
     def __init__(self) -> None:
         self.register_calls = []
@@ -51,6 +59,31 @@ def test_registration_controller_delegates_fields_with_utc_time() -> None:
         "city": "Bedburg",
         "now": now,
     }]
+
+
+def test_registration_controller_sets_password_outside_registration_service() -> None:
+    service = RegistrationService()
+    credentials = Credentials()
+    controller = RegistrationServiceController(
+        service,
+        product=OnlineProduct.TRIAL,
+        credentials=credentials,
+    )
+
+    controller.register(
+        RegistrationRequest(
+            user_id="user-1",
+            display_name="MCM Dronetech",
+            email="user@example.com",
+            street="Musterweg 1",
+            postal_code="50181",
+            city="Bedburg",
+            password="correct horse battery staple",
+        )
+    )
+
+    assert credentials.calls == [("user-1", "correct horse battery staple")]
+    assert "password" not in service.register_calls[0]
 
 
 def test_verification_controller_delegates_token_and_fixed_product() -> None:

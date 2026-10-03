@@ -8,6 +8,7 @@ from typing import Callable
 from mcm_solarcheck.infrastructure.verification_http_server import build_verification_server
 from mcm_solarcheck.online.product import OnlineProduct
 from mcm_solarcheck.services.online_entitlement import OnlineProduct as EntitlementProduct
+from mcm_solarcheck.services.online_credentials import PasswordCredentialService
 from mcm_solarcheck.services.online_registration_ui import RegistrationServiceController
 from mcm_solarcheck.services.online_verification_http import EmailVerificationEndpoint
 
@@ -26,6 +27,7 @@ def build_online_verification_server(
         product.services.registration,
         product=EntitlementProduct.TRIAL,
         now=now,
+        credentials=PasswordCredentialService(product.services.credentials),
     )
     registration_controller = RegistrationServiceController(
         product.services.registration,

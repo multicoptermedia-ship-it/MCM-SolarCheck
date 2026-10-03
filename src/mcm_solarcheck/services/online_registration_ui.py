@@ -19,15 +19,19 @@ class RegistrationServiceController:
         *,
         product: OnlineProduct,
         now: Callable[[], datetime] | None = None,
+        credentials=None,
     ) -> None:
         if not isinstance(product, OnlineProduct):
             raise TypeError("product must be an OnlineProduct")
         self._service = service
         self._product = product
         self._now = now or (lambda: datetime.now(timezone.utc))
+        self._credentials = credentials
         self._verified_user_id: str | None = None
 
     def register(self, request: RegistrationRequest) -> str:
+        if self._credentials is not None and not request.password:
+            raise ValueError("password is required for online registration")
         self._service.register(
             user_id=request.user_id,
             display_name=request.display_name,
@@ -37,6 +41,8 @@ class RegistrationServiceController:
             city=request.city,
             now=self._utc_now(),
         )
+        if self._credentials is not None:
+            self._credentials.set_password(request.user_id, request.password)
         return "Bestätigungs-E-Mail wurde gesendet."
 
     def verify_email_token(self, token: str) -> tuple[str, str]:

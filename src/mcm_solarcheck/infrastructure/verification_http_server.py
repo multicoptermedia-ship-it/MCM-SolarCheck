@@ -13,7 +13,7 @@ from mcm_solarcheck.services.online_verification_http import EmailVerificationEn
 
 
 MAX_REGISTRATION_BODY_BYTES = 16 * 1024
-REGISTRATION_FIELDS = ("user_id", "display_name", "email", "street", "postal_code", "city")
+REGISTRATION_FIELDS = ("user_id", "display_name", "email", "street", "postal_code", "city", "password")
 
 
 def verification_handler(
@@ -75,6 +75,7 @@ def verification_handler(
                         street=field("street"),
                         postal_code=field("postal_code"),
                         city=field("city"),
+                        password=field("password"),
                     )
                 )
             except (UnicodeDecodeError, ValueError):

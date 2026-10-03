@@ -92,6 +92,7 @@ class OnlineServices:
     admin: OnlineAdminActions
     production: OnlineProductionActivation
     entitlements: object
+    credentials: object
 
     def require_production_ready(self) -> None:
         """Fail closed before enabling customer-facing commercial operation."""
@@ -140,6 +141,7 @@ def build_online_services(
             public_base_url=public_base_url,
         ),
         entitlements=persistence.entitlements,
+        credentials=persistence.credentials,
     )
 
     login = OnlineLoginService(
