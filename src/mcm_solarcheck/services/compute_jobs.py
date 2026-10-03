@@ -195,6 +195,22 @@ class ComputeJobStore(Protocol):
         ...
 
 
+class OnlineComputeJobPersistence(
+    ComputeJobStore,
+    ComputeJobLoad,
+    ComputeJobAdmission,
+    ComputeJobClaim,
+    Protocol,
+):
+    """Combined persistence contract required by the online composition.
+
+    A concrete adapter must preserve the atomic admission and worker-claim
+    semantics represented by the individual provider-neutral ports.
+    """
+
+    pass
+
+
 @dataclass
 class ComputeJobService:
     """Server-side boundary that owns persistence and state transitions."""

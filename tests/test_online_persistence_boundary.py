@@ -29,3 +29,10 @@ def test_entitlement_persistence_uses_service_layer_protocol() -> None:
 
     assert hints["entitlements"].__name__ == "OnlineEntitlementStore"
     assert hints["entitlements"].__module__ == "mcm_solarcheck.services.online_entitlement"
+
+
+def test_compute_job_persistence_uses_atomic_composition_protocol() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    assert hints["compute_jobs"].__name__ == "OnlineComputeJobPersistence"
+    assert hints["compute_jobs"].__module__ == "mcm_solarcheck.services.compute_jobs"
