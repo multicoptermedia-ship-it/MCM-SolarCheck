@@ -6,6 +6,8 @@ by service-layer contracts rather than reimplemented in Qt.
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
 
@@ -19,11 +21,23 @@ from mcm_solarcheck.services.shell_commands import ShellCommandId, shell_command
 from mcm_solarcheck.services.shell_navigation import ShellRoute, shell_navigation
 
 
+class CustomerEntry(Protocol):
+    def require_customer_entry(self) -> None:
+        ...
+
+
 class SolarCheckMainWindow(QMainWindow):
-    def __init__(self, deployment: DeploymentMode, *, project_service=None) -> None:
+    def __init__(
+        self,
+        deployment: DeploymentMode,
+        *,
+        project_service=None,
+        customer_entry: CustomerEntry | None = None,
+    ) -> None:
         super().__init__()
         self._deployment = deployment
         self._project_service = project_service
+        self._customer_entry = customer_entry
         self._navigation = shell_navigation(deployment)
         self._commands = shell_commands(deployment)
         self._actions: dict[ShellCommandId, QAction] = {}
@@ -254,6 +268,13 @@ class SolarCheckMainWindow(QMainWindow):
         raise RuntimeError("current page is not registered")
 
     def show_route(self, route: ShellRoute) -> None:
+        if (
+            self._deployment is DeploymentMode.ONLINE
+            and route is not ShellRoute.LOGIN
+            and self._customer_entry is not None
+        ):
+            self._customer_entry.require_customer_entry()
+
         if self._workflow_availability is not None and route is not ShellRoute.LOGIN:
             from mcm_solarcheck.services.workflow import WorkflowAction, action_availability
 

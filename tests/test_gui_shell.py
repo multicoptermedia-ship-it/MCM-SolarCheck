@@ -1172,3 +1172,62 @@ def test_reopening_project_reloads_persisted_import_verification(app: QApplicati
     assert reloaded is not None
     assert reloaded is not first
     assert "1 Position" in reloaded.text()
+
+
+def test_online_workflow_route_uses_customer_entry_gate(app: QApplication) -> None:
+    class Entry:
+        def __init__(self, allowed: bool) -> None:
+            self.allowed = allowed
+            self.calls = 0
+
+        def require_customer_entry(self) -> None:
+            self.calls += 1
+            if not self.allowed:
+                raise RuntimeError("online entry inactive")
+
+    entry = Entry(False)
+    window = SolarCheckMainWindow(
+        DeploymentMode.ONLINE,
+        customer_entry=entry,
+    )
+
+    with pytest.raises(RuntimeError, match="online entry inactive"):
+        window.show_route(ShellRoute.PROJECT)
+
+    assert entry.calls == 1
+    assert window.current_route is ShellRoute.LOGIN
+
+
+def test_online_workflow_route_allows_active_customer_entry(app: QApplication) -> None:
+    class Entry:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def require_customer_entry(self) -> None:
+            self.calls += 1
+
+    entry = Entry()
+    window = SolarCheckMainWindow(
+        DeploymentMode.ONLINE,
+        customer_entry=entry,
+    )
+
+    window.show_route(ShellRoute.PROJECT)
+
+    assert entry.calls == 1
+    assert window.current_route is ShellRoute.PROJECT
+
+
+def test_offline_routes_never_require_online_customer_entry(app: QApplication) -> None:
+    class Entry:
+        def require_customer_entry(self) -> None:
+            raise AssertionError("offline must not invoke online entry gate")
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP,
+        customer_entry=Entry(),
+    )
+
+    window.show_route(ShellRoute.IMPORT)
+
+    assert window.current_route is ShellRoute.IMPORT
