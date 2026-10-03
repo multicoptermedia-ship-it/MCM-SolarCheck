@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import sqlite3
 
 import pytest
 
@@ -46,3 +47,20 @@ def test_sqlite_session_revoke_is_durable(tmp_path) -> None:
 
     with pytest.raises(KeyError):
         SQLiteSessionStore(database).get(session.token)
+
+
+def test_sqlite_session_does_not_persist_bearer_token(tmp_path) -> None:
+    database = tmp_path / "online.sqlite"
+    service = OnlineSessionService(SQLiteSessionStore(database))
+    session = service.create("user-1")
+
+    with sqlite3.connect(database) as connection:
+        stored_token = connection.execute(
+            "SELECT token FROM online_sessions WHERE user_id = ?",
+            ("user-1",),
+        ).fetchone()[0]
+
+    assert stored_token != session.token
+    assert session.token not in stored_token
+    assert len(stored_token) == 64
+    assert service.require_user(session.token) == "user-1"

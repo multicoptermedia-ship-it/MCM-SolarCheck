@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 from mcm_solarcheck.services.online_session import OnlineSession
+
+
+def _token_fingerprint(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 class SQLiteSessionStore:
@@ -36,14 +41,14 @@ class SQLiteSessionStore:
                     user_id = excluded.user_id,
                     expires_at = excluded.expires_at
                 """,
-                (session.token, session.user_id, session.expires_at.isoformat()),
+                (_token_fingerprint(session.token), session.user_id, session.expires_at.isoformat()),
             )
 
     def get(self, token: str) -> OnlineSession:
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT user_id, expires_at FROM online_sessions WHERE token = ?",
-                (token,),
+                (_token_fingerprint(token),),
             ).fetchone()
         if row is None:
             raise KeyError(token)
@@ -53,5 +58,5 @@ class SQLiteSessionStore:
         with self._connect() as connection:
             connection.execute(
                 "DELETE FROM online_sessions WHERE token = ?",
-                (token,),
+                (_token_fingerprint(token),),
             )
