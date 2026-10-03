@@ -10,6 +10,7 @@ from mcm_solarcheck.online.product import OnlineProduct
 from mcm_solarcheck.services.online_entitlement import OnlineProduct as EntitlementProduct
 from mcm_solarcheck.services.online_credentials import PasswordCredentialService
 from mcm_solarcheck.services.online_registration_ui import RegistrationServiceController
+from mcm_solarcheck.services.online_session import InMemorySessionStore, OnlineSessionService
 from mcm_solarcheck.services.online_verification_http import EmailVerificationEndpoint
 
 
@@ -19,6 +20,7 @@ def build_online_verification_server(
     host: str = "127.0.0.1",
     port: int = 0,
     now: Callable[[], datetime] | None = None,
+    secure_cookies: bool = False,
 ):
     """Compose the verification HTTP adapter from the authoritative online services."""
     if not isinstance(product, OnlineProduct):
@@ -44,4 +46,6 @@ def build_online_verification_server(
         port=port,
         registration_controller=registration_controller,
         login_service=getattr(product.services, "login", None),
+        session_service=OnlineSessionService(InMemorySessionStore(), now=now),
+        secure_cookies=secure_cookies,
     )

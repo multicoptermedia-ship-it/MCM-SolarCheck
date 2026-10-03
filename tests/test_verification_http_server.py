@@ -220,10 +220,23 @@ class LoginService:
         return user_id
 
 
+class SessionService:
+    class Session:
+        token = "opaque-session-token"
+
+    def __init__(self) -> None:
+        self.users = []
+
+    def create(self, user_id):
+        self.users.append(user_id)
+        return self.Session()
+
+
 def test_local_http_adapter_routes_login() -> None:
     endpoint = Endpoint()
     login = LoginService()
-    server = build_verification_server(endpoint, login_service=login)
+    sessions = SessionService()
+    server = build_verification_server(endpoint, login_service=login, session_service=sessions, secure_cookies=True)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -240,7 +253,15 @@ def test_local_http_adapter_routes_login() -> None:
         )
         with closing(urlopen(req, timeout=2)) as response:
             assert response.status == 200
-            assert "Anmeldung erfolgreich" in response.read().decode("utf-8")
+            body = response.read().decode("utf-8")
+            assert "Anmeldung erfolgreich" in body
+            assert "opaque-session-token" not in body
+            cookie = response.headers["Set-Cookie"]
+            assert cookie.startswith("solarcheck_session=opaque-session-token;")
+            assert "HttpOnly" in cookie
+            assert "SameSite=Strict" in cookie
+            assert "Secure" in cookie
+        assert sessions.users == ["user-1"]
         assert login.calls == [("user-1", "correct horse battery staple")]
     finally:
         server.shutdown()

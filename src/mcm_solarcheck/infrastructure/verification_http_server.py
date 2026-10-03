@@ -21,6 +21,8 @@ def verification_handler(
     endpoint: EmailVerificationEndpoint,
     registration_controller=None,
     login_service=None,
+    session_service=None,
+    secure_cookies: bool = False,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
 
@@ -122,9 +124,17 @@ def verification_handler(
             except PermissionError:
                 self._respond(401, "invalid online login")
                 return
-            self._respond(200, f"Anmeldung erfolgreich: {user_id}")
+            if session_service is None:
+                self._respond(200, f"Anmeldung erfolgreich: {user_id}")
+                return
+            session = session_service.create(user_id)
+            cookie = (
+                f"solarcheck_session={session.token}; Path=/; HttpOnly; SameSite=Strict"
+                + ("; Secure" if secure_cookies else "")
+            )
+            self._respond(200, "Anmeldung erfolgreich.", headers={"Set-Cookie": cookie})
 
-        def _respond(self, status_code: int, message: str) -> None:
+        def _respond(self, status_code: int, message: str, *, headers=None) -> None:
             body = (
                 "<!doctype html><html><head><meta charset=\"utf-8\">"
                 "<title>SolarCheck</title></head><body>"
@@ -132,6 +142,8 @@ def verification_handler(
             ).encode("utf-8")
             self.send_response(status_code)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            for name, value in (headers or {}).items():
+                self.send_header(name, value)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -150,9 +162,17 @@ def build_verification_server(
     server_factory: Callable[..., ThreadingHTTPServer] = ThreadingHTTPServer,
     registration_controller=None,
     login_service=None,
+    session_service=None,
+    secure_cookies: bool = False,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
         (host, port),
-        verification_handler(endpoint, registration_controller, login_service),
+        verification_handler(
+            endpoint,
+            registration_controller,
+            login_service,
+            session_service,
+            secure_cookies,
+        ),
     )
