@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
 from mcm_solarcheck.infrastructure.filesystem_report import FileSystemReportArtifactStore
@@ -44,7 +43,7 @@ from mcm_solarcheck.services.payment_pricing import AtomicPricedPaymentStore
 from mcm_solarcheck.services.voucher import FlightPlanVoucherPersistence
 from mcm_solarcheck.services.voucher_admin import FlightPlanVoucherPolicyPersistence
 from mcm_solarcheck.services.online_registration import OnlineRegistrationStore
-from mcm_solarcheck.services.smtp_admin import SMTPSecretStore
+from mcm_solarcheck.services.smtp_admin import SMTPAdminAudit, SMTPSecretStore, SMTPSettingsStore
 from mcm_solarcheck.services.sepa import SepaMandatePersistence
 from mcm_solarcheck.services.sepa_submission import SepaSubmissionPersistence
 from mcm_solarcheck.services.sepa_collection import SepaCollectionPersistence
@@ -74,9 +73,9 @@ class OnlinePersistence:
     reports: ReportArtifactStore
     report_recovery: ReportRecoveryClaimStore
     invoices: InvoiceArchive
-    smtp_settings: Any
+    smtp_settings: SMTPSettingsStore
     smtp_secrets: SMTPSecretStore
-    smtp_admin_audit: Any
+    smtp_admin_audit: SMTPAdminAudit
 
 
 def build_online_persistence(

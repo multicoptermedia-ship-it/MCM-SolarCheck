@@ -155,3 +155,23 @@ def test_invoice_and_report_persistence_uses_service_layer_contracts() -> None:
     assert archive.__name__ == "InvoiceArchive"
     for method in ("package_is_ready", "store", "store_package"):
         assert hasattr(archive, method)
+
+
+def test_smtp_persistence_has_no_untyped_transition_boundary() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    settings = hints["smtp_settings"]
+    assert settings.__name__ == "SMTPSettingsStore"
+    for method in ("get", "save"):
+        assert hasattr(settings, method)
+
+    secrets = hints["smtp_secrets"]
+    assert secrets.__name__ == "SMTPSecretStore"
+    for method in ("is_set", "replace", "resolve_for_delivery"):
+        assert hasattr(secrets, method)
+
+    audit = hints["smtp_admin_audit"]
+    assert audit.__name__ == "SMTPAdminAudit"
+    assert hasattr(audit, "record")
+
+    assert all(annotation is not Any for annotation in hints.values())
