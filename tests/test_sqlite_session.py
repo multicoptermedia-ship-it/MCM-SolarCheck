@@ -64,3 +64,26 @@ def test_sqlite_session_does_not_persist_bearer_token(tmp_path) -> None:
     assert session.token not in stored_token
     assert len(stored_token) == 64
     assert service.require_user(session.token) == "user-1"
+
+
+@pytest.mark.parametrize(
+    "stored_expiry",
+    [
+        "2026-10-03T20:05:00",
+        "2026-10-03T22:05:00+02:00",
+        "not-a-datetime",
+    ],
+)
+def test_sqlite_session_rejects_invalid_persisted_expiry(tmp_path, stored_expiry) -> None:
+    database = tmp_path / "online.sqlite"
+    service = OnlineSessionService(SQLiteSessionStore(database))
+    session = service.create("user-1")
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE online_sessions SET expires_at = ? WHERE user_id = ?",
+            (stored_expiry, "user-1"),
+        )
+
+    with pytest.raises(PermissionError, match="online session is invalid"):
+        service.require_user(session.token)

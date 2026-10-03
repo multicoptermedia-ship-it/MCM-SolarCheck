@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from mcm_solarcheck.services.online_session import OnlineSession
@@ -52,7 +52,17 @@ class SQLiteSessionStore:
             ).fetchone()
         if row is None:
             raise KeyError(token)
-        return OnlineSession(token, row[0], datetime.fromisoformat(row[1]))
+        try:
+            expires_at = datetime.fromisoformat(row[1])
+        except (TypeError, ValueError) as exc:
+            raise KeyError(token) from exc
+        if (
+            expires_at.tzinfo is None
+            or expires_at.utcoffset() is None
+            or expires_at.utcoffset() != timezone.utc.utcoffset(expires_at)
+        ):
+            raise KeyError(token)
+        return OnlineSession(token, row[0], expires_at)
 
     def delete(self, token: str) -> None:
         with self._connect() as connection:
