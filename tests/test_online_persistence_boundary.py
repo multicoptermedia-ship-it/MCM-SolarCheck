@@ -51,3 +51,13 @@ def test_payment_persistence_includes_processing_snapshot_contract() -> None:
     assert hints["payments"].__name__ == "OnlinePaymentPersistence"
     assert hints["payments"].__module__ == "mcm_solarcheck.services.payment"
     assert hasattr(hints["payments"], "bind_processing_snapshot")
+
+
+def test_merchant_account_persistence_preserves_versioned_history_contract() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    contract = hints["merchant_accounts"]
+    assert contract.__name__ == "MerchantAccountPersistence"
+    assert contract.__module__ == "mcm_solarcheck.services.merchant_account"
+    for method in ("save", "get", "current", "is_configured"):
+        assert hasattr(contract, method)

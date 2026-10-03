@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol
 
 
 _CREDENTIAL_REFERENCE_PREFIXES = ("env:", "secret:")
@@ -96,3 +97,24 @@ class MerchantAccount:
             True,
             credential_key,
         )
+
+
+
+class MerchantAccountPersistence(Protocol):
+    """Provider-neutral persistence for versioned merchant configuration.
+
+    Historical versions remain addressable because existing payments are bound
+    to the exact merchant-account version selected at checkout.
+    """
+
+    def save(self, account: MerchantAccount) -> None:
+        ...
+
+    def get(self, account_id: str, version: int) -> MerchantAccount:
+        ...
+
+    def current(self, account_id: str) -> MerchantAccount:
+        ...
+
+    def is_configured(self) -> bool:
+        ...
