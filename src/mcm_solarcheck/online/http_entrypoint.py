@@ -43,4 +43,5 @@ def build_online_verification_server(
         host=host,
         port=port,
         registration_controller=registration_controller,
+        login_service=getattr(product.services, "login", None),
     )

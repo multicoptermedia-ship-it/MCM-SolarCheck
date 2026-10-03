@@ -206,3 +206,74 @@ def test_local_http_adapter_rejects_unknown_path_without_verification() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+class LoginService:
+    def __init__(self, accepted=True) -> None:
+        self.accepted = accepted
+        self.calls = []
+
+    def login(self, user_id, password):
+        self.calls.append((user_id, password))
+        if not self.accepted:
+            raise PermissionError("invalid online login")
+        return user_id
+
+
+def test_local_http_adapter_routes_login() -> None:
+    endpoint = Endpoint()
+    login = LoginService()
+    server = build_verification_server(endpoint, login_service=login)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        body = urlencode({
+            "user_id": "user-1",
+            "password": "correct horse battery staple",
+        }).encode("utf-8")
+        req = Request(
+            f"http://{host}:{port}/login",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            assert response.status == 200
+            assert "Anmeldung erfolgreich" in response.read().decode("utf-8")
+        assert login.calls == [("user-1", "correct horse battery staple")]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_local_http_adapter_masks_rejected_login() -> None:
+    endpoint = Endpoint()
+    login = LoginService(accepted=False)
+    server = build_verification_server(endpoint, login_service=login)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        body = urlencode({
+            "user_id": "user-1",
+            "password": "wrong password value",
+        }).encode("utf-8")
+        req = Request(
+            f"http://{host}:{port}/login",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 401
+            assert "invalid online login" in exc.read().decode("utf-8")
+        else:
+            raise AssertionError("rejected login must return 401")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)

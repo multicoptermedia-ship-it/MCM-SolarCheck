@@ -14,11 +14,13 @@ from mcm_solarcheck.services.online_verification_http import EmailVerificationEn
 
 MAX_REGISTRATION_BODY_BYTES = 16 * 1024
 REGISTRATION_FIELDS = ("user_id", "display_name", "email", "street", "postal_code", "city", "password")
+LOGIN_FIELDS = ("user_id", "password")
 
 
 def verification_handler(
     endpoint: EmailVerificationEndpoint,
     registration_controller=None,
+    login_service=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
 
@@ -40,6 +42,9 @@ def verification_handler(
 
         def do_POST(self) -> None:
             parsed = urlparse(self.path)
+            if parsed.path == "/login" and login_service is not None:
+                self._handle_login()
+                return
             if parsed.path != "/register" or registration_controller is None:
                 self._respond(404, "Not Found")
                 return
@@ -83,6 +88,42 @@ def verification_handler(
                 return
             self._respond(202, message)
 
+        def _handle_login(self) -> None:
+            content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            if content_type != "application/x-www-form-urlencoded":
+                self._respond(415, "login content type is not supported")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", ""))
+            except ValueError:
+                self._respond(400, "login data is invalid")
+                return
+            if length <= 0:
+                self._respond(400, "login data is invalid")
+                return
+            if length > MAX_REGISTRATION_BODY_BYTES:
+                self._respond(413, "login data is too large")
+                return
+            try:
+                form = parse_qs(
+                    self.rfile.read(length).decode("utf-8"),
+                    keep_blank_values=True,
+                    strict_parsing=True,
+                )
+                if any(len(form.get(name, [])) != 1 for name in LOGIN_FIELDS):
+                    raise ValueError("login fields must occur exactly once")
+                user_id = login_service.login(
+                    form["user_id"][0],
+                    form["password"][0],
+                )
+            except (UnicodeDecodeError, ValueError):
+                self._respond(400, "login data is invalid")
+                return
+            except PermissionError:
+                self._respond(401, "invalid online login")
+                return
+            self._respond(200, f"Anmeldung erfolgreich: {user_id}")
+
         def _respond(self, status_code: int, message: str) -> None:
             body = (
                 "<!doctype html><html><head><meta charset=\"utf-8\">"
@@ -108,9 +149,10 @@ def build_verification_server(
     port: int = 0,
     server_factory: Callable[..., ThreadingHTTPServer] = ThreadingHTTPServer,
     registration_controller=None,
+    login_service=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
         (host, port),
-        verification_handler(endpoint, registration_controller),
+        verification_handler(endpoint, registration_controller, login_service),
     )
