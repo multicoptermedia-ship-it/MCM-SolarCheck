@@ -9,6 +9,7 @@ from mcm_solarcheck.infrastructure.filesystem_report import FileSystemReportArti
 from mcm_solarcheck.infrastructure.online_private_paths import OnlinePrivatePaths
 from mcm_solarcheck.infrastructure.sqlite_billing import SQLiteComputeJobBillingStore
 from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
+from mcm_solarcheck.infrastructure.sqlite_credentials import SQLiteCredentialStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_admin_delivery import SQLiteInvoiceAdminDeliveryStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_identity import SQLiteInvoiceIdentityStore
 from mcm_solarcheck.infrastructure.sqlite_merchant_account import SQLiteMerchantAccountStore
@@ -34,6 +35,7 @@ from mcm_solarcheck.services.report_delivery import ReportArtifactStore
 from mcm_solarcheck.services.report_recovery import ReportRecoveryClaimStore
 from mcm_solarcheck.services.compute_jobs import OnlineComputeJobPersistence
 from mcm_solarcheck.services.merchant_account import MerchantAccountPersistence
+from mcm_solarcheck.services.online_credentials import CredentialStore
 from mcm_solarcheck.services.online_entitlement import OnlineEntitlementStore
 from mcm_solarcheck.services.payment import OnlinePaymentPersistence
 from mcm_solarcheck.services.payment_authorization_intent import PaymentAuthorizationIntentStore
@@ -54,6 +56,7 @@ class OnlinePersistence:
     """Provider-neutral persistent dependencies shared by the online service layer.\n\n    Concrete SQLite stores are assembled by ``build_online_persistence`` today.\n    The dependency container deliberately does not expose SQLite-specific types so a\n    production MySQL adapter can satisfy the same service-layer boundary later.\n    """
 
     registrations: OnlineRegistrationStore
+    credentials: CredentialStore
     entitlements: OnlineEntitlementStore
     compute_jobs: OnlineComputeJobPersistence
     billing: ComputeJobBillingStore
@@ -101,6 +104,7 @@ def build_online_persistence(
     voucher_policy.bootstrap_default()
     return OnlinePersistence(
         registrations=SQLiteOnlineRegistrationStore(database),
+        credentials=SQLiteCredentialStore(database),
         entitlements=SQLiteOnlineEntitlementStore(database),
         compute_jobs=SQLiteComputeJobStore(database),
         billing=SQLiteComputeJobBillingStore(database),
