@@ -3,7 +3,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtWidgets import QDialogButtonBox, QListWidget, QApplication, QLabel, QPushButton, QStackedWidget, QWidget
+from PySide6.QtWidgets import QDialogButtonBox, QListWidget, QApplication, QLabel, QLineEdit, QPushButton, QStackedWidget, QWidget
 
 from mcm_solarcheck.gui.import_page import make_import_page
 from mcm_solarcheck.gui.project_page import NewProjectDialog, make_project_page
