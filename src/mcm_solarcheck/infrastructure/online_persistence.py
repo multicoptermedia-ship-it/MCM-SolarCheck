@@ -33,6 +33,7 @@ from mcm_solarcheck.services.compute_jobs import OnlineComputeJobPersistence
 from mcm_solarcheck.services.merchant_account import MerchantAccountPersistence
 from mcm_solarcheck.services.online_entitlement import OnlineEntitlementStore
 from mcm_solarcheck.services.payment import OnlinePaymentPersistence
+from mcm_solarcheck.services.solarcheck_tariff import SolarCheckTariffPersistence
 from mcm_solarcheck.services.online_registration import OnlineRegistrationStore
 from mcm_solarcheck.services.smtp_admin import SMTPSecretStore
 
@@ -47,7 +48,7 @@ class OnlinePersistence:
     billing: ComputeJobBillingStore
     payments: OnlinePaymentPersistence
     merchant_accounts: MerchantAccountPersistence
-    tariffs: Any
+    tariffs: SolarCheckTariffPersistence
     vouchers: Any
     voucher_policy: Any
     priced_payments: Any

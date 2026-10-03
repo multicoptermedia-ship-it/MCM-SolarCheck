@@ -61,3 +61,13 @@ def test_merchant_account_persistence_preserves_versioned_history_contract() -> 
     assert contract.__module__ == "mcm_solarcheck.services.merchant_account"
     for method in ("save", "get", "current", "is_configured"):
         assert hasattr(contract, method)
+
+
+def test_tariff_persistence_preserves_versioned_pricing_contract() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    contract = hints["tariffs"]
+    assert contract.__name__ == "SolarCheckTariffPersistence"
+    assert contract.__module__ == "mcm_solarcheck.services.solarcheck_tariff"
+    for method in ("save", "current", "is_configured"):
+        assert hasattr(contract, method)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Protocol
 
 from mcm_solarcheck.services.payment import PaymentAmount
 
@@ -118,3 +119,19 @@ def initial_solarcheck_tariff(effective_from: datetime) -> SolarCheckTariff:
         ),
         effective_from,
     )
+
+
+
+class SolarCheckTariffPersistence(Protocol):
+    """Provider-neutral persistence for versioned SolarCheck tariffs."""
+
+    def save(self, tariff: SolarCheckTariff) -> None:
+        ...
+
+    def current(self, at: datetime) -> SolarCheckTariff:
+        """Return the active tariff effective at the supplied instant."""
+        ...
+
+    def is_configured(self) -> bool:
+        """Return whether production has an effective active tariff."""
+        ...
