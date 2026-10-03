@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Protocol
 
 from mcm_solarcheck.services.payment import PaymentAmount
 
@@ -99,3 +100,26 @@ def discounted_amount(
     if remaining == 0:
         return None
     return PaymentAmount(remaining, amount.currency)
+
+
+
+class FlightPlanVoucherPersistence(Protocol):
+    """Provider-neutral one-time voucher persistence contract."""
+
+    def create(self, voucher: FlightPlanVoucher) -> None:
+        ...
+
+    def get(self, code: str) -> FlightPlanVoucher:
+        ...
+
+    def redeem(
+        self,
+        code: str,
+        payment_id: str,
+        *,
+        discount_percent: int,
+        policy_version: int,
+        now: datetime,
+    ) -> FlightPlanVoucher:
+        """Atomically persist one-time redemption evidence."""
+        ...

@@ -34,6 +34,9 @@ from mcm_solarcheck.services.merchant_account import MerchantAccountPersistence
 from mcm_solarcheck.services.online_entitlement import OnlineEntitlementStore
 from mcm_solarcheck.services.payment import OnlinePaymentPersistence
 from mcm_solarcheck.services.solarcheck_tariff import SolarCheckTariffPersistence
+from mcm_solarcheck.services.payment_pricing import AtomicPricedPaymentStore
+from mcm_solarcheck.services.voucher import FlightPlanVoucherPersistence
+from mcm_solarcheck.services.voucher_admin import FlightPlanVoucherPolicyPersistence
 from mcm_solarcheck.services.online_registration import OnlineRegistrationStore
 from mcm_solarcheck.services.smtp_admin import SMTPSecretStore
 
@@ -49,9 +52,9 @@ class OnlinePersistence:
     payments: OnlinePaymentPersistence
     merchant_accounts: MerchantAccountPersistence
     tariffs: SolarCheckTariffPersistence
-    vouchers: Any
-    voucher_policy: Any
-    priced_payments: Any
+    vouchers: FlightPlanVoucherPersistence
+    voucher_policy: FlightPlanVoucherPolicyPersistence
+    priced_payments: AtomicPricedPaymentStore
     payment_operations: Any
     payment_authorizations: Any
     sepa_mandates: Any

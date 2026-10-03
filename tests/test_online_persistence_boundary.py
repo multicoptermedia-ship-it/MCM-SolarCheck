@@ -71,3 +71,21 @@ def test_tariff_persistence_preserves_versioned_pricing_contract() -> None:
     assert contract.__module__ == "mcm_solarcheck.services.solarcheck_tariff"
     for method in ("save", "current", "is_configured"):
         assert hasattr(contract, method)
+
+
+def test_voucher_persistence_preserves_one_time_redemption_contract() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    vouchers = hints["vouchers"]
+    assert vouchers.__name__ == "FlightPlanVoucherPersistence"
+    for method in ("create", "get", "redeem"):
+        assert hasattr(vouchers, method)
+
+    policy = hints["voucher_policy"]
+    assert policy.__name__ == "FlightPlanVoucherPolicyPersistence"
+    for method in ("bootstrap_default", "save", "get", "current"):
+        assert hasattr(policy, method)
+
+    atomic = hints["priced_payments"]
+    assert atomic.__name__ == "AtomicPricedPaymentStore"
+    assert hasattr(atomic, "create_with_voucher")

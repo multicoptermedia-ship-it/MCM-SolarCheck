@@ -66,3 +66,20 @@ class FlightPlanVoucherAdminService:
         voucher = FlightPlanVoucher(code, valid_from, valid_until)
         self._store.create(voucher)
         return voucher
+
+
+
+class FlightPlanVoucherPolicyPersistence(Protocol):
+    """Append-only persistence for versioned voucher policy history."""
+
+    def bootstrap_default(self) -> FlightPlanVoucherPolicy:
+        ...
+
+    def save(self, policy: FlightPlanVoucherPolicy) -> None:
+        ...
+
+    def get(self, version: int) -> FlightPlanVoucherPolicy:
+        ...
+
+    def current(self) -> FlightPlanVoucherPolicy:
+        ...
