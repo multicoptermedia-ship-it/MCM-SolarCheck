@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from html import escape
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -169,8 +170,16 @@ def verification_handler(
                 self._respond(200, f"Anmeldung erfolgreich: {user_id}")
                 return
             session = session_service.create(user_id)
+            remaining = int(
+                (session.expires_at - datetime.now(timezone.utc)).total_seconds()
+            )
+            if remaining <= 0:
+                session_service.revoke(session.token)
+                self._respond(500, "online session could not be created")
+                return
             cookie = (
                 f"solarcheck_session={session.token}; Path=/; HttpOnly; SameSite=Strict"
+                f"; Max-Age={remaining}"
                 + ("; Secure" if secure_cookies else "")
             )
             self._respond(200, "Anmeldung erfolgreich.", headers={"Set-Cookie": cookie})

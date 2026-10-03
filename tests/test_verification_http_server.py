@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import closing
+from datetime import datetime, timedelta, timezone
 from threading import Thread
 from urllib.error import HTTPError
 from urllib.parse import urlencode
@@ -223,6 +224,7 @@ class LoginService:
 class SessionService:
     class Session:
         token = "opaque-session-token"
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
 
     def __init__(self) -> None:
         self.users = []
@@ -269,6 +271,7 @@ def test_local_http_adapter_routes_login() -> None:
             assert cookie.startswith("solarcheck_session=opaque-session-token;")
             assert "HttpOnly" in cookie
             assert "SameSite=Strict" in cookie
+            assert "Max-Age=" in cookie
             assert "Secure" in cookie
         assert sessions.users == ["user-1"]
         assert login.calls == [("user-1", "correct horse battery staple")]
@@ -437,6 +440,49 @@ def test_logout_without_session_is_idempotent() -> None:
             assert response.status == 200
             assert "Max-Age=0" in response.headers["Set-Cookie"]
         assert sessions.revoked == []
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_login_rejects_already_expired_created_session() -> None:
+    endpoint = Endpoint()
+    login = LoginService()
+
+    class ExpiredSessionService(SessionService):
+        class Session:
+            token = "expired-session-token"
+            expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+    sessions = ExpiredSessionService()
+    server = build_verification_server(
+        endpoint,
+        login_service=login,
+        session_service=sessions,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        body = urlencode({
+            "user_id": "user-1",
+            "password": "correct horse battery staple",
+        }).encode("utf-8")
+        req = Request(
+            f"http://{host}:{port}/login",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 500
+            assert exc.headers.get("Set-Cookie") is None
+        else:
+            raise AssertionError("expired created session must not issue a cookie")
+        assert sessions.revoked == ["expired-session-token"]
     finally:
         server.shutdown()
         server.server_close()
