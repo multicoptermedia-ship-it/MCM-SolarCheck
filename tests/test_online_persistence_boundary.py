@@ -15,3 +15,10 @@ def test_online_persistence_container_has_no_sqlite_specific_type_contract() -> 
     ]
 
     assert sqlite_bound == []
+
+
+def test_registration_persistence_uses_service_layer_protocol() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    assert hints["registrations"].__name__ == "OnlineRegistrationStore"
+    assert hints["registrations"].__module__ == "mcm_solarcheck.services.online_registration"
