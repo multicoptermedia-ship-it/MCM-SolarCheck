@@ -120,10 +120,13 @@ Die Produktgrenzen sind inzwischen auch in den ausführbaren Einstiegspfaden kon
 - Online-Login: Der Controller delegiert Registrierung und Verifikation an den vorhandenen `OnlineRegistrationService`; UTC-Zeit und Produktpolitik bleiben außerhalb der GUI. Commit `be4b92c`, Run #1658, Python 3.11 und 3.12 erfolgreich.
 - Online-Komposition: `build_online_window()` erzeugt den Registration-Controller aus dem komponierten Registration-Service; die aktuelle Verifikation aktiviert dabei das fest konfigurierte TRIAL-Entitlement. Commit `ea7b276`, Run #1660, Python 3.11 und 3.12 erfolgreich.
 - Online-Login: Erfolg und fachliche Validierungs-/Tokenfehler werden im Anmeldefenster sichtbar zurückgemeldet; die GUI entscheidet weiterhin nicht über VERIFIED oder Entitlement. Commit `ccef6d6`, Run #1662, Python 3.11 und 3.12 erfolgreich.
+- Online-Entry: Der Customer-Entry-Gate kann einen identifizierten Benutzerkontext verlangen und prüft dann zusätzlich zur aktiven Production-Freigabe das persistierte aktive Entitlement. Commit `0e140b5`, testseitig korrigiert mit `be7793a`; Run #1668 auf Python 3.11 und 3.12 erfolgreich.
+- Online-Verification: Der Registration-Controller übernimmt die Benutzer-ID ausschließlich aus dem vom serverseitigen Verification-Service zurückgegebenen aktiven Entitlement; vor erfolgreicher Verifikation existiert kein verifizierter Benutzerkontext. Commit `720030e`, Test-Double an die bestehende Service-Rückgabe angepasst mit `9db3187`; Run #1672 auf Python 3.11 und 3.12 erfolgreich.
+- Online-Workflow-Eintritt: Nach erfolgreicher Token-Verifikation wird die bestätigte Benutzer-ID an den Customer-Entry-Gate übergeben. Erst wenn Production ACTIVE und das persistierte Entitlement für genau diesen Benutzer bestätigt sind, wechselt die Shell auf die Projektseite; Fehler verbleiben fail-closed auf Login. Commit `e5686eb`, Run #1674 auf Python 3.11 und 3.12 erfolgreich.
 
 Die aktuell implementierte Eintrittssequenz lautet damit:
 
-**OnlineProduct / OnlineServices → Login / Registration → Bestätigungs-E-Mail → serverseitige Token-Verifikation → VERIFIED identity → aktives TRIAL-Entitlement → Customer-Entry-Gate → gemeinsamer SolarCheck-Projektworkflow**
+**OnlineProduct / OnlineServices → Login / Registration → Bestätigungs-E-Mail → serverseitige Token-Verifikation → VERIFIED identity → aktives TRIAL-Entitlement → bestätigte Benutzer-ID → Customer-Entry-Gate (Production ACTIVE + persistiertes Benutzer-Entitlement) → Projektseite → gemeinsamer SolarCheck-Projektworkflow**
 
 Ein produktiver Web-/API-Server bzw. automatisches Deep-Link-Routing des Bestätigungslinks ist damit noch nicht implementiert. Die manuelle Token-Eingabe im Login bleibt die vorhandene Fallback-Grenze. Ein solcher Server-/Web-Entrypoint darf später die bestehenden Registration-, Verification-, Entitlement- und Production-Activation-Gates nicht umgehen.
 
