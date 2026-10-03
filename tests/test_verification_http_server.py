@@ -226,15 +226,19 @@ class SessionService:
 
     def __init__(self) -> None:
         self.users = []
+        self.revoked = []
 
     def create(self, user_id):
         self.users.append(user_id)
         return self.Session()
 
     def require_user(self, token):
-        if token != "opaque-session-token":
+        if token != "opaque-session-token" or token in self.revoked:
             raise PermissionError("online session is invalid")
         return "user-1"
+
+    def revoke(self, token):
+        self.revoked.append(token)
 
 
 def test_local_http_adapter_routes_login() -> None:
@@ -380,6 +384,59 @@ def test_customer_entry_rejects_authorization_gate() -> None:
             assert exc.code == 403
         else:
             raise AssertionError("customer entry gate rejection must return 403")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_logout_revokes_session_and_expires_cookie() -> None:
+    endpoint = Endpoint()
+    sessions = SessionService()
+    server = build_verification_server(
+        endpoint,
+        session_service=sessions,
+        secure_cookies=True,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/logout",
+            data=b"",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+            method="POST",
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            assert response.status == 200
+            assert "Abmeldung erfolgreich" in response.read().decode("utf-8")
+            cookie = response.headers["Set-Cookie"]
+            assert cookie.startswith("solarcheck_session=;")
+            assert "Max-Age=0" in cookie
+            assert "HttpOnly" in cookie
+            assert "SameSite=Strict" in cookie
+            assert "Secure" in cookie
+        assert sessions.revoked == ["opaque-session-token"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_logout_without_session_is_idempotent() -> None:
+    endpoint = Endpoint()
+    sessions = SessionService()
+    server = build_verification_server(endpoint, session_service=sessions)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(f"http://{host}:{port}/logout", data=b"", method="POST")
+        with closing(urlopen(req, timeout=2)) as response:
+            assert response.status == 200
+            assert "Max-Age=0" in response.headers["Set-Cookie"]
+        assert sessions.revoked == []
     finally:
         server.shutdown()
         server.server_close()

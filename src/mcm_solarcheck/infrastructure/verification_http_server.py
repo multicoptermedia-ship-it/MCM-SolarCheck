@@ -52,6 +52,9 @@ def verification_handler(
             if parsed.path == "/login" and login_service is not None:
                 self._handle_login()
                 return
+            if parsed.path == "/logout" and session_service is not None:
+                self._handle_logout()
+                return
             if parsed.path != "/register" or registration_controller is None:
                 self._respond(404, "Not Found")
                 return
@@ -112,6 +115,21 @@ def verification_handler(
                 self._respond(403, "online customer entry is not available")
                 return
             self._respond(200, "SolarCheck Online Kundenzugang freigegeben.")
+
+        def _handle_logout(self) -> None:
+            cookies = SimpleCookie()
+            try:
+                cookies.load(self.headers.get("Cookie", ""))
+                morsel = cookies.get("solarcheck_session")
+                if morsel is not None and morsel.value:
+                    session_service.revoke(morsel.value)
+            except (CookieError, ValueError):
+                pass
+            cookie = (
+                "solarcheck_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"
+                + ("; Secure" if secure_cookies else "")
+            )
+            self._respond(200, "Abmeldung erfolgreich.", headers={"Set-Cookie": cookie})
 
         def _handle_login(self) -> None:
             content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
