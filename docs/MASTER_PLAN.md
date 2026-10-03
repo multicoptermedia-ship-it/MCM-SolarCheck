@@ -84,7 +84,12 @@ Für SEPA gilt der eigene asynchrone Verarbeitungs- und Reconciliation-Pfad; er 
 - 10M.1: Produktionsbereitschaft prüft fail-closed SMTP, Payment-/SEPA-Provider, einen aktuell wirksamen aktiven Tarif sowie aktive Merchant Accounts für Card, PayPal und SEPA. Verifiziert mit GitHub Actions Run #1588 auf Python 3.11 und 3.12.
 - 10M.2: explizite fail-closed Online-Aktivierungsgrenze umgesetzt. Online startet INACTIVE und kann erst nach erfolgreichem Production-Readiness-Gate ACTIVE werden; ein fehlgeschlagener Aktivierungsversuch bleibt INACTIVE. Der Desktop-Einstieg bleibt getrennt. Verifiziert mit GitHub Actions Run #1592 auf Python 3.11 und 3.12.
 - 10M.3: produktive Activation Boundary an die Online-Service-Komposition gebunden. Die Komposition stellt den Zustand von Beginn an explizit als INACTIVE bereit; erst der vollständige Readiness-Gate erlaubt die explizite Umschaltung auf ACTIVE. Der Offline-Einstieg und die fachlichen 10L-Sequenzen bleiben unverändert. Verifiziert mit GitHub Actions Run #1600 auf Python 3.11 und 3.12.
-- 10M.4: nächster Block – produktive Online-Eintrittspunkte so absichern, dass kundenorientierte Operationen den ACTIVE-Zustand tatsächlich voraussetzen, ohne Admin-/Konfigurationszugriffe oder Offline Desktop unnötig zu sperren.
+- 10M.4: deployment-aware Customer-Entry-Gate umgesetzt. Online-Kundeneintritt setzt den ACTIVE-Zustand voraus; Offline Desktop bleibt unabhängig von Online-Production-Readiness. Da noch kein produktiver Web/API-Server-Entrypoint im Repository existiert, wurde kein fiktiver Server verdrahtet; künftige reale Online-Entrypoints müssen diese Service-Grenze verwenden. Verifiziert mit GitHub Actions Run #1604 auf Python 3.11 und 3.12.
+- Gesamtcheck 10M: PR #3 zeigt auf den verifizierten Head `82a2bc5`, ist offen und mergeable; GitHub Actions Run #1604 ist auf Python 3.11 und 3.12 erfolgreich. Die 10L Payment-/Delivery-Sequenzen und der Offline-Desktop-Einstieg bleiben unverändert.
+
+## Nächster Hauptblock: Phase 11 – Public Product Operation / Expansion
+
+Phase 11 beginnt erst nach grünem CI-Gate dieses 10M-Abschlussstands. Der konkrete erste Unterblock wird aus dem dann aktuellen Repository-Stand abgeleitet; bestehende Readiness-, Activation-, Customer-Entry- und 10L-Fachgates dürfen nicht umgangen werden.
 
 ## Spätere Produkt- und Release-Arbeitsströme
 
