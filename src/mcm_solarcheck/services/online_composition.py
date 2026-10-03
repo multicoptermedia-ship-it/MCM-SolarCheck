@@ -300,4 +300,5 @@ def build_online_services(
         admin=admin,
         production=production,
         entitlements=persistence.entitlements,
+        credentials=persistence.credentials,
     )
