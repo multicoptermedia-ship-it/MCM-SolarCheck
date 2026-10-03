@@ -1,0 +1,107 @@
+"""Domain models for imported frames, PV modules and inspection findings.
+
+These models deliberately contain no DJI SDK dependency. Vendor-specific readers
+map their output into these neutral structures.
+"""
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+
+@dataclass(frozen=True)
+class Position:
+    latitude: float
+    longitude: float
+    altitude_m: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class Pose:
+    yaw_deg: Optional[float] = None
+    pitch_deg: Optional[float] = None
+    roll_deg: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class RTKQuality:
+    status: Optional[str] = None
+    std_lat_m: Optional[float] = None
+    std_lon_m: Optional[float] = None
+    std_height_m: Optional[float] = None
+    correction_age_s: Optional[float] = None
+    altitude_type: Optional[str] = None
+
+
+@dataclass
+class ImageFrame:
+    frame_id: str
+    source_file: Path
+    camera_make: Optional[str] = None
+    camera_model: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    timestamp_utc: Optional[datetime] = None
+    position: Optional[Position] = None
+    camera_pose: Pose = field(default_factory=Pose)
+    flight_pose: Pose = field(default_factory=Pose)
+    rtk: RTKQuality = field(default_factory=RTKQuality)
+    metadata: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class ThermalFrame(ImageFrame):
+    thermal_width: Optional[int] = None
+    thermal_height: Optional[int] = None
+    temperature_unit: Optional[str] = None
+    min_temperature_c: Optional[float] = None
+    max_temperature_c: Optional[float] = None
+    mean_temperature_c: Optional[float] = None
+    thermal_source: str = "unknown"
+    temperature_matrix: object | None = None
+    calibration: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ImagePair:
+    pair_id: str
+    rgb_frame_id: str
+    thermal_frame_id: str
+    confidence: float
+    method: str
+    distance_m: Optional[float] = None
+    time_delta_s: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class PVModule:
+    module_id: str
+    frame_id: str
+    polygon_px: tuple[tuple[float, float], ...]
+    detection_confidence: Optional[float] = None
+    detector: str = "unknown"
+    position: Optional[Position] = None
+    metadata: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if len(self.polygon_px) < 3:
+            raise ValueError("PV module polygon requires at least three points")
+
+
+@dataclass(frozen=True)
+class Finding:
+    finding_id: str
+    thermal_frame_id: str
+    pixel_x: int
+    pixel_y: int
+    finding_type: str = "thermal_anomaly_candidate"
+    confidence: Optional[float] = None
+    raw_value: Optional[int] = None
+    raw_delta_from_median: Optional[float] = None
+    temperature_c: Optional[float] = None
+    module_id: Optional[str] = None
+    position: Optional[Position] = None
+    rtk: RTKQuality = field(default_factory=RTKQuality)
+    reviewer_status: str = "unreviewed"
+    metadata: dict[str, str] = field(default_factory=dict)

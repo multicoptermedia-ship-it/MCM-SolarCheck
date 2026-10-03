@@ -1,0 +1,224 @@
+from __future__ import annotations
+
+import pytest
+
+from mcm_solarcheck.services.product_entitlements import (
+    FULL_ONLINE,
+    INTERNAL_ONLINE,
+    OFFLINE_DESKTOP,
+    PROMOTIONAL_TRIAL,
+    ProductEntitlementError,
+    ProductProfileId,
+    ProductOperation,
+    effective_output_availability,
+    product_action_availability,
+    product_capabilities,
+    require_product_operation,
+)
+
+
+def test_promotional_trial_accepts_exactly_20_kwp() -> None:
+    assert PROMOTIONAL_TRIAL.accepts_plant_power(20.0)
+
+
+def test_promotional_trial_rejects_power_above_20_kwp() -> None:
+    assert not PROMOTIONAL_TRIAL.accepts_plant_power(20.001)
+    with pytest.raises(ProductEntitlementError, match="at most 20 kWp"):
+        PROMOTIONAL_TRIAL.require_plant_power(20.001)
+
+
+def test_promotional_trial_rejects_report_download_and_export() -> None:
+    with pytest.raises(ProductEntitlementError, match="report download"):
+        PROMOTIONAL_TRIAL.require_report_download()
+    with pytest.raises(ProductEntitlementError, match="export"):
+        PROMOTIONAL_TRIAL.require_export()
+
+
+def test_full_online_has_no_product_power_ceiling_and_allows_outputs() -> None:
+    assert FULL_ONLINE.accepts_plant_power(1_000_000.0)
+    FULL_ONLINE.require_plant_power(1_000_000.0)
+    FULL_ONLINE.require_report_download()
+    FULL_ONLINE.require_export()
+
+
+def test_negative_power_is_rejected_for_all_profiles() -> None:
+    with pytest.raises(ValueError, match="must not be negative"):
+        PROMOTIONAL_TRIAL.accepts_plant_power(-0.001)
+    with pytest.raises(ValueError, match="must not be negative"):
+        FULL_ONLINE.require_plant_power(-0.001)
+
+
+def test_profile_lookup_returns_authoritative_capabilities() -> None:
+    assert product_capabilities(ProductProfileId.PROMOTIONAL_TRIAL) is PROMOTIONAL_TRIAL
+    assert product_capabilities(ProductProfileId.FULL_ONLINE) is FULL_ONLINE
+
+
+def test_product_operation_boundary_blocks_trial_outputs() -> None:
+    with pytest.raises(ProductEntitlementError, match="report download"):
+        require_product_operation(PROMOTIONAL_TRIAL, ProductOperation.REPORT_DOWNLOAD)
+    with pytest.raises(ProductEntitlementError, match="export"):
+        require_product_operation(PROMOTIONAL_TRIAL, ProductOperation.EXPORT)
+
+
+def test_product_operation_boundary_allows_full_online_outputs() -> None:
+    require_product_operation(FULL_ONLINE, ProductOperation.REPORT_DOWNLOAD)
+    require_product_operation(FULL_ONLINE, ProductOperation.EXPORT)
+
+
+def test_product_operation_boundary_rejects_invalid_inputs_fail_closed() -> None:
+    with pytest.raises(ValueError, match="capabilities"):
+        require_product_operation(None, ProductOperation.EXPORT)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="ProductOperation"):
+        require_product_operation(FULL_ONLINE, "export")  # type: ignore[arg-type]
+
+
+def test_gui_availability_exposes_trial_blockers_without_raising() -> None:
+    report = product_action_availability(
+        PROMOTIONAL_TRIAL, ProductOperation.REPORT_DOWNLOAD
+    )
+    export = product_action_availability(PROMOTIONAL_TRIAL, ProductOperation.EXPORT)
+
+    assert not report.allowed
+    assert report.blockers == (
+        "promotional_trial does not permit report download",
+    )
+    assert not export.allowed
+    assert export.blockers == ("promotional_trial does not permit export",)
+
+
+def test_gui_availability_exposes_full_online_actions_as_allowed() -> None:
+    report = product_action_availability(FULL_ONLINE, ProductOperation.REPORT_DOWNLOAD)
+    export = product_action_availability(FULL_ONLINE, ProductOperation.EXPORT)
+
+    assert report.allowed
+    assert report.blockers == ()
+    assert export.allowed
+    assert export.blockers == ()
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "workflow_allowed", "workflow_blockers", "allowed", "blockers"),
+    (
+        (FULL_ONLINE, True, (), True, ()),
+        (
+            FULL_ONLINE,
+            False,
+            ("unreviewed findings remain",),
+            False,
+            ("unreviewed findings remain",),
+        ),
+        (
+            PROMOTIONAL_TRIAL,
+            True,
+            (),
+            False,
+            ("promotional_trial does not permit export",),
+        ),
+        (
+            PROMOTIONAL_TRIAL,
+            False,
+            ("unreviewed findings remain",),
+            False,
+            (
+                "promotional_trial does not permit export",
+                "unreviewed findings remain",
+            ),
+        ),
+    ),
+)
+def test_effective_export_requires_product_and_workflow_gates(
+    capabilities,
+    workflow_allowed,
+    workflow_blockers,
+    allowed,
+    blockers,
+) -> None:
+    availability = effective_output_availability(
+        capabilities,
+        ProductOperation.EXPORT,
+        workflow_allowed=workflow_allowed,
+        workflow_blockers=workflow_blockers,
+    )
+    assert availability.allowed is allowed
+    assert availability.blockers == blockers
+
+
+def test_effective_output_availability_rejects_inconsistent_workflow_state() -> None:
+    with pytest.raises(ValueError, match="must not have blockers"):
+        effective_output_availability(
+            FULL_ONLINE,
+            ProductOperation.EXPORT,
+            workflow_allowed=True,
+            workflow_blockers=("unexpected blocker",),
+        )
+    with pytest.raises(ValueError, match="requires at least one blocker"):
+        effective_output_availability(
+            FULL_ONLINE,
+            ProductOperation.EXPORT,
+            workflow_allowed=False,
+        )
+
+
+def test_offline_desktop_has_no_online_trial_restrictions() -> None:
+    assert OFFLINE_DESKTOP.profile_id is ProductProfileId.OFFLINE_DESKTOP
+    assert OFFLINE_DESKTOP.max_plant_power_kwp is None
+    assert OFFLINE_DESKTOP.accepts_plant_power(1_000_000.0)
+    OFFLINE_DESKTOP.require_report_download()
+    OFFLINE_DESKTOP.require_export()
+
+
+def test_offline_desktop_profile_lookup_is_explicit() -> None:
+    assert product_capabilities(ProductProfileId.OFFLINE_DESKTOP) is OFFLINE_DESKTOP
+
+
+def test_offline_desktop_still_respects_workflow_output_gate() -> None:
+    availability = effective_output_availability(
+        OFFLINE_DESKTOP,
+        ProductOperation.EXPORT,
+        workflow_allowed=False,
+        workflow_blockers=("unreviewed findings remain",),
+    )
+    assert availability.allowed is False
+    assert availability.blockers == ("unreviewed findings remain",)
+
+
+def test_internal_online_has_full_product_capabilities() -> None:
+    assert INTERNAL_ONLINE.profile_id is ProductProfileId.INTERNAL_ONLINE
+    assert INTERNAL_ONLINE.max_plant_power_kwp is None
+    assert INTERNAL_ONLINE.accepts_plant_power(1_000_000.0)
+    INTERNAL_ONLINE.require_report_download()
+    INTERNAL_ONLINE.require_export()
+    assert product_capabilities(ProductProfileId.INTERNAL_ONLINE) is INTERNAL_ONLINE
+
+
+def test_internal_online_does_not_bypass_workflow_output_gate() -> None:
+    availability = effective_output_availability(
+        INTERNAL_ONLINE,
+        ProductOperation.EXPORT,
+        workflow_allowed=False,
+        workflow_blockers=("unreviewed findings remain",),
+    )
+
+    assert availability.allowed is False
+    assert availability.blockers == ("unreviewed findings remain",)
+
+
+def test_customer_payment_requirement_is_profile_specific() -> None:
+    assert FULL_ONLINE.customer_payment_required is True
+    assert INTERNAL_ONLINE.customer_payment_required is False
+    assert PROMOTIONAL_TRIAL.customer_payment_required is False
+    assert OFFLINE_DESKTOP.customer_payment_required is False
+
+
+def test_internal_payment_exemption_does_not_change_output_workflow_gate() -> None:
+    assert INTERNAL_ONLINE.customer_payment_required is False
+
+    availability = effective_output_availability(
+        INTERNAL_ONLINE,
+        ProductOperation.REPORT_DOWNLOAD,
+        workflow_allowed=False,
+        workflow_blockers=("report is not released",),
+    )
+
+    assert availability.allowed is False
+    assert availability.blockers == ("report is not released",)

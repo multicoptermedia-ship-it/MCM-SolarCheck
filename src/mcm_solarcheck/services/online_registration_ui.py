@@ -1,0 +1,69 @@
+"""Application adapter from the online login UI to registration services."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Callable
+
+from mcm_solarcheck.services.online_entitlement import OnlineProduct
+from mcm_solarcheck.services.online_registration import OnlineRegistrationService
+from mcm_solarcheck.services.online_registration_controller import RegistrationRequest
+
+
+class RegistrationServiceController:
+    """Keep time and product policy outside the Qt presentation layer."""
+
+    def __init__(
+        self,
+        service: OnlineRegistrationService,
+        *,
+        product: OnlineProduct,
+        now: Callable[[], datetime] | None = None,
+        credentials=None,
+    ) -> None:
+        if not isinstance(product, OnlineProduct):
+            raise TypeError("product must be an OnlineProduct")
+        self._service = service
+        self._product = product
+        self._now = now or (lambda: datetime.now(timezone.utc))
+        self._credentials = credentials
+        self._verified_user_id: str | None = None
+
+    def register(self, request: RegistrationRequest) -> str:
+        if self._credentials is not None:
+            if not request.password:
+                raise ValueError("password is required for online registration")
+            self._credentials.validate_password(request.password)
+        self._service.register(
+            user_id=request.user_id,
+            display_name=request.display_name,
+            email=request.email,
+            street=request.street,
+            postal_code=request.postal_code,
+            city=request.city,
+            now=self._utc_now(),
+        )
+        if self._credentials is not None:
+            self._credentials.set_password(request.user_id, request.password)
+        return "Bestätigungs-E-Mail wurde gesendet."
+
+    def verify_email_token(self, token: str) -> tuple[str, str]:
+        entitlement = self._service.verify_and_activate(
+            token,
+            product=self._product,
+            now=self._utc_now(),
+        )
+        self._verified_user_id = entitlement.user_id
+        return ("E-Mail-Adresse wurde bestätigt.", entitlement.user_id)
+
+    @property
+    def verified_user_id(self) -> str | None:
+        return self._verified_user_id
+
+    def _utc_now(self) -> datetime:
+        value = self._now()
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("registration clock must return timezone-aware UTC")
+        if value.utcoffset() != timezone.utc.utcoffset(value):
+            raise ValueError("registration clock must return UTC")
+        return value

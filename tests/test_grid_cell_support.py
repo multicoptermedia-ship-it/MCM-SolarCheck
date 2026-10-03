@@ -1,0 +1,81 @@
+from mcm_solarcheck.pairing.structural_features import StructuralLine
+from mcm_solarcheck.pairing.grid_lines import GridLine,GridLineFamily
+from mcm_solarcheck.vision.detection import ModuleDetection
+from mcm_solarcheck.vision.grid_cell_support import filter_cells_by_finite_support,finite_support_sides,internal_lattice_support,has_repeated_lattice_evidence
+
+def test_requires_all_four_finite_sides():
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)))
+ b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ lines=(StructuralLine(10,10,30,10,20,0),StructuralLine(10,30,30,30,20,0),StructuralLine(10,10,10,30,20,90),StructuralLine(30,10,30,30,20,90))
+ assert filter_cells_by_finite_support((cell,),(a,b),lines,tolerance_px=1)==(cell,)
+ assert filter_cells_by_finite_support((cell,),(a,b),lines[:-1],tolerance_px=1)==()
+
+def test_rejects_extrapolated_short_boundary():
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ lines=(StructuralLine(10,10,20,10,10,0),StructuralLine(10,30,30,30,20,0),StructuralLine(10,10,10,30,20,90),StructuralLine(30,10,30,30,20,90))
+ assert filter_cells_by_finite_support((cell,),(a,b),lines,tolerance_px=1)==()
+
+
+def test_accepts_collinear_fragmented_side_support():
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ lines=(StructuralLine(10,10,20,10,10,0),StructuralLine(20,10,30,10,10,0),StructuralLine(10,30,30,30,20,0),StructuralLine(10,10,10,30,20,90),StructuralLine(30,10,30,30,20,90))
+ assert filter_cells_by_finite_support((cell,),(a,b),lines,tolerance_px=1)==(cell,)
+
+
+def test_rejects_parallel_fragments_that_do_not_share_expected_side_line():
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ lines=(StructuralLine(10,10,20,10,10,0),StructuralLine(20,12,30,12,10,0),StructuralLine(10,30,30,30,20,0),StructuralLine(10,10,10,30,20,90),StructuralLine(30,10,30,30,20,90))
+ assert filter_cells_by_finite_support((cell,),(a,b),lines,tolerance_px=1)==()
+
+
+def test_reports_each_supported_side_without_weakening_filter():
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ lines=(StructuralLine(10,10,10,30,20,90),)
+ assert finite_support_sides(cell,(a,b),lines,tolerance_px=1)==(True,False,False,False)
+ assert filter_cells_by_finite_support((cell,),(a,b),lines,tolerance_px=1)==()
+
+
+def test_internal_lattice_support_counts_distinct_finite_lines_without_relaxing_gate():
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ lines=(StructuralLine(10,20,30,20,20,0),StructuralLine(20,10,20,30,20,90))
+ assert internal_lattice_support(cell,(a,b),lines,tolerance_px=1)==(1,1)
+ assert filter_cells_by_finite_support((cell,),(a,b),lines,tolerance_px=1)==()
+
+def test_internal_lattice_support_rejects_extrapolated_segments():
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ lines=(StructuralLine(100,20,120,20,20,0),StructuralLine(20,100,20,120,20,90))
+ assert internal_lattice_support(cell,(a,b),lines,tolerance_px=1)==(0,0)
+
+
+def test_repeated_lattice_evidence_requires_boundary_and_both_axes():
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ good=(StructuralLine(10,10,10,30,20,90),StructuralLine(10,20,30,20,20,0),StructuralLine(20,10,20,30,20,90))
+ assert has_repeated_lattice_evidence(cell,(a,b),good,tolerance_px=1)
+ assert not has_repeated_lattice_evidence(cell,(a,b),good[:2],tolerance_px=1)
+ assert not has_repeated_lattice_evidence(cell,(a,b),good[1:],tolerance_px=1)
+
+
+def test_finite_support_rejects_nonfinite_tolerance():
+ import pytest
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ with pytest.raises(ValueError):finite_support_sides(cell,(a,b),(),tolerance_px=float('nan'))
+
+def test_filter_rejects_infinite_tolerance():
+ import pytest
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ with pytest.raises(ValueError):filter_cells_by_finite_support((),(a,b),(),tolerance_px=float('inf'))
+
+def test_internal_lattice_rejects_nonfinite_tolerance():
+ import pytest
+ a=GridLineFamily(0,(GridLine(0,10,1,20),GridLine(0,30,1,20)));b=GridLineFamily(90,(GridLine(90,-10,1,20),GridLine(90,-30,1,20)))
+ cell=ModuleDetection(((10,10),(10,30),(30,30),(30,10)),.8)
+ with pytest.raises(ValueError):internal_lattice_support(cell,(a,b),(),tolerance_px=float('nan'))
