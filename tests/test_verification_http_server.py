@@ -3,7 +3,8 @@ from __future__ import annotations
 from contextlib import closing
 from threading import Thread
 from urllib.error import HTTPError
-from urllib.request import urlopen
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from mcm_solarcheck.infrastructure.verification_http_server import (
     build_verification_server,
@@ -22,6 +23,15 @@ class Endpoint:
         return VerificationHttpResult(400, "verification token is invalid or expired")
 
 
+class RegistrationController:
+    def __init__(self) -> None:
+        self.requests = []
+
+    def register(self, request):
+        self.requests.append(request)
+        return "Bestätigungs-E-Mail wurde gesendet."
+
+
 def request(server, path: str):
     host, port = server.server_address
     return urlopen(f"http://{host}:{port}{path}", timeout=2)
@@ -38,6 +48,40 @@ def test_local_http_adapter_exposes_customer_entry_without_verification() -> Non
             assert response.status == 200
             assert "SolarCheck Online" in body
             assert "Anmeldung und Registrierung" in body
+        assert endpoint.tokens == []
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_local_http_adapter_routes_registration_without_verification() -> None:
+    endpoint = Endpoint()
+    registration = RegistrationController()
+    server = build_verification_server(endpoint, registration_controller=registration)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        body = urlencode({
+            "user_id": "user-1",
+            "display_name": "MCM Test",
+            "email": "user@example.com",
+            "street": "Musterweg 1",
+            "postal_code": "50181",
+            "city": "Bedburg",
+        }).encode("utf-8")
+        req = Request(
+            f"http://{host}:{port}/register",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            assert response.status == 202
+            assert "Bestätigungs-E-Mail wurde gesendet." in response.read().decode("utf-8")
+        assert len(registration.requests) == 1
+        assert registration.requests[0].email == "user@example.com"
         assert endpoint.tokens == []
     finally:
         server.shutdown()
