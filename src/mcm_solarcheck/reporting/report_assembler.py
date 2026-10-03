@@ -1,6 +1,7 @@
 """Assemble customer report contracts from persisted project and reviewed evidence."""
 from __future__ import annotations
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from mcm_solarcheck.reporting.data import InspectionReportDataService
 from mcm_solarcheck.reporting.model import build_report_model
 from mcm_solarcheck.reporting.report_model import InspectionReport, ModuleReportDetail, OperatorSnapshot, ReportImage, ThermalMeasurement
@@ -60,6 +61,8 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
     unresolved_unclear=sum(1 for item in unclear if item.module_id is None or not item.module_id.strip())
     if release_status=="released" and (data.summary.unreviewed_findings or unresolved or unresolved_unclear):
         raise ValueError("released report requires reviewed findings and resolved physical modules")
+    if profile.site_timezone is not None:
+        inspection_started_at = inspection_started_at.astimezone(ZoneInfo(profile.site_timezone))
     return InspectionReport(
         report_id=report_id,
         project_id=project_id,

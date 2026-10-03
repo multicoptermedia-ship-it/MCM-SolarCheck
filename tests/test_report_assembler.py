@@ -312,3 +312,37 @@ def test_released_report_keeps_confirmed_asset_provenance(tmp_path):
     assert image.source_frame_id=="T1"
     assert image.geometry_source=="persisted_module_polygon"
     assert image.path!=str(thermal)
+
+
+def test_report_converts_inspection_time_to_project_timezone(tmp_path):
+    db=ProjectDatabase(tmp_path/"timezone.sqlite")
+    db.initialize()
+    db.create_project("P1","Inspection")
+    db.save_project_profile(
+        "P1",
+        ProjectProfile(
+            "Customer","Site","Street 1","12345","Berlin","Inspector",
+            site_timezone="Europe/Berlin",
+        ),
+    )
+    report=assemble_inspection_report(
+        db,"P1","R-TZ",datetime(2026,7,15,12,tzinfo=timezone.utc)
+    )
+    assert report.inspection_started_at.isoformat()=="2026-07-15T14:00:00+02:00"
+
+
+def test_report_project_timezone_handles_winter_offset(tmp_path):
+    db=ProjectDatabase(tmp_path/"timezone-winter.sqlite")
+    db.initialize()
+    db.create_project("P1","Inspection")
+    db.save_project_profile(
+        "P1",
+        ProjectProfile(
+            "Customer","Site","Street 1","12345","Berlin","Inspector",
+            site_timezone="Europe/Berlin",
+        ),
+    )
+    report=assemble_inspection_report(
+        db,"P1","R-TZ",datetime(2026,1,15,12,tzinfo=timezone.utc)
+    )
+    assert report.inspection_started_at.isoformat()=="2026-01-15T13:00:00+01:00"
