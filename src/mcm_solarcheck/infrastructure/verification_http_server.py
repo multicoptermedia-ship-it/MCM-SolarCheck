@@ -113,16 +113,17 @@ def verification_handler(
                 user_id = session_service.require_user(morsel.value)
             except (CookieError, PermissionError, ValueError) as exc:
                 raise PermissionError("online session is invalid") from exc
-            customer_entry(user_id)
             return user_id
 
         def _handle_projects(self) -> None:
             try:
-                self._require_customer_user()
+                user_id = self._require_customer_user()
             except PermissionError:
                 self._respond(401, "online session is invalid")
                 return
-            except (RuntimeError, ValueError):
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
                 self._respond(403, "online customer entry is not available")
                 return
             projects = project_service.projects()

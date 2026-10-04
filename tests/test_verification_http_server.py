@@ -554,3 +554,41 @@ def test_projects_reject_missing_session_before_project_access() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_projects_return_forbidden_when_customer_authorization_fails() -> None:
+    endpoint = Endpoint()
+
+    class Projects:
+        def projects(self):
+            raise AssertionError("projects must not be read without customer authorization")
+
+    def reject(user_id):
+        assert user_id == "user-1"
+        raise PermissionError("entitlement inactive")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=reject,
+        project_service=Projects(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/projects",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 403
+            assert "online customer entry is not available" in exc.read().decode("utf-8")
+        else:
+            raise AssertionError("customer authorization failure must return 403")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
