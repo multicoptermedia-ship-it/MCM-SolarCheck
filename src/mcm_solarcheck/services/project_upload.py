@@ -37,10 +37,17 @@ class StoredProjectUpload:
     sha256_hex: str
 
 
+@dataclass(frozen=True)
+class ValidatedProjectUpload:
+    request: ProjectUploadRequest
+    size_bytes: int
+    sha256_hex: str
+
+
 class ProjectUploadService:
     def __init__(
         self,
-        store_upload: Callable[[ProjectUploadRequest], None],
+        store_upload: Callable[[ValidatedProjectUpload], None],
         project_belongs_to_customer: Callable[[str, str], bool],
         *,
         max_upload_bytes: int = DEFAULT_MAX_UPLOAD_BYTES,
@@ -84,12 +91,20 @@ class ProjectUploadService:
             content_type=content_type,
             content=request.content,
         )
-        self._store_upload(normalized)
+        size_bytes = len(normalized.content)
+        sha256_hex = sha256(normalized.content).hexdigest()
+        self._store_upload(
+            ValidatedProjectUpload(
+                request=normalized,
+                size_bytes=size_bytes,
+                sha256_hex=sha256_hex,
+            )
+        )
         return StoredProjectUpload(
             customer_id=customer_id,
             project_id=project_id,
             filename=filename,
             content_type=content_type,
-            size_bytes=len(request.content),
-            sha256_hex=sha256(request.content).hexdigest(),
+            size_bytes=size_bytes,
+            sha256_hex=sha256_hex,
         )
