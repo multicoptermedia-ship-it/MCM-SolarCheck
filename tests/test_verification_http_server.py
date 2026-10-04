@@ -626,3 +626,40 @@ def test_projects_return_service_unavailable_when_project_backend_fails() -> Non
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_projects_return_service_unavailable_for_invalid_project_data() -> None:
+    endpoint = Endpoint()
+
+    class InvalidProject:
+        project_id = "P-1"
+
+    class Projects:
+        def projects(self):
+            return (InvalidProject(),)
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_service=Projects(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/projects",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 503
+            assert "online projects are not available" in exc.read().decode("utf-8")
+        else:
+            raise AssertionError("invalid project data must return 503")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
