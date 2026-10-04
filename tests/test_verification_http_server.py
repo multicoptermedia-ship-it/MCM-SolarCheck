@@ -487,3 +487,70 @@ def test_login_rejects_already_expired_created_session() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_projects_require_session_and_customer_authorization() -> None:
+    endpoint = Endpoint()
+    sessions = SessionService()
+    authorized = []
+
+    class Project:
+        project_id = "P-1"
+        name = "Online Project"
+
+    class Projects:
+        def projects(self):
+            return (Project(),)
+
+    server = build_verification_server(
+        endpoint,
+        session_service=sessions,
+        customer_entry=authorized.append,
+        project_service=Projects(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/projects",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            body = response.read().decode("utf-8")
+            assert response.status == 200
+            assert "P-1: Online Project" in body
+        assert authorized == ["user-1"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_projects_reject_missing_session_before_project_access() -> None:
+    endpoint = Endpoint()
+
+    class Projects:
+        def projects(self):
+            raise AssertionError("projects must not be read without a valid session")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_service=Projects(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        try:
+            urlopen(f"http://{host}:{port}/projects", timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 401
+        else:
+            raise AssertionError("missing session must return 401")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)

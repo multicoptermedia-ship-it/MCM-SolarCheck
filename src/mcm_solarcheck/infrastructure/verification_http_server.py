@@ -26,6 +26,7 @@ def verification_handler(
     session_service=None,
     secure_cookies: bool = False,
     customer_entry=None,
+    project_service=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
 
@@ -40,6 +41,9 @@ def verification_handler(
                 return
             if parsed.path == "/customer-entry" and session_service is not None and customer_entry is not None:
                 self._handle_customer_entry()
+                return
+            if parsed.path == "/projects" and session_service is not None and customer_entry is not None and project_service is not None:
+                self._handle_projects()
                 return
             if parsed.path != "/verify-email":
                 self._respond(404, "Not Found")
@@ -98,6 +102,34 @@ def verification_handler(
                 self._respond(400, "registration data is invalid")
                 return
             self._respond(202, message)
+
+        def _require_customer_user(self) -> str:
+            cookies = SimpleCookie()
+            try:
+                cookies.load(self.headers.get("Cookie", ""))
+                morsel = cookies.get("solarcheck_session")
+                if morsel is None:
+                    raise PermissionError("online session is invalid")
+                user_id = session_service.require_user(morsel.value)
+            except (CookieError, PermissionError, ValueError) as exc:
+                raise PermissionError("online session is invalid") from exc
+            customer_entry(user_id)
+            return user_id
+
+        def _handle_projects(self) -> None:
+            try:
+                self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            except (RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+            projects = project_service.projects()
+            message = "Keine Projekte vorhanden." if not projects else "\n".join(
+                f"{project.project_id}: {project.name}" for project in projects
+            )
+            self._respond(200, message)
 
         def _handle_customer_entry(self) -> None:
             cookies = SimpleCookie()
@@ -215,6 +247,7 @@ def build_verification_server(
     session_service=None,
     secure_cookies: bool = False,
     customer_entry=None,
+    project_service=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -226,5 +259,6 @@ def build_verification_server(
             session_service,
             secure_cookies,
             customer_entry,
+            project_service,
         ),
     )

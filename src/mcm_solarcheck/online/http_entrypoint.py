@@ -55,4 +55,5 @@ def build_online_verification_server(
         ),
         secure_cookies=secure_cookies,
         customer_entry=product.require_customer_entry,
+        project_service=getattr(product.services, "projects", None),
     )
