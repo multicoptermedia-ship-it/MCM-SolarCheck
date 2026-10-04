@@ -1109,3 +1109,52 @@ def test_project_upload_hides_unavailable_project() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_project_processing_uses_authenticated_customer_and_disables_caching() -> None:
+    endpoint = Endpoint()
+
+    class Result:
+        imported_thermal_frames = 12
+        paired_frames = 10
+        import_failures = 1
+
+    class Processing:
+        def __init__(self):
+            self.requests = []
+
+        def process(self, processing_request):
+            self.requests.append(processing_request)
+            return Result()
+
+    processing = Processing()
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_processing_service=processing,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-process?project_id=P-1",
+            data=b"",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+            method="POST",
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            assert response.status == 200
+            assert response.headers["Cache-Control"] == "no-store"
+            body = response.read().decode("utf-8")
+            assert "Projekt verarbeitet: P-1" in body
+            assert "Thermalbilder: 12" in body
+            assert "Paare: 10" in body
+            assert "Importfehler: 1" in body
+        assert processing.requests[0].customer_id == "user-1"
+        assert processing.requests[0].project_id == "P-1"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
