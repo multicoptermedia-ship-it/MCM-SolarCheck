@@ -23,28 +23,32 @@ def pricing_rule() -> PricingRule:
     )
 
 
-def test_project_pricing_resolves_capacity_from_project_metadata() -> None:
+def test_project_pricing_resolves_capacity_from_customer_project_metadata() -> None:
     requested = []
 
-    def capacity_for_project(project_id: str) -> Decimal:
-        requested.append(project_id)
+    def capacity_for_project(customer_id: str, project_id: str) -> Decimal:
+        requested.append((customer_id, project_id))
         return Decimal("50")
 
     service = ProjectPricingService(pricing_rule(), capacity_for_project)
 
-    snapshot = service.price(ProjectPricingRequest("P-1"))
+    snapshot = service.price(ProjectPricingRequest("user-1", "P-1"))
 
-    assert requested == ["P-1"]
+    assert requested == [("user-1", "P-1")]
     assert snapshot.capacity_kwp == Decimal("50")
     assert snapshot.net_total == Decimal("500.00")
     assert snapshot.rule_version == "2026-10-online"
 
 
 def test_project_pricing_applies_only_verified_discount_flags() -> None:
-    service = ProjectPricingService(pricing_rule(), lambda project_id: Decimal("50"))
+    service = ProjectPricingService(
+        pricing_rule(),
+        lambda customer_id, project_id: Decimal("50"),
+    )
 
     snapshot = service.price(
         ProjectPricingRequest(
+            "user-1",
             "P-1",
             planner_verified=True,
             repeat_verified=True,
@@ -56,10 +60,20 @@ def test_project_pricing_applies_only_verified_discount_flags() -> None:
 
 
 def test_project_pricing_rejects_missing_project_id_before_metadata_access() -> None:
-    def capacity_for_project(project_id: str) -> Decimal:
+    def capacity_for_project(customer_id: str, project_id: str) -> Decimal:
         raise AssertionError("project metadata must not be read without a project id")
 
     service = ProjectPricingService(pricing_rule(), capacity_for_project)
 
     with pytest.raises(ValueError):
-        service.price(ProjectPricingRequest("   "))
+        service.price(ProjectPricingRequest("user-1", "   "))
+
+
+def test_project_pricing_rejects_missing_customer_id_before_metadata_access() -> None:
+    def capacity_for_project(customer_id: str, project_id: str) -> Decimal:
+        raise AssertionError("project metadata must not be read without a customer id")
+
+    service = ProjectPricingService(pricing_rule(), capacity_for_project)
+
+    with pytest.raises(ValueError):
+        service.price(ProjectPricingRequest("   ", "P-1"))
