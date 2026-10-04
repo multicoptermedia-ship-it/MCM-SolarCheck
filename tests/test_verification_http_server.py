@@ -1227,3 +1227,112 @@ def test_project_processing_hides_foreign_project() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_project_processing_rejects_invalid_project_id_before_processing() -> None:
+    endpoint = Endpoint()
+
+    class Processing:
+        def process(self, processing_request):
+            raise AssertionError("processing must not be called for invalid project id")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_processing_service=Processing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-process",
+            data=b"",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as error:
+            assert error.code == 400
+        else:
+            raise AssertionError("invalid project id must return 400")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_project_processing_rejects_unavailable_customer_before_processing() -> None:
+    endpoint = Endpoint()
+
+    class Processing:
+        def process(self, processing_request):
+            raise AssertionError("processing must not be called without customer access")
+
+    def reject_customer(user_id):
+        raise PermissionError("customer unavailable")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=reject_customer,
+        project_processing_service=Processing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-process?project_id=P-1",
+            data=b"",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as error:
+            assert error.code == 403
+        else:
+            raise AssertionError("unavailable customer must return 403")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_project_processing_maps_import_failure_to_service_unavailable() -> None:
+    endpoint = Endpoint()
+
+    class Processing:
+        def process(self, processing_request):
+            raise RuntimeError("import failed")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_processing_service=Processing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-process?project_id=P-1",
+            data=b"",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as error:
+            assert error.code == 503
+            assert "online project processing is not available" in error.read().decode("utf-8")
+        else:
+            raise AssertionError("processing failure must return 503")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
