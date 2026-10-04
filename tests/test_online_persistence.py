@@ -64,6 +64,7 @@ def test_online_persistence_uses_one_private_state_database(tmp_path) -> None:
     assert persistence.smtp_secrets.is_set() is False
     assert paths.reports_root.is_dir()
     assert paths.invoices_root.is_dir()
+    assert paths.uploads_root.is_dir()
 
     with sqlite3.connect(paths.state_database) as connection:
         tables = {
