@@ -40,11 +40,13 @@ class ProjectProcessingService:
         upload_directory_for_project: Callable[[str, str], str | Path],
         import_project: Callable[[str | Path], ProjectImportResult],
         record_state: Callable[[str, str, ProjectProcessingState], None],
+        persist_import: Callable[[str, str, ProjectImportResult], None] | None = None,
     ) -> None:
         self._project_belongs_to_customer = project_belongs_to_customer
         self._upload_directory_for_project = upload_directory_for_project
         self._import_project = import_project
         self._record_state = record_state
+        self._persist_import = persist_import or (lambda customer_id, project_id, imported: None)
 
     def process(self, request: ProjectProcessingRequest) -> ProjectProcessingResult:
         customer_id = request.customer_id.strip()
@@ -60,6 +62,7 @@ class ProjectProcessingService:
         self._record_state(customer_id, project_id, ProjectProcessingState.RUNNING)
         try:
             imported = self._import_project(directory)
+            self._persist_import(customer_id, project_id, imported)
         except Exception:
             self._record_state(customer_id, project_id, ProjectProcessingState.FAILED)
             raise
