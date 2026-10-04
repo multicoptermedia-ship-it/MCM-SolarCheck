@@ -21,10 +21,20 @@ class Production:
             raise RuntimeError("production inactive")
 
 
+class Entitlements:
+    def __init__(self, active_users=()) -> None:
+        self.active_users = set(active_users)
+
+    def require_active(self, user_id: str) -> None:
+        if user_id not in self.active_users:
+            raise PermissionError("entitlement inactive")
+
+
 class Services:
-    def __init__(self, production: Production, *, projects=None) -> None:
+    def __init__(self, production: Production, *, projects=None, active_users=()) -> None:
         self.production = production
         self.projects = projects
+        self.entitlements = Entitlements(active_users)
 
 
 def test_online_window_starts_at_login_and_blocks_inactive_workflow() -> None:
@@ -45,7 +55,7 @@ def test_online_window_starts_at_login_and_blocks_inactive_workflow() -> None:
 def test_online_window_allows_workflow_after_product_activation_state() -> None:
     application = QApplication.instance() or QApplication([])
     production = Production(True)
-    product = OnlineProduct.compose(Services(production))
+    product = OnlineProduct.compose(Services(production, active_users=("verified-user",)))
     window = build_online_window(product)
 
     window._enter_verified_customer("verified-user")
