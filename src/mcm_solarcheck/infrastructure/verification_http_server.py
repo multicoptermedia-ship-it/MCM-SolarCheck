@@ -27,6 +27,7 @@ def verification_handler(
     secure_cookies: bool = False,
     customer_entry=None,
     project_service=None,
+    project_pricing_service=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
 
@@ -44,6 +45,9 @@ def verification_handler(
                 return
             if parsed.path == "/projects" and session_service is not None and customer_entry is not None and project_service is not None:
                 self._handle_projects()
+                return
+            if parsed.path == "/project-price" and session_service is not None and customer_entry is not None and project_pricing_service is not None:
+                self._handle_project_price(parsed)
                 return
             if parsed.path != "/verify-email":
                 self._respond(404, "Not Found")
@@ -114,6 +118,37 @@ def verification_handler(
             except (CookieError, PermissionError, ValueError) as exc:
                 raise PermissionError("online session is invalid") from exc
             return user_id
+
+        def _handle_project_price(self, parsed) -> None:
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+            project_ids = parse_qs(parsed.query).get("project_id", [])
+            if len(project_ids) != 1 or not project_ids[0].strip():
+                self._respond(400, "project id is invalid")
+                return
+            try:
+                from mcm_solarcheck.services.project_pricing import ProjectPricingRequest
+
+                snapshot = project_pricing_service.price(
+                    ProjectPricingRequest(project_ids[0])
+                )
+            except (PermissionError, RuntimeError, TypeError, ValueError):
+                self._respond(503, "online project price is not available")
+                return
+            message = (
+                f"{project_ids[0]}: {snapshot.net_total} EUR netto, "
+                f"{snapshot.gross_total} EUR brutto "
+                f"(Preisregel {snapshot.rule_version})"
+            )
+            self._respond(200, message, headers={"Cache-Control": "no-store"})
 
         def _handle_projects(self) -> None:
             try:
@@ -257,6 +292,7 @@ def build_verification_server(
     secure_cookies: bool = False,
     customer_entry=None,
     project_service=None,
+    project_pricing_service=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -269,5 +305,6 @@ def build_verification_server(
             secure_cookies,
             customer_entry,
             project_service,
+            project_pricing_service,
         ),
     )
