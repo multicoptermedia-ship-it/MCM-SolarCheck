@@ -1,0 +1,58 @@
+"""Deterministic, versioned pricing rules for commercial offers."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from decimal import Decimal, ROUND_HALF_UP
+
+
+MONEY = Decimal("0.01")
+
+
+@dataclass(frozen=True)
+class PriceTier:
+    up_to_kwp: Decimal | None
+    net_price: Decimal
+
+
+@dataclass(frozen=True)
+class PricingRule:
+    version: str
+    tiers: tuple[PriceTier, ...]
+    planner_discount_rate: Decimal = Decimal("0")
+    repeat_discount_rate: Decimal = Decimal("0")
+    maximum_discount_rate: Decimal = Decimal("0")
+
+    def price(self, capacity_kwp: Decimal, *, planner_verified: bool = False, repeat_verified: bool = False) -> "PriceSnapshot":
+        if capacity_kwp <= 0:
+            raise ValueError("capacity_kwp must be positive")
+        if not self.version.strip() or not self.tiers:
+            raise ValueError("pricing rule must be versioned and contain tiers")
+        tier = next((item for item in self.tiers if item.up_to_kwp is None or capacity_kwp <= item.up_to_kwp), None)
+        if tier is None:
+            raise ValueError("pricing rule does not cover capacity")
+        requested_discount = (
+            (self.planner_discount_rate if planner_verified else Decimal("0"))
+            + (self.repeat_discount_rate if repeat_verified else Decimal("0"))
+        )
+        discount_rate = min(requested_discount, self.maximum_discount_rate)
+        net_before_discount = tier.net_price.quantize(MONEY, rounding=ROUND_HALF_UP)
+        discount_amount = (net_before_discount * discount_rate).quantize(MONEY, rounding=ROUND_HALF_UP)
+        return PriceSnapshot(
+            rule_version=self.version,
+            capacity_kwp=capacity_kwp,
+            net_before_discount=net_before_discount,
+            discount_rate=discount_rate,
+            discount_amount=discount_amount,
+            net_total=(net_before_discount - discount_amount).quantize(MONEY, rounding=ROUND_HALF_UP),
+        )
+
+
+@dataclass(frozen=True)
+class PriceSnapshot:
+    rule_version: str
+    capacity_kwp: Decimal
+    net_before_discount: Decimal
+    discount_rate: Decimal
+    discount_amount: Decimal
+    net_total: Decimal
