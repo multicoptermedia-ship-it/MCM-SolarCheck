@@ -1193,7 +1193,8 @@ def test_online_workflow_route_uses_customer_entry_gate(app: QApplication) -> No
             self.allowed = allowed
             self.calls = 0
 
-        def require_customer_entry(self) -> None:
+        def require_customer_entry(self, user_id=None) -> None:
+            assert user_id == "verified-user"
             self.calls += 1
             if not self.allowed:
                 raise RuntimeError("online entry inactive")
@@ -1205,7 +1206,7 @@ def test_online_workflow_route_uses_customer_entry_gate(app: QApplication) -> No
     )
 
     with pytest.raises(RuntimeError, match="online entry inactive"):
-        window.show_route(ShellRoute.PROJECT)
+        window._enter_verified_customer("verified-user")
 
     assert entry.calls == 1
     assert window.current_route is ShellRoute.LOGIN
@@ -1216,7 +1217,8 @@ def test_online_workflow_route_allows_active_customer_entry(app: QApplication) -
         def __init__(self) -> None:
             self.calls = 0
 
-        def require_customer_entry(self) -> None:
+        def require_customer_entry(self, user_id=None) -> None:
+            assert user_id == "verified-user"
             self.calls += 1
 
     entry = Entry()
@@ -1225,7 +1227,7 @@ def test_online_workflow_route_allows_active_customer_entry(app: QApplication) -
         customer_entry=entry,
     )
 
-    window.show_route(ShellRoute.PROJECT)
+    window._enter_verified_customer("verified-user")
 
     assert entry.calls == 1
     assert window.current_route is ShellRoute.PROJECT

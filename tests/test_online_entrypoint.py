@@ -37,7 +37,7 @@ def test_online_window_starts_at_login_and_blocks_inactive_workflow() -> None:
     assert window.current_route is ShellRoute.LOGIN
 
     with pytest.raises(RuntimeError, match="production inactive"):
-        window.show_route(ShellRoute.PROJECT)
+        window._enter_verified_customer("verified-user")
 
     assert window.current_route is ShellRoute.LOGIN
 
@@ -48,7 +48,7 @@ def test_online_window_allows_workflow_after_product_activation_state() -> None:
     product = OnlineProduct.compose(Services(production))
     window = build_online_window(product)
 
-    window.show_route(ShellRoute.PROJECT)
+    window._enter_verified_customer("verified-user")
 
     assert application is not None
     assert window.current_route is ShellRoute.PROJECT
