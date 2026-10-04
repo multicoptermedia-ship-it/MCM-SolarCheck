@@ -22,6 +22,7 @@ class PricingRule:
     planner_discount_rate: Decimal = Decimal("0")
     repeat_discount_rate: Decimal = Decimal("0")
     maximum_discount_rate: Decimal = Decimal("0")
+    vat_rate: Decimal = Decimal("0")
 
     def price(self, capacity_kwp: Decimal, *, planner_verified: bool = False, repeat_verified: bool = False) -> "PriceSnapshot":
         if capacity_kwp <= 0:
@@ -38,13 +39,22 @@ class PricingRule:
         discount_rate = min(requested_discount, self.maximum_discount_rate)
         net_before_discount = tier.net_price.quantize(MONEY, rounding=ROUND_HALF_UP)
         discount_amount = (net_before_discount * discount_rate).quantize(MONEY, rounding=ROUND_HALF_UP)
+        net_total = (net_before_discount - discount_amount).quantize(MONEY, rounding=ROUND_HALF_UP)
+        vat_amount = (net_total * self.vat_rate).quantize(MONEY, rounding=ROUND_HALF_UP)
         return PriceSnapshot(
             rule_version=self.version,
             capacity_kwp=capacity_kwp,
             net_before_discount=net_before_discount,
             discount_rate=discount_rate,
             discount_amount=discount_amount,
-            net_total=(net_before_discount - discount_amount).quantize(MONEY, rounding=ROUND_HALF_UP),
+            net_total=net_total,
+            vat_rate=self.vat_rate,
+            vat_amount=vat_amount,
+            gross_total=(net_total + vat_amount).quantize(MONEY, rounding=ROUND_HALF_UP),
+            rule_tiers=self.tiers,
+            planner_discount_rate=self.planner_discount_rate,
+            repeat_discount_rate=self.repeat_discount_rate,
+            maximum_discount_rate=self.maximum_discount_rate,
         )
 
 
@@ -56,3 +66,10 @@ class PriceSnapshot:
     discount_rate: Decimal
     discount_amount: Decimal
     net_total: Decimal
+    vat_rate: Decimal
+    vat_amount: Decimal
+    gross_total: Decimal
+    rule_tiers: tuple[PriceTier, ...]
+    planner_discount_rate: Decimal
+    repeat_discount_rate: Decimal
+    maximum_discount_rate: Decimal
