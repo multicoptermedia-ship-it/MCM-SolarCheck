@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from mcm_solarcheck.infrastructure.filesystem_invoice import FileSystemInvoiceArchive
 from mcm_solarcheck.infrastructure.filesystem_report import FileSystemReportArtifactStore
+from mcm_solarcheck.infrastructure.filesystem_project_upload import FileSystemProjectUploadStore
 from mcm_solarcheck.infrastructure.online_private_paths import OnlinePrivatePaths
 from mcm_solarcheck.infrastructure.sqlite_billing import SQLiteComputeJobBillingStore
 from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
@@ -42,6 +43,7 @@ from mcm_solarcheck.services.online_entitlement import OnlineEntitlementStore
 from mcm_solarcheck.services.payment import OnlinePaymentPersistence
 from mcm_solarcheck.services.payment_authorization_intent import PaymentAuthorizationIntentStore
 from mcm_solarcheck.services.payment_operation import PaymentOperationIntentStore
+from mcm_solarcheck.services.project_upload import ProjectUploadStore
 from mcm_solarcheck.services.solarcheck_tariff import SolarCheckTariffPersistence
 from mcm_solarcheck.services.payment_pricing import AtomicPricedPaymentStore
 from mcm_solarcheck.services.voucher import FlightPlanVoucherPersistence
@@ -79,6 +81,7 @@ class OnlinePersistence:
     invoice_identity: InvoiceIdentityStore
     invoice_delivery: InvoiceAdminDeliveryStateStore
     reports: ReportArtifactStore
+    uploads: ProjectUploadStore
     report_recovery: ReportRecoveryClaimStore
     invoices: InvoiceArchive
     smtp_settings: SMTPSettingsStore
@@ -132,6 +135,7 @@ def build_online_persistence(
         invoice_identity=SQLiteInvoiceIdentityStore(database),
         invoice_delivery=SQLiteInvoiceAdminDeliveryStore(database),
         reports=FileSystemReportArtifactStore(paths.reports_root),
+        uploads=FileSystemProjectUploadStore(paths.uploads_root),
         report_recovery=SQLiteReportRecoveryStore(database),
         invoices=FileSystemInvoiceArchive(paths.invoices_root),
         smtp_settings=SQLiteSMTPSettingsStore(database, smtp_default),
