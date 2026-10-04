@@ -131,9 +131,13 @@ def verification_handler(
             except (PermissionError, RuntimeError, ValueError):
                 self._respond(503, "online projects are not available")
                 return
-            message = "Keine Projekte vorhanden." if not projects else "\n".join(
-                f"{project.project_id}: {project.name}" for project in projects
-            )
+            try:
+                message = "Keine Projekte vorhanden." if not projects else "\n".join(
+                    f"{project.project_id}: {project.name}" for project in projects
+                )
+            except (AttributeError, TypeError, ValueError):
+                self._respond(503, "online projects are not available")
+                return
             self._respond(200, message)
 
         def _handle_customer_entry(self) -> None:
