@@ -42,7 +42,6 @@ def test_online_persistence_uses_one_private_state_database(tmp_path) -> None:
     )
 
     database_backed = (
-        persistence.projects,
         persistence.registrations,
         persistence.compute_jobs,
         persistence.billing,
@@ -59,6 +58,7 @@ def test_online_persistence_uses_one_private_state_database(tmp_path) -> None:
         persistence.smtp_admin_audit,
     )
     assert {store.database for store in database_backed} == {str(paths.state_database)}
+    assert persistence.projects.path == paths.state_database
     assert persistence.reports.root == paths.reports_root
     assert persistence.invoices.root == paths.invoices_root
     assert persistence.smtp_secrets.is_set() is False
