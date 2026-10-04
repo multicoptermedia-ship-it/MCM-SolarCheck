@@ -76,7 +76,8 @@ def test_customer_project_ownership_is_persisted(tmp_path):
     db.create_customer_project(" user-1 ", " P-1 ", " Solarpark Nord ", 850.5)
 
     assert db.project_belongs_to_customer("user-1", "P-1")
-    assert not db.project_belongs_to_customer("user-2", "P-1")\n    assert str(db.capacity_for_customer_project("user-1", "P-1")) == "850.5"
+    assert not db.project_belongs_to_customer("user-2", "P-1")
+    assert str(db.capacity_for_customer_project("user-1", "P-1")) == "850.5"
 
 
 def test_schema_14_migration_does_not_invent_project_owners(tmp_path):
