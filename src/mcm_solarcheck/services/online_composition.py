@@ -24,7 +24,8 @@ from mcm_solarcheck.services.online_admin_readiness import (
     OnlineAdminReadinessService,
 )
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
-from mcm_solarcheck.services.project_pipeline import ProjectApplicationService\nfrom mcm_solarcheck.services.project_creation import ProjectCreationService
+from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
+from mcm_solarcheck.services.project_creation import ProjectCreationService
 from mcm_solarcheck.services.payment_checkout import OnlinePaymentCheckoutService
 from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService, PaymentGateway
