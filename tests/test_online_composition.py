@@ -194,6 +194,38 @@ def test_online_services_compose_projects_from_authoritative_persistence(tmp_pat
     assert tuple(project.project_id for project in services.projects.projects()) == ("P-ONLINE",)
 
 
+def test_online_project_and_profile_survive_service_recomposition(tmp_path) -> None:
+    from mcm_solarcheck.domain.project_profile import ProjectProfile
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+    profile = ProjectProfile(
+        customer_name="Solar Kunde",
+        site_name="PV Anlage",
+        site_street="Testweg 1",
+        site_postal_code="50181",
+        site_city="Bedburg",
+        inspector="MCM",
+        site_timezone="Europe/Berlin",
+    )
+
+    services.projects.create_project_with_profile(
+        "P-RESTART",
+        "Persistent Online Project",
+        profile,
+    )
+
+    recomposed_persistence = setup_persistence(tmp_path, secret_configured=True)
+    recomposed_services = online_services(recomposed_persistence)
+
+    assert tuple(
+        (project.project_id, project.name)
+        for project in recomposed_services.projects.projects()
+    ) == (("P-RESTART", "Persistent Online Project"),)
+    assert recomposed_services.projects.project_profile("P-RESTART") == profile
+    assert recomposed_services.projects.database.path == persistence.projects.path
+
+
 def test_online_services_require_payment_gateways(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=True)
 
