@@ -1346,3 +1346,42 @@ def test_failed_atomic_creation_does_not_refresh_or_open_project(app: QApplicati
 
     assert window._pages[ShellRoute.PROJECT] is original_page
     assert window.current_project_id is None
+
+
+def test_online_shell_reuses_verified_identity_for_navigation_gate(app: QApplication) -> None:
+    class CustomerEntry:
+        def __init__(self):
+            self.calls = []
+
+        def require_customer_entry(self, user_id=None):
+            self.calls.append(user_id)
+            if user_id != "user-verified":
+                raise PermissionError("entitlement required")
+
+    customer_entry = CustomerEntry()
+    window = SolarCheckMainWindow(
+        DeploymentMode.ONLINE,
+        customer_entry=customer_entry,
+    )
+
+    window._enter_verified_customer("user-verified")
+    window.show_route(ShellRoute.IMPORT)
+
+    assert customer_entry.calls == ["user-verified", "user-verified"]
+    assert window.current_route is ShellRoute.IMPORT
+
+
+def test_online_shell_blocks_navigation_without_verified_identity(app: QApplication) -> None:
+    class CustomerEntry:
+        def require_customer_entry(self, user_id=None):
+            raise AssertionError("customer gate must not run without verified identity")
+
+    window = SolarCheckMainWindow(
+        DeploymentMode.ONLINE,
+        customer_entry=CustomerEntry(),
+    )
+
+    with pytest.raises(PermissionError, match="verified online customer identity"):
+        window.show_route(ShellRoute.PROJECT)
+
+    assert window.current_route is ShellRoute.LOGIN

@@ -47,6 +47,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._actions: dict[ShellCommandId, QAction] = {}
         self._workflow_availability = None
         self._current_project_id = None
+        self._verified_user_id = None
         self._last_import_attempt = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
@@ -115,6 +116,7 @@ class SolarCheckMainWindow(QMainWindow):
         if self._customer_entry is None:
             raise RuntimeError("online customer entry is unavailable")
         self._customer_entry.require_customer_entry(user_id)
+        self._verified_user_id = user_id
         self._stack.setCurrentWidget(self._pages[ShellRoute.PROJECT])
         self._workflow_navigation.set_current_route(ShellRoute.PROJECT)
 
@@ -294,7 +296,9 @@ class SolarCheckMainWindow(QMainWindow):
             and route is not ShellRoute.LOGIN
             and self._customer_entry is not None
         ):
-            self._customer_entry.require_customer_entry()
+            if self._verified_user_id is None:
+                raise PermissionError("verified online customer identity is required")
+            self._customer_entry.require_customer_entry(self._verified_user_id)
 
         if self._workflow_availability is not None and route is not ShellRoute.LOGIN:
             from mcm_solarcheck.services.workflow import WorkflowAction, action_availability
