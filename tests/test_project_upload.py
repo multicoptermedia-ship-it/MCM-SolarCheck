@@ -1,3 +1,5 @@
+import hashlib
+
 import pytest
 
 from mcm_solarcheck.services.project_upload import (
@@ -34,6 +36,7 @@ def test_upload_is_stored_only_for_customer_project() -> None:
     assert len(stored) == 1
     assert stored[0].customer_id == "user-1"
     assert stored[0].project_id == "P-1"
+    assert result.sha256_hex == hashlib.sha256(stored[0].content).hexdigest()
     assert result.filename == "thermal-001.jpg"
     assert result.size_bytes == len(b"\xff\xd8\xffimage-data")
 
