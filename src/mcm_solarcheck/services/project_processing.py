@@ -55,6 +55,8 @@ class ProjectProcessingService:
             raise PermissionError("project is not available to customer")
 
         directory = Path(self._upload_directory_for_project(customer_id, project_id))
+        if not directory.is_dir():
+            raise ValueError("project upload directory is not available")
         self._record_state(customer_id, project_id, ProjectProcessingState.RUNNING)
         try:
             imported = self._import_project(directory)
