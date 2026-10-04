@@ -9,7 +9,7 @@ from mcm_solarcheck.storage.sqlite import ProjectDatabase
 
 def _db(tmp_path):
     db=ProjectDatabase(tmp_path/"p.sqlite"); db.initialize(); db.create_project("P1","Inspection")
-    db.save_project_profile("P1",ProjectProfile("Customer","Site","Street 1","12345","Town","Inspector",customer_contact="Contact",order_reference="ORDER-1"))
+    db.save_project_profile("P1",ProjectProfile("Customer","Site","Street 1","12345","Town","Inspector",customer_contact="Contact",order_reference="ORDER-1",site_timezone="Europe/Berlin"))
     return db
 
 
