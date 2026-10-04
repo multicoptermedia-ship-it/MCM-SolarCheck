@@ -82,3 +82,59 @@ def test_snapshot_contains_complete_pricing_rule() -> None:
     assert snapshot.planner_discount_rate == Decimal("0.10")
     assert snapshot.repeat_discount_rate == Decimal("0.05")
     assert snapshot.maximum_discount_rate == Decimal("0.12")
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"version": ""},
+        {"tiers": ()},
+        {"planner_discount_rate": Decimal("-0.01")},
+        {"repeat_discount_rate": Decimal("-0.01")},
+        {"maximum_discount_rate": Decimal("1.01")},
+        {"vat_rate": Decimal("1.01")},
+    ],
+)
+def test_invalid_pricing_rule_configuration_is_rejected(kwargs) -> None:
+    values = {
+        "version": "2026-10-test",
+        "tiers": (PriceTier(None, Decimal("300")),),
+        "planner_discount_rate": Decimal("0"),
+        "repeat_discount_rate": Decimal("0"),
+        "maximum_discount_rate": Decimal("0"),
+        "vat_rate": Decimal("0.19"),
+    }
+    values.update(kwargs)
+
+    with pytest.raises(ValueError):
+        PricingRule(**values)
+
+
+def test_tier_limits_must_be_strictly_increasing() -> None:
+    with pytest.raises(ValueError):
+        PricingRule(
+            version="2026-10-test",
+            tiers=(
+                PriceTier(Decimal("100"), Decimal("500")),
+                PriceTier(Decimal("30"), Decimal("300")),
+            ),
+        )
+
+
+def test_open_ended_tier_must_be_last() -> None:
+    with pytest.raises(ValueError):
+        PricingRule(
+            version="2026-10-test",
+            tiers=(
+                PriceTier(None, Decimal("300")),
+                PriceTier(Decimal("100"), Decimal("500")),
+            ),
+        )
+
+
+def test_negative_tier_price_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        PricingRule(
+            version="2026-10-test",
+            tiers=(PriceTier(None, Decimal("-0.01")),),
+        )
