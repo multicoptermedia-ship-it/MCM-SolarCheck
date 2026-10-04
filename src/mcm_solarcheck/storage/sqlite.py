@@ -7,11 +7,11 @@ from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS projects(project_id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS project_profiles(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,customer_name TEXT NOT NULL,site_name TEXT NOT NULL,site_street TEXT NOT NULL,site_postal_code TEXT NOT NULL,site_city TEXT NOT NULL,inspector TEXT NOT NULL,customer_contact TEXT,customer_street TEXT,customer_postal_code TEXT,customer_city TEXT,customer_email TEXT,customer_phone TEXT,customer_reference TEXT,order_reference TEXT,site_timezone TEXT);
+CREATE TABLE IF NOT EXISTS projects(project_id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS project_owners(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,customer_id TEXT NOT NULL);\nCREATE INDEX IF NOT EXISTS idx_project_owners_customer ON project_owners(customer_id,project_id);\nCREATE TABLE IF NOT EXISTS project_profiles(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,customer_name TEXT NOT NULL,site_name TEXT NOT NULL,site_street TEXT NOT NULL,site_postal_code TEXT NOT NULL,site_city TEXT NOT NULL,inspector TEXT NOT NULL,customer_contact TEXT,customer_street TEXT,customer_postal_code TEXT,customer_city TEXT,customer_email TEXT,customer_phone TEXT,customer_reference TEXT,order_reference TEXT,site_timezone TEXT);
 CREATE TABLE IF NOT EXISTS image_frames(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,frame_id TEXT NOT NULL,source_file TEXT NOT NULL,timestamp_utc TEXT,camera_make TEXT,camera_model TEXT,width INTEGER,height INTEGER,latitude REAL,longitude REAL,altitude_m REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,frame_id));
 CREATE TABLE IF NOT EXISTS thermal_frames(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,frame_id TEXT NOT NULL,source_file TEXT NOT NULL,timestamp_utc TEXT,camera_make TEXT,camera_model TEXT,width INTEGER,height INTEGER,latitude REAL,longitude REAL,altitude_m REAL,rtk_status TEXT,rtk_std_lat_m REAL,rtk_std_lon_m REAL,rtk_std_height_m REAL,rtk_correction_age_s REAL,rtk_altitude_type TEXT,thermal_source TEXT NOT NULL,quality_grade TEXT,raw_min INTEGER,raw_max INTEGER,raw_mean REAL,raw_median REAL,raw_p95 REAL,raw_p99 REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,frame_id));
 CREATE TABLE IF NOT EXISTS image_pairs(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,pair_id TEXT NOT NULL,rgb_frame_id TEXT NOT NULL,thermal_frame_id TEXT NOT NULL,confidence REAL NOT NULL,method TEXT NOT NULL,distance_m REAL,time_delta_s REAL,PRIMARY KEY(project_id,pair_id),FOREIGN KEY(project_id,rgb_frame_id) REFERENCES image_frames(project_id,frame_id) ON DELETE CASCADE,FOREIGN KEY(project_id,thermal_frame_id) REFERENCES thermal_frames(project_id,frame_id) ON DELETE CASCADE);
@@ -89,6 +89,16 @@ def _migrate_12_to_13(db:sqlite3.Connection)->None:
     db.execute("UPDATE schema_info SET version=13")
 
 
+def _migrate_14_to_15(db:sqlite3.Connection)->None:
+    """Add authoritative customer ownership for online projects."""
+    db.execute("""CREATE TABLE project_owners(
+        project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,
+        customer_id TEXT NOT NULL
+    )""")
+    db.execute("CREATE INDEX idx_project_owners_customer ON project_owners(customer_id,project_id)")
+    db.execute("UPDATE schema_info SET version=15")
+
+
 def _migrate_13_to_14(db:sqlite3.Connection)->None:
     """Add explicit IANA timezone for report-local project timestamps."""
     db.execute("ALTER TABLE project_profiles ADD COLUMN site_timezone TEXT")
@@ -122,12 +132,25 @@ class ProjectDatabase:
                 if version == 13:
                     _migrate_13_to_14(db)
                     version=14
+                if version == 14:
+                    _migrate_14_to_15(db)
+                    version=15
                 if version != SCHEMA_VERSION:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
             db.executescript(_SCHEMA);db.execute('INSERT INTO schema_info(version) VALUES (?)',(SCHEMA_VERSION,))
     def create_project(self,project_id:str,name:str)->None:
         with self.connect() as db:db.execute("INSERT INTO projects(project_id,name) VALUES (?,?) ON CONFLICT(project_id) DO UPDATE SET name=excluded.name",(project_id,name))
+    def create_customer_project(self,customer_id:str,project_id:str,name:str)->None:
+        customer_id=customer_id.strip();project_id=project_id.strip();name=name.strip()
+        if not customer_id or not project_id or not name:raise ValueError('customer_id, project_id and name are required')
+        with self.connect() as db:
+            db.execute("INSERT INTO projects(project_id,name) VALUES (?,?)",(project_id,name))
+            db.execute("INSERT INTO project_owners(project_id,customer_id) VALUES (?,?)",(project_id,customer_id))
+    def project_belongs_to_customer(self,customer_id:str,project_id:str)->bool:
+        with self.connect() as db:
+            row=db.execute("SELECT 1 FROM project_owners WHERE customer_id=? AND project_id=?",(customer_id.strip(),project_id.strip())).fetchone()
+        return row is not None
     @staticmethod
     def _save_project_profile(db,project_id,profile)->None:
         cols=('project_id','customer_name','site_name','site_street','site_postal_code','site_city','inspector','customer_contact','customer_street','customer_postal_code','customer_city','customer_email','customer_phone','customer_reference','order_reference','site_timezone')
