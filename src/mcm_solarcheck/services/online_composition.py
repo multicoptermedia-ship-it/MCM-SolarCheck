@@ -24,7 +24,7 @@ from mcm_solarcheck.services.online_admin_readiness import (
     OnlineAdminReadinessService,
 )
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
-from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
+from mcm_solarcheck.services.project_pipeline import ProjectApplicationService\nfrom mcm_solarcheck.services.project_creation import ProjectCreationService
 from mcm_solarcheck.services.payment_checkout import OnlinePaymentCheckoutService
 from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService, PaymentGateway
@@ -73,8 +73,7 @@ class _OnlineReadinessBoundary:
 
 @dataclass(frozen=True)
 class OnlineServices:
-    projects: ProjectApplicationService
-    registration: OnlineRegistrationService
+    projects: ProjectApplicationService\n    project_creation: ProjectCreationService\n    registration: OnlineRegistrationService
     login: OnlineLoginService
     compute_jobs: EntitledComputeJobService
     billing: ComputeJobBillingService
@@ -284,6 +283,14 @@ def build_online_services(
 
     return OnlineServices(
         projects=ProjectApplicationService(persistence.projects),
+        project_creation=ProjectCreationService(
+            lambda project: persistence.projects.create_customer_project(
+                project.customer_id,
+                project.project_id,
+                project.name,
+                project.capacity_kwp,
+            )
+        ),
         registration=registration,
         login=login,
         compute_jobs=compute_jobs,
