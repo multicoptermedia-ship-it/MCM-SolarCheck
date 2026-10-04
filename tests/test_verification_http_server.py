@@ -740,7 +740,8 @@ def test_project_price_requires_authorized_customer_and_disables_caching() -> No
             assert "595.00 EUR brutto" in body
             assert "2026-10-online" in body
         assert authorized == ["user-1"]
-        assert pricing.requests[0].customer_id == "user-1"\n        assert pricing.requests[0].project_id == "P-1"
+        assert pricing.requests[0].customer_id == "user-1"
+        assert pricing.requests[0].project_id == "P-1"
     finally:
         server.shutdown()
         server.server_close()
