@@ -316,7 +316,10 @@ def verification_handler(
                 snapshot = project_pricing_service.price(
                     ProjectPricingRequest(user_id, project_ids[0])
                 )
-            except (PermissionError, RuntimeError, TypeError, ValueError):
+            except PermissionError:
+                self._respond(404, "project is not available")
+                return
+            except (RuntimeError, TypeError, ValueError):
                 self._respond(503, "online project price is not available")
                 return
             message = (
