@@ -18,6 +18,8 @@ def build_online_window(
     """Build the online shell with the production entry gate wired by construction."""
     if not isinstance(product, OnlineProduct):
         raise TypeError("product must be OnlineProduct")
+    if project_service is None:
+        project_service = getattr(product.services, "projects", None)
     if registration_controller is None:
         registration_service = getattr(product.services, "registration", None)
         if registration_service is not None:

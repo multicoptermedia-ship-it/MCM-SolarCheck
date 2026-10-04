@@ -22,8 +22,9 @@ class Production:
 
 
 class Services:
-    def __init__(self, production: Production) -> None:
+    def __init__(self, production: Production, *, projects=None) -> None:
         self.production = production
+        self.projects = projects
 
 
 def test_online_window_starts_at_login_and_blocks_inactive_workflow() -> None:
@@ -56,3 +57,34 @@ def test_online_window_allows_workflow_after_product_activation_state() -> None:
 def test_online_window_requires_explicit_online_product() -> None:
     with pytest.raises(TypeError, match="OnlineProduct"):
         build_online_window(object())
+
+
+def test_online_window_uses_composed_project_service_by_default() -> None:
+    application = QApplication.instance() or QApplication([])
+
+    class Projects:
+        def projects(self):
+            return ()
+
+    projects = Projects()
+    product = OnlineProduct.compose(Services(Production(True), projects=projects))
+    window = build_online_window(product)
+
+    assert application is not None
+    assert window._project_service is projects
+
+
+def test_online_window_allows_explicit_project_service_override() -> None:
+    application = QApplication.instance() or QApplication([])
+
+    class Projects:
+        def projects(self):
+            return ()
+
+    composed = Projects()
+    override = Projects()
+    product = OnlineProduct.compose(Services(Production(True), projects=composed))
+    window = build_online_window(product, project_service=override)
+
+    assert application is not None
+    assert window._project_service is override
