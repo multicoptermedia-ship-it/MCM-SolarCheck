@@ -841,3 +841,141 @@ def test_project_price_returns_service_unavailable_when_pricing_fails() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_project_creation_uses_customer_from_authenticated_session() -> None:
+    endpoint = Endpoint()
+    authorized = []
+
+    class Project:
+        project_id = "P-2"
+        name = "Solarpark West"
+
+    class Creation:
+        def __init__(self):
+            self.requests = []
+
+        def create(self, creation_request):
+            self.requests.append(creation_request)
+            return Project()
+
+    creation = Creation()
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=authorized.append,
+        project_creation_service=creation,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        body = urlencode({
+            "project_id": "P-2",
+            "name": "Solarpark West",
+            "capacity_kwp": "850.5",
+        }).encode("utf-8")
+        req = Request(
+            f"http://{host}:{port}/projects",
+            data=body,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Cookie": "solarcheck_session=opaque-session-token",
+            },
+            method="POST",
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            assert response.status == 201
+            assert response.headers["Cache-Control"] == "no-store"
+            assert "Projekt erstellt: P-2: Solarpark West" in response.read().decode("utf-8")
+        assert authorized == ["user-1"]
+        assert creation.requests[0].customer_id == "user-1"
+        assert creation.requests[0].project_id == "P-2"
+        assert str(creation.requests[0].capacity_kwp) == "850.5"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_project_creation_rejects_missing_session_before_creation() -> None:
+    endpoint = Endpoint()
+
+    class Creation:
+        def create(self, creation_request):
+            raise AssertionError("project must not be created without a valid session")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_creation_service=Creation(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        body = urlencode({
+            "project_id": "P-2",
+            "name": "Solarpark West",
+            "capacity_kwp": "850.5",
+        }).encode("utf-8")
+        req = Request(
+            f"http://{host}:{port}/projects",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 401
+        else:
+            raise AssertionError("missing session must return 401")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_project_creation_rejects_invalid_capacity_before_service_call() -> None:
+    endpoint = Endpoint()
+
+    class Creation:
+        def create(self, creation_request):
+            raise AssertionError("invalid project data must not reach creation service")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_creation_service=Creation(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        body = urlencode({
+            "project_id": "P-2",
+            "name": "Solarpark West",
+            "capacity_kwp": "not-a-number",
+        }).encode("utf-8")
+        req = Request(
+            f"http://{host}:{port}/projects",
+            data=body,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Cookie": "solarcheck_session=opaque-session-token",
+            },
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 400
+        else:
+            raise AssertionError("invalid capacity must return 400")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
