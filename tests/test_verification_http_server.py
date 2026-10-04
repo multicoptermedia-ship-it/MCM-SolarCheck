@@ -1158,3 +1158,66 @@ def test_project_processing_uses_authenticated_customer_and_disables_caching() -
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_project_processing_rejects_missing_session_before_processing() -> None:
+    endpoint = Endpoint()
+
+    class Processing:
+        def process(self, processing_request):
+            raise AssertionError("processing must not be called without session")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_processing_service=Processing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-process?project_id=P-1",
+            data=b"",
+            method="POST",
+        )
+        with pytest.raises(HTTPError) as error:
+            urlopen(req, timeout=2)
+        assert error.value.code == 401
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_project_processing_hides_foreign_project() -> None:
+    endpoint = Endpoint()
+
+    class Processing:
+        def process(self, processing_request):
+            raise PermissionError("foreign project")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_processing_service=Processing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-process?project_id=P-other",
+            data=b"",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+            method="POST",
+        )
+        with pytest.raises(HTTPError) as error:
+            urlopen(req, timeout=2)
+        assert error.value.code == 404
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
