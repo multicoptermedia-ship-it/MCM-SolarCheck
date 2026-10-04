@@ -149,6 +149,11 @@ def verification_handler(
                 return
 
             try:
+                content = self.rfile.read(length)
+                if len(content) != length:
+                    self._respond(400, "upload data is incomplete")
+                    return
+
                 from mcm_solarcheck.services.project_upload import ProjectUploadRequest
 
                 upload = project_upload_service.upload(
@@ -157,7 +162,7 @@ def verification_handler(
                         project_id=project_id,
                         filename=filename,
                         content_type=content_type,
-                        content=self.rfile.read(length),
+                        content=content,
                     )
                 )
             except PermissionError:
