@@ -251,6 +251,10 @@ class ProjectApplicationService:
     ):
         """Assemble a report only when persisted workflow evidence permits it."""
         self.require(project_id, WorkflowAction.PREPARE_REPORT)
+        if release_status == "released":
+            profile = self.project_profile(project_id)
+            if profile is None or profile.site_timezone is None:
+                raise ValueError("released report requires explicit project site timezone")
         return assemble_inspection_report(
             self.database,
             project_id,

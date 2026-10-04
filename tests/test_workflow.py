@@ -590,3 +590,31 @@ def test_database_rolls_back_project_when_atomic_profile_write_fails(tmp_path):
         service.create_project_with_profile("P-ROLLBACK","Rollback",profile)
 
     assert service.projects()==()
+
+
+def test_application_release_requires_timezone_before_asset_write(tmp_path):
+    from datetime import datetime, timezone
+    from mcm_solarcheck.domain.models import PVModule
+    from mcm_solarcheck.domain.project_profile import ProjectProfile
+
+    database=_database_with_finding(tmp_path,status="confirmed",module_id="M1")
+    database.save_modules(
+        "P1",
+        (PVModule("M1","T1",((0,0),(1,0),(1,1)),0.9,"test"),),
+    )
+    database.save_project_profile(
+        "P1",
+        ProjectProfile("Customer","Site","Street 1","12345","Town","Inspector"),
+    )
+    service=ProjectApplicationService(database)
+    asset_dir=tmp_path/"release-assets"
+
+    with pytest.raises(ValueError,match="explicit project site timezone"):
+        service.prepare_report(
+            "P1","R-RELEASE",
+            datetime(2026,10,2,12,tzinfo=timezone.utc),
+            release_status="released",
+            asset_dir=asset_dir,
+        )
+
+    assert not asset_dir.exists()
