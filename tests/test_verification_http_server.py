@@ -663,3 +663,38 @@ def test_projects_return_service_unavailable_for_invalid_project_data() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_projects_disable_caching_for_authorized_response() -> None:
+    endpoint = Endpoint()
+
+    class Project:
+        project_id = "P-1"
+        name = "Private Project"
+
+    class Projects:
+        def projects(self):
+            return (Project(),)
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_service=Projects(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/projects",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            assert response.status == 200
+            assert response.headers["Cache-Control"] == "no-store"
+            assert "P-1: Private Project" in response.read().decode("utf-8")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
