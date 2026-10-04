@@ -16,6 +16,7 @@ from mcm_solarcheck.services.online_verification_http import EmailVerificationEn
 
 
 MAX_REGISTRATION_BODY_BYTES = 16 * 1024
+MAX_PROJECT_UPLOAD_BYTES = 250 * 1024 * 1024
 REGISTRATION_FIELDS = ("user_id", "display_name", "email", "street", "postal_code", "city", "password")
 LOGIN_FIELDS = ("user_id", "password")
 PROJECT_FIELDS = ("project_id", "name", "capacity_kwp")
@@ -31,6 +32,7 @@ def verification_handler(
     project_service=None,
     project_pricing_service=None,
     project_creation_service=None,
+    project_upload_service=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
 
@@ -69,6 +71,9 @@ def verification_handler(
                 return
             if parsed.path == "/projects" and session_service is not None and customer_entry is not None and project_creation_service is not None:
                 self._handle_create_project()
+                return
+            if parsed.path == "/project-upload" and session_service is not None and customer_entry is not None and project_upload_service is not None:
+                self._handle_project_upload()
                 return
             if parsed.path != "/register" or registration_controller is None:
                 self._respond(404, "Not Found")
@@ -112,6 +117,63 @@ def verification_handler(
                 self._respond(400, "registration data is invalid")
                 return
             self._respond(202, message)
+
+        def _handle_project_upload(self) -> None:
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+
+            project_id = self.headers.get("X-SolarCheck-Project-Id", "").strip()
+            filename = self.headers.get("X-SolarCheck-Filename", "").strip()
+            content_type = self.headers.get("Content-Type", "")
+            if not project_id or not filename or not content_type:
+                self._respond(400, "upload metadata is invalid")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", ""))
+            except ValueError:
+                self._respond(400, "upload data is invalid")
+                return
+            if length <= 0:
+                self._respond(400, "upload data is invalid")
+                return
+            if length > MAX_PROJECT_UPLOAD_BYTES:
+                self._respond(413, "upload data is too large")
+                return
+
+            try:
+                from mcm_solarcheck.services.project_upload import ProjectUploadRequest
+
+                upload = project_upload_service.upload(
+                    ProjectUploadRequest(
+                        customer_id=user_id,
+                        project_id=project_id,
+                        filename=filename,
+                        content_type=content_type,
+                        content=self.rfile.read(length),
+                    )
+                )
+            except PermissionError:
+                self._respond(404, "project is not available")
+                return
+            except ValueError:
+                self._respond(400, "upload data is invalid")
+                return
+            except (OSError, RuntimeError):
+                self._respond(503, "online upload is not available")
+                return
+            self._respond(
+                201,
+                f"Upload gespeichert: {upload.filename} ({upload.size_bytes} Bytes)",
+                headers={"Cache-Control": "no-store"},
+            )
 
         def _handle_create_project(self) -> None:
             try:
@@ -356,6 +418,7 @@ def build_verification_server(
     project_service=None,
     project_pricing_service=None,
     project_creation_service=None,
+    project_upload_service=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -370,5 +433,6 @@ def build_verification_server(
             project_service,
             project_pricing_service,
             project_creation_service,
+            project_upload_service,
         ),
     )
