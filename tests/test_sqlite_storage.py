@@ -67,3 +67,27 @@ def test_foreign_keys_prevent_orphan_frame(tmp_path):
         pass
     else:
         raise AssertionError("orphan thermal frame should violate foreign key")
+
+
+
+def test_customer_project_ownership_is_persisted(tmp_path):
+    db = ProjectDatabase(tmp_path / "solarcheck.sqlite")
+    db.initialize()
+    db.create_customer_project(" user-1 ", " P-1 ", " Solarpark Nord ")
+
+    assert db.project_belongs_to_customer("user-1", "P-1")
+    assert not db.project_belongs_to_customer("user-2", "P-1")
+
+
+def test_schema_14_migration_does_not_invent_project_owners(tmp_path):
+    db = ProjectDatabase(tmp_path / "solarcheck.sqlite")
+    db.initialize()
+    with db.connect() as connection:
+        connection.execute("DROP TABLE project_owners")
+        connection.execute("UPDATE schema_info SET version=14")
+
+    db.initialize()
+
+    with db.connect() as connection:
+        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == 15
+        assert connection.execute("SELECT COUNT(*) FROM project_owners").fetchone()[0] == 0
