@@ -16,6 +16,7 @@ def rule() -> PricingRule:
         planner_discount_rate=Decimal("0.10"),
         repeat_discount_rate=Decimal("0.05"),
         maximum_discount_rate=Decimal("0.12"),
+        vat_rate=Decimal("0.19"),
     )
 
 
@@ -62,3 +63,22 @@ def test_snapshot_preserves_rule_version() -> None:
 def test_non_positive_capacity_is_rejected(capacity: str) -> None:
     with pytest.raises(ValueError):
         rule().price(Decimal(capacity))
+
+
+def test_tax_is_separate_from_discounted_net_total() -> None:
+    snapshot = rule().price(Decimal("50"), planner_verified=True)
+
+    assert snapshot.net_total == Decimal("450.00")
+    assert snapshot.vat_rate == Decimal("0.19")
+    assert snapshot.vat_amount == Decimal("85.50")
+    assert snapshot.gross_total == Decimal("535.50")
+
+
+def test_snapshot_contains_complete_pricing_rule() -> None:
+    pricing = rule()
+    snapshot = pricing.price(Decimal("10"))
+
+    assert snapshot.rule_tiers == pricing.tiers
+    assert snapshot.planner_discount_rate == Decimal("0.10")
+    assert snapshot.repeat_discount_rate == Decimal("0.05")
+    assert snapshot.maximum_discount_rate == Decimal("0.12")
