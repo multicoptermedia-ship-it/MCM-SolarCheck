@@ -138,7 +138,7 @@ def verification_handler(
             except (AttributeError, TypeError, ValueError):
                 self._respond(503, "online projects are not available")
                 return
-            self._respond(200, message)
+            self._respond(200, message, headers={"Cache-Control": "no-store"})
 
         def _handle_customer_entry(self) -> None:
             cookies = SimpleCookie()
