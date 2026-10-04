@@ -33,6 +33,7 @@ def verification_handler(
     project_pricing_service=None,
     project_creation_service=None,
     project_upload_service=None,
+    project_processing_service=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
 
@@ -74,6 +75,9 @@ def verification_handler(
                 return
             if parsed.path == "/project-upload" and session_service is not None and customer_entry is not None and project_upload_service is not None:
                 self._handle_project_upload()
+                return
+            if parsed.path == "/project-process" and session_service is not None and customer_entry is not None and project_processing_service is not None:
+                self._handle_project_process(parsed)
                 return
             if parsed.path != "/register" or registration_controller is None:
                 self._respond(404, "Not Found")
@@ -117,6 +121,49 @@ def verification_handler(
                 self._respond(400, "registration data is invalid")
                 return
             self._respond(202, message)
+
+        def _handle_project_process(self, parsed) -> None:
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+
+            project_ids = parse_qs(parsed.query).get("project_id", [])
+            if len(project_ids) != 1 or not project_ids[0].strip():
+                self._respond(400, "project id is invalid")
+                return
+            project_id = project_ids[0].strip()
+            try:
+                from mcm_solarcheck.services.project_processing import ProjectProcessingRequest
+
+                result = project_processing_service.process(
+                    ProjectProcessingRequest(user_id, project_id)
+                )
+            except PermissionError:
+                self._respond(404, "project is not available")
+                return
+            except ValueError:
+                self._respond(400, "project processing request is invalid")
+                return
+            except (OSError, RuntimeError):
+                self._respond(503, "online project processing is not available")
+                return
+            self._respond(
+                200,
+                (
+                    f"Projekt verarbeitet: {project_id}; "
+                    f"Thermalbilder: {result.imported_thermal_frames}; "
+                    f"Paare: {result.paired_frames}; "
+                    f"Importfehler: {result.import_failures}"
+                ),
+                headers={"Cache-Control": "no-store"},
+            )
 
         def _handle_project_upload(self) -> None:
             try:
@@ -424,6 +471,7 @@ def build_verification_server(
     project_pricing_service=None,
     project_creation_service=None,
     project_upload_service=None,
+    project_processing_service=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -439,5 +487,6 @@ def build_verification_server(
             project_pricing_service,
             project_creation_service,
             project_upload_service,
+            project_processing_service,
         ),
     )
