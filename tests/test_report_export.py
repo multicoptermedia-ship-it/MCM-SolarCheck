@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 import pytest
+from zipfile import ZipFile
+from zoneinfo import ZoneInfo
 from mcm_solarcheck.reporting.export import export_report
 from mcm_solarcheck.reporting.report_model import InspectionReport
 
@@ -119,3 +121,20 @@ def test_released_report_exports_without_changing_release_contract(tmp_path,suff
     assert report.release_status=="released"
     assert report.conspicuous_modules==1
     assert report.manual_review_modules==0
+
+
+@pytest.mark.parametrize("suffix,member",[
+    ("docx","word/document.xml"),
+    ("odt","content.xml"),
+])
+def test_editable_exports_render_explicit_local_timezone(tmp_path,suffix,member):
+    report=InspectionReport(
+        "TZ","P","Customer","Site",
+        datetime(2026,7,15,14,tzinfo=ZoneInfo("Europe/Berlin")),
+        "Inspector",10,0,0,
+    )
+    target=export_report(report,tmp_path/f"timezone.{suffix}")
+    with ZipFile(target) as archive:
+        content=archive.read(member).decode("utf-8")
+    assert "15.07.2026 14:00 CEST (UTC+02:00)" in content
+    assert "2026-07-15T14:00:00+02:00" not in content

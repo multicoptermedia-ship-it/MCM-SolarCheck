@@ -7,7 +7,7 @@ from odf.draw import Frame, Image as OdfImage
 from odf.table import Table, TableRow, TableCell
 from .docx_renderer import REPORT_STANDARD_WORDING
 from .report_model import InspectionReport
-from .presentation import detail_presentation, irradiance_text, overall_result_text
+from .presentation import detail_presentation, irradiance_text, overall_result_text, report_datetime_text
 
 
 def _p(parent,text): parent.addElement(P(text=str(text)))
@@ -46,7 +46,7 @@ def render_odt(report: InspectionReport, destination: str | Path, *, banner_path
     for label,value in (
         ("Kunde",report.customer_name),("Kundenkontakt",report.customer_contact or "—"),("Kundenanschrift",report.customer_address or "—"),
         ("Kunden-E-Mail",report.customer_email or "—"),("Kundentelefon",report.customer_phone or "—"),("Kundenreferenz",report.customer_reference or "—"),("Auftragsreferenz",report.order_reference or "—"),("Anlage",report.site_name),
-        ("Prüfbeginn",report.inspection_started_at.isoformat()),("Prüfer",report.inspector),
+        ("Prüfbeginn",report_datetime_text(report.inspection_started_at)),("Prüfer",report.inspector),
         ("PV-Module geprüft",report.total_modules),("Module mit dokumentiertem Befund",report.conspicuous_modules),
         ("Manuelle Prüfung erforderlich",report.manual_review_modules),
         ("Ohne dokumentierten Befund",report.modules_without_documented_finding),
