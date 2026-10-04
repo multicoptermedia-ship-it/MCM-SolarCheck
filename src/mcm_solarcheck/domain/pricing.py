@@ -24,6 +24,30 @@ class PricingRule:
     maximum_discount_rate: Decimal = Decimal("0")
     vat_rate: Decimal = Decimal("0")
 
+    def __post_init__(self) -> None:
+        rates = (
+            self.planner_discount_rate,
+            self.repeat_discount_rate,
+            self.maximum_discount_rate,
+            self.vat_rate,
+        )
+        if any(rate < 0 for rate in rates):
+            raise ValueError("pricing rates must not be negative")
+        if self.maximum_discount_rate > 1 or self.vat_rate > 1:
+            raise ValueError("pricing rates must not exceed 1")
+
+        previous_limit = Decimal("0")
+        for index, tier in enumerate(self.tiers):
+            if tier.net_price < 0:
+                raise ValueError("tier prices must not be negative")
+            if tier.up_to_kwp is None:
+                if index != len(self.tiers) - 1:
+                    raise ValueError("open-ended tier must be last")
+                continue
+            if tier.up_to_kwp <= previous_limit:
+                raise ValueError("tier limits must be positive and strictly increasing")
+            previous_limit = tier.up_to_kwp
+
     def price(self, capacity_kwp: Decimal, *, planner_verified: bool = False, repeat_verified: bool = False) -> "PriceSnapshot":
         if capacity_kwp <= 0:
             raise ValueError("capacity_kwp must be positive")
