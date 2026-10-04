@@ -182,6 +182,18 @@ def test_online_services_share_authoritative_persistence(tmp_path) -> None:
     assert services.admin.load().sepa_provider.configured is True
 
 
+def test_online_services_compose_projects_from_authoritative_persistence(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+
+    created = services.projects.create_project("P-ONLINE", "Online Project")
+
+    assert created.project_id == "P-ONLINE"
+    assert services.projects.database is persistence.projects
+    assert persistence.projects.project_profile("P-ONLINE") is None
+    assert tuple(project.project_id for project in services.projects.projects()) == ("P-ONLINE",)
+
+
 def test_online_services_require_payment_gateways(tmp_path) -> None:
     persistence = setup_persistence(tmp_path, secret_configured=True)
 
