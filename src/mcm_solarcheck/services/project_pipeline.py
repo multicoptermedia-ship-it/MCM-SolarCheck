@@ -7,6 +7,7 @@ from pathlib import Path
 
 from mcm_solarcheck.importers.project import ProjectImportResult, import_m3t_project
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
+from mcm_solarcheck.domain.project_profile import ProjectProfile
 from mcm_solarcheck.storage.queries import InspectionQueries, ProjectRecord
 from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, action_availability, record_attempt, require_action
 from mcm_solarcheck.services.product_entitlements import ProductCapabilities, ProductOperation, effective_output_availability
@@ -90,6 +91,21 @@ class ProjectApplicationService:
         return next(
             project for project in self.projects() if project.project_id == project_id
         )
+
+    def save_project_profile(self, project_id: str, profile: ProjectProfile) -> ProjectProfile:
+        """Persist validated project master data through the application boundary."""
+        if not isinstance(profile, ProjectProfile):
+            raise TypeError("profile must be ProjectProfile")
+        if not any(project.project_id == project_id for project in self.projects()):
+            raise KeyError(f"Unknown project: {project_id}")
+        self.database.save_project_profile(project_id, profile)
+        return profile
+
+    def project_profile(self, project_id: str) -> ProjectProfile | None:
+        """Expose persisted project master data without inventing missing values."""
+        if not any(project.project_id == project_id for project in self.projects()):
+            raise KeyError(f"Unknown project: {project_id}")
+        return self.database.project_profile(project_id)
 
     def open_project(self, project_id: str) -> ProjectWorkflowState:
         """Open only a persisted project and return its authoritative workflow state."""

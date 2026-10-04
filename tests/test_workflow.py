@@ -524,3 +524,30 @@ def test_application_review_persists_human_decision_and_rederives_state(tmp_path
     assert persisted[0].reviewer_status == "confirmed"
     assert state.readiness(WorkflowStage.REPORT).ready is True
     assert state.readiness(WorkflowStage.EXPORT).ready is True
+
+
+def test_application_service_persists_project_timezone_profile(tmp_path):
+    from mcm_solarcheck.domain.project_profile import ProjectProfile
+
+    database=_database(tmp_path)
+    service=ProjectApplicationService(database)
+    profile=ProjectProfile(
+        "Customer","Site","Street 1","50667","Koeln","Inspector",
+        site_timezone="Europe/Berlin",
+    )
+
+    assert service.save_project_profile("P1",profile)==profile
+    assert service.project_profile("P1")==profile
+    assert database.project_profile("P1").site_timezone=="Europe/Berlin"
+
+
+def test_application_service_rejects_profile_for_unknown_project(tmp_path):
+    from mcm_solarcheck.domain.project_profile import ProjectProfile
+
+    service=ProjectApplicationService(_database(tmp_path))
+    profile=ProjectProfile(
+        "Customer","Site","Street 1","50667","Koeln","Inspector",
+        site_timezone="Europe/Berlin",
+    )
+    with pytest.raises(KeyError, match="Unknown project: missing"):
+        service.save_project_profile("missing",profile)
