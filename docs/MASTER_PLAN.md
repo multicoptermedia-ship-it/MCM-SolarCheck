@@ -1,6 +1,6 @@
 # SolarCheck – Operativer Masterplan und Projektstatus
 
-Stand: 2026-10-03
+Stand: 2026-10-04
 
 Dieses Dokument ist die kanonische operative Statusreferenz im Repository. Es ersetzt die ältere Phasennummerierung für die laufende Entwicklung. Der tatsächlich implementierte Code und grüne CI-Gates bleiben maßgeblich.
 
@@ -135,12 +135,17 @@ Die Produktgrenzen sind inzwischen auch in den ausführbaren Einstiegspfaden kon
 - Geschützter Kundeneinstieg: GET `/customer-entry` übernimmt die Benutzer-ID ausschließlich aus der serverseitig aufgelösten Session und führt danach Production-Aktivierung plus persistiertes Benutzer-Entitlement über den bestehenden Customer-Entry-Gate aus. Fehlende/ungültige Session wird als 401, fehlende fachliche Freigabe als 403 behandelt. Commit `0537e5a`, Run #1716 grün.
 - Session-Persistenz: Der provider-neutrale SessionStore besitzt einen SQLite-Adapter im OnlinePersistence-Container; gültige Sessions überleben damit Service-/Server-Rekomposition. Ablauf und Revoke werden dauerhaft wirksam. Commit `abdfce6`, Run #1718 grün. Ein späterer MySQL-8.0-Adapter ersetzt nur diese Infrastrukturgrenze, nicht die Session-/Auth-Servicefolge.
 - Logout: POST `/logout` widerruft eine vorhandene serverseitige Session und löscht das Browser-Cookie per Max-Age=0; wiederholter Logout ohne Session bleibt idempotent erfolgreich. Commit `eb4b817`, Run #1720 grün.
+- Session-Sicherheit: Persistierte Bearer-Session-Tokens werden im SQLite-Adapter nur als SHA-256-Fingerprints gespeichert; der rohe Token bleibt ausschließlich beim Client/Service-Aufruf. Commit `4a43189`, Run #1726 auf Python 3.11 und 3.12 erfolgreich.
+- Session-Lebensdauer: Das Browser-Cookie erhält ein `Max-Age`, das aus dem serverseitigen Session-Ablauf abgeleitet wird; eine bereits abgelaufene neu erzeugte Session wird widerrufen und nicht als Cookie ausgegeben. Commit `e2dbc61`, Run #1728 auf Python 3.11 und 3.12 erfolgreich.
+- Produktions-HTTP: Produktionskomposition verlangt explizit Secure-Cookies; `production=True` ohne `secure_cookies=True` wird fail-closed abgewiesen. Lokale Plain-HTTP-Tests bleiben davon getrennt. Commit `4c09570`, Run #1730 auf Python 3.11 und 3.12 erfolgreich.
+- Persistierte Session-Zeitwerte: malformed, timezone-naive oder nicht-UTC gespeicherte Ablaufzeitpunkte werden nicht als gültige Session akzeptiert. Commit `e93b6bb`, Run #1732 auf Python 3.11 und 3.12 erfolgreich.
+- Report-Zeitzonen: Projektprofile können eine explizite IANA-Zeitzone wie `Europe/Berlin` persistieren. Interne/Quellzeitpunkte bleiben timezone-aware; beim Report-Assembly wird der Prüfzeitpunkt in die Projektzeitzone umgerechnet, sodass Sommer-/Winterzeit über `zoneinfo` korrekt berücksichtigt wird. Bestehende Projekte ohne Zeitzone erhalten keine erfundene Länderzuordnung. Schema v14 und Report-Konvertierung wurden mit `a288614` eingeführt; Migrationstests mit `61473cc` an den vollständigen v14-Pfad angepasst. Run #1736 ist auf Python 3.11 und 3.12 erfolgreich.
 
 Die aktuell implementierte Eintrittssequenz lautet damit:
 
 **Website/Kundeneinstieg → OnlineProduct / OnlineServices → Registrierung mit vorgelagerter Passwortvalidierung → Bestätigungs-E-Mail → /verify-email?token=… → serverseitige Token-Verifikation → VERIFIED identity + aktives TRIAL-Entitlement → POST /login (Credential-Proof → VERIFIED-Identity-Prüfung) → persistente serverseitige Session + Browser-Cookie → GET /customer-entry → Customer-Entry-Gate (Production ACTIVE + persistiertes Benutzer-Entitlement) → Projektseite → gemeinsamer SolarCheck-Projektworkflow → POST /logout / Session-Revoke**
 
-Der lokale/testbare HTTP-Pfad für Startseite, Registrierung, Verifikation, Login, Session, geschützten Kundeneinstieg und Logout ist implementiert. Das Secure-Cookie-Flag ist für ein echtes HTTPS-Deployment explizit aktivierbar; der lokale Plain-HTTP-Testadapter erzwingt es nicht. Ein produktiver öffentlicher Webserver-/Deployment-Adapter für IONOS sowie der geplante MySQL-8.0-Infrastrukturadapter bleiben eigene spätere Gates und dürfen diese verifizierte Auth-/Entitlement-/Customer-Entry-Sequenz nicht verändern. Die manuelle Token-Eingabe im Desktop-Login bleibt bis zur vollständigen Webintegration als Fallback-Grenze erhalten.
+Der lokale/testbare HTTP-Pfad für Startseite, Registrierung, Verifikation, Login, Session, geschützten Kundeneinstieg und Logout ist implementiert. Persistierte Session-Tokens werden nur als Fingerprints gespeichert, Cookie-Lebensdauer und serverseitiger Ablauf sind gekoppelt, und ungültige persistierte Ablaufzeitpunkte werden fail-closed behandelt. Für Produktions-HTTP sind Secure-Cookies verpflichtend; der lokale Plain-HTTP-Testadapter bleibt davon getrennt. Ein produktiver öffentlicher Webserver-/Deployment-Adapter für IONOS sowie der geplante MySQL-8.0-Infrastrukturadapter bleiben eigene spätere Gates und dürfen diese verifizierte Auth-/Entitlement-/Customer-Entry-Sequenz nicht verändern. Die manuelle Token-Eingabe im Desktop-Login bleibt bis zur vollständigen Webintegration als Fallback-Grenze erhalten.
 
 ### Produktstrategie für Phase 11
 
@@ -176,5 +181,7 @@ Nach der Online-Betriebsreife bleiben insbesondere erhalten:
 ## Architekturprinzip Online / Offline
 
 Online und Offline teilen ab dem eigentlichen SolarCheck-Projektworkflow denselben fachlichen Domain-Core. Online ergänzt Identität, Entitlement, serverseitige Compute-/Delivery-/Billing-/Payment-Orchestrierung. Offline darf diese Online-spezifischen Zugangsschichten nicht benötigen, muss aber dieselben fachlichen Review-, Provenienz- und Report-Gates respektieren.
+
+Zeitinvariante für Berichte: technische Persistenz und Verarbeitung verwenden timezone-aware Zeitpunkte; UTC bleibt die kanonische interne Referenz. Kunden-/Prüfberichte geben Auswertungs- und Prüfzeiten in der explizit gespeicherten IANA-Zeitzone des jeweiligen Projektstandorts aus. Es werden weder feste UTC-Offsets noch allein aus Ortsnamen oder Ländern geratene Zeitzonen verwendet; Sommer-/Winterzeit muss durch die Zeitzonendaten korrekt abgebildet werden. Bestehende Projekte ohne bekannte Standort-Zeitzone bleiben explizit unvollständig, bis die Zeitzone erfasst ist.
 
 Die menschliche Fachprüfung bleibt maßgeblich. Fehlende Evidenz darf nicht künstlich erzeugt werden. Unklare Freigabezustände werden fail-closed behandelt. Technische Softwarefreigabe, wissenschaftliche Modellvalidierung, Normprüfung und kommerzielle Produktfreigabe bleiben getrennte Gates.
