@@ -34,9 +34,11 @@ def test_upload_is_stored_only_for_customer_project() -> None:
 
     assert ownership_checks == [("user-1", "P-1")]
     assert len(stored) == 1
-    assert stored[0].customer_id == "user-1"
-    assert stored[0].project_id == "P-1"
-    assert result.sha256_hex == hashlib.sha256(stored[0].content).hexdigest()
+    assert stored[0].request.customer_id == "user-1"
+    assert stored[0].request.project_id == "P-1"
+    assert stored[0].size_bytes == len(stored[0].request.content)
+    assert stored[0].sha256_hex == hashlib.sha256(stored[0].request.content).hexdigest()
+    assert result.sha256_hex == stored[0].sha256_hex
     assert result.filename == "thermal-001.jpg"
     assert result.size_bytes == len(b"\xff\xd8\xffimage-data")
 
@@ -99,7 +101,7 @@ def test_upload_normalizes_content_type_parameters() -> None:
     result = service.upload(request(content_type="Image/JPEG; charset=binary"))
 
     assert result.content_type == "image/jpeg"
-    assert stored[0].content_type == "image/jpeg"
+    assert stored[0].request.content_type == "image/jpeg"
 
 
 @pytest.mark.parametrize(
@@ -134,4 +136,16 @@ def test_upload_accepts_both_tiff_byte_orders(content) -> None:
     )
 
     assert result.content_type == "image/tiff"
-    assert stored[0].content == content
+    assert stored[0].request.content == content
+
+
+def test_upload_integrity_metadata_changes_when_content_changes() -> None:
+    stored = []
+    service = ProjectUploadService(stored.append, lambda customer_id, project_id: True)
+
+    first = service.upload(request(content=b"\xff\xd8\xfffirst"))
+    second = service.upload(request(content=b"\xff\xd8\xffsecond"))
+
+    assert first.sha256_hex != second.sha256_hex
+    assert stored[0].sha256_hex == first.sha256_hex
+    assert stored[1].sha256_hex == second.sha256_hex
