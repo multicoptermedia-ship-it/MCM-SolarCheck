@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import PurePath
-from typing import Callable
+from pathlib import Path
+from typing import Callable, Protocol
 
 
 DEFAULT_MAX_UPLOAD_BYTES = 250 * 1024 * 1024
@@ -42,6 +43,12 @@ class ValidatedProjectUpload:
     request: ProjectUploadRequest
     size_bytes: int
     sha256_hex: str
+
+
+class ProjectUploadStore(Protocol):
+    def store(self, upload: ValidatedProjectUpload) -> None: ...
+
+    def project_directory(self, customer_id: str, project_id: str) -> Path: ...
 
 
 class ProjectUploadService:
