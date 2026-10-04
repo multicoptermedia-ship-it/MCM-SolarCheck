@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from html import escape
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,6 +18,7 @@ from mcm_solarcheck.services.online_verification_http import EmailVerificationEn
 MAX_REGISTRATION_BODY_BYTES = 16 * 1024
 REGISTRATION_FIELDS = ("user_id", "display_name", "email", "street", "postal_code", "city", "password")
 LOGIN_FIELDS = ("user_id", "password")
+PROJECT_FIELDS = ("project_id", "name", "capacity_kwp")
 
 
 def verification_handler(
@@ -28,6 +30,7 @@ def verification_handler(
     customer_entry=None,
     project_service=None,
     project_pricing_service=None,
+    project_creation_service=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
 
@@ -63,6 +66,9 @@ def verification_handler(
                 return
             if parsed.path == "/logout" and session_service is not None:
                 self._handle_logout()
+                return
+            if parsed.path == "/projects" and session_service is not None and customer_entry is not None and project_creation_service is not None:
+                self._handle_create_project()
                 return
             if parsed.path != "/register" or registration_controller is None:
                 self._respond(404, "Not Found")
@@ -106,6 +112,62 @@ def verification_handler(
                 self._respond(400, "registration data is invalid")
                 return
             self._respond(202, message)
+
+        def _handle_create_project(self) -> None:
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+            content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            if content_type != "application/x-www-form-urlencoded":
+                self._respond(415, "project content type is not supported")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", ""))
+            except ValueError:
+                self._respond(400, "project data is invalid")
+                return
+            if length <= 0:
+                self._respond(400, "project data is invalid")
+                return
+            if length > MAX_REGISTRATION_BODY_BYTES:
+                self._respond(413, "project data is too large")
+                return
+            try:
+                form = parse_qs(
+                    self.rfile.read(length).decode("utf-8"),
+                    keep_blank_values=True,
+                    strict_parsing=True,
+                )
+                if any(len(form.get(name, [])) != 1 for name in PROJECT_FIELDS):
+                    raise ValueError("project fields must occur exactly once")
+                from mcm_solarcheck.services.project_creation import CreateProjectRequest
+
+                project = project_creation_service.create(
+                    CreateProjectRequest(
+                        customer_id=user_id,
+                        project_id=form["project_id"][0],
+                        name=form["name"][0],
+                        capacity_kwp=Decimal(form["capacity_kwp"][0]),
+                    )
+                )
+            except (UnicodeDecodeError, InvalidOperation, ValueError):
+                self._respond(400, "project data is invalid")
+                return
+            except (PermissionError, RuntimeError):
+                self._respond(503, "online project could not be created")
+                return
+            self._respond(
+                201,
+                f"Projekt erstellt: {project.project_id}: {project.name}",
+                headers={"Cache-Control": "no-store"},
+            )
 
         def _require_customer_user(self) -> str:
             cookies = SimpleCookie()
@@ -293,6 +355,7 @@ def build_verification_server(
     customer_entry=None,
     project_service=None,
     project_pricing_service=None,
+    project_creation_service=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -306,5 +369,6 @@ def build_verification_server(
             customer_entry,
             project_service,
             project_pricing_service,
+            project_creation_service,
         ),
     )
