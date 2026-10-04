@@ -175,3 +175,13 @@ def test_smtp_persistence_has_no_untyped_transition_boundary() -> None:
     assert hasattr(audit, "record")
 
     assert all(annotation is not Any for annotation in hints.values())
+
+
+def test_upload_persistence_uses_service_layer_contract() -> None:
+    hints = get_type_hints(OnlinePersistence)
+
+    uploads = hints["uploads"]
+    assert uploads.__name__ == "ProjectUploadStore"
+    assert uploads.__module__ == "mcm_solarcheck.services.project_upload"
+    for method in ("store", "project_directory"):
+        assert hasattr(uploads, method)
