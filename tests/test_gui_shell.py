@@ -639,8 +639,20 @@ def test_new_project_dialog_requires_nonblank_identity(app: QApplication) -> Non
     assert not ok.isEnabled()
 
     dialog.name.setText("Solarpark")
+    assert not ok.isEnabled()
+    dialog.customer_name.setText("Solar GmbH")
+    dialog.site_name.setText("Anlage Nord")
+    dialog.site_street.setText("Solarweg 1")
+    dialog.site_postal_code.setText("50667")
+    dialog.site_city.setText("Koeln")
+    dialog.inspector.setText("Pruefer")
+    dialog.site_timezone.setText("Invalid/Timezone")
+    assert not ok.isEnabled()
+    dialog.site_timezone.setText("Europe/Berlin")
     assert ok.isEnabled()
-    assert dialog.values() == ("P-1", "Solarpark")
+    project_id, name, profile = dialog.values()
+    assert (project_id, name) == ("P-1", "Solarpark")
+    assert profile.site_timezone == "Europe/Berlin"
 
 
 def test_import_workspace_is_fail_closed_without_project_context(app: QApplication) -> None:

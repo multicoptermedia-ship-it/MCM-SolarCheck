@@ -150,11 +150,13 @@ class SolarCheckMainWindow(QMainWindow):
                 )
             self._actions[command.command_id] = action
 
-    def _create_project(self, project_id: str, name: str) -> None:
-        """Persist a new project through the application service before refreshing."""
+    def _create_project(self, project_id: str, name: str, profile=None) -> None:
+        """Persist a new project and its explicit master data before refreshing."""
         if self._project_service is None:
             return
         project = self._project_service.create_project(project_id, name)
+        if profile is not None:
+            self._project_service.save_project_profile(project.project_id, profile)
         self._refresh_project_page()
         self._open_project(project.project_id)
 

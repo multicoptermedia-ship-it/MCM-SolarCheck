@@ -1,3 +1,5 @@
+from mcm_solarcheck.domain.project_profile import ProjectProfile
+
 """Project workspace for the SolarCheck GUI.
 
 The first implementation slice stays deliberately presentation-only: project
@@ -21,6 +23,16 @@ class NewProjectDialog(QDialog):
         self.name.setObjectName("new_project_name")
         layout.addRow("Projekt-ID", self.project_id)
         layout.addRow("Projektname", self.name)
+        self.customer_name = QLineEdit(self); self.customer_name.setObjectName("new_project_customer_name")
+        self.site_name = QLineEdit(self); self.site_name.setObjectName("new_project_site_name")
+        self.site_street = QLineEdit(self); self.site_street.setObjectName("new_project_site_street")
+        self.site_postal_code = QLineEdit(self); self.site_postal_code.setObjectName("new_project_site_postal_code")
+        self.site_city = QLineEdit(self); self.site_city.setObjectName("new_project_site_city")
+        self.site_timezone = QLineEdit(self); self.site_timezone.setObjectName("new_project_site_timezone")
+        self.site_timezone.setPlaceholderText("z. B. Europe/Berlin")
+        self.inspector = QLineEdit(self); self.inspector.setObjectName("new_project_inspector")
+        for label, field in (("Kunde",self.customer_name),("Anlage",self.site_name),("Standort Straße",self.site_street),("Standort PLZ",self.site_postal_code),("Standort Ort",self.site_city),("Standort-Zeitzone (IANA)",self.site_timezone),("Prüfer",self.inspector)):
+            layout.addRow(label, field)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
             parent=self,
@@ -29,17 +41,27 @@ class NewProjectDialog(QDialog):
         self._ok_button.setEnabled(False)
         self.project_id.textChanged.connect(self._update_acceptance)
         self.name.textChanged.connect(self._update_acceptance)
+        for field in (self.customer_name,self.site_name,self.site_street,self.site_postal_code,self.site_city,self.site_timezone,self.inspector):
+            field.textChanged.connect(self._update_acceptance)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
 
     def _update_acceptance(self) -> None:
-        self._ok_button.setEnabled(
-            bool(self.project_id.text().strip()) and bool(self.name.text().strip())
-        )
+        required=(self.project_id,self.name,self.customer_name,self.site_name,self.site_street,self.site_postal_code,self.site_city,self.site_timezone,self.inspector)
+        if not all(field.text().strip() for field in required):
+            self._ok_button.setEnabled(False); return
+        try:
+            self.profile()
+        except ValueError:
+            self._ok_button.setEnabled(False); return
+        self._ok_button.setEnabled(True)
 
-    def values(self) -> tuple[str, str]:
-        return self.project_id.text(), self.name.text()
+    def profile(self) -> ProjectProfile:
+        return ProjectProfile(customer_name=self.customer_name.text(),site_name=self.site_name.text(),site_street=self.site_street.text(),site_postal_code=self.site_postal_code.text(),site_city=self.site_city.text(),inspector=self.inspector.text(),site_timezone=self.site_timezone.text())
+
+    def values(self) -> tuple[str, str, ProjectProfile]:
+        return self.project_id.text(), self.name.text(), self.profile()
 
 
 def make_project_page(
@@ -64,8 +86,8 @@ def make_project_page(
         def request_project_creation() -> None:
             dialog = NewProjectDialog(page)
             if dialog.exec() == QDialog.DialogCode.Accepted:
-                project_id, name = dialog.values()
-                on_create_project(project_id, name)
+                project_id, name, profile = dialog.values()
+                on_create_project(project_id, name, profile)
 
         create.clicked.connect(request_project_creation)
     else:
