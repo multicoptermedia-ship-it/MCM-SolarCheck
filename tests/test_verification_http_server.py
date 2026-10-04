@@ -698,3 +698,146 @@ def test_projects_disable_caching_for_authorized_response() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_project_price_requires_authorized_customer_and_disables_caching() -> None:
+    endpoint = Endpoint()
+    authorized = []
+
+    class Snapshot:
+        net_total = "500.00"
+        gross_total = "595.00"
+        rule_version = "2026-10-online"
+
+    class Pricing:
+        def __init__(self):
+            self.requests = []
+
+        def price(self, pricing_request):
+            self.requests.append(pricing_request)
+            return Snapshot()
+
+    pricing = Pricing()
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=authorized.append,
+        project_pricing_service=pricing,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-price?project_id=P-1",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            body = response.read().decode("utf-8")
+            assert response.status == 200
+            assert response.headers["Cache-Control"] == "no-store"
+            assert "P-1: 500.00 EUR netto" in body
+            assert "595.00 EUR brutto" in body
+            assert "2026-10-online" in body
+        assert authorized == ["user-1"]
+        assert pricing.requests[0].project_id == "P-1"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_project_price_rejects_missing_session_before_pricing_access() -> None:
+    endpoint = Endpoint()
+
+    class Pricing:
+        def price(self, pricing_request):
+            raise AssertionError("pricing must not be read without a valid session")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_pricing_service=Pricing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        try:
+            urlopen(f"http://{host}:{port}/project-price?project_id=P-1", timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 401
+        else:
+            raise AssertionError("missing session must return 401")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_project_price_rejects_invalid_project_id_before_pricing_access() -> None:
+    endpoint = Endpoint()
+
+    class Pricing:
+        def price(self, pricing_request):
+            raise AssertionError("pricing must not be read for an invalid project id")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_pricing_service=Pricing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-price",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 400
+        else:
+            raise AssertionError("missing project id must return 400")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_project_price_returns_service_unavailable_when_pricing_fails() -> None:
+    endpoint = Endpoint()
+
+    class Pricing:
+        def price(self, pricing_request):
+            raise RuntimeError("pricing backend unavailable")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_pricing_service=Pricing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-price?project_id=P-1",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 503
+            assert "online project price is not available" in exc.read().decode("utf-8")
+        else:
+            raise AssertionError("pricing failure must return 503")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
