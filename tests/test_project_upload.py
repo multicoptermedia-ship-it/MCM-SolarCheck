@@ -12,7 +12,7 @@ def request(**changes):
         "project_id": "P-1",
         "filename": "thermal-001.jpg",
         "content_type": "image/jpeg",
-        "content": b"image-data",
+        "content": b"\xff\xd8\xffimage-data",
     }
     values.update(changes)
     return ProjectUploadRequest(**values)
@@ -35,7 +35,7 @@ def test_upload_is_stored_only_for_customer_project() -> None:
     assert stored[0].customer_id == "user-1"
     assert stored[0].project_id == "P-1"
     assert result.filename == "thermal-001.jpg"
-    assert result.size_bytes == len(b"image-data")
+    assert result.size_bytes == len(b"\xff\xd8\xffimage-data")
 
 
 def test_upload_rejects_project_from_another_customer_before_storage() -> None:
@@ -97,3 +97,38 @@ def test_upload_normalizes_content_type_parameters() -> None:
 
     assert result.content_type == "image/jpeg"
     assert stored[0].content_type == "image/jpeg"
+
+
+@pytest.mark.parametrize(
+    ("content_type", "content"),
+    [
+        ("image/jpeg", b"not-a-jpeg"),
+        ("image/tiff", b"not-a-tiff"),
+    ],
+)
+def test_upload_rejects_image_content_with_invalid_signature(content_type, content) -> None:
+    stored = []
+    ownership_called = []
+    service = ProjectUploadService(
+        stored.append,
+        lambda customer_id, project_id: ownership_called.append(True) or True,
+    )
+
+    with pytest.raises(ValueError):
+        service.upload(request(content_type=content_type, content=content))
+
+    assert stored == []
+    assert ownership_called == []
+
+
+@pytest.mark.parametrize("content", [b"II*\x00data", b"MM\x00*data"])
+def test_upload_accepts_both_tiff_byte_orders(content) -> None:
+    stored = []
+    service = ProjectUploadService(stored.append, lambda customer_id, project_id: True)
+
+    result = service.upload(
+        request(filename="thermal-001.tiff", content_type="image/tiff", content=content)
+    )
+
+    assert result.content_type == "image/tiff"
+    assert stored[0].content == content
