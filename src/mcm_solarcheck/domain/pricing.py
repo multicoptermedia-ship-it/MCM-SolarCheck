@@ -25,6 +25,8 @@ class PricingRule:
     vat_rate: Decimal = Decimal("0")
 
     def __post_init__(self) -> None:
+        if not self.version.strip() or not self.tiers:
+            raise ValueError("pricing rule must be versioned and contain tiers")
         rates = (
             self.planner_discount_rate,
             self.repeat_discount_rate,
