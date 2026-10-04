@@ -42,6 +42,7 @@ def test_online_persistence_uses_one_private_state_database(tmp_path) -> None:
     )
 
     database_backed = (
+        persistence.projects,
         persistence.registrations,
         persistence.compute_jobs,
         persistence.billing,
@@ -73,6 +74,8 @@ def test_online_persistence_uses_one_private_state_database(tmp_path) -> None:
         }
 
     assert {
+        "projects",
+        "project_profiles",
         "online_registrations",
         "email_verifications",
         "registration_notification_outbox",
@@ -186,3 +189,30 @@ def test_online_persistence_includes_registration_and_compute_job_state(tmp_path
 
     assert persistence.registrations.get("user-e2e").user_id == "user-e2e"
     assert persistence.compute_jobs.get("job-e2e").status is ComputeJobStatus.QUEUED
+
+
+def test_online_persistence_project_state_uses_private_state_database(tmp_path) -> None:
+    private=tmp_path/"private"
+    paths=OnlinePrivatePaths(
+        private/"state"/"solarcheck.sqlite",
+        private/"reports",
+        private/"invoices",
+        tmp_path/"public",
+    )
+    persistence=build_online_persistence(
+        paths,
+        smtp_default=SMTPConfig(
+            "smtp.example.invalid",465,"solarcheck@example.invalid",
+            security=SMTPSecurity.TLS,
+        ),
+        smtp_secrets=FakeSecretStore(),
+    )
+
+    persistence.projects.create_project("P-ONLINE","Online Project")
+
+    assert persistence.projects.path==paths.state_database
+    with sqlite3.connect(paths.state_database) as connection:
+        assert connection.execute(
+            "SELECT name FROM projects WHERE project_id=?",
+            ("P-ONLINE",),
+        ).fetchone()==("Online Project",)

@@ -29,6 +29,7 @@ from mcm_solarcheck.infrastructure.sqlite_solarcheck_tariff import SQLiteSolarCh
 from mcm_solarcheck.infrastructure.sqlite_smtp_settings import SQLiteSMTPSettingsStore
 from mcm_solarcheck.infrastructure.sqlite_voucher import SQLiteFlightPlanVoucherPolicyStore, SQLiteFlightPlanVoucherStore
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig
+from mcm_solarcheck.storage.sqlite import ProjectDatabase
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
 from mcm_solarcheck.services.invoice_creation import InvoiceIdentityStore
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryStateStore, InvoiceArchive
@@ -57,6 +58,7 @@ from mcm_solarcheck.services.sepa_collection import SepaCollectionPersistence
 class OnlinePersistence:
     """Provider-neutral persistent dependencies shared by the online service layer.\n\n    Concrete SQLite stores are assembled by ``build_online_persistence`` today.\n    The dependency container deliberately does not expose SQLite-specific types so a\n    production MySQL adapter can satisfy the same service-layer boundary later.\n    """
 
+    projects: ProjectDatabase
     registrations: OnlineRegistrationStore
     credentials: CredentialStore
     sessions: SessionStore
@@ -101,11 +103,14 @@ def build_online_persistence(
     paths.reports_root.mkdir(parents=True, exist_ok=True)
     paths.invoices_root.mkdir(parents=True, exist_ok=True)
 
+    projects = ProjectDatabase(database)
+    projects.initialize()
     payments = SQLiteOnlinePaymentStore(database)
     vouchers = SQLiteFlightPlanVoucherStore(database)
     voucher_policy = SQLiteFlightPlanVoucherPolicyStore(database)
     voucher_policy.bootstrap_default()
     return OnlinePersistence(
+        projects=projects,
         registrations=SQLiteOnlineRegistrationStore(database),
         credentials=SQLiteCredentialStore(database),
         sessions=SQLiteSessionStore(database),
