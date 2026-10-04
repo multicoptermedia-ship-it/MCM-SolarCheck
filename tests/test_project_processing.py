@@ -117,3 +117,50 @@ def test_processing_rejects_missing_upload_directory_before_state_change(tmp_pat
 
     assert imported == []
     assert states == []
+
+
+def test_processing_persists_import_before_completed_state(tmp_path) -> None:
+    events = []
+    imported = import_result(imported=3, paired=2)
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: events.append(("import", directory)) or imported,
+        lambda customer_id, project_id, state: events.append(("state", state)),
+        lambda customer_id, project_id, result: events.append(
+            ("persist", customer_id, project_id, result)
+        ),
+    )
+
+    result = service.process(ProjectProcessingRequest("user-1", "P-1"))
+
+    assert events == [
+        ("state", ProjectProcessingState.RUNNING),
+        ("import", tmp_path),
+        ("persist", "user-1", "P-1", imported),
+        ("state", ProjectProcessingState.COMPLETED),
+    ]
+    assert result.state is ProjectProcessingState.COMPLETED
+
+
+def test_processing_records_failed_state_when_persistence_raises(tmp_path) -> None:
+    states = []
+
+    def fail_persistence(customer_id, project_id, imported):
+        raise RuntimeError("persistence failed")
+
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: import_result(),
+        lambda customer_id, project_id, state: states.append(state),
+        fail_persistence,
+    )
+
+    with pytest.raises(RuntimeError, match="persistence failed"):
+        service.process(ProjectProcessingRequest("user-1", "P-1"))
+
+    assert states == [
+        ProjectProcessingState.RUNNING,
+        ProjectProcessingState.FAILED,
+    ]
