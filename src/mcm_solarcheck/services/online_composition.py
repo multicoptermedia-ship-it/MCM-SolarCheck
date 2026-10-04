@@ -74,7 +74,8 @@ class _OnlineReadinessBoundary:
 
 @dataclass(frozen=True)
 class OnlineServices:
-    projects: ProjectApplicationService\n    project_creation: ProjectCreationService\n    registration: OnlineRegistrationService
+    projects: ProjectApplicationService
+    project_creation: ProjectCreationService\n    registration: OnlineRegistrationService
     login: OnlineLoginService
     compute_jobs: EntitledComputeJobService
     billing: ComputeJobBillingService
