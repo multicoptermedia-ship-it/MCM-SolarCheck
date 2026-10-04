@@ -143,7 +143,8 @@ class ProjectDatabase:
         with self.connect() as db:db.execute("INSERT INTO projects(project_id,name) VALUES (?,?) ON CONFLICT(project_id) DO UPDATE SET name=excluded.name",(project_id,name))
     def create_customer_project(self,customer_id:str,project_id:str,name:str,capacity_kwp=None)->None:
         customer_id=customer_id.strip();project_id=project_id.strip();name=name.strip()
-        if not customer_id or not project_id or not name:raise ValueError('customer_id, project_id and name are required')\n        if capacity_kwp is None or capacity_kwp <= 0:raise ValueError('capacity_kwp must be positive')
+        if not customer_id or not project_id or not name:raise ValueError('customer_id, project_id and name are required')
+        if capacity_kwp is None or capacity_kwp <= 0:raise ValueError('capacity_kwp must be positive')
         with self.connect() as db:
             db.execute("INSERT INTO projects(project_id,name) VALUES (?,?)",(project_id,name))
             db.execute("INSERT INTO project_owners(project_id,customer_id,capacity_kwp) VALUES (?,?,?)",(project_id,customer_id,str(capacity_kwp)))
