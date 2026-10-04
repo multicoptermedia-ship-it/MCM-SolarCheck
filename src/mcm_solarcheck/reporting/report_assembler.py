@@ -1,6 +1,6 @@
 """Assemble customer report contracts from persisted project and reviewed evidence."""
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from mcm_solarcheck.reporting.data import InspectionReportDataService
 from mcm_solarcheck.reporting.model import build_report_model
@@ -19,6 +19,12 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
     profile=database.project_profile(project_id)
     if profile is None:
         raise ValueError("project profile is required before report assembly")
+    if (
+        inspection_started_at.tzinfo is None
+        or inspection_started_at.utcoffset() is None
+        or inspection_started_at.utcoffset() != timezone.utc.utcoffset(inspection_started_at)
+    ):
+        raise ValueError("inspection_started_at must be timezone-aware UTC")
     service=InspectionReportDataService(database)
     data=service.build(project_id)
     evidence_model=build_report_model(data)

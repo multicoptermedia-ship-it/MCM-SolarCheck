@@ -346,3 +346,44 @@ def test_report_project_timezone_handles_winter_offset(tmp_path):
         db,"P1","R-TZ",datetime(2026,1,15,12,tzinfo=timezone.utc)
     )
     assert report.inspection_started_at.isoformat()=="2026-01-15T13:00:00+01:00"
+
+
+def test_report_rejects_naive_inspection_time_for_timezone_safe_output(tmp_path):
+    db=ProjectDatabase(tmp_path/"naive-time.sqlite")
+    db.initialize()
+    db.create_project("P1","Inspection")
+    db.save_project_profile(
+        "P1",
+        ProjectProfile("Customer","Site","Street 1","12345","Berlin","Inspector",site_timezone="Europe/Berlin"),
+    )
+    with pytest.raises(ValueError, match="timezone-aware UTC"):
+        assemble_inspection_report(db,"P1","R-TZ",datetime(2026,7,15,12))
+
+
+def test_report_rejects_non_utc_inspection_source_time(tmp_path):
+    from zoneinfo import ZoneInfo
+    db=ProjectDatabase(tmp_path/"non-utc-time.sqlite")
+    db.initialize()
+    db.create_project("P1","Inspection")
+    db.save_project_profile(
+        "P1",
+        ProjectProfile("Customer","Site","Street 1","10001","New York","Inspector",site_timezone="America/New_York"),
+    )
+    with pytest.raises(ValueError, match="timezone-aware UTC"):
+        assemble_inspection_report(
+            db,"P1","R-TZ",datetime(2026,7,15,8,tzinfo=ZoneInfo("America/New_York"))
+        )
+
+
+def test_report_converts_utc_time_for_non_german_project(tmp_path):
+    db=ProjectDatabase(tmp_path/"new-york-time.sqlite")
+    db.initialize()
+    db.create_project("P1","Inspection")
+    db.save_project_profile(
+        "P1",
+        ProjectProfile("Customer","Site","Street 1","10001","New York","Inspector",site_timezone="America/New_York"),
+    )
+    report=assemble_inspection_report(
+        db,"P1","R-TZ",datetime(2026,7,15,12,tzinfo=timezone.utc)
+    )
+    assert report.inspection_started_at.isoformat()=="2026-07-15T08:00:00-04:00"
