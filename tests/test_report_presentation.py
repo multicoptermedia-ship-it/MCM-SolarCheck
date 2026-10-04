@@ -1,4 +1,4 @@
-from mcm_solarcheck.reporting.presentation import detail_presentation, irradiance_text, overall_result_text
+from mcm_solarcheck.reporting.presentation import detail_presentation, irradiance_text, overall_result_text, report_datetime_text
 from mcm_solarcheck.reporting.report_model import IrradianceSummary, InspectionReport, ModuleReportDetail, ThermalMeasurement, ReportImage
 from datetime import datetime, timezone
 
@@ -108,3 +108,18 @@ def test_clean_result_is_not_claimed_with_conspicuous_modules():
 
 def test_clean_result_is_not_claimed_with_pending_manual_review():
     assert overall_result_text(_result_report(manual_review=1)) is None
+
+
+def test_report_datetime_text_exposes_dst_zone_and_offset():
+    from zoneinfo import ZoneInfo
+    summer=datetime(2026,7,15,14,tzinfo=ZoneInfo("Europe/Berlin"))
+    winter=datetime(2026,1,15,13,tzinfo=ZoneInfo("Europe/Berlin"))
+
+    assert report_datetime_text(summer)=="15.07.2026 14:00 CEST (UTC+02:00)"
+    assert report_datetime_text(winter)=="15.01.2026 13:00 CET (UTC+01:00)"
+
+
+def test_report_datetime_text_rejects_naive_timestamp():
+    import pytest
+    with pytest.raises(ValueError,match="timezone-aware"):
+        report_datetime_text(datetime(2026,7,15,14))

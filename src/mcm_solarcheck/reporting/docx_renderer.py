@@ -5,7 +5,7 @@ from docx import Document
 from docx.enum.section import WD_SECTION
 from docx.shared import Mm, Pt
 from .report_model import InspectionReport
-from .presentation import detail_presentation, irradiance_text, overall_result_text
+from .presentation import detail_presentation, irradiance_text, overall_result_text, report_datetime_text
 
 
 REPORT_STANDARD_WORDING="Prüfbericht – Aufbau unter Berücksichtigung der DIN IEC/TS 62446-3 (VDE V 0126-23-3):2018-04"
@@ -46,7 +46,7 @@ def render_docx(report: InspectionReport, destination: str | Path, *, banner_pat
     for label,value in (
         ("Kunde",report.customer_name),("Kundenkontakt",report.customer_contact),("Kundenanschrift",report.customer_address),
         ("Kunden-E-Mail",report.customer_email),("Kundentelefon",report.customer_phone),("Kundenreferenz",report.customer_reference),("Auftragsreferenz",report.order_reference),("Anlage",report.site_name),
-        ("Prüfbeginn",report.inspection_started_at.isoformat()),("Prüfer",report.inspector),
+        ("Prüfbeginn",report_datetime_text(report.inspection_started_at)),("Prüfer",report.inspector),
         ("PV-Module geprüft",report.total_modules),("Module mit dokumentiertem Befund",report.conspicuous_modules),
         ("Manuelle Prüfung erforderlich",report.manual_review_modules),
         ("Ohne dokumentierten Befund",report.modules_without_documented_finding),

@@ -1,6 +1,7 @@
 """Shared presentation semantics for editable/final report renderers."""
 from __future__ import annotations
 from dataclasses import dataclass
+from datetime import datetime
 from .report_model import InspectionReport, ModuleReportDetail
 
 
@@ -53,3 +54,13 @@ def detail_presentation(detail: ModuleReportDetail) -> DetailPresentation:
         if image.geometry_source.startswith("validated_cross_sensor:"): return "Lokalisierter Ausschnitt – validierte Sensorzuordnung"
         return f"Bildgeometrie: {image.geometry_source}"
     return DetailPresentation(f"Modul {detail.module_id}",finding,detail.review_status,temperature,manual,context(detail.rgb_image),context(detail.thermal_image))
+
+
+def report_datetime_text(value: datetime) -> str:
+    """Format an already localized report timestamp with explicit timezone context."""
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("report datetime must be timezone-aware")
+    zone=value.tzname() or "UTC"
+    offset=value.strftime("%z")
+    offset_text=f"{offset[:3]}:{offset[3:]}" if offset else "+00:00"
+    return f"{value.strftime('%d.%m.%Y %H:%M')} {zone} (UTC{offset_text})"

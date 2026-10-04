@@ -6,7 +6,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, PageBreak, Image
 from .docx_renderer import REPORT_STANDARD_WORDING
-from .presentation import detail_presentation, irradiance_text, overall_result_text
+from .presentation import detail_presentation, irradiance_text, overall_result_text, report_datetime_text
 from .report_model import InspectionReport
 
 
@@ -33,7 +33,7 @@ def render_pdf(report: InspectionReport, destination: str | Path, *, banner_path
     rows=[
         ["Kunde",report.customer_name],["Kundenkontakt",report.customer_contact or "—"],["Kundenanschrift",report.customer_address or "—"],
         ["Kunden-E-Mail",report.customer_email or "—"],["Kundentelefon",report.customer_phone or "—"],["Kundenreferenz",report.customer_reference or "—"],["Auftragsreferenz",report.order_reference or "—"],
-        ["Anlage",report.site_name],["Prüfbeginn",report.inspection_started_at.isoformat()],
+        ["Anlage",report.site_name],["Prüfbeginn",report_datetime_text(report.inspection_started_at)],
         ["Prüfer",report.inspector],["PV-Module geprüft",str(report.total_modules)],
         ["Module mit dokumentiertem Befund",str(report.conspicuous_modules)],["Manuelle Prüfung erforderlich",str(report.manual_review_modules)],
         ["Ohne dokumentierten Befund",str(report.modules_without_documented_finding)],
