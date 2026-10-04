@@ -592,3 +592,37 @@ def test_projects_return_forbidden_when_customer_authorization_fails() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_projects_return_service_unavailable_when_project_backend_fails() -> None:
+    endpoint = Endpoint()
+
+    class Projects:
+        def projects(self):
+            raise RuntimeError("project backend unavailable")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_service=Projects(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/projects",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 503
+            assert "online projects are not available" in exc.read().decode("utf-8")
+        else:
+            raise AssertionError("project backend failure must return 503")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
