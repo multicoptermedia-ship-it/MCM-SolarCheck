@@ -1182,9 +1182,12 @@ def test_project_processing_rejects_missing_session_before_processing() -> None:
             data=b"",
             method="POST",
         )
-        with pytest.raises(HTTPError) as error:
+        try:
             urlopen(req, timeout=2)
-        assert error.value.code == 401
+        except HTTPError as error:
+            assert error.code == 401
+        else:
+            raise AssertionError("missing session must return 401")
     finally:
         server.shutdown()
         server.server_close()
@@ -1214,9 +1217,12 @@ def test_project_processing_hides_foreign_project() -> None:
             headers={"Cookie": "solarcheck_session=opaque-session-token"},
             method="POST",
         )
-        with pytest.raises(HTTPError) as error:
+        try:
             urlopen(req, timeout=2)
-        assert error.value.code == 404
+        except HTTPError as error:
+            assert error.code == 404
+        else:
+            raise AssertionError("foreign project must return 404")
     finally:
         server.shutdown()
         server.server_close()
