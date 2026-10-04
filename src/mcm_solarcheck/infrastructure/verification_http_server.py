@@ -314,7 +314,7 @@ def verification_handler(
                 from mcm_solarcheck.services.project_pricing import ProjectPricingRequest
 
                 snapshot = project_pricing_service.price(
-                    ProjectPricingRequest(project_ids[0])
+                    ProjectPricingRequest(user_id, project_ids[0])
                 )
             except (PermissionError, RuntimeError, TypeError, ValueError):
                 self._respond(503, "online project price is not available")
