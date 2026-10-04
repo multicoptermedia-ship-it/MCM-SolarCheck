@@ -102,6 +102,7 @@ def build_online_persistence(
     database.parent.mkdir(parents=True, exist_ok=True)
     paths.reports_root.mkdir(parents=True, exist_ok=True)
     paths.invoices_root.mkdir(parents=True, exist_ok=True)
+    paths.uploads_root.mkdir(parents=True, exist_ok=True)
 
     projects = ProjectDatabase(database)
     projects.initialize()
