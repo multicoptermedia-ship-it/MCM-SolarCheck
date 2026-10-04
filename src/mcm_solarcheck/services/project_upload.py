@@ -63,6 +63,13 @@ class ProjectUploadService:
             raise ValueError("upload content type is not supported")
         if not request.content:
             raise ValueError("upload must not be empty")
+        if content_type == "image/jpeg" and not request.content.startswith(b"\xff\xd8\xff"):
+            raise ValueError("JPEG upload signature is invalid")
+        if content_type == "image/tiff" and not (
+            request.content.startswith(b"II*\x00")
+            or request.content.startswith(b"MM\x00*")
+        ):
+            raise ValueError("TIFF upload signature is invalid")
         if len(request.content) > self._max_upload_bytes:
             raise ValueError("upload is too large")
         if not self._project_belongs_to_customer(customer_id, project_id):
