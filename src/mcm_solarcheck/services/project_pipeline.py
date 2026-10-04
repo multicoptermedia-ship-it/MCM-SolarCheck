@@ -92,6 +92,25 @@ class ProjectApplicationService:
             project for project in self.projects() if project.project_id == project_id
         )
 
+    def create_project_with_profile(
+        self, project_id: str, name: str, profile: ProjectProfile
+    ) -> ProjectRecord:
+        """Atomically create a project together with validated master data."""
+        project_id = project_id.strip()
+        name = name.strip()
+        if not project_id:
+            raise ValueError("project_id must not be blank")
+        if not name:
+            raise ValueError("name must not be blank")
+        if not isinstance(profile, ProjectProfile):
+            raise TypeError("profile must be ProjectProfile")
+        if any(project.project_id == project_id for project in self.projects()):
+            raise ValueError(f"Project already exists: {project_id}")
+        self.database.create_project_with_profile(project_id, name, profile)
+        return next(
+            project for project in self.projects() if project.project_id == project_id
+        )
+
     def save_project_profile(self, project_id: str, profile: ProjectProfile) -> ProjectProfile:
         """Persist validated project master data through the application boundary."""
         if not isinstance(profile, ProjectProfile):

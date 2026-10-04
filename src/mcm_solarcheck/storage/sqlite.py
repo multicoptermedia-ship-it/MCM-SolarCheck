@@ -128,10 +128,18 @@ class ProjectDatabase:
             db.executescript(_SCHEMA);db.execute('INSERT INTO schema_info(version) VALUES (?)',(SCHEMA_VERSION,))
     def create_project(self,project_id:str,name:str)->None:
         with self.connect() as db:db.execute("INSERT INTO projects(project_id,name) VALUES (?,?) ON CONFLICT(project_id) DO UPDATE SET name=excluded.name",(project_id,name))
-    def save_project_profile(self,project_id,profile)->None:
+    @staticmethod
+    def _save_project_profile(db,project_id,profile)->None:
         cols=('project_id','customer_name','site_name','site_street','site_postal_code','site_city','inspector','customer_contact','customer_street','customer_postal_code','customer_city','customer_email','customer_phone','customer_reference','order_reference','site_timezone')
         values=(project_id,profile.customer_name,profile.site_name,profile.site_street,profile.site_postal_code,profile.site_city,profile.inspector,profile.customer_contact,profile.customer_street,profile.customer_postal_code,profile.customer_city,profile.customer_email,profile.customer_phone,profile.customer_reference,profile.order_reference,profile.site_timezone)
-        with self.connect() as db:db.execute(_upsert('project_profiles',cols,('project_id',)),values)
+        db.execute(_upsert('project_profiles',cols,('project_id',)),values)
+    def create_project_with_profile(self,project_id:str,name:str,profile)->None:
+        """Create project identity and master data in one SQLite transaction."""
+        with self.connect() as db:
+            db.execute("INSERT INTO projects(project_id,name) VALUES (?,?)",(project_id,name))
+            self._save_project_profile(db,project_id,profile)
+    def save_project_profile(self,project_id,profile)->None:
+        with self.connect() as db:self._save_project_profile(db,project_id,profile)
     def project_profile(self,project_id):
         from mcm_solarcheck.domain.project_profile import ProjectProfile
         with self.connect() as db:row=db.execute("SELECT * FROM project_profiles WHERE project_id=?",(project_id,)).fetchone()

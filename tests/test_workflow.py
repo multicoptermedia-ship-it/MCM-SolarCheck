@@ -551,3 +551,42 @@ def test_application_service_rejects_profile_for_unknown_project(tmp_path):
     )
     with pytest.raises(KeyError, match="Unknown project: missing"):
         service.save_project_profile("missing",profile)
+
+
+def test_application_service_creates_project_and_profile_atomically(tmp_path):
+    from mcm_solarcheck.domain.project_profile import ProjectProfile
+
+    database=ProjectDatabase(tmp_path/"atomic-project.sqlite")
+    database.initialize()
+    service=ProjectApplicationService(database)
+    profile=ProjectProfile(
+        "Customer","Site","Street 1","50667","Koeln","Inspector",
+        site_timezone="Europe/Berlin",
+    )
+
+    project=service.create_project_with_profile("P-ATOMIC","Atomic",profile)
+
+    assert project.project_id=="P-ATOMIC"
+    assert service.project_profile("P-ATOMIC")==profile
+
+
+def test_database_rolls_back_project_when_atomic_profile_write_fails(tmp_path):
+    from mcm_solarcheck.domain.project_profile import ProjectProfile
+
+    class BrokenProfileDatabase(ProjectDatabase):
+        @staticmethod
+        def _save_project_profile(db,project_id,profile):
+            raise RuntimeError("profile write failed")
+
+    database=BrokenProfileDatabase(tmp_path/"atomic-rollback.sqlite")
+    database.initialize()
+    service=ProjectApplicationService(database)
+    profile=ProjectProfile(
+        "Customer","Site","Street 1","50667","Koeln","Inspector",
+        site_timezone="Europe/Berlin",
+    )
+
+    with pytest.raises(RuntimeError,match="profile write failed"):
+        service.create_project_with_profile("P-ROLLBACK","Rollback",profile)
+
+    assert service.projects()==()
