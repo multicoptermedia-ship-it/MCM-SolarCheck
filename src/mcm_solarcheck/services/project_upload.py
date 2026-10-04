@@ -66,7 +66,13 @@ class ProjectUploadService:
 
         if not customer_id or not project_id:
             raise ValueError("customer and project are required")
-        if not filename or PurePath(filename).name != filename or filename in {".", ".."}:
+        if (
+            not filename
+            or PurePath(filename).name != filename
+            or "\\" in filename
+            or "\x00" in filename
+            or filename in {".", ".."}
+        ):
             raise ValueError("upload filename is invalid")
         if content_type not in ALLOWED_UPLOAD_TYPES:
             raise ValueError("upload content type is not supported")
