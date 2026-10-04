@@ -979,3 +979,133 @@ def test_project_creation_rejects_invalid_capacity_before_service_call() -> None
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_project_upload_uses_authenticated_customer_and_disables_caching() -> None:
+    endpoint = Endpoint()
+
+    class UploadResult:
+        filename = "thermal-001.jpg"
+        size_bytes = 10
+
+    class UploadService:
+        def __init__(self):
+            self.requests = []
+
+        def upload(self, upload_request):
+            self.requests.append(upload_request)
+            return UploadResult()
+
+    uploads = UploadService()
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_upload_service=uploads,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-upload",
+            data=b"image-data",
+            headers={
+                "Content-Type": "image/jpeg",
+                "Cookie": "solarcheck_session=opaque-session-token",
+                "X-SolarCheck-Project-Id": "P-1",
+                "X-SolarCheck-Filename": "thermal-001.jpg",
+            },
+            method="POST",
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            assert response.status == 201
+            assert response.headers["Cache-Control"] == "no-store"
+            assert "Upload gespeichert: thermal-001.jpg (10 Bytes)" in response.read().decode("utf-8")
+        assert uploads.requests[0].customer_id == "user-1"
+        assert uploads.requests[0].project_id == "P-1"
+        assert uploads.requests[0].content == b"image-data"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_project_upload_rejects_missing_session_before_upload_access() -> None:
+    endpoint = Endpoint()
+
+    class UploadService:
+        def upload(self, upload_request):
+            raise AssertionError("upload service must not be called")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_upload_service=UploadService(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-upload",
+            data=b"image-data",
+            headers={
+                "Content-Type": "image/jpeg",
+                "X-SolarCheck-Project-Id": "P-1",
+                "X-SolarCheck-Filename": "thermal-001.jpg",
+            },
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 401
+        else:
+            raise AssertionError("missing session must return 401")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_project_upload_hides_unavailable_project() -> None:
+    endpoint = Endpoint()
+
+    class UploadService:
+        def upload(self, upload_request):
+            raise PermissionError("project belongs to another customer")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_upload_service=UploadService(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-upload",
+            data=b"image-data",
+            headers={
+                "Content-Type": "image/jpeg",
+                "Cookie": "solarcheck_session=opaque-session-token",
+                "X-SolarCheck-Project-Id": "P-other",
+                "X-SolarCheck-Filename": "thermal-001.jpg",
+            },
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 404
+            assert "project is not available" in exc.read().decode("utf-8")
+        else:
+            raise AssertionError("unavailable project must return 404")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
