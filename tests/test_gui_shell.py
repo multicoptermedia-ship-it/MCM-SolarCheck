@@ -14,6 +14,7 @@ from mcm_solarcheck.services.shell_commands import ShellCommandId
 from mcm_solarcheck.services.shell_navigation import ShellRoute
 from mcm_solarcheck.services.workflow import ProjectWorkflowState, StageReadiness, WorkflowAction, WorkflowAttempt, WorkflowStage
 from mcm_solarcheck.storage.queries import ProjectRecord
+from mcm_solarcheck.domain.project_profile import ProjectProfile
 
 
 @pytest.fixture(scope="module")
@@ -1292,3 +1293,56 @@ def test_offline_entry_has_no_registration_or_email_verification_controls(
 
     assert window.findChild(QPushButton, "register_button") is None
     assert window.findChild(QPushButton, "email_verification_button") is None
+
+
+def test_shell_uses_atomic_creation_when_profile_is_supplied(app: QApplication) -> None:
+    state=ProjectWorkflowState(tuple(StageReadiness(stage,True) for stage in WorkflowStage))
+
+    class ProjectService:
+        def __init__(self):
+            self.records=[]
+            self.atomic_calls=[]
+        def projects(self):
+            return tuple(self.records)
+        def create_project(self,project_id,name):
+            raise AssertionError("legacy creation must not be used with a profile")
+        def create_project_with_profile(self,project_id,name,profile):
+            self.atomic_calls.append((project_id,name,profile))
+            record=ProjectRecord(project_id,name,"2026-10-04 09:00:00")
+            self.records.append(record)
+            return record
+        def open_project(self,project_id):
+            return state
+
+    profile=ProjectProfile(
+        "Customer","Site","Street 1","50667","Koeln","Inspector",
+        site_timezone="Europe/Berlin",
+    )
+    service=ProjectService()
+    window=SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP,project_service=service)
+
+    window._create_project("P-ATOMIC-GUI","Atomic GUI",profile)
+
+    assert service.atomic_calls==[("P-ATOMIC-GUI","Atomic GUI",profile)]
+    assert window.current_project_id=="P-ATOMIC-GUI"
+
+
+def test_failed_atomic_creation_does_not_refresh_or_open_project(app: QApplication) -> None:
+    class ProjectService:
+        def projects(self):
+            return ()
+        def create_project_with_profile(self,project_id,name,profile):
+            raise RuntimeError("atomic creation failed")
+
+    profile=ProjectProfile(
+        "Customer","Site","Street 1","50667","Koeln","Inspector",
+        site_timezone="Europe/Berlin",
+    )
+    window=SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP,project_service=ProjectService())
+    original_page=window._pages[ShellRoute.PROJECT]
+
+    with pytest.raises(RuntimeError,match="atomic creation failed"):
+        window._create_project("P-FAIL-ATOMIC","Failure",profile)
+
+    assert window._pages[ShellRoute.PROJECT] is original_page
+    assert window.current_project_id is None

@@ -154,9 +154,12 @@ class SolarCheckMainWindow(QMainWindow):
         """Persist a new project and its explicit master data before refreshing."""
         if self._project_service is None:
             return
-        project = self._project_service.create_project(project_id, name)
-        if profile is not None:
-            self._project_service.save_project_profile(project.project_id, profile)
+        if profile is None:
+            project = self._project_service.create_project(project_id, name)
+        else:
+            project = self._project_service.create_project_with_profile(
+                project_id, name, profile
+            )
         self._refresh_project_page()
         self._open_project(project.project_id)
 
