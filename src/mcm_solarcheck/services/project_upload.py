@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import PurePath
 from typing import Callable
 
@@ -33,6 +34,7 @@ class StoredProjectUpload:
     filename: str
     content_type: str
     size_bytes: int
+    sha256_hex: str
 
 
 class ProjectUploadService:
@@ -89,4 +91,5 @@ class ProjectUploadService:
             filename=filename,
             content_type=content_type,
             size_bytes=len(request.content),
+            sha256_hex=sha256(request.content).hexdigest(),
         )
