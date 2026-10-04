@@ -20,19 +20,19 @@ def import_result(*, imported=2, paired=1, failures=0):
     )
 
 
-def test_processing_resolves_customer_project_uploads_and_records_lifecycle() -> None:
+def test_processing_resolves_customer_project_uploads_and_records_lifecycle(tmp_path) -> None:
     states = []
     imported_directories = []
     service = ProjectProcessingService(
         lambda customer_id, project_id: (customer_id, project_id) == ("user-1", "P-1"),
-        lambda customer_id, project_id: Path("/stored/user-1/P-1"),
+        lambda customer_id, project_id: tmp_path,
         lambda directory: imported_directories.append(directory) or import_result(),
         lambda customer_id, project_id, state: states.append((customer_id, project_id, state)),
     )
 
     result = service.process(ProjectProcessingRequest("user-1", "P-1"))
 
-    assert imported_directories == [Path("/stored/user-1/P-1")]
+    assert imported_directories == [tmp_path]
     assert states == [
         ("user-1", "P-1", ProjectProcessingState.RUNNING),
         ("user-1", "P-1", ProjectProcessingState.COMPLETED),
@@ -60,7 +60,7 @@ def test_processing_rejects_foreign_project_before_resolving_uploads() -> None:
     assert states == []
 
 
-def test_processing_records_failed_state_when_import_raises() -> None:
+def test_processing_records_failed_state_when_import_raises(tmp_path) -> None:
     states = []
 
     def fail_import(directory):
@@ -68,7 +68,7 @@ def test_processing_records_failed_state_when_import_raises() -> None:
 
     service = ProjectProcessingService(
         lambda customer_id, project_id: True,
-        lambda customer_id, project_id: Path("/stored/user-1/P-1"),
+        lambda customer_id, project_id: tmp_path,
         fail_import,
         lambda customer_id, project_id, state: states.append(state),
     )
@@ -99,3 +99,21 @@ def test_processing_rejects_invalid_identity_before_dependencies(customer_id, pr
         service.process(ProjectProcessingRequest(customer_id, project_id))
 
     assert called == []
+
+
+def test_processing_rejects_missing_upload_directory_before_state_change(tmp_path) -> None:
+    states = []
+    imported = []
+    missing = tmp_path / "missing"
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: missing,
+        lambda directory: imported.append(directory) or import_result(),
+        lambda customer_id, project_id, state: states.append(state),
+    )
+
+    with pytest.raises(ValueError):
+        service.process(ProjectProcessingRequest("user-1", "P-1"))
+
+    assert imported == []
+    assert states == []
