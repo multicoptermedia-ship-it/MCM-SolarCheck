@@ -26,19 +26,28 @@ class OnlinePrivatePaths:
     reports_root: Path
     invoices_root: Path
     web_root: Path | None = None
+    uploads_root: Path | None = None
 
     def __post_init__(self) -> None:
         database = _resolved(self.state_database)
         reports = _resolved(self.reports_root)
         invoices = _resolved(self.invoices_root)
         web = _resolved(self.web_root) if self.web_root is not None else None
+        uploads = (
+            _resolved(self.uploads_root)
+            if self.uploads_root is not None
+            else reports.parent / "uploads"
+        )
 
-        if reports == invoices or _is_within(reports, invoices) or _is_within(invoices, reports):
-            raise ValueError("report and invoice storage must be separate directories")
-        if database == reports or database == invoices:
-            raise ValueError("state database must not be a document directory")
+        private_roots = (reports, invoices, uploads)
+        for index, root in enumerate(private_roots):
+            for other in private_roots[index + 1 :]:
+                if root == other or _is_within(root, other) or _is_within(other, root):
+                    raise ValueError("private storage roots must be separate directories")
+        if any(database == root or _is_within(database, root) for root in private_roots):
+            raise ValueError("state database must not be inside a private document directory")
         if web is not None:
-            for private_path in (database, reports, invoices):
+            for private_path in (database, *private_roots):
                 if private_path == web or _is_within(private_path, web):
                     raise ValueError("private SolarCheck storage must be outside web root")
 
@@ -46,3 +55,4 @@ class OnlinePrivatePaths:
         object.__setattr__(self, "reports_root", reports)
         object.__setattr__(self, "invoices_root", invoices)
         object.__setattr__(self, "web_root", web)
+        object.__setattr__(self, "uploads_root", uploads)
