@@ -387,3 +387,36 @@ def test_report_converts_utc_time_for_non_german_project(tmp_path):
         db,"P1","R-TZ",datetime(2026,7,15,12,tzinfo=timezone.utc)
     )
     assert report.inspection_started_at.isoformat()=="2026-07-15T08:00:00-04:00"
+
+
+def test_draft_report_preserves_unknown_project_timezone_without_guessing(tmp_path):
+    db=ProjectDatabase(tmp_path/"timezone-unknown-draft.sqlite")
+    db.initialize()
+    db.create_project("P1","Inspection")
+    db.save_project_profile(
+        "P1",
+        ProjectProfile("Customer","Site","Street 1","12345","Town","Inspector"),
+    )
+
+    report=assemble_inspection_report(
+        db,"P1","D-TZ",datetime(2026,7,15,12,tzinfo=timezone.utc)
+    )
+
+    assert report.release_status=="draft"
+    assert report.inspection_started_at.isoformat()=="2026-07-15T12:00:00+00:00"
+
+
+def test_released_report_requires_explicit_project_timezone(tmp_path):
+    db=ProjectDatabase(tmp_path/"timezone-unknown-release.sqlite")
+    db.initialize()
+    db.create_project("P1","Inspection")
+    db.save_project_profile(
+        "P1",
+        ProjectProfile("Customer","Site","Street 1","12345","Town","Inspector"),
+    )
+
+    with pytest.raises(ValueError,match="explicit project site timezone"):
+        assemble_inspection_report(
+            db,"P1","R-TZ",datetime(2026,7,15,12,tzinfo=timezone.utc),
+            release_status="released",
+        )

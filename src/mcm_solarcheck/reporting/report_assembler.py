@@ -67,6 +67,8 @@ def assemble_inspection_report(database, project_id: str, report_id: str, inspec
     unresolved_unclear=sum(1 for item in unclear if item.module_id is None or not item.module_id.strip())
     if release_status=="released" and (data.summary.unreviewed_findings or unresolved or unresolved_unclear):
         raise ValueError("released report requires reviewed findings and resolved physical modules")
+    if release_status=="released" and profile.site_timezone is None:
+        raise ValueError("released report requires explicit project site timezone")
     if profile.site_timezone is not None:
         inspection_started_at = inspection_started_at.astimezone(ZoneInfo(profile.site_timezone))
     return InspectionReport(
