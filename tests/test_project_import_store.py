@@ -59,7 +59,7 @@ def test_store_project_import_rejects_missing_identity(customer_id, project_id) 
     assert database.saved == []
 
 
-def test_store_project_import_heartbeats_after_each_saved_frame() -> None:
+def test_store_project_import_heartbeats_before_each_saved_frame() -> None:
     database = RecordingDatabase()
     heartbeats = []
 
@@ -72,7 +72,7 @@ def test_store_project_import_heartbeats_after_each_saved_frame() -> None:
     )
 
     assert summary.frames_saved == 2
-    assert heartbeats == [1, 2]
+    assert heartbeats == [0, 1]
 
 
 def test_store_project_import_propagates_heartbeat_failure() -> None:
@@ -90,4 +90,4 @@ def test_store_project_import_propagates_heartbeat_failure() -> None:
             heartbeat=fail_heartbeat,
         )
 
-    assert len(database.saved) == 1
+    assert database.saved == []
