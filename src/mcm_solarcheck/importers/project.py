@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from mcm_solarcheck.domain.models import ImageFrame, ImagePair
 from mcm_solarcheck.pairing.rgb_thermal import pair_rgb_thermal_frames
@@ -35,13 +36,15 @@ def import_m3t_project(
     minimum_pair_confidence: float = 0.70,
     candidate_percentile: float = 99.9,
     candidate_limit: int = 100,
+    heartbeat: Callable[[], None] | None = None,
 ) -> ProjectImportResult:
     """Import visible and thermal M3T imagery and pair matching frames."""
     root = Path(directory)
-    rgb = (rgb_importer or M3TRGBImporter()).import_directory(root)
+    rgb = (rgb_importer or M3TRGBImporter()).import_directory(root, heartbeat=heartbeat)
     thermal = import_m3t_directory(
         root, importer=thermal_importer,
         candidate_percentile=candidate_percentile, candidate_limit=candidate_limit,
+        heartbeat=heartbeat,
     )
     thermal_frames = tuple(result.frame for result in thermal.results)
     pairs = pair_rgb_thermal_frames(rgb, thermal_frames, minimum_confidence=minimum_pair_confidence)
