@@ -9,6 +9,7 @@ from mcm_solarcheck.infrastructure.online_private_paths import OnlinePrivatePath
 from mcm_solarcheck.infrastructure.smtp_email import SMTPConfig, SMTPSecurity
 from mcm_solarcheck.services.invoice_creation import InvoiceRenderConfig
 from mcm_solarcheck.services.online_composition import build_online_services
+from mcm_solarcheck.services.project_processing import ProjectProcessingState
 from mcm_solarcheck.services.payment_methods import PaymentMethod
 from mcm_solarcheck.services.payment_provider import PaymentProviderCapabilities, PaymentProviderRegistry
 
