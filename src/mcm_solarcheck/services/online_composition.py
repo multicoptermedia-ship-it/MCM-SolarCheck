@@ -312,8 +312,7 @@ def build_online_services(
             persistence.projects.project_belongs_to_customer,
             persistence.uploads.project_directory,
             import_m3t_project,
-            lambda customer_id, project_id, state: None,
-            lambda customer_id, project_id, imported: store_project_import(
+            persist_import=lambda customer_id, project_id, imported: store_project_import(
                 persistence.projects, customer_id, project_id, imported
             ),
             record_state_for_request=lambda request: ComputeJobProcessingStateRecorder(
