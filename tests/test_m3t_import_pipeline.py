@@ -89,3 +89,26 @@ def test_batch_does_not_swallow_heartbeat_failure(tmp_path):
 
     assert heartbeats == [True]
 
+
+
+def test_project_import_forwards_same_heartbeat_to_rgb_and_thermal(monkeypatch, tmp_path):
+    import mcm_solarcheck.importers.project as module
+
+    seen = []
+    heartbeat = lambda: None
+
+    class RGB:
+        def import_directory(self, directory, *, heartbeat=None):
+            seen.append(("rgb", heartbeat))
+            return ()
+
+    def fake_thermal(directory, **kwargs):
+        seen.append(("thermal", kwargs["heartbeat"]))
+        return type("Batch", (), {"results": (), "failures": ()})()
+
+    monkeypatch.setattr(module, "import_m3t_directory", fake_thermal)
+    monkeypatch.setattr(module, "pair_rgb_thermal_frames", lambda rgb, thermal, **kwargs: ())
+
+    module.import_m3t_project(tmp_path, rgb_importer=RGB(), heartbeat=heartbeat)
+
+    assert seen == [("rgb", heartbeat), ("thermal", heartbeat)]
