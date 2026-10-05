@@ -11,6 +11,10 @@ from mcm_solarcheck.importers.project import ProjectImportResult
 from mcm_solarcheck.services.compute_jobs import ComputeJobStatus
 
 
+class ProjectProcessingConflict(RuntimeError):
+    """The requested project processing is already owned by another worker."""
+
+
 class ProjectProcessingState(str, Enum):
     READY = "ready"
     RUNNING = "running"
@@ -69,7 +73,14 @@ class ComputeJobProcessingStateRecorder:
             if job.status is not ComputeJobStatus.RUNNING:
                 raise ValueError("compute job must be running before project processing")
             if self._worker_id is not None:
-                self._jobs.claim(self._job_id, worker_id=self._worker_id)
+                try:
+                    self._jobs.claim(self._job_id, worker_id=self._worker_id)
+                except RuntimeError as exc:
+                    if "already claimed by another worker" in str(exc):
+                        raise ProjectProcessingConflict(
+                            "project processing is already running"
+                        ) from exc
+                    raise
             return
         if state in (ProjectProcessingState.COMPLETED, ProjectProcessingState.FAILED):
             if self._worker_id is not None:
