@@ -112,3 +112,27 @@ def test_store_project_import_does_not_heartbeat_empty_batch() -> None:
     assert summary.import_failures == 1
     assert database.saved == []
     assert heartbeats == []
+
+
+def test_store_project_import_stops_before_second_write_when_lease_is_lost() -> None:
+    database = RecordingDatabase()
+    calls = []
+
+    def heartbeat():
+        calls.append(len(database.saved))
+        if len(calls) == 2:
+            raise PermissionError("worker lease expired")
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        store_project_import(
+            database,
+            "user-1",
+            "P-1",
+            imported_result(),
+            heartbeat=heartbeat,
+        )
+
+    assert calls == [0, 1]
+    assert database.saved == [
+        ("P-1", "frame-1", "quality-1", ("finding-1", "finding-2")),
+    ]
