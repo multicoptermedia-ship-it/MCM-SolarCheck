@@ -134,16 +134,22 @@ def verification_handler(
                 self._respond(403, "online customer entry is not available")
                 return
 
-            project_ids = parse_qs(parsed.query).get("project_id", [])
+            query = parse_qs(parsed.query)
+            project_ids = query.get("project_id", [])
+            job_ids = query.get("job_id", [])
             if len(project_ids) != 1 or not project_ids[0].strip():
                 self._respond(400, "project id is invalid")
                 return
+            if len(job_ids) != 1 or not job_ids[0].strip():
+                self._respond(400, "job id is invalid")
+                return
             project_id = project_ids[0].strip()
+            job_id = job_ids[0].strip()
             try:
                 from mcm_solarcheck.services.project_processing import ProjectProcessingRequest
 
                 result = project_processing_service.process(
-                    ProjectProcessingRequest(user_id, project_id)
+                    ProjectProcessingRequest(user_id, project_id, job_id)
                 )
             except PermissionError:
                 self._respond(404, "project is not available")
