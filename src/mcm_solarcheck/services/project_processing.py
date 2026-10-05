@@ -50,7 +50,14 @@ class _CallableStateRecorder:
         return None
 
 
-def _state_recorder(state_sink: ProjectProcessingStateSink) -> ProjectProcessingStateRecorder:\n    """Return a heartbeat-capable recorder for either supported state sink."""\n    if callable(getattr(state_sink, "heartbeat", None)):\n        return state_sink  # type: ignore[return-value]\n    return _CallableStateRecorder(state_sink)\n\n\nclass ProjectProcessingConflict(RuntimeError):
+def _state_recorder(state_sink: ProjectProcessingStateSink) -> ProjectProcessingStateRecorder:
+    """Return a heartbeat-capable recorder for either supported state sink."""
+    if callable(getattr(state_sink, "heartbeat", None)):
+        return state_sink  # type: ignore[return-value]
+    return _CallableStateRecorder(state_sink)
+
+
+class ProjectProcessingConflict(RuntimeError):
     """The requested project processing is already owned by another worker."""
 
 
@@ -190,9 +197,7 @@ class ProjectProcessingService:
         self._upload_directory_for_project = upload_directory_for_project
         self._import_project = import_project
         self._record_state = (
-            record_state
-            if record_state is None or callable(getattr(record_state, "heartbeat", None))
-            else _CallableStateRecorder(record_state)
+            _state_recorder(record_state) if record_state is not None else None
         )
         self._persist_import = persist_import or (lambda customer_id, project_id, imported: None)
         self._record_state_for_request = record_state_for_request
@@ -212,8 +217,8 @@ class ProjectProcessingService:
             if self._record_state_for_request is not None
             else self._record_state
         )
-        if record_state is not None and not callable(getattr(record_state, "heartbeat", None)):
-            record_state = _CallableStateRecorder(record_state)
+        if record_state is not None:
+            record_state = _state_recorder(record_state)
         if record_state is None:
             raise RuntimeError("project processing state recorder is not configured")
         directory = Path(self._upload_directory_for_project(customer_id, project_id))
@@ -226,7 +231,7 @@ class ProjectProcessingService:
                 imported = self._import_project_with_heartbeat(directory, heartbeat)
             else:
                 imported = self._import_project(directory)
-            if self._persist_import_with_heartbeat is not None and callable(heartbeat):
+            if self._persist_import_with_heartbeat is not None:
                 self._persist_import_with_heartbeat(customer_id, project_id, imported, heartbeat)
             else:
                 self._persist_import(customer_id, project_id, imported)
