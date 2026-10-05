@@ -279,3 +279,29 @@ def test_compute_job_processing_recorder_rejects_non_running_job(status) -> None
         recorder("user-1", "P-1", ProjectProcessingState.RUNNING)
 
     assert jobs.transitions == []
+
+
+def test_processing_does_not_report_success_when_completed_state_recording_fails(tmp_path) -> None:
+    events = []
+
+    def record_state(customer_id, project_id, state):
+        events.append(state)
+        if state is ProjectProcessingState.COMPLETED:
+            raise RuntimeError("completion transition failed")
+
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: import_result(),
+        record_state,
+        lambda customer_id, project_id, imported: events.append("persisted"),
+    )
+
+    with pytest.raises(RuntimeError, match="completion transition failed"):
+        service.process(ProjectProcessingRequest("user-1", "P-1"))
+
+    assert events == [
+        ProjectProcessingState.RUNNING,
+        "persisted",
+        ProjectProcessingState.COMPLETED,
+    ]
