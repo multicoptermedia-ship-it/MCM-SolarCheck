@@ -86,12 +86,14 @@ class ProjectProcessingService:
         import_project: Callable[[str | Path], ProjectImportResult],
         record_state: Callable[[str, str, ProjectProcessingState], None],
         persist_import: Callable[[str, str, ProjectImportResult], None] | None = None,
+        record_state_for_request: Callable[[ProjectProcessingRequest], Callable[[str, str, ProjectProcessingState], None]] | None = None,
     ) -> None:
         self._project_belongs_to_customer = project_belongs_to_customer
         self._upload_directory_for_project = upload_directory_for_project
         self._import_project = import_project
         self._record_state = record_state
         self._persist_import = persist_import or (lambda customer_id, project_id, imported: None)
+        self._record_state_for_request = record_state_for_request
 
     def process(self, request: ProjectProcessingRequest) -> ProjectProcessingResult:
         customer_id = request.customer_id.strip()
@@ -101,18 +103,23 @@ class ProjectProcessingService:
         if not self._project_belongs_to_customer(customer_id, project_id):
             raise PermissionError("project is not available to customer")
 
+        record_state = (
+            self._record_state_for_request(request)
+            if self._record_state_for_request is not None
+            else self._record_state
+        )
         directory = Path(self._upload_directory_for_project(customer_id, project_id))
         if not directory.is_dir():
             raise ValueError("project upload directory is not available")
-        self._record_state(customer_id, project_id, ProjectProcessingState.RUNNING)
+        record_state(customer_id, project_id, ProjectProcessingState.RUNNING)
         try:
             imported = self._import_project(directory)
             self._persist_import(customer_id, project_id, imported)
         except Exception:
-            self._record_state(customer_id, project_id, ProjectProcessingState.FAILED)
+            record_state(customer_id, project_id, ProjectProcessingState.FAILED)
             raise
 
-        self._record_state(customer_id, project_id, ProjectProcessingState.COMPLETED)
+        record_state(customer_id, project_id, ProjectProcessingState.COMPLETED)
         return ProjectProcessingResult(
             customer_id=customer_id,
             project_id=project_id,
