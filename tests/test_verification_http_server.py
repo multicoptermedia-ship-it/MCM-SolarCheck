@@ -499,7 +499,7 @@ def test_projects_require_session_and_customer_authorization() -> None:
         name = "Online Project"
 
     class Projects:
-        def projects(self):
+        def projects_for_customer(self, user_id):
             return (Project(),)
 
     server = build_verification_server(
@@ -527,11 +527,48 @@ def test_projects_require_session_and_customer_authorization() -> None:
         thread.join(timeout=2)
 
 
+def test_projects_only_request_authenticated_customer_projects() -> None:
+    endpoint = Endpoint()
+    requested = []
+
+    class Project:
+        project_id = "P-OWNED"
+        name = "Owned Project"
+
+    class Projects:
+        def projects_for_customer(self, user_id):
+            requested.append(user_id)
+            return (Project(),)
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_service=Projects(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/projects",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        with closing(urlopen(req, timeout=2)) as response:
+            assert response.status == 200
+            assert "P-OWNED: Owned Project" in response.read().decode("utf-8")
+        assert requested == ["user-1"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
 def test_projects_reject_missing_session_before_project_access() -> None:
     endpoint = Endpoint()
 
     class Projects:
-        def projects(self):
+        def projects_for_customer(self, user_id):
             raise AssertionError("projects must not be read without a valid session")
 
     server = build_verification_server(
@@ -560,7 +597,7 @@ def test_projects_return_forbidden_when_customer_authorization_fails() -> None:
     endpoint = Endpoint()
 
     class Projects:
-        def projects(self):
+        def projects_for_customer(self, user_id):
             raise AssertionError("projects must not be read without customer authorization")
 
     def reject(user_id):
@@ -598,7 +635,7 @@ def test_projects_return_service_unavailable_when_project_backend_fails() -> Non
     endpoint = Endpoint()
 
     class Projects:
-        def projects(self):
+        def projects_for_customer(self, user_id):
             raise RuntimeError("project backend unavailable")
 
     server = build_verification_server(
@@ -635,7 +672,7 @@ def test_projects_return_service_unavailable_for_invalid_project_data() -> None:
         project_id = "P-1"
 
     class Projects:
-        def projects(self):
+        def projects_for_customer(self, user_id):
             return (InvalidProject(),)
 
     server = build_verification_server(
@@ -673,7 +710,7 @@ def test_projects_disable_caching_for_authorized_response() -> None:
         name = "Private Project"
 
     class Projects:
-        def projects(self):
+        def projects_for_customer(self, user_id):
             return (Project(),)
 
     server = build_verification_server(
