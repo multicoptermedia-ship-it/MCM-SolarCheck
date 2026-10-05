@@ -73,12 +73,12 @@ def pair_rgb_thermal_frames(
     """Greedily select unique high-confidence RGB/Thermal pairs."""
     candidates = []
     for rgb in rgb_frames:
+        if heartbeat is not None:
+            heartbeat()
         for thermal in thermal_frames:
             confidence, method, distance, dt = pair_score(rgb, thermal)
             if confidence >= minimum_confidence:
                 candidates.append((confidence, rgb.frame_id, thermal.frame_id, method, distance, dt))
-        if heartbeat is not None:
-            heartbeat()
     candidates.sort(key=lambda item: (-item[0], item[1], item[2]))
 
     used_rgb: set[str] = set()
