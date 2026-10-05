@@ -327,3 +327,40 @@ def test_processing_preserves_import_error_when_failed_state_recording_fails(tmp
 
     assert isinstance(error.value.__cause__, OSError)
     assert str(error.value.__cause__) == "failed transition unavailable"
+
+
+def test_processing_recorder_rejects_second_worker_for_claimed_job(tmp_path) -> None:
+    from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
+    from mcm_solarcheck.services.compute_jobs import (
+        ComputeCapacity,
+        ComputeJobService,
+    )
+
+    store = SQLiteComputeJobStore(tmp_path / "jobs.sqlite")
+    jobs = ComputeJobService(store, load=store, admission=store, claims=store)
+    jobs.create(job_id="job-1", user_id="user-1", project_id="P-1")
+    jobs.start(
+        "job-1",
+        user_id="user-1",
+        project_id="P-1",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+    first = ComputeJobProcessingStateRecorder(
+        jobs,
+        job_id="job-1",
+        customer_id="user-1",
+        project_id="P-1",
+        worker_id="worker-a",
+    )
+    second = ComputeJobProcessingStateRecorder(
+        jobs,
+        job_id="job-1",
+        customer_id="user-1",
+        project_id="P-1",
+        worker_id="worker-b",
+    )
+
+    first("user-1", "P-1", ProjectProcessingState.RUNNING)
+
+    with pytest.raises(RuntimeError, match="already claimed"):
+        second("user-1", "P-1", ProjectProcessingState.RUNNING)
