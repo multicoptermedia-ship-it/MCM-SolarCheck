@@ -140,3 +140,21 @@ def test_negative_tier_price_is_rejected() -> None:
             version="2026-10-test",
             tiers=(PriceTier(None, Decimal("-0.01")),),
         )
+
+
+def test_configured_discount_requires_positive_cap() -> None:
+    with pytest.raises(ValueError, match="positive maximum discount"):
+        PricingRule(
+            version="2026-10-test",
+            tiers=(PriceTier(None, Decimal("300")),),
+            planner_discount_rate=Decimal("0.10"),
+        )
+
+
+def test_zero_discount_cap_is_valid_without_configured_discounts() -> None:
+    pricing = PricingRule(
+        version="2026-10-test",
+        tiers=(PriceTier(None, Decimal("300")),),
+    )
+
+    assert pricing.price(Decimal("10")).net_total == Decimal("300.00")
