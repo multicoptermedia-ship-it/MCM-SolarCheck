@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Callable
@@ -51,6 +52,7 @@ class ComputeJobProcessingStateRecorder:
         project_id: str,
         worker_id: str | None = None,
         lease: ComputeJobLease | None = None,
+        now: Callable[[], datetime] | None = None,
     ) -> None:
         self._jobs = jobs
         self._job_id = job_id.strip()
@@ -58,6 +60,7 @@ class ComputeJobProcessingStateRecorder:
         self._project_id = project_id.strip()
         self._worker_id = worker_id.strip() if worker_id is not None else None
         self._lease = lease
+        self._now = now
         if worker_id is not None and not self._worker_id:
             raise ValueError("worker_id must be a non-empty string")
         if not self._job_id or not self._customer_id or not self._project_id:
@@ -102,6 +105,7 @@ class ComputeJobProcessingStateRecorder:
                     self._job_id,
                     worker_id=self._worker_id,
                     succeeded=state is ProjectProcessingState.COMPLETED,
+                    now=self._now() if self._lease is not None and self._now is not None else None,
                 )
                 return
             self._jobs.transition(
