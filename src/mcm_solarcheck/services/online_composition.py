@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import uuid4
 
 from mcm_solarcheck.infrastructure.online_persistence import OnlinePersistence
 from mcm_solarcheck.domain.pricing import PricingRule
@@ -320,6 +321,7 @@ def build_online_services(
                 job_id=request.job_id or "",
                 customer_id=request.customer_id,
                 project_id=request.project_id,
+                worker_id=f"project-processing-{uuid4().hex}",
             ),
         ),
         project_creation=ProjectCreationService(
