@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from .m3t import M3TImportResult, M3TImporter
 
@@ -39,6 +40,7 @@ def import_m3t_directory(
     importer: M3TImporter | None = None,
     candidate_percentile: float = 99.9,
     candidate_limit: int = 100,
+    heartbeat: Callable[[], None] | None = None,
 ) -> M3TBatchResult:
     """Import all DJI ``*_T.JPG`` files in deterministic filename order."""
     root = Path(directory)
@@ -58,6 +60,8 @@ def import_m3t_directory(
             )
         except Exception as exc:  # batch boundary: preserve remaining evidence
             failures.append(M3TBatchFailure(path, type(exc).__name__, str(exc)))
+        if heartbeat is not None:
+            heartbeat()
 
     grades = [result.quality.grade.value for result in results]
     summary = M3TBatchSummary(
