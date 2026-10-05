@@ -738,3 +738,29 @@ def test_processing_adapts_constructor_callback_for_heartbeat_import(tmp_path) -
     assert result.state is ProjectProcessingState.COMPLETED
     assert heartbeat_calls == [None]
     assert states == [ProjectProcessingState.RUNNING, ProjectProcessingState.COMPLETED]
+
+
+def test_processing_adapts_request_callback_for_heartbeat_persistence(tmp_path) -> None:
+    states = []
+    persisted = []
+
+    def persist(customer_id, project_id, imported, heartbeat):
+        assert heartbeat() is None
+        persisted.append((customer_id, project_id, imported))
+
+    imported = import_result()
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: imported,
+        record_state_for_request=lambda request: (
+            lambda customer_id, project_id, state: states.append(state)
+        ),
+        persist_import_with_heartbeat=persist,
+    )
+
+    result = service.process(ProjectProcessingRequest("user-1", "P-1", "job-1"))
+
+    assert result.state is ProjectProcessingState.COMPLETED
+    assert persisted == [("user-1", "P-1", imported)]
+    assert states == [ProjectProcessingState.RUNNING, ProjectProcessingState.COMPLETED]
