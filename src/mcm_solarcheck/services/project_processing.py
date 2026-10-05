@@ -185,7 +185,11 @@ class ProjectProcessingService:
         self._project_belongs_to_customer = project_belongs_to_customer
         self._upload_directory_for_project = upload_directory_for_project
         self._import_project = import_project
-        self._record_state = (\n            record_state\n            if record_state is None or callable(getattr(record_state, "heartbeat", None))\n            else _CallableStateRecorder(record_state)\n        )
+        self._record_state = (
+            record_state
+            if record_state is None or callable(getattr(record_state, "heartbeat", None))
+            else _CallableStateRecorder(record_state)
+        )
         self._persist_import = persist_import or (lambda customer_id, project_id, imported: None)
         self._record_state_for_request = record_state_for_request
         self._import_project_with_heartbeat = import_project_with_heartbeat
