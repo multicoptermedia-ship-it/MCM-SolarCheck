@@ -174,3 +174,15 @@ def test_repeat_discount_is_five_percent_when_verified() -> None:
     assert snapshot.repeat_discount_rate == Decimal("0.05")
     assert snapshot.discount_rate == Decimal("0.05")
     assert snapshot.discount_amount == Decimal("25.00")
+
+
+def test_combined_verified_discounts_use_configured_twelve_percent_cap() -> None:
+    snapshot = rule().price(
+        Decimal("50"),
+        planner_verified=True,
+        repeat_verified=True,
+    )
+
+    assert snapshot.planner_discount_rate + snapshot.repeat_discount_rate == Decimal("0.15")
+    assert snapshot.maximum_discount_rate == Decimal("0.12")
+    assert snapshot.discount_rate == Decimal("0.12")
