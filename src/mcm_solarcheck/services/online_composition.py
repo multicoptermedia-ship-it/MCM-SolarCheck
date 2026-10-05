@@ -329,6 +329,11 @@ def build_online_services(
                     if project_processing_lease is not None
                     else None
                 ),
+                now=(
+                    (lambda: project_processing_lease().now)
+                    if project_processing_lease is not None
+                    else None
+                ),
             ),
         ),
         project_creation=ProjectCreationService(
