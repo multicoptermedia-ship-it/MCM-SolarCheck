@@ -1240,3 +1240,38 @@ def test_composed_online_processing_requires_bound_compute_job(tmp_path) -> None
         services.project_processing.process(
             ProjectProcessingRequest("user-a", "P-BOUND", "missing-job")
         )
+
+
+def test_composed_online_processing_marks_started_job_failed_on_import_error(tmp_path) -> None:
+    from decimal import Decimal
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    from mcm_solarcheck.services.project_creation import CreateProjectRequest
+    from mcm_solarcheck.services.project_processing import ProjectProcessingRequest
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-a")
+    services = online_services(persistence)
+    services.project_creation.create(
+        CreateProjectRequest("user-a", "P-FAIL", "Failing Processing", Decimal("42.5"))
+    )
+    persistence.uploads.project_directory("user-a", "P-FAIL").mkdir(
+        parents=True, exist_ok=True
+    )
+    services.compute_jobs.create(
+        job_id="job-fail",
+        user_id="user-a",
+        project_id="P-FAIL",
+    )
+    services.compute_jobs.start(
+        "job-fail",
+        user_id="user-a",
+        project_id="P-FAIL",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+
+    with pytest.raises(Exception):
+        services.project_processing.process(
+            ProjectProcessingRequest("user-a", "P-FAIL", "job-fail")
+        )
+
+    assert persistence.compute_jobs.get("job-fail").status is ComputeJobStatus.FAILED
