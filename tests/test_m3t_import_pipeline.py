@@ -140,3 +140,30 @@ def test_project_import_forwards_same_heartbeat_to_rgb_and_thermal(monkeypatch, 
         ("thermal", heartbeat),
         ("pairing", heartbeat),
     ]
+
+
+def test_thermal_import_stops_before_second_file_when_lease_is_lost(tmp_path):
+    for number in (1, 2):
+        (tmp_path / f"DJI_20250825_{number:04d}_T.JPG").write_bytes(b"fake")
+    imported = []
+    heartbeats = []
+
+    class RecordingImporter(M3TImporter):
+        def import_file(self, path, **kwargs):
+            imported.append(Path(path).name)
+            raise ValueError("fixture failure")
+
+    def heartbeat():
+        heartbeats.append(True)
+        if len(heartbeats) == 2:
+            raise PermissionError("worker lease expired")
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        import_m3t_directory(
+            tmp_path,
+            importer=RecordingImporter(FakeParser()),
+            heartbeat=heartbeat,
+        )
+
+    assert len(heartbeats) == 2
+    assert imported == ["DJI_20250825_0001_T.JPG"]
