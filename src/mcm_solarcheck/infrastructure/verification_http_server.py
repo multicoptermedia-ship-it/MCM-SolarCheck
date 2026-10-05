@@ -154,6 +154,12 @@ def verification_handler(
             except PermissionError:
                 self._respond(404, "project is not available")
                 return
+            except __import__(
+                "mcm_solarcheck.services.project_processing",
+                fromlist=["ProjectProcessingConflict"],
+            ).ProjectProcessingConflict:
+                self._respond(409, "project processing is already running")
+                return
             except ValueError:
                 self._respond(400, "project processing request is invalid")
                 return
