@@ -247,3 +247,35 @@ def test_processing_import_failure_transitions_bound_compute_job_to_failed(tmp_p
         service.process(ProjectProcessingRequest("user-1", "P-1", "job-1"))
 
     assert jobs.job.status is ComputeJobStatus.FAILED
+
+
+@pytest.mark.parametrize(
+    "status",
+    (
+        __import__("mcm_solarcheck.services.compute_jobs", fromlist=["ComputeJobStatus"]).ComputeJobStatus.QUEUED,
+        __import__("mcm_solarcheck.services.compute_jobs", fromlist=["ComputeJobStatus"]).ComputeJobStatus.COMPLETED,
+        __import__("mcm_solarcheck.services.compute_jobs", fromlist=["ComputeJobStatus"]).ComputeJobStatus.FAILED,
+    ),
+)
+def test_compute_job_processing_recorder_rejects_non_running_job(status) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJob
+
+    class Jobs:
+        def __init__(self):
+            self.transitions = []
+
+        def get(self, job_id, *, user_id, project_id):
+            return ComputeJob(job_id, user_id, project_id, status)
+
+        def transition(self, job_id, next_status, *, user_id, project_id):
+            self.transitions.append((job_id, next_status, user_id, project_id))
+
+    jobs = Jobs()
+    recorder = ComputeJobProcessingStateRecorder(
+        jobs, job_id="job-1", customer_id="user-1", project_id="P-1"
+    )
+
+    with pytest.raises(ValueError, match="must be running"):
+        recorder("user-1", "P-1", ProjectProcessingState.RUNNING)
+
+    assert jobs.transitions == []
