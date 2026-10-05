@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from threading import Thread
