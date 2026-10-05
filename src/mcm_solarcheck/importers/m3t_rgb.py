@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 import re
 
 from mcm_solarcheck.domain.models import ImageFrame
@@ -61,5 +62,15 @@ class M3TRGBImporter:
             flight_pose=xmp.flight_pose, rtk=xmp.rtk, metadata=dict(xmp.raw),
         )
 
-    def import_directory(self, directory: str | Path) -> tuple[ImageFrame, ...]:
-        return tuple(self.import_file(path) for path in sorted(Path(directory).glob("*_V.JPG")))
+    def import_directory(
+        self,
+        directory: str | Path,
+        *,
+        heartbeat: Callable[[], None] | None = None,
+    ) -> tuple[ImageFrame, ...]:
+        frames: list[ImageFrame] = []
+        for path in sorted(Path(directory).glob("*_V.JPG")):
+            frames.append(self.import_file(path))
+            if heartbeat is not None:
+                heartbeat()
+        return tuple(frames)
