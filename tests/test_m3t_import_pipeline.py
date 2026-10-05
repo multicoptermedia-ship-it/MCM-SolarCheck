@@ -4,6 +4,7 @@ from pathlib import Path
 from mcm_solarcheck.domain.models import Pose, Position, RTKQuality
 from mcm_solarcheck.importers.batch import import_m3t_directory
 from mcm_solarcheck.importers.m3t import M3TImporter
+from mcm_solarcheck.importers.m3t_rgb import M3TRGBImporter
 from mcm_solarcheck.importers.m3t_xmp import M3TXmpMetadata
 from mcm_solarcheck.thermal.m3t_radiometric import RadiometricRaster
 from mcm_solarcheck.thermal.quality import ThermalQualityGrade
@@ -167,3 +168,26 @@ def test_thermal_import_stops_before_second_file_when_lease_is_lost(tmp_path):
 
     assert len(heartbeats) == 2
     assert imported == ["DJI_20250825_0001_T.JPG"]
+
+
+def test_rgb_import_stops_before_second_file_when_lease_is_lost(tmp_path):
+    for number in (1, 2):
+        (tmp_path / f"DJI_20250825_{number:04d}_V.JPG").write_bytes(b"fake")
+    imported = []
+    heartbeats = []
+
+    class RecordingRGBImporter(M3TRGBImporter):
+        def import_file(self, path):
+            imported.append(Path(path).name)
+            return object()
+
+    def heartbeat():
+        heartbeats.append(True)
+        if len(heartbeats) == 2:
+            raise PermissionError("worker lease expired")
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        RecordingRGBImporter().import_directory(tmp_path, heartbeat=heartbeat)
+
+    assert len(heartbeats) == 2
+    assert imported == ["DJI_20250825_0001_V.JPG"]
