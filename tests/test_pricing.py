@@ -166,3 +166,11 @@ def test_planner_discount_is_ten_percent_when_verified() -> None:
     assert snapshot.planner_discount_rate == Decimal("0.10")
     assert snapshot.discount_rate == Decimal("0.10")
     assert snapshot.discount_amount == Decimal("50.00")
+
+
+def test_repeat_discount_is_five_percent_when_verified() -> None:
+    snapshot = rule().price(Decimal("50"), repeat_verified=True)
+
+    assert snapshot.repeat_discount_rate == Decimal("0.05")
+    assert snapshot.discount_rate == Decimal("0.05")
+    assert snapshot.discount_amount == Decimal("25.00")
