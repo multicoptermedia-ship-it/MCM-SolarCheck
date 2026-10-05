@@ -212,3 +212,38 @@ def test_compute_job_processing_recorder_hides_missing_job() -> None:
 
     with pytest.raises(PermissionError, match="not available"):
         recorder("user-1", "P-1", ProjectProcessingState.RUNNING)
+
+
+def test_processing_import_failure_transitions_bound_compute_job_to_failed(tmp_path) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+
+    class Jobs:
+        def __init__(self):
+            self.job = ComputeJob("job-1", "user-1", "P-1", ComputeJobStatus.RUNNING)
+
+        def get(self, job_id, *, user_id, project_id):
+            assert (job_id, user_id, project_id) == ("job-1", "user-1", "P-1")
+            return self.job
+
+        def transition(self, job_id, status, *, user_id, project_id):
+            assert (job_id, user_id, project_id) == ("job-1", "user-1", "P-1")
+            self.job = ComputeJob(job_id, user_id, project_id, status)
+
+    jobs = Jobs()
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: (_ for _ in ()).throw(RuntimeError("import failed")),
+        lambda customer_id, project_id, state: None,
+        record_state_for_request=lambda request: ComputeJobProcessingStateRecorder(
+            jobs,
+            job_id=request.job_id or "",
+            customer_id=request.customer_id,
+            project_id=request.project_id,
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="import failed"):
+        service.process(ProjectProcessingRequest("user-1", "P-1", "job-1"))
+
+    assert jobs.job.status is ComputeJobStatus.FAILED
