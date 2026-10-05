@@ -25,12 +25,16 @@ class ProjectProcessingStateRecorder(Protocol):
     def heartbeat(self) -> None: ...
 
 
+ProjectProcessingStateCallback = Callable[[str, str, "ProjectProcessingState"], None]
+ProjectProcessingStateSink = ProjectProcessingStateRecorder | ProjectProcessingStateCallback
+
+
 class _CallableStateRecorder:
     """Adapt legacy state callbacks to the recorder contract."""
 
     def __init__(
         self,
-        callback: Callable[[str, str, "ProjectProcessingState"], None],
+        callback: ProjectProcessingStateCallback,
     ) -> None:
         self._callback = callback
 
