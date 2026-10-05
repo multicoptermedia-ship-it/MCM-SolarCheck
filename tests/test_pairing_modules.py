@@ -48,7 +48,7 @@ def test_assignment_does_not_cross_frames():
     assert assign_findings_to_modules((finding,), (module,))[0].module_id is None
 
 
-def test_pairing_heartbeats_after_each_rgb_candidate_row():
+def test_pairing_heartbeats_before_each_rgb_candidate_row():
     rgbs = (
         ImageFrame("V-0001", Path("DJI_x_0001_V.JPG")),
         ImageFrame("V-0002", Path("DJI_x_0002_V.JPG")),
@@ -60,11 +60,11 @@ def test_pairing_heartbeats_after_each_rgb_candidate_row():
         rgbs,
         thermals,
         minimum_confidence=0.65,
-        heartbeat=lambda: heartbeats.append(True),
+        heartbeat=lambda: heartbeats.append(len(heartbeats)),
     )
 
     assert len(pairs) == 1
-    assert heartbeats == [True, True]
+    assert heartbeats == [0, 1]
 
 
 def test_pairing_propagates_heartbeat_failure():
