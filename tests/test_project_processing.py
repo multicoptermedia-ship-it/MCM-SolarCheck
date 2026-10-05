@@ -365,6 +365,45 @@ def test_processing_recorder_passes_explicit_lease_to_claim() -> None:
 
     assert jobs.claims == [("job-1", "worker-a", lease)]
 
+def test_processing_recorder_finishes_leased_claim_before_expiry(tmp_path) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
+    from mcm_solarcheck.services.compute_jobs import (
+        ComputeCapacity,
+        ComputeJobLease,
+        ComputeJobService,
+        ComputeJobStatus,
+    )
+
+    store = SQLiteComputeJobStore(tmp_path / "jobs.sqlite")
+    jobs = ComputeJobService(store, load=store, admission=store, claims=store)
+    jobs.create(job_id="job-1", user_id="user-1", project_id="P-1")
+    jobs.start(
+        "job-1",
+        user_id="user-1",
+        project_id="P-1",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    recorder = ComputeJobProcessingStateRecorder(
+        jobs,
+        job_id="job-1",
+        customer_id="user-1",
+        project_id="P-1",
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+        now=lambda: start + timedelta(minutes=4),
+    )
+
+    recorder("user-1", "P-1", ProjectProcessingState.RUNNING)
+    recorder("user-1", "P-1", ProjectProcessingState.COMPLETED)
+
+    assert jobs.get(
+        "job-1", user_id="user-1", project_id="P-1"
+    ).status is ComputeJobStatus.COMPLETED
+
+
 def test_processing_recorder_rejects_second_worker_for_claimed_job(tmp_path) -> None:
     from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
     from mcm_solarcheck.services.compute_jobs import (
