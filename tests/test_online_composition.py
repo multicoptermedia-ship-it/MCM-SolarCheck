@@ -1242,7 +1242,7 @@ def test_composed_online_processing_requires_bound_compute_job(tmp_path) -> None
         )
 
 
-def test_composed_online_processing_marks_started_job_failed_on_import_error(tmp_path) -> None:
+def test_composed_online_processing_completes_started_job_for_empty_import(tmp_path) -> None:
     from decimal import Decimal
     from mcm_solarcheck.services.compute_jobs import ComputeCapacity
     from mcm_solarcheck.services.project_creation import CreateProjectRequest
@@ -1269,9 +1269,11 @@ def test_composed_online_processing_marks_started_job_failed_on_import_error(tmp
         capacity=ComputeCapacity(max_parallel_jobs=1),
     )
 
-    with pytest.raises(Exception):
-        services.project_processing.process(
-            ProjectProcessingRequest("user-a", "P-FAIL", "job-fail")
-        )
+    result = services.project_processing.process(
+        ProjectProcessingRequest("user-a", "P-FAIL", "job-fail")
+    )
 
-    assert persistence.compute_jobs.get("job-fail").status is ComputeJobStatus.FAILED
+    assert result.imported_thermal_frames == 0
+    assert result.paired_frames == 0
+    assert result.import_failures == 0
+    assert persistence.compute_jobs.get("job-fail").status is ComputeJobStatus.COMPLETED
