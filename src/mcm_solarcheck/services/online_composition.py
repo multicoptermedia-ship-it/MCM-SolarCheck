@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from mcm_solarcheck.infrastructure.online_persistence import OnlinePersistence
+from mcm_solarcheck.domain.pricing import PricingRule
 from mcm_solarcheck.infrastructure.smtp_email import SMTPEmailSender
 from mcm_solarcheck.services.billing import ComputeJobBillingService
 from mcm_solarcheck.services.compute_jobs import ComputeJobService
@@ -26,6 +27,7 @@ from mcm_solarcheck.services.online_admin_readiness import (
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
 from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
 from mcm_solarcheck.services.project_creation import ProjectCreationService
+from mcm_solarcheck.services.project_pricing import ProjectPricingService
 from mcm_solarcheck.services.payment_checkout import OnlinePaymentCheckoutService
 from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService, PaymentGateway
@@ -76,6 +78,7 @@ class _OnlineReadinessBoundary:
 class OnlineServices:
     projects: ProjectApplicationService
     project_creation: ProjectCreationService
+    project_pricing: ProjectPricingService | None
     registration: OnlineRegistrationService
     login: OnlineLoginService
     compute_jobs: EntitledComputeJobService
@@ -125,6 +128,7 @@ def build_online_services(
     sepa_provider_readiness: ConfigurationReadiness,
     admin_authorization: SMTPAdminAuthorization,
     admin_mutation_guard: SMTPAdminMutationGuard,
+    pricing_rule: PricingRule | None = None,
 ) -> OnlineServices:
     """Compose services from durable stores and deployment-owned SMTP state."""
     if not isinstance(persistence, OnlinePersistence):
@@ -286,6 +290,14 @@ def build_online_services(
 
     return OnlineServices(
         projects=ProjectApplicationService(persistence.projects),
+        project_pricing=(
+            ProjectPricingService(
+                pricing_rule,
+                persistence.projects.capacity_for_customer_project,
+            )
+            if pricing_rule is not None
+            else None
+        ),
         project_creation=ProjectCreationService(
             lambda project: persistence.projects.create_customer_project(
                 project.customer_id,
