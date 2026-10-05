@@ -28,6 +28,7 @@ from mcm_solarcheck.services.payment_capture import PaymentCaptureService
 from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
 from mcm_solarcheck.services.project_creation import ProjectCreationService
 from mcm_solarcheck.services.project_pricing import ProjectPricingService
+from mcm_solarcheck.services.project_upload import ProjectUploadService
 from mcm_solarcheck.services.payment_checkout import OnlinePaymentCheckoutService
 from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService, PaymentGateway
@@ -79,6 +80,7 @@ class OnlineServices:
     projects: ProjectApplicationService
     project_creation: ProjectCreationService
     project_pricing: ProjectPricingService | None
+    project_upload: ProjectUploadService
     registration: OnlineRegistrationService
     login: OnlineLoginService
     compute_jobs: EntitledComputeJobService
@@ -297,6 +299,10 @@ def build_online_services(
             )
             if pricing_rule is not None
             else None
+        ),
+        project_upload=ProjectUploadService(
+            persistence.uploads.store,
+            persistence.projects.project_belongs_to_customer,
         ),
         project_creation=ProjectCreationService(
             lambda project: persistence.projects.create_customer_project(
