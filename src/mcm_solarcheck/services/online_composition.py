@@ -318,6 +318,9 @@ def build_online_services(
             persist_import=lambda customer_id, project_id, imported: store_project_import(
                 persistence.projects, customer_id, project_id, imported
             ),
+            import_project_with_heartbeat=lambda directory, heartbeat: import_m3t_project(
+                directory, heartbeat=heartbeat
+            ),
             record_state_for_request=lambda request: ComputeJobProcessingStateRecorder(
                 compute_jobs,
                 job_id=request.job_id or "",
@@ -334,6 +337,7 @@ def build_online_services(
                     if project_processing_lease is not None
                     else None
                 ),
+                renew_lease=project_processing_lease,
             ),
         ),
         project_creation=ProjectCreationService(
