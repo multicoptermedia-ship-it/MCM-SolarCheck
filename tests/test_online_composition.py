@@ -1384,8 +1384,7 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
     services.project_creation.create(CreateProjectRequest("user-a", "P-RENEW", "Renew Processing", Decimal("42.5")))
     upload = persistence.uploads.project_directory("user-a", "P-RENEW")
     upload.mkdir(parents=True, exist_ok=True)
-    (upload / "DJI_20250825_0001_V.JPG").write_bytes(\n        b"\\xff\\xd8\\xff\\xc0\\x00\\x11\\x08\\x0b\\xb8\\x0f\\xa0" + b"\\x00" * 10\n    )
-    services.compute_jobs.create(job_id="job-renew", user_id="user-a", project_id="P-RENEW")
+    (upload / "DJI_20250825_0001_V.JPG").write_bytes(\n        b"\\xff\\xd8\\xff\\xc0\\x00\\x11\\x08\\x0b\\xb8\\x0f\\xa0" + b"\\x00" * 10\n    )\n    services.compute_jobs.create(job_id="job-renew", user_id="user-a", project_id="P-RENEW")
     services.compute_jobs.start("job-renew", user_id="user-a", project_id="P-RENEW", capacity=ComputeCapacity(max_parallel_jobs=1))
 
     with pytest.raises(Exception):
