@@ -12,7 +12,41 @@ from mcm_solarcheck.importers.project import ProjectImportResult
 from mcm_solarcheck.services.compute_jobs import ComputeJobLease, ComputeJobStatus
 
 
-class ProjectProcessingStateRecorder(Protocol):\n    """Record lifecycle state and optionally renew long-running work."""\n\n    def __call__(self, customer_id: str, project_id: str, state: "ProjectProcessingState") -> None: ...\n\n    def heartbeat(self) -> None: ...\n\n\nclass _CallableStateRecorder:\n    """Adapt legacy state callbacks to the recorder contract."""\n\n    def __init__(self, callback: Callable[[str, str, "ProjectProcessingState"], None]) -> None:\n        self._callback = callback\n\n    def __call__(self, customer_id: str, project_id: str, state: "ProjectProcessingState") -> None:\n        self._callback(customer_id, project_id, state)\n\n    def heartbeat(self) -> None:\n        return None\n\n\nclass ProjectProcessingConflict(RuntimeError):
+class ProjectProcessingStateRecorder(Protocol):
+    """Record lifecycle state and optionally renew long-running work."""
+
+    def __call__(
+        self,
+        customer_id: str,
+        project_id: str,
+        state: "ProjectProcessingState",
+    ) -> None: ...
+
+    def heartbeat(self) -> None: ...
+
+
+class _CallableStateRecorder:
+    """Adapt legacy state callbacks to the recorder contract."""
+
+    def __init__(
+        self,
+        callback: Callable[[str, str, "ProjectProcessingState"], None],
+    ) -> None:
+        self._callback = callback
+
+    def __call__(
+        self,
+        customer_id: str,
+        project_id: str,
+        state: "ProjectProcessingState",
+    ) -> None:
+        self._callback(customer_id, project_id, state)
+
+    def heartbeat(self) -> None:
+        return None
+
+
+class ProjectProcessingConflict(RuntimeError):
     """The requested project processing is already owned by another worker."""
 
 
