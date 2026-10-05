@@ -1365,7 +1365,6 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
         ComputeJobLease(start, timedelta(minutes=5)),
         ComputeJobLease(start + timedelta(minutes=1), timedelta(minutes=5)),
         ComputeJobLease(start + timedelta(minutes=2), timedelta(minutes=5)),
-        ComputeJobLease(start + timedelta(minutes=3), timedelta(minutes=5)),
     ))
     services = build_online_services(
         persistence,
@@ -1384,17 +1383,25 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
     services.project_creation.create(CreateProjectRequest("user-a", "P-RENEW", "Renew Processing", Decimal("42.5")))
     upload = persistence.uploads.project_directory("user-a", "P-RENEW")
     upload.mkdir(parents=True, exist_ok=True)
-    (upload / "DJI_20250825_0001_V.JPG").write_bytes(
-        b"\xff\xd8\xff\xc0\x00\x11\x08\x0b\xb8\x0f\xa0" + b"\x00" * 10
+    jpeg = (
+        bytes.fromhex("ffd8ffc00011080bb80fa0")
+        + bytes(10)
+        + b'<?xpacket begin=""?><x:xmpmeta Make="DJI"></x:xmpmeta>'
     )
+    (upload / "DJI_20250825_0001_V.JPG").write_bytes(jpeg)
     services.compute_jobs.create(job_id="job-renew", user_id="user-a", project_id="P-RENEW")
     services.compute_jobs.start("job-renew", user_id="user-a", project_id="P-RENEW", capacity=ComputeCapacity(max_parallel_jobs=1))
 
-    with pytest.raises(Exception):
-        services.project_processing.process(ProjectProcessingRequest("user-a", "P-RENEW", "job-renew"))
+    result = services.project_processing.process(
+        ProjectProcessingRequest("user-a", "P-RENEW", "job-renew")
+    )
 
     with sqlite3.connect(persistence.compute_jobs.database) as connection:
-        lease_expires_at = connection.execute("SELECT lease_expires_at FROM compute_jobs WHERE job_id = ?", ("job-renew",)).fetchone()[0]
+        status, lease_expires_at = connection.execute(
+            "SELECT status, lease_expires_at FROM compute_jobs WHERE job_id = ?",
+            ("job-renew",),
+        ).fetchone()
 
+    assert result.imported_rgb_frames == 1
+    assert status == ComputeJobStatus.COMPLETED.value
     assert lease_expires_at == (start + timedelta(minutes=6)).isoformat()
-
