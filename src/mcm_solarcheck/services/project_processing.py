@@ -50,7 +50,7 @@ class _CallableStateRecorder:
         return None
 
 
-class ProjectProcessingConflict(RuntimeError):
+def _state_recorder(state_sink: ProjectProcessingStateSink) -> ProjectProcessingStateRecorder:\n    """Return a heartbeat-capable recorder for either supported state sink."""\n    if callable(getattr(state_sink, "heartbeat", None)):\n        return state_sink  # type: ignore[return-value]\n    return _CallableStateRecorder(state_sink)\n\n\nclass ProjectProcessingConflict(RuntimeError):
     """The requested project processing is already owned by another worker."""
 
 
@@ -180,9 +180,9 @@ class ProjectProcessingService:
         project_belongs_to_customer: Callable[[str, str], bool],
         upload_directory_for_project: Callable[[str, str], str | Path],
         import_project: Callable[[str | Path], ProjectImportResult],
-        record_state: ProjectProcessingStateRecorder | None = None,
+        record_state: ProjectProcessingStateSink | None = None,
         persist_import: Callable[[str, str, ProjectImportResult], None] | None = None,
-        record_state_for_request: Callable[[ProjectProcessingRequest], ProjectProcessingStateRecorder] | None = None,
+        record_state_for_request: Callable[[ProjectProcessingRequest], ProjectProcessingStateSink] | None = None,
         import_project_with_heartbeat: Callable[[str | Path, Callable[[], None]], ProjectImportResult] | None = None,
         persist_import_with_heartbeat: Callable[[str, str, ProjectImportResult, Callable[[], None]], None] | None = None,
     ) -> None:
