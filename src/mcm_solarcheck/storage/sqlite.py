@@ -163,12 +163,12 @@ class ProjectDatabase:
         if not customer_id:raise ValueError('customer_id is required')
         with self.connect() as db:
             rows=db.execute(
-                "SELECT p.project_id,p.name FROM projects p "
+                "SELECT p.project_id,p.name,p.created_at FROM projects p "
                 "JOIN project_owners o ON o.project_id=p.project_id "
                 "WHERE o.customer_id=? ORDER BY p.project_id",
                 (customer_id,),
             ).fetchall()
-        return tuple(ProjectRecord(row["project_id"],row["name"]) for row in rows)
+        return tuple(ProjectRecord(row["project_id"],row["name"],row["created_at"]) for row in rows)
     def project_belongs_to_customer(self,customer_id:str,project_id:str)->bool:
         with self.connect() as db:
             row=db.execute("SELECT 1 FROM project_owners WHERE customer_id=? AND project_id=?",(customer_id.strip(),project_id.strip())).fetchone()
