@@ -57,3 +57,37 @@ def test_store_project_import_rejects_missing_identity(customer_id, project_id) 
         store_project_import(database, customer_id, project_id, imported_result())
 
     assert database.saved == []
+
+
+def test_store_project_import_heartbeats_after_each_saved_frame() -> None:
+    database = RecordingDatabase()
+    heartbeats = []
+
+    summary = store_project_import(
+        database,
+        "user-1",
+        "P-1",
+        imported_result(),
+        heartbeat=lambda: heartbeats.append(len(database.saved)),
+    )
+
+    assert summary.frames_saved == 2
+    assert heartbeats == [1, 2]
+
+
+def test_store_project_import_propagates_heartbeat_failure() -> None:
+    database = RecordingDatabase()
+
+    def fail_heartbeat():
+        raise PermissionError("compute job worker lease expired")
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        store_project_import(
+            database,
+            "user-1",
+            "P-1",
+            imported_result(),
+            heartbeat=fail_heartbeat,
+        )
+
+    assert len(database.saved) == 1
