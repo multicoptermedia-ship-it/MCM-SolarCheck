@@ -1,4 +1,5 @@
 import sqlite3
+from decimal import Decimal
 from pathlib import Path
 
 from mcm_solarcheck.domain.models import Finding, Position, RTKQuality, ThermalFrame
@@ -73,7 +74,7 @@ def test_foreign_keys_prevent_orphan_frame(tmp_path):
 def test_customer_project_ownership_is_persisted(tmp_path):
     db = ProjectDatabase(tmp_path / "solarcheck.sqlite")
     db.initialize()
-    db.create_customer_project(" user-1 ", " P-1 ", " Solarpark Nord ", 850.5)
+    db.create_customer_project(" user-1 ", " P-1 ", " Solarpark Nord ", Decimal("850.5"))
 
     assert db.project_belongs_to_customer("user-1", "P-1")
     assert not db.project_belongs_to_customer("user-2", "P-1")
@@ -90,5 +91,38 @@ def test_schema_14_migration_does_not_invent_project_owners(tmp_path):
     db.initialize()
 
     with db.connect() as connection:
-        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == 15
+        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == 16
         assert connection.execute("SELECT COUNT(*) FROM project_owners").fetchone()[0] == 0
+
+
+def test_schema_15_migration_preserves_owner_without_inventing_capacity(tmp_path):
+    db = ProjectDatabase(tmp_path / "solarcheck.sqlite")
+    db.initialize()
+    with db.connect() as connection:
+        connection.execute("DROP TABLE project_owners")
+        connection.execute("""CREATE TABLE project_owners(
+            project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,
+            customer_id TEXT NOT NULL
+        )""")
+        connection.execute("CREATE INDEX idx_project_owners_customer ON project_owners(customer_id,project_id)")
+        connection.execute("INSERT INTO projects(project_id,name) VALUES (?,?)", ("P-legacy", "Legacy"))
+        connection.execute("INSERT INTO project_owners(project_id,customer_id) VALUES (?,?)", ("P-legacy", "user-1"))
+        connection.execute("UPDATE schema_info SET version=15")
+
+    db.initialize()
+
+    with db.connect() as connection:
+        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == 16
+        row = connection.execute(
+            "SELECT customer_id,capacity_kwp FROM project_owners WHERE project_id=?",
+            ("P-legacy",),
+        ).fetchone()
+        assert row["customer_id"] == "user-1"
+        assert row["capacity_kwp"] is None
+
+    try:
+        db.capacity_for_customer_project("user-1", "P-legacy")
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError("legacy project without capacity must not receive invented pricing metadata")
