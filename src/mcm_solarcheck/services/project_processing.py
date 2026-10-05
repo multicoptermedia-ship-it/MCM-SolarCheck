@@ -55,11 +55,14 @@ class ComputeJobProcessingStateRecorder:
         if customer_id != self._customer_id or project_id != self._project_id:
             raise PermissionError("processing job identity mismatch")
         if state is ProjectProcessingState.RUNNING:
-            job = self._jobs.get(
-                self._job_id,
-                user_id=self._customer_id,
-                project_id=self._project_id,
-            )
+            try:
+                job = self._jobs.get(
+                    self._job_id,
+                    user_id=self._customer_id,
+                    project_id=self._project_id,
+                )
+            except KeyError as exc:
+                raise PermissionError("processing job is not available") from exc
             if job.status is not ComputeJobStatus.RUNNING:
                 raise ValueError("compute job must be running before project processing")
             return
