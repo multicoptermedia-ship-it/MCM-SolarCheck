@@ -1382,6 +1382,44 @@ def test_project_processing_rejects_unavailable_customer_before_processing() -> 
         thread.join(timeout=2)
 
 
+
+def test_project_processing_maps_active_claim_to_conflict() -> None:
+    endpoint = Endpoint()
+
+    class Processing:
+        def process(self, processing_request):
+            from mcm_solarcheck.services.project_processing import ProjectProcessingConflict
+
+            raise ProjectProcessingConflict("project processing is already running")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_processing_service=Processing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-process?project_id=P-1&job_id=job-1",
+            data=b"",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as error:
+            assert error.code == 409
+            assert "project processing is already running" in error.read().decode("utf-8")
+        else:
+            raise AssertionError("active processing claim must return 409")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
 def test_project_processing_maps_import_failure_to_service_unavailable() -> None:
     endpoint = Endpoint()
 
