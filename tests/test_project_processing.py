@@ -623,3 +623,42 @@ def test_processing_uses_request_recorder_heartbeat_for_import(tmp_path) -> None
         ("heartbeat",),
         ("state", ProjectProcessingState.COMPLETED),
     ]
+
+
+def test_processing_uses_recorder_heartbeat_for_persistence(tmp_path) -> None:
+    events = []
+
+    class Recorder:
+        def __call__(self, customer_id, project_id, state):
+            events.append(("state", state))
+
+        def heartbeat(self):
+            events.append(("heartbeat",))
+
+    recorder = Recorder()
+    imported = import_result()
+
+    def persist_with_heartbeat(customer_id, project_id, result, heartbeat):
+        assert (customer_id, project_id, result) == ("user-1", "P-1", imported)
+        assert heartbeat == recorder.heartbeat
+        heartbeat()
+        events.append(("persist",))
+
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: imported,
+        persist_import=lambda *args: (_ for _ in ()).throw(AssertionError("plain persistence used")),
+        record_state_for_request=lambda request: recorder,
+        persist_import_with_heartbeat=persist_with_heartbeat,
+    )
+
+    result = service.process(ProjectProcessingRequest("user-1", "P-1", "job-1"))
+
+    assert result.state is ProjectProcessingState.COMPLETED
+    assert events == [
+        ("state", ProjectProcessingState.RUNNING),
+        ("heartbeat",),
+        ("persist",),
+        ("state", ProjectProcessingState.COMPLETED),
+    ]
