@@ -81,3 +81,24 @@ def test_pairing_propagates_heartbeat_failure():
             minimum_confidence=0.65,
             heartbeat=fail_heartbeat,
         )
+
+
+def test_pairing_heartbeat_does_not_change_deterministic_result():
+    rgbs = (
+        ImageFrame("V-0002", Path("DJI_x_0002_V.JPG")),
+        ImageFrame("V-0001", Path("DJI_x_0001_V.JPG")),
+    )
+    thermals = (
+        ThermalFrame("T-0001", Path("DJI_x_0001_T.JPG")),
+        ThermalFrame("T-0002", Path("DJI_x_0002_T.JPG")),
+    )
+
+    expected = pair_rgb_thermal_frames(rgbs, thermals, minimum_confidence=0.65)
+    actual = pair_rgb_thermal_frames(
+        rgbs,
+        thermals,
+        minimum_confidence=0.65,
+        heartbeat=lambda: None,
+    )
+
+    assert actual == expected
