@@ -102,3 +102,29 @@ def test_pairing_heartbeat_does_not_change_deterministic_result():
     )
 
     assert actual == expected
+
+
+def test_pairing_heartbeat_failure_prevents_candidate_scoring(monkeypatch):
+    import mcm_solarcheck.pairing.rgb_thermal as module
+
+    rgb = (ImageFrame("V-0001", Path("DJI_x_0001_V.JPG")),)
+    thermal = (ThermalFrame("T-0001", Path("DJI_x_0001_T.JPG")),)
+    scored = []
+
+    def score(*args):
+        scored.append(True)
+        return 1.0, "sequence", None, None
+
+    monkeypatch.setattr(module, "pair_score", score)
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        module.pair_rgb_thermal_frames(
+            rgb,
+            thermal,
+            minimum_confidence=0.65,
+            heartbeat=lambda: (_ for _ in ()).throw(
+                PermissionError("worker lease expired")
+            ),
+        )
+
+    assert scored == []
