@@ -6,13 +6,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Protocol
 
 from mcm_solarcheck.importers.project import ProjectImportResult
 from mcm_solarcheck.services.compute_jobs import ComputeJobLease, ComputeJobStatus
 
 
-class ProjectProcessingConflict(RuntimeError):
+class ProjectProcessingStateRecorder(Protocol):\n    """Record lifecycle state and optionally renew long-running work."""\n\n    def __call__(self, customer_id: str, project_id: str, state: "ProjectProcessingState") -> None: ...\n\n    def heartbeat(self) -> None: ...\n\n\nclass ProjectProcessingConflict(RuntimeError):
     """The requested project processing is already owned by another worker."""
 
 
@@ -144,7 +144,7 @@ class ProjectProcessingService:
         import_project: Callable[[str | Path], ProjectImportResult],
         record_state: Callable[[str, str, ProjectProcessingState], None] | None = None,
         persist_import: Callable[[str, str, ProjectImportResult], None] | None = None,
-        record_state_for_request: Callable[[ProjectProcessingRequest], Callable[[str, str, ProjectProcessingState], None]] | None = None,
+        record_state_for_request: Callable[[ProjectProcessingRequest], ProjectProcessingStateRecorder] | None = None,
         import_project_with_heartbeat: Callable[[str | Path, Callable[[], None]], ProjectImportResult] | None = None,
         persist_import_with_heartbeat: Callable[[str, str, ProjectImportResult, Callable[[], None]], None] | None = None,
     ) -> None:
