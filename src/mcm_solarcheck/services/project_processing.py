@@ -22,6 +22,7 @@ class ProjectProcessingState(str, Enum):
 class ProjectProcessingRequest:
     customer_id: str
     project_id: str
+    job_id: str | None = None
 
 
 @dataclass(frozen=True)
