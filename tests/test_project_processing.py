@@ -364,3 +364,39 @@ def test_processing_recorder_rejects_second_worker_for_claimed_job(tmp_path) -> 
 
     with pytest.raises(RuntimeError, match="already claimed"):
         second("user-1", "P-1", ProjectProcessingState.RUNNING)
+
+
+def test_claimed_processing_import_failure_finishes_job_failed(tmp_path) -> None:
+    from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
+    from mcm_solarcheck.services.compute_jobs import (
+        ComputeCapacity,
+        ComputeJobService,
+        ComputeJobStatus,
+    )
+
+    store = SQLiteComputeJobStore(tmp_path / "jobs.sqlite")
+    jobs = ComputeJobService(store, load=store, admission=store, claims=store)
+    jobs.create(job_id="job-1", user_id="user-1", project_id="P-1")
+    jobs.start(
+        "job-1",
+        user_id="user-1",
+        project_id="P-1",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: (_ for _ in ()).throw(RuntimeError("import failed")),
+        record_state_for_request=lambda request: ComputeJobProcessingStateRecorder(
+            jobs,
+            job_id=request.job_id or "",
+            customer_id=request.customer_id,
+            project_id=request.project_id,
+            worker_id="worker-a",
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="import failed"):
+        service.process(ProjectProcessingRequest("user-1", "P-1", "job-1"))
+
+    assert store.get("job-1").status is ComputeJobStatus.FAILED
