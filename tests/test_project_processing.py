@@ -8,6 +8,7 @@ from mcm_solarcheck.services.project_processing import (
     ProjectProcessingService,
     ProjectProcessingState,
     ComputeJobProcessingStateRecorder,
+    ProjectProcessingConflict,
 )
 
 
@@ -362,7 +363,7 @@ def test_processing_recorder_rejects_second_worker_for_claimed_job(tmp_path) -> 
 
     first("user-1", "P-1", ProjectProcessingState.RUNNING)
 
-    with pytest.raises(RuntimeError, match="already claimed"):
+    with pytest.raises(ProjectProcessingConflict, match="already running"):
         second("user-1", "P-1", ProjectProcessingState.RUNNING)
 
 
