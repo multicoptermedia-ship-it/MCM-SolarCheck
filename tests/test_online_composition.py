@@ -1097,3 +1097,48 @@ def test_online_composition_failed_readiness_cannot_activate_production(tmp_path
         services.activate_production()
 
     assert services.production.active is False
+
+
+def test_online_project_pricing_uses_owned_persisted_capacity(tmp_path) -> None:
+    from decimal import Decimal
+    from mcm_solarcheck.domain.pricing import PriceTier, PricingRule
+    from mcm_solarcheck.services.project_creation import CreateProjectRequest
+    from mcm_solarcheck.services.project_pricing import ProjectPricingRequest
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    pricing_rule = PricingRule(
+        version="composition-test",
+        tiers=(PriceTier(None, Decimal("500")),),
+        vat_rate=Decimal("0.19"),
+    )
+    services = build_online_services(
+        persistence,
+        invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
+        payment_gateway=FakePaymentGateway(),
+        sepa_gateway=FakeSepaGateway(),
+        sepa_provider_id="provider-a",
+        payment_providers=PaymentProviderRegistry((PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.CARD, PaymentMethod.PAYPAL, PaymentMethod.SEPA_DIRECT_DEBIT})),)),
+        payment_provider_readiness=FakeReadiness(),
+        sepa_provider_readiness=FakeReadiness(),
+        admin_authorization=AllowAdmin(),
+        admin_mutation_guard=AllowMutation(),
+        pricing_rule=pricing_rule,
+    )
+    services.project_creation.create(
+        CreateProjectRequest("user-a", "P-PRICE", "Pricing Project", Decimal("42.5"))
+    )
+
+    snapshot = services.project_pricing.price(ProjectPricingRequest("user-a", "P-PRICE"))
+
+    assert snapshot.capacity_kwp == Decimal("42.5")
+    assert snapshot.net_total == Decimal("500.00")
+    assert snapshot.rule_version == "composition-test"
+    with pytest.raises(PermissionError):
+        services.project_pricing.price(ProjectPricingRequest("user-b", "P-PRICE"))
+
+
+def test_online_project_pricing_stays_disabled_without_explicit_rule(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+
+    assert online_services(persistence).project_pricing is None
