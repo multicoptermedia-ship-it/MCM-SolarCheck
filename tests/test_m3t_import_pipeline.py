@@ -75,6 +75,7 @@ def test_batch_does_not_swallow_heartbeat_failure(tmp_path):
             raise ValueError("broken fixture")
 
     heartbeats = []
+    imported = []
 
     def fail_heartbeat():
         heartbeats.append(True)
@@ -89,6 +90,25 @@ def test_batch_does_not_swallow_heartbeat_failure(tmp_path):
 
     assert heartbeats == [True]
 
+
+def test_thermal_heartbeat_failure_prevents_file_import(tmp_path):
+    path = tmp_path / "DJI_20250825_0001_T.JPG"
+    path.write_bytes(b"fake")
+    imported = []
+
+    class RecordingImporter(M3TImporter):
+        def import_file(self, path, **kwargs):
+            imported.append(Path(path).name)
+            raise AssertionError("file import should not start")
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        import_m3t_directory(
+            tmp_path,
+            importer=RecordingImporter(FakeParser()),
+            heartbeat=lambda: (_ for _ in ()).throw(PermissionError("worker lease expired")),
+        )
+
+    assert imported == []
 
 
 def test_project_import_forwards_same_heartbeat_to_rgb_and_thermal(monkeypatch, tmp_path):
