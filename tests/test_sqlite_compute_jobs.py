@@ -883,3 +883,26 @@ def test_compute_worker_service_release_makes_job_immediately_dispatchable(tmp_p
             duration=timedelta(minutes=5),
         ),
     ) == running
+
+
+def test_sqlite_renewed_lease_delays_crash_recovery_reclaim(tmp_path) -> None:
+    store = SQLiteComputeJobStore(tmp_path / "compute-jobs.sqlite")
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
+    store.claim(running.job_id, "worker-a", ComputeJobLease(start, timedelta(minutes=5)))
+    store.renew_claim(
+        running.job_id,
+        "worker-a",
+        ComputeJobLease(start + timedelta(minutes=4), timedelta(minutes=5)),
+    )
+
+    assert store.claim_next(
+        "worker-b",
+        ComputeJobLease(start + timedelta(minutes=5), timedelta(minutes=5)),
+    ) is None
+    assert store.claim_next(
+        "worker-b",
+        ComputeJobLease(start + timedelta(minutes=9), timedelta(minutes=5)),
+    ) == running
+
