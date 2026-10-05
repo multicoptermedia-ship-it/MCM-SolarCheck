@@ -70,7 +70,7 @@ class M3TRGBImporter:
     ) -> tuple[ImageFrame, ...]:
         frames: list[ImageFrame] = []
         for path in sorted(Path(directory).glob("*_V.JPG")):
-            frames.append(self.import_file(path))
             if heartbeat is not None:
                 heartbeat()
+            frames.append(self.import_file(path))
         return tuple(frames)
