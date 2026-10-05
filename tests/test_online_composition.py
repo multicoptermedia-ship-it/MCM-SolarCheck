@@ -1347,3 +1347,52 @@ def test_composed_online_processing_completes_started_job_for_empty_import(tmp_p
     assert result.paired_frames == 0
     assert result.import_failures == 0
     assert persistence.compute_jobs.get("job-fail").status is ComputeJobStatus.COMPLETED
+
+
+def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> None:
+    from datetime import datetime, timedelta, timezone
+    from decimal import Decimal
+    import sqlite3
+
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJobLease
+    from mcm_solarcheck.services.project_creation import CreateProjectRequest
+    from mcm_solarcheck.services.project_processing import ProjectProcessingRequest
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-a")
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    leases = iter((
+        ComputeJobLease(start, timedelta(minutes=5)),
+        ComputeJobLease(start + timedelta(minutes=1), timedelta(minutes=5)),
+        ComputeJobLease(start + timedelta(minutes=2), timedelta(minutes=5)),
+        ComputeJobLease(start + timedelta(minutes=3), timedelta(minutes=5)),
+    ))
+    services = build_online_services(
+        persistence,
+        invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
+        payment_gateway=FakePaymentGateway(),
+        sepa_gateway=FakeSepaGateway(),
+        sepa_provider_id="provider-a",
+        payment_providers=PaymentProviderRegistry((PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.CARD, PaymentMethod.PAYPAL, PaymentMethod.SEPA_DIRECT_DEBIT})),)),
+        payment_provider_readiness=FakeReadiness(),
+        sepa_provider_readiness=FakeReadiness(),
+        admin_authorization=AllowAdmin(),
+        admin_mutation_guard=AllowMutation(),
+        project_processing_lease=lambda: next(leases),
+    )
+    services.project_creation.create(CreateProjectRequest("user-a", "P-RENEW", "Renew Processing", Decimal("42.5")))
+    upload = persistence.uploads.project_directory("user-a", "P-RENEW")
+    upload.mkdir(parents=True, exist_ok=True)
+    (upload / "DJI_20250825_0001_V.JPG").write_bytes(b"fake")
+    services.compute_jobs.create(job_id="job-renew", user_id="user-a", project_id="P-RENEW")
+    services.compute_jobs.start("job-renew", user_id="user-a", project_id="P-RENEW", capacity=ComputeCapacity(max_parallel_jobs=1))
+
+    with pytest.raises(Exception):
+        services.project_processing.process(ProjectProcessingRequest("user-a", "P-RENEW", "job-renew"))
+
+    with sqlite3.connect(persistence.compute_jobs.database) as connection:
+        lease_expires_at = connection.execute("SELECT lease_expires_at FROM compute_jobs WHERE job_id = ?", ("job-renew",)).fetchone()[0]
+
+    assert lease_expires_at == (start + timedelta(minutes=6)).isoformat()
+
