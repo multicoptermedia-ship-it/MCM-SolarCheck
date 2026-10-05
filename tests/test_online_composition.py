@@ -1171,3 +1171,50 @@ def test_online_project_upload_persists_only_for_owned_project(tmp_path) -> None
                 "user-b", "P-UPLOAD", "thermal-002.jpg", "image/jpeg", content
             )
         )
+
+
+def test_online_processing_recorder_persists_only_matching_compute_job(tmp_path) -> None:
+    from decimal import Decimal
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    from mcm_solarcheck.services.project_creation import CreateProjectRequest
+    from mcm_solarcheck.services.project_processing import (
+        ComputeJobProcessingStateRecorder,
+        ProjectProcessingState,
+    )
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+    services.project_creation.create(
+        CreateProjectRequest("user-a", "P-PROCESS", "Processing Project", Decimal("42.5"))
+    )
+    services.compute_jobs.create(
+        job_id="job-process",
+        user_id="user-a",
+        project_id="P-PROCESS",
+    )
+    services.compute_jobs.start(
+        "job-process",
+        user_id="user-a",
+        project_id="P-PROCESS",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+    recorder = ComputeJobProcessingStateRecorder(
+        services.compute_jobs,
+        job_id="job-process",
+        customer_id="user-a",
+        project_id="P-PROCESS",
+    )
+
+    recorder("user-a", "P-PROCESS", ProjectProcessingState.RUNNING)
+    recorder("user-a", "P-PROCESS", ProjectProcessingState.COMPLETED)
+
+    assert persistence.compute_jobs.get("job-process").status is ComputeJobStatus.COMPLETED
+
+    mismatched = ComputeJobProcessingStateRecorder(
+        services.compute_jobs,
+        job_id="job-process",
+        customer_id="user-b",
+        project_id="P-PROCESS",
+    )
+    with pytest.raises(PermissionError):
+        mismatched("user-b", "P-PROCESS", ProjectProcessingState.RUNNING)
