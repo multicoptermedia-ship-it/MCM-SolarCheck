@@ -440,10 +440,32 @@ def verification_handler(
             self._respond(200, "Anmeldung erfolgreich.", headers={"Set-Cookie": cookie})
 
         def _respond(self, status_code: int, message: str, *, headers=None) -> None:
+            if status_code >= 400:
+                next_steps = {
+                    400: "Bitte prüfen Sie Ihre Eingaben und versuchen Sie es erneut.",
+                    401: "Bitte melden Sie sich erneut an.",
+                    403: "Bitte prüfen Sie Ihren Kundenzugang oder wenden Sie sich an den SolarCheck-Support.",
+                    404: "Bitte prüfen Sie die Projektauswahl oder kehren Sie zur Projektübersicht zurück.",
+                    413: "Bitte reduzieren Sie die Datenmenge und versuchen Sie es erneut.",
+                    415: "Bitte verwenden Sie das für diese Funktion vorgesehene Datenformat.",
+                    500: "Bitte versuchen Sie es später erneut. Falls der Fehler bestehen bleibt, wenden Sie sich an den SolarCheck-Support.",
+                    503: "Bitte versuchen Sie es später erneut.",
+                }
+                next_step = next_steps.get(
+                    status_code,
+                    "Bitte versuchen Sie es erneut oder wenden Sie sich an den SolarCheck-Support.",
+                )
+                content = (
+                    f"<h1>SolarCheck – Fehler {status_code}</h1>"
+                    f"<p>{escape(message)}</p>"
+                    f"<p>{escape(next_step)}</p>"
+                )
+            else:
+                content = f"<h1>SolarCheck</h1><p>{escape(message)}</p>"
             body = (
                 "<!doctype html><html><head><meta charset=\"utf-8\">"
                 "<title>SolarCheck</title></head><body>"
-                f"<h1>SolarCheck</h1><p>{escape(message)}</p></body></html>"
+                f"{content}</body></html>"
             ).encode("utf-8")
             self.send_response(status_code)
             self.send_header("Content-Type", "text/html; charset=utf-8")
