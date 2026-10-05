@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 from uuid import uuid4
 
 from mcm_solarcheck.infrastructure.online_persistence import OnlinePersistence
 from mcm_solarcheck.domain.pricing import PricingRule
 from mcm_solarcheck.infrastructure.smtp_email import SMTPEmailSender
 from mcm_solarcheck.services.billing import ComputeJobBillingService
-from mcm_solarcheck.services.compute_jobs import ComputeJobService
+from mcm_solarcheck.services.compute_jobs import ComputeJobLease, ComputeJobService
 from mcm_solarcheck.services.email import RegistrationEmailConfig, ReportRecoveryEmailConfig
 from mcm_solarcheck.services.invoice import InvoiceBasisService
 from mcm_solarcheck.services.invoice_admin_delivery import InvoiceAdminDeliveryService
@@ -136,6 +137,7 @@ def build_online_services(
     admin_authorization: SMTPAdminAuthorization,
     admin_mutation_guard: SMTPAdminMutationGuard,
     pricing_rule: PricingRule | None = None,
+    project_processing_lease: Callable[[], ComputeJobLease] | None = None,
 ) -> OnlineServices:
     """Compose services from durable stores and deployment-owned SMTP state."""
     if not isinstance(persistence, OnlinePersistence):
@@ -322,6 +324,11 @@ def build_online_services(
                 customer_id=request.customer_id,
                 project_id=request.project_id,
                 worker_id=f"project-processing-{uuid4().hex}",
+                lease=(
+                    project_processing_lease()
+                    if project_processing_lease is not None
+                    else None
+                ),
             ),
         ),
         project_creation=ProjectCreationService(
