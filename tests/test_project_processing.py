@@ -7,6 +7,7 @@ from mcm_solarcheck.services.project_processing import (
     ProjectProcessingRequest,
     ProjectProcessingService,
     ProjectProcessingState,
+    ComputeJobProcessingStateRecorder,
 )
 
 
@@ -164,3 +165,37 @@ def test_processing_records_failed_state_when_persistence_raises(tmp_path) -> No
         ProjectProcessingState.RUNNING,
         ProjectProcessingState.FAILED,
     ]
+
+
+def test_compute_job_processing_recorder_requires_matching_running_job() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+
+    class Jobs:
+        def __init__(self):
+            self.job = ComputeJob("job-1", "user-1", "P-1", ComputeJobStatus.RUNNING)
+            self.transitions = []
+
+        def get(self, job_id, *, user_id, project_id):
+            assert (job_id, user_id, project_id) == ("job-1", "user-1", "P-1")
+            return self.job
+
+        def transition(self, job_id, status, *, user_id, project_id):
+            self.transitions.append((job_id, status, user_id, project_id))
+
+    jobs = Jobs()
+    recorder = ComputeJobProcessingStateRecorder(
+        jobs, job_id="job-1", customer_id="user-1", project_id="P-1"
+    )
+    recorder("user-1", "P-1", ProjectProcessingState.RUNNING)
+    recorder("user-1", "P-1", ProjectProcessingState.COMPLETED)
+    assert jobs.transitions == [
+        ("job-1", ComputeJobStatus.COMPLETED, "user-1", "P-1")
+    ]
+
+
+def test_compute_job_processing_recorder_rejects_identity_mismatch() -> None:
+    recorder = ComputeJobProcessingStateRecorder(
+        object(), job_id="job-1", customer_id="user-1", project_id="P-1"
+    )
+    with pytest.raises(PermissionError, match="identity mismatch"):
+        recorder("user-other", "P-1", ProjectProcessingState.RUNNING)
