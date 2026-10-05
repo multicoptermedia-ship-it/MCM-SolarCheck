@@ -37,6 +37,11 @@ class PricingRule:
             raise ValueError("pricing rates must not be negative")
         if any(rate > 1 for rate in rates):
             raise ValueError("pricing rates must not exceed 1")
+        if (
+            (self.planner_discount_rate > 0 or self.repeat_discount_rate > 0)
+            and self.maximum_discount_rate == 0
+        ):
+            raise ValueError("configured discounts require a positive maximum discount rate")
 
         previous_limit = Decimal("0")
         for index, tier in enumerate(self.tiers):
