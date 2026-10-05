@@ -38,11 +38,14 @@ class ProjectProcessingResult:
 class ComputeJobProcessingStateRecorder:
     """Bind one project-processing lifecycle to one authoritative compute job."""
 
-    def __init__(self, jobs, *, job_id: str, customer_id: str, project_id: str) -> None:
+    def __init__(self, jobs, *, job_id: str, customer_id: str, project_id: str, worker_id: str | None = None) -> None:
         self._jobs = jobs
         self._job_id = job_id.strip()
         self._customer_id = customer_id.strip()
         self._project_id = project_id.strip()
+        self._worker_id = worker_id.strip() if worker_id is not None else None
+        if worker_id is not None and not self._worker_id:
+            raise ValueError("worker_id must be a non-empty string")
         if not self._job_id or not self._customer_id or not self._project_id:
             raise ValueError("job, customer and project are required")
 
@@ -65,8 +68,17 @@ class ComputeJobProcessingStateRecorder:
                 raise PermissionError("processing job is not available") from exc
             if job.status is not ComputeJobStatus.RUNNING:
                 raise ValueError("compute job must be running before project processing")
+            if self._worker_id is not None:
+                self._jobs.claim(self._job_id, worker_id=self._worker_id)
             return
         if state in (ProjectProcessingState.COMPLETED, ProjectProcessingState.FAILED):
+            if self._worker_id is not None:
+                self._jobs.finish_claimed(
+                    self._job_id,
+                    worker_id=self._worker_id,
+                    succeeded=state is ProjectProcessingState.COMPLETED,
+                )
+                return
             self._jobs.transition(
                 self._job_id,
                 (
