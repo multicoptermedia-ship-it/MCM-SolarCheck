@@ -157,6 +157,18 @@ class ProjectDatabase:
         with self.connect() as db:
             db.execute("INSERT INTO projects(project_id,name) VALUES (?,?)",(project_id,name))
             db.execute("INSERT INTO project_owners(project_id,customer_id,capacity_kwp) VALUES (?,?,?)",(project_id,customer_id,str(capacity_kwp)))
+    def projects_for_customer(self,customer_id:str):
+        from mcm_solarcheck.storage.queries import ProjectRecord
+        customer_id=customer_id.strip()
+        if not customer_id:raise ValueError('customer_id is required')
+        with self.connect() as db:
+            rows=db.execute(
+                "SELECT p.project_id,p.name FROM projects p "
+                "JOIN project_owners o ON o.project_id=p.project_id "
+                "WHERE o.customer_id=? ORDER BY p.project_id",
+                (customer_id,),
+            ).fetchall()
+        return tuple(ProjectRecord(row["project_id"],row["name"]) for row in rows)
     def project_belongs_to_customer(self,customer_id:str,project_id:str)->bool:
         with self.connect() as db:
             row=db.execute("SELECT 1 FROM project_owners WHERE customer_id=? AND project_id=?",(customer_id.strip(),project_id.strip())).fetchone()
