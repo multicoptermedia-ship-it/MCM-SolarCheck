@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from mcm_solarcheck.importers.project import ProjectImportResult
-from mcm_solarcheck.services.compute_jobs import ComputeJobStatus
+from mcm_solarcheck.services.compute_jobs import ComputeJobLease, ComputeJobStatus
 
 
 class ProjectProcessingConflict(RuntimeError):
@@ -42,12 +42,22 @@ class ProjectProcessingResult:
 class ComputeJobProcessingStateRecorder:
     """Bind one project-processing lifecycle to one authoritative compute job."""
 
-    def __init__(self, jobs, *, job_id: str, customer_id: str, project_id: str, worker_id: str | None = None) -> None:
+    def __init__(
+        self,
+        jobs,
+        *,
+        job_id: str,
+        customer_id: str,
+        project_id: str,
+        worker_id: str | None = None,
+        lease: ComputeJobLease | None = None,
+    ) -> None:
         self._jobs = jobs
         self._job_id = job_id.strip()
         self._customer_id = customer_id.strip()
         self._project_id = project_id.strip()
         self._worker_id = worker_id.strip() if worker_id is not None else None
+        self._lease = lease
         if worker_id is not None and not self._worker_id:
             raise ValueError("worker_id must be a non-empty string")
         if not self._job_id or not self._customer_id or not self._project_id:
@@ -74,7 +84,11 @@ class ComputeJobProcessingStateRecorder:
                 raise ValueError("compute job must be running before project processing")
             if self._worker_id is not None:
                 try:
-                    self._jobs.claim(self._job_id, worker_id=self._worker_id)
+                    self._jobs.claim(
+                        self._job_id,
+                        worker_id=self._worker_id,
+                        lease=self._lease,
+                    )
                 except RuntimeError as exc:
                     if "already claimed by another worker" in str(exc):
                         raise ProjectProcessingConflict(
