@@ -218,3 +218,36 @@ def test_online_persistence_project_state_uses_private_state_database(tmp_path) 
             "SELECT name FROM projects WHERE project_id=?",
             ("P-ONLINE",),
         ).fetchone()==("Online Project",)
+
+
+def test_online_project_list_is_strictly_scoped_by_customer_ownership(tmp_path) -> None:
+    from decimal import Decimal
+
+    private = tmp_path / "private"
+    paths = OnlinePrivatePaths(
+        private / "state" / "solarcheck.sqlite",
+        private / "reports",
+        private / "invoices",
+        tmp_path / "public",
+    )
+    persistence = build_online_persistence(
+        paths,
+        smtp_default=SMTPConfig(
+            "smtp.example.invalid",
+            465,
+            "solarcheck@example.invalid",
+            security=SMTPSecurity.TLS,
+        ),
+        smtp_secrets=FakeSecretStore(),
+    )
+    persistence.projects.create_customer_project(
+        "customer-a", "P-A", "Project A", Decimal("25")
+    )
+    persistence.projects.create_customer_project(
+        "customer-b", "P-B", "Project B", Decimal("50")
+    )
+    persistence.projects.create_project("P-LEGACY", "Legacy Project")
+
+    assert [p.project_id for p in persistence.projects.projects_for_customer("customer-a")] == ["P-A"]
+    assert [p.project_id for p in persistence.projects.projects_for_customer("customer-b")] == ["P-B"]
+    assert persistence.projects.projects_for_customer("customer-without-projects") == ()
