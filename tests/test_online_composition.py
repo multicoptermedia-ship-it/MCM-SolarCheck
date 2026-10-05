@@ -1183,6 +1183,7 @@ def test_online_processing_recorder_persists_only_matching_compute_job(tmp_path)
     )
 
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-a")
     services = online_services(persistence)
     services.project_creation.create(
         CreateProjectRequest("user-a", "P-PROCESS", "Processing Project", Decimal("42.5"))
