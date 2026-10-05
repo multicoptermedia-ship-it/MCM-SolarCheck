@@ -199,3 +199,16 @@ def test_compute_job_processing_recorder_rejects_identity_mismatch() -> None:
     )
     with pytest.raises(PermissionError, match="identity mismatch"):
         recorder("user-other", "P-1", ProjectProcessingState.RUNNING)
+
+
+def test_compute_job_processing_recorder_hides_missing_job() -> None:
+    class Jobs:
+        def get(self, job_id, *, user_id, project_id):
+            raise KeyError(job_id)
+
+    recorder = ComputeJobProcessingStateRecorder(
+        Jobs(), job_id="missing-job", customer_id="user-1", project_id="P-1"
+    )
+
+    with pytest.raises(PermissionError, match="not available"):
+        recorder("user-1", "P-1", ProjectProcessingState.RUNNING)
