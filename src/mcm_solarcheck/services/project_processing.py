@@ -170,6 +170,8 @@ class ProjectProcessingService:
             if self._record_state_for_request is not None
             else self._record_state
         )
+        if record_state is not None and not callable(getattr(record_state, "heartbeat", None)):
+            record_state = _CallableStateRecorder(record_state)
         if record_state is None:
             raise RuntimeError("project processing state recorder is not configured")
         directory = Path(self._upload_directory_for_project(customer_id, project_id))
