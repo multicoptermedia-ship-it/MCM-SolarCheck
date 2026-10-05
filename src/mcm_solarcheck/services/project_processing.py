@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from mcm_solarcheck.importers.project import ProjectImportResult
+from mcm_solarcheck.services.compute_jobs import ComputeJobStatus
 
 
 class ProjectProcessingState(str, Enum):
@@ -31,6 +32,49 @@ class ProjectProcessingResult:
     imported_thermal_frames: int
     paired_frames: int
     import_failures: int
+
+
+class ComputeJobProcessingStateRecorder:
+    """Bind one project-processing lifecycle to one authoritative compute job."""
+
+    def __init__(self, jobs, *, job_id: str, customer_id: str, project_id: str) -> None:
+        self._jobs = jobs
+        self._job_id = job_id.strip()
+        self._customer_id = customer_id.strip()
+        self._project_id = project_id.strip()
+        if not self._job_id or not self._customer_id or not self._project_id:
+            raise ValueError("job, customer and project are required")
+
+    def __call__(
+        self,
+        customer_id: str,
+        project_id: str,
+        state: ProjectProcessingState,
+    ) -> None:
+        if customer_id != self._customer_id or project_id != self._project_id:
+            raise PermissionError("processing job identity mismatch")
+        if state is ProjectProcessingState.RUNNING:
+            job = self._jobs.get(
+                self._job_id,
+                user_id=self._customer_id,
+                project_id=self._project_id,
+            )
+            if job.status is not ComputeJobStatus.RUNNING:
+                raise ValueError("compute job must be running before project processing")
+            return
+        if state in (ProjectProcessingState.COMPLETED, ProjectProcessingState.FAILED):
+            self._jobs.transition(
+                self._job_id,
+                (
+                    ComputeJobStatus.COMPLETED
+                    if state is ProjectProcessingState.COMPLETED
+                    else ComputeJobStatus.FAILED
+                ),
+                user_id=self._customer_id,
+                project_id=self._project_id,
+            )
+            return
+        raise ValueError("unsupported project processing state")
 
 
 class ProjectProcessingService:
