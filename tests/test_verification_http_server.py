@@ -838,7 +838,11 @@ def test_project_price_hides_foreign_project_as_not_found() -> None:
             urlopen(req, timeout=2)
         except HTTPError as exc:
             assert exc.code == 404
-            assert "project is not available" in exc.read().decode("utf-8")
+            body = exc.read().decode("utf-8")
+            assert "SolarCheck – Fehler 404" in body
+            assert "project is not available" in body
+            assert "Bitte prüfen Sie die Projektauswahl oder kehren Sie zur Projektübersicht zurück." in body
+            assert "anderen Kunden" not in body
         else:
             raise AssertionError("foreign project pricing must return 404")
     finally:
