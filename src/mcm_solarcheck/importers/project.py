@@ -47,5 +47,10 @@ def import_m3t_project(
         heartbeat=heartbeat,
     )
     thermal_frames = tuple(result.frame for result in thermal.results)
-    pairs = pair_rgb_thermal_frames(rgb, thermal_frames, minimum_confidence=minimum_pair_confidence)
+    pairs = pair_rgb_thermal_frames(
+        rgb,
+        thermal_frames,
+        minimum_confidence=minimum_pair_confidence,
+        heartbeat=heartbeat,
+    )
     return ProjectImportResult(rgb, thermal, pairs)
