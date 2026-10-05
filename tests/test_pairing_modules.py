@@ -128,3 +128,16 @@ def test_pairing_heartbeat_failure_prevents_candidate_scoring(monkeypatch):
         )
 
     assert scored == []
+
+
+def test_pairing_does_not_heartbeat_without_rgb_rows():
+    heartbeats = []
+
+    pairs = pair_rgb_thermal_frames(
+        (),
+        (ThermalFrame("T-0001", Path("DJI_x_0001_T.JPG")),),
+        heartbeat=lambda: heartbeats.append(True),
+    )
+
+    assert pairs == ()
+    assert heartbeats == []
