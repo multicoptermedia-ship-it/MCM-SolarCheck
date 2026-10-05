@@ -118,8 +118,11 @@ class ProjectProcessingService:
         try:
             imported = self._import_project(directory)
             self._persist_import(customer_id, project_id, imported)
-        except Exception:
-            record_state(customer_id, project_id, ProjectProcessingState.FAILED)
+        except Exception as processing_error:
+            try:
+                record_state(customer_id, project_id, ProjectProcessingState.FAILED)
+            except Exception as state_error:
+                raise processing_error from state_error
             raise
 
         record_state(customer_id, project_id, ProjectProcessingState.COMPLETED)
