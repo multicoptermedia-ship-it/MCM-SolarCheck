@@ -142,7 +142,7 @@ class ProjectProcessingService:
         project_belongs_to_customer: Callable[[str, str], bool],
         upload_directory_for_project: Callable[[str, str], str | Path],
         import_project: Callable[[str | Path], ProjectImportResult],
-        record_state: Callable[[str, str, ProjectProcessingState], None] | None = None,
+        record_state: ProjectProcessingStateRecorder | None = None,
         persist_import: Callable[[str, str, ProjectImportResult], None] | None = None,
         record_state_for_request: Callable[[ProjectProcessingRequest], ProjectProcessingStateRecorder] | None = None,
         import_project_with_heartbeat: Callable[[str | Path, Callable[[], None]], ProjectImportResult] | None = None,
@@ -177,8 +177,8 @@ class ProjectProcessingService:
             raise ValueError("project upload directory is not available")
         record_state(customer_id, project_id, ProjectProcessingState.RUNNING)
         try:
-            heartbeat = getattr(record_state, "heartbeat", None)
-            if self._import_project_with_heartbeat is not None and callable(heartbeat):
+            heartbeat = record_state.heartbeat
+            if self._import_project_with_heartbeat is not None:
                 imported = self._import_project_with_heartbeat(directory, heartbeat)
             else:
                 imported = self._import_project(directory)
