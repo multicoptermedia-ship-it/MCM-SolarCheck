@@ -511,3 +511,38 @@ def test_claimed_processing_success_finishes_job_completed(tmp_path) -> None:
 
     assert result.state is ProjectProcessingState.COMPLETED
     assert store.get("job-1").status is ComputeJobStatus.COMPLETED
+
+
+def test_processing_recorder_heartbeat_renews_active_lease(tmp_path) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJobLease, ComputeJobService
+
+    store = SQLiteComputeJobStore(tmp_path / "jobs.sqlite")
+    jobs = ComputeJobService(store, load=store, admission=store, claims=store)
+    jobs.create(job_id="job-1", user_id="user-1", project_id="P-1")
+    jobs.start("job-1", user_id="user-1", project_id="P-1", capacity=ComputeCapacity(max_parallel_jobs=1))
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    renewed = ComputeJobLease(start + timedelta(minutes=4), timedelta(minutes=5))
+    recorder = ComputeJobProcessingStateRecorder(
+        jobs,
+        job_id="job-1",
+        customer_id="user-1",
+        project_id="P-1",
+        worker_id="worker-a",
+        lease=ComputeJobLease(start, timedelta(minutes=5)),
+        renew_lease=lambda: renewed,
+    )
+
+    recorder("user-1", "P-1", ProjectProcessingState.RUNNING)
+    recorder.heartbeat()
+
+    import sqlite3
+    with sqlite3.connect(store.database) as connection:
+        lease_expires_at = connection.execute(
+            "SELECT lease_expires_at FROM compute_jobs WHERE job_id = ?", ("job-1",)
+        ).fetchone()[0]
+
+    assert lease_expires_at == renewed.expires_at.isoformat()
+
