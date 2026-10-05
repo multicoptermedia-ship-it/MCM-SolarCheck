@@ -50,6 +50,8 @@ def import_m3t_directory(
     failures: list[M3TBatchFailure] = []
 
     for path in files:
+        if heartbeat is not None:
+            heartbeat()
         try:
             results.append(
                 worker.import_file(
@@ -60,9 +62,6 @@ def import_m3t_directory(
             )
         except Exception as exc:  # batch boundary: preserve remaining evidence
             failures.append(M3TBatchFailure(path, type(exc).__name__, str(exc)))
-        if heartbeat is not None:
-            heartbeat()
-
     grades = [result.quality.grade.value for result in results]
     summary = M3TBatchSummary(
         total_files=len(files),
