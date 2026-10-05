@@ -1453,3 +1453,46 @@ def test_project_processing_hides_unavailable_job_identity() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "project_id=P-1",
+        "project_id=P-1&job_id=",
+        "project_id=P-1&job_id=job-1&job_id=job-2",
+    ),
+)
+def test_project_processing_rejects_invalid_job_id_before_processing(query) -> None:
+    endpoint = Endpoint()
+
+    class Processing:
+        def process(self, processing_request):
+            raise AssertionError("processing must not be called for invalid job id")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_processing_service=Processing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-process?{query}",
+            data=b"",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+            method="POST",
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as error:
+            assert error.code == 400
+        else:
+            raise AssertionError("invalid job id must return 400")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
