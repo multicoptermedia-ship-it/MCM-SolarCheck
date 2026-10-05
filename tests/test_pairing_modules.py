@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from mcm_solarcheck.domain.models import Finding, ImageFrame, Position, PVModule, ThermalFrame
 from mcm_solarcheck.pairing.rgb_thermal import pair_rgb_thermal_frames, pair_score
 from mcm_solarcheck.vision.modules import assign_findings_to_modules, point_in_polygon
@@ -44,3 +46,38 @@ def test_assignment_does_not_cross_frames():
     module = PVModule("M-1", "T-0002", ((0, 0), (100, 0), (100, 100), (0, 100)))
     finding = Finding("F-1", "T-0001", 50, 50)
     assert assign_findings_to_modules((finding,), (module,))[0].module_id is None
+
+
+def test_pairing_heartbeats_after_each_rgb_candidate_row():
+    rgbs = (
+        ImageFrame("V-0001", Path("DJI_x_0001_V.JPG")),
+        ImageFrame("V-0002", Path("DJI_x_0002_V.JPG")),
+    )
+    thermals = (ThermalFrame("T-0001", Path("DJI_x_0001_T.JPG")),)
+    heartbeats = []
+
+    pairs = pair_rgb_thermal_frames(
+        rgbs,
+        thermals,
+        minimum_confidence=0.65,
+        heartbeat=lambda: heartbeats.append(True),
+    )
+
+    assert len(pairs) == 1
+    assert heartbeats == [True, True]
+
+
+def test_pairing_propagates_heartbeat_failure():
+    rgb = (ImageFrame("V-0001", Path("DJI_x_0001_V.JPG")),)
+    thermal = (ThermalFrame("T-0001", Path("DJI_x_0001_T.JPG")),)
+
+    def fail_heartbeat():
+        raise PermissionError("compute job worker lease expired")
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        pair_rgb_thermal_frames(
+            rgb,
+            thermal,
+            minimum_confidence=0.65,
+            heartbeat=fail_heartbeat,
+        )
