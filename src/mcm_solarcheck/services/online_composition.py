@@ -29,6 +29,9 @@ from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
 from mcm_solarcheck.services.project_creation import ProjectCreationService
 from mcm_solarcheck.services.project_pricing import ProjectPricingService
 from mcm_solarcheck.services.project_upload import ProjectUploadService
+from mcm_solarcheck.services.project_processing import ProjectProcessingService, ComputeJobProcessingStateRecorder
+from mcm_solarcheck.importers.project import import_m3t_project
+from mcm_solarcheck.storage.import_store import store_project_import
 from mcm_solarcheck.services.payment_checkout import OnlinePaymentCheckoutService
 from mcm_solarcheck.services.payment_execution import PaymentExecutionEvidence
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService, PaymentGateway
@@ -81,6 +84,7 @@ class OnlineServices:
     project_creation: ProjectCreationService
     project_pricing: ProjectPricingService | None
     project_upload: ProjectUploadService
+    project_processing: ProjectProcessingService
     registration: OnlineRegistrationService
     login: OnlineLoginService
     compute_jobs: EntitledComputeJobService
@@ -303,6 +307,21 @@ def build_online_services(
         project_upload=ProjectUploadService(
             persistence.uploads.store,
             persistence.projects.project_belongs_to_customer,
+        ),
+        project_processing=ProjectProcessingService(
+            persistence.projects.project_belongs_to_customer,
+            persistence.uploads.project_directory,
+            import_m3t_project,
+            lambda customer_id, project_id, state: None,
+            lambda customer_id, project_id, imported: store_project_import(
+                persistence.projects, customer_id, project_id, imported
+            ),
+            record_state_for_request=lambda request: ComputeJobProcessingStateRecorder(
+                compute_jobs,
+                job_id=request.job_id or "",
+                customer_id=request.customer_id,
+                project_id=request.project_id,
+            ),
         ),
         project_creation=ProjectCreationService(
             lambda project: persistence.projects.create_customer_project(
