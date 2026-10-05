@@ -107,8 +107,16 @@ def test_project_import_forwards_same_heartbeat_to_rgb_and_thermal(monkeypatch, 
         return type("Batch", (), {"results": (), "failures": ()})()
 
     monkeypatch.setattr(module, "import_m3t_directory", fake_thermal)
-    monkeypatch.setattr(module, "pair_rgb_thermal_frames", lambda rgb, thermal, **kwargs: ())
+    def fake_pairing(rgb, thermal, **kwargs):
+        seen.append(("pairing", kwargs["heartbeat"]))
+        return ()
+
+    monkeypatch.setattr(module, "pair_rgb_thermal_frames", fake_pairing)
 
     module.import_m3t_project(tmp_path, rgb_importer=RGB(), heartbeat=heartbeat)
 
-    assert seen == [("rgb", heartbeat), ("thermal", heartbeat)]
+    assert seen == [
+        ("rgb", heartbeat),
+        ("thermal", heartbeat),
+        ("pairing", heartbeat),
+    ]
