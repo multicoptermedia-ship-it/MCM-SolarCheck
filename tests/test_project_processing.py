@@ -330,6 +330,41 @@ def test_processing_preserves_import_error_when_failed_state_recording_fails(tmp
     assert str(error.value.__cause__) == "failed transition unavailable"
 
 
+
+def test_processing_recorder_passes_explicit_lease_to_claim() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobLease, ComputeJobStatus
+
+    lease = ComputeJobLease(
+        now=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        duration=timedelta(minutes=5),
+    )
+
+    class Jobs:
+        def __init__(self):
+            self.claims = []
+
+        def get(self, job_id, *, user_id, project_id):
+            return ComputeJob(job_id, user_id, project_id, ComputeJobStatus.RUNNING)
+
+        def claim(self, job_id, worker_id, lease=None):
+            self.claims.append((job_id, worker_id, lease))
+
+    jobs = Jobs()
+    recorder = ComputeJobProcessingStateRecorder(
+        jobs,
+        job_id="job-1",
+        customer_id="user-1",
+        project_id="P-1",
+        worker_id="worker-a",
+        lease=lease,
+    )
+
+    recorder("user-1", "P-1", ProjectProcessingState.RUNNING)
+
+    assert jobs.claims == [("job-1", "worker-a", lease)]
+
 def test_processing_recorder_rejects_second_worker_for_claimed_job(tmp_path) -> None:
     from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobStore
     from mcm_solarcheck.services.compute_jobs import (
