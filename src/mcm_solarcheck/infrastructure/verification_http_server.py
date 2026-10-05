@@ -341,15 +341,11 @@ def verification_handler(
                 self._respond(403, "online customer entry is not available")
                 return
             try:
-                projects = project_service.projects()
-            except (PermissionError, RuntimeError, ValueError):
-                self._respond(503, "online projects are not available")
-                return
-            try:
+                projects = tuple(project_service.projects_for_customer(user_id))
                 message = "Keine Projekte vorhanden." if not projects else "\n".join(
                     f"{project.project_id}: {project.name}" for project in projects
                 )
-            except (AttributeError, TypeError, ValueError):
+            except (AttributeError, PermissionError, RuntimeError, TypeError, ValueError):
                 self._respond(503, "online projects are not available")
                 return
             self._respond(200, message, headers={"Cache-Control": "no-store"})
