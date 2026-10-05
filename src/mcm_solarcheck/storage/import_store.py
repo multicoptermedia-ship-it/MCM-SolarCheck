@@ -16,10 +16,10 @@ def store_m3t_batch(database:ProjectDatabase,project_id:str,batch:M3TBatchResult
     """Store each successful frame and its findings in one transaction."""
     frames=findings=0
     for result in batch.results:
-        database.save_thermal_result(project_id,result.frame,result.quality,result.findings)
-        frames+=1;findings+=len(result.findings)
         if heartbeat is not None:
             heartbeat()
+        database.save_thermal_result(project_id,result.frame,result.quality,result.findings)
+        frames+=1;findings+=len(result.findings)
     return PersistenceSummary(frames,findings,len(batch.failures))
 
 
