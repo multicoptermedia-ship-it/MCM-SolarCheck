@@ -158,3 +158,11 @@ def test_zero_discount_cap_is_valid_without_configured_discounts() -> None:
     )
 
     assert pricing.price(Decimal("10")).net_total == Decimal("300.00")
+
+
+def test_planner_discount_is_ten_percent_when_verified() -> None:
+    snapshot = rule().price(Decimal("50"), planner_verified=True)
+
+    assert snapshot.planner_discount_rate == Decimal("0.10")
+    assert snapshot.discount_rate == Decimal("0.10")
+    assert snapshot.discount_amount == Decimal("50.00")
