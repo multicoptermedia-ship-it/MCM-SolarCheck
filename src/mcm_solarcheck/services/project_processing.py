@@ -146,6 +146,7 @@ class ProjectProcessingService:
         persist_import: Callable[[str, str, ProjectImportResult], None] | None = None,
         record_state_for_request: Callable[[ProjectProcessingRequest], Callable[[str, str, ProjectProcessingState], None]] | None = None,
         import_project_with_heartbeat: Callable[[str | Path, Callable[[], None]], ProjectImportResult] | None = None,
+        persist_import_with_heartbeat: Callable[[str, str, ProjectImportResult, Callable[[], None]], None] | None = None,
     ) -> None:
         self._project_belongs_to_customer = project_belongs_to_customer
         self._upload_directory_for_project = upload_directory_for_project
@@ -154,6 +155,7 @@ class ProjectProcessingService:
         self._persist_import = persist_import or (lambda customer_id, project_id, imported: None)
         self._record_state_for_request = record_state_for_request
         self._import_project_with_heartbeat = import_project_with_heartbeat
+        self._persist_import_with_heartbeat = persist_import_with_heartbeat
 
     def process(self, request: ProjectProcessingRequest) -> ProjectProcessingResult:
         customer_id = request.customer_id.strip()
@@ -180,7 +182,10 @@ class ProjectProcessingService:
                 imported = self._import_project_with_heartbeat(directory, heartbeat)
             else:
                 imported = self._import_project(directory)
-            self._persist_import(customer_id, project_id, imported)
+            if self._persist_import_with_heartbeat is not None and callable(heartbeat):
+                self._persist_import_with_heartbeat(customer_id, project_id, imported, heartbeat)
+            else:
+                self._persist_import(customer_id, project_id, imported)
         except Exception as processing_error:
             try:
                 record_state(customer_id, project_id, ProjectProcessingState.FAILED)
