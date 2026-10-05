@@ -662,3 +662,25 @@ def test_processing_uses_recorder_heartbeat_for_persistence(tmp_path) -> None:
         ("persist",),
         ("state", ProjectProcessingState.COMPLETED),
     ]
+
+
+def test_processing_adapts_request_bound_callback_without_heartbeat(tmp_path) -> None:
+    states = []
+    heartbeat_import_used = []
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: import_result(),
+        record_state_for_request=lambda request: (
+            lambda customer_id, project_id, state: states.append(state)
+        ),
+        import_project_with_heartbeat=lambda directory, heartbeat: (
+            heartbeat_import_used.append(True) or heartbeat() or import_result()
+        ),
+    )
+
+    result = service.process(ProjectProcessingRequest("user-1", "P-1", "job-1"))
+
+    assert result.state is ProjectProcessingState.COMPLETED
+    assert heartbeat_import_used == [True]
+    assert states == [ProjectProcessingState.RUNNING, ProjectProcessingState.COMPLETED]
