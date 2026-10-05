@@ -546,3 +546,20 @@ def test_processing_recorder_heartbeat_renews_active_lease(tmp_path) -> None:
 
     assert lease_expires_at == renewed.expires_at.isoformat()
 
+
+@pytest.mark.parametrize(
+    ("worker_id", "lease"),
+    ((None, object()), ("worker-a", None)),
+)
+def test_processing_recorder_rejects_incomplete_renewal_configuration(worker_id, lease) -> None:
+    with pytest.raises(ValueError, match="renewal requires"):
+        ComputeJobProcessingStateRecorder(
+            object(),
+            job_id="job-1",
+            customer_id="user-1",
+            project_id="P-1",
+            worker_id=worker_id,
+            lease=lease,
+            renew_lease=lambda: lease,
+        )
+
