@@ -1142,3 +1142,32 @@ def test_online_project_pricing_stays_disabled_without_explicit_rule(tmp_path) -
     persistence = setup_persistence(tmp_path, secret_configured=True)
 
     assert online_services(persistence).project_pricing is None
+
+
+def test_online_project_upload_persists_only_for_owned_project(tmp_path) -> None:
+    from decimal import Decimal
+    from mcm_solarcheck.services.project_creation import CreateProjectRequest
+    from mcm_solarcheck.services.project_upload import ProjectUploadRequest
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+    services.project_creation.create(
+        CreateProjectRequest("user-a", "P-UPLOAD", "Upload Project", Decimal("42.5"))
+    )
+    content = b"\xff\xd8\xffsolarcheck"
+    stored = services.project_upload.upload(
+        ProjectUploadRequest(
+            "user-a", "P-UPLOAD", "thermal-001.jpg", "image/jpeg", content
+        )
+    )
+
+    destination = persistence.uploads.project_directory("user-a", "P-UPLOAD") / "thermal-001.jpg"
+    assert destination.read_bytes() == content
+    assert stored.size_bytes == len(content)
+
+    with pytest.raises(PermissionError):
+        services.project_upload.upload(
+            ProjectUploadRequest(
+                "user-b", "P-UPLOAD", "thermal-002.jpg", "image/jpeg", content
+            )
+        )
