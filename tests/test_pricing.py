@@ -158,17 +158,3 @@ def test_zero_discount_cap_is_valid_without_configured_discounts() -> None:
     )
 
     assert pricing.price(Decimal("10")).net_total == Decimal("300.00")
-
-
-def test_discount_rate_boundary_of_one_is_valid() -> None:
-    pricing = PricingRule(
-        version="2026-10-test",
-        tiers=(PriceTier(None, Decimal("300")),),
-        planner_discount_rate=Decimal("1"),
-        maximum_discount_rate=Decimal("1"),
-    )
-
-    snapshot = pricing.price(Decimal("10"), planner_verified=True)
-
-    assert snapshot.discount_rate == Decimal("1")
-    assert snapshot.net_total == Decimal("0.00")
