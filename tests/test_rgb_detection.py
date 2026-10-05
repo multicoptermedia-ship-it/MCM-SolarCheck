@@ -47,3 +47,24 @@ def test_normalization_geometry_gate_rejects_duplicate_and_outside():
 def test_normalization_requires_image_size_for_safe_default():
     with pytest.raises(ValueError):
         normalize_module_detections("V-1",(ModuleDetection(((0,0),(10,0),(10,10)),.9),),detector_name="fixture")
+
+
+def test_rgb_import_directory_propagates_heartbeat_failure(tmp_path):
+    for number in (1, 2):
+        (tmp_path / f"DJI_20250825_{number:04d}_V.JPG").write_bytes(b"fake")
+
+    class FakeRGBImporter(M3TRGBImporter):
+        def import_file(self, path):
+            return Path(path).name
+
+    heartbeats = []
+
+    def fail_heartbeat():
+        heartbeats.append(True)
+        raise PermissionError("compute job worker lease expired")
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        FakeRGBImporter().import_directory(tmp_path, heartbeat=fail_heartbeat)
+
+    assert heartbeats == [True]
+
