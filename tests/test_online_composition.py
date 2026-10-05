@@ -1242,6 +1242,65 @@ def test_composed_online_processing_requires_bound_compute_job(tmp_path) -> None
         )
 
 
+
+def test_composed_online_processing_uses_configured_claim_lease(tmp_path) -> None:
+    from datetime import datetime, timedelta, timezone
+    from decimal import Decimal
+
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJobLease
+    from mcm_solarcheck.services.project_creation import CreateProjectRequest
+    from mcm_solarcheck.services.project_processing import (
+        ProjectProcessingRequest,
+        ProjectProcessingState,
+    )
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-a")
+    lease = ComputeJobLease(
+        now=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        duration=timedelta(minutes=5),
+    )
+    services = build_online_services(
+        persistence,
+        invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
+        payment_gateway=FakePaymentGateway(),
+        sepa_gateway=FakeSepaGateway(),
+        sepa_provider_id="provider-a",
+        payment_providers=PaymentProviderRegistry((PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.CARD, PaymentMethod.PAYPAL, PaymentMethod.SEPA_DIRECT_DEBIT})),)),
+        payment_provider_readiness=FakeReadiness(),
+        sepa_provider_readiness=FakeReadiness(),
+        admin_authorization=AllowAdmin(),
+        admin_mutation_guard=AllowMutation(),
+        project_processing_lease=lambda: lease,
+    )
+    services.project_creation.create(
+        CreateProjectRequest("user-a", "P-LEASE", "Leased Processing", Decimal("42.5"))
+    )
+    persistence.uploads.project_directory("user-a", "P-LEASE").mkdir(
+        parents=True, exist_ok=True
+    )
+    services.compute_jobs.create(
+        job_id="job-lease",
+        user_id="user-a",
+        project_id="P-LEASE",
+    )
+    services.compute_jobs.start(
+        "job-lease",
+        user_id="user-a",
+        project_id="P-LEASE",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+    recorder = services.project_processing._record_state_for_request(
+        ProjectProcessingRequest("user-a", "P-LEASE", "job-lease")
+    )
+
+    recorder("user-a", "P-LEASE", ProjectProcessingState.RUNNING)
+
+    claimed = persistence.compute_jobs.get("job-lease")
+    assert claimed.worker_id is not None
+    assert claimed.lease_expires_at == lease.expires_at
+
 def test_composed_online_processing_completes_started_job_for_empty_import(tmp_path) -> None:
     from decimal import Decimal
     from mcm_solarcheck.services.compute_jobs import ComputeCapacity
