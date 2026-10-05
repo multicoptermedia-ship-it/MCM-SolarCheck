@@ -1297,9 +1297,20 @@ def test_composed_online_processing_uses_configured_claim_lease(tmp_path) -> Non
 
     recorder("user-a", "P-LEASE", ProjectProcessingState.RUNNING)
 
-    claimed = persistence.compute_jobs.get("job-lease")
-    assert claimed.worker_id is not None
-    assert claimed.lease_expires_at == lease.expires_at
+    import sqlite3
+
+    with sqlite3.connect(persistence.compute_jobs.path) as connection:
+        worker_id, lease_expires_at = connection.execute(
+            """
+            SELECT worker_id, lease_expires_at
+            FROM compute_jobs
+            WHERE job_id = ?
+            """,
+            ("job-lease",),
+        ).fetchone()
+
+    assert worker_id is not None
+    assert lease_expires_at == lease.expires_at.isoformat()
 
 def test_composed_online_processing_completes_started_job_for_empty_import(tmp_path) -> None:
     from decimal import Decimal
