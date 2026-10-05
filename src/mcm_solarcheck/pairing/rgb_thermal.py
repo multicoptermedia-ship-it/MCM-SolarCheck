@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import asin, cos, radians, sin, sqrt
 import re
+from typing import Callable
 
 from mcm_solarcheck.domain.models import ImageFrame, ImagePair, ThermalFrame
 
@@ -67,6 +68,7 @@ def pair_rgb_thermal_frames(
     thermal_frames: tuple[ThermalFrame, ...],
     *,
     minimum_confidence: float = 0.70,
+    heartbeat: Callable[[], None] | None = None,
 ) -> tuple[ImagePair, ...]:
     """Greedily select unique high-confidence RGB/Thermal pairs."""
     candidates = []
@@ -75,6 +77,8 @@ def pair_rgb_thermal_frames(
             confidence, method, distance, dt = pair_score(rgb, thermal)
             if confidence >= minimum_confidence:
                 candidates.append((confidence, rgb.frame_id, thermal.frame_id, method, distance, dt))
+        if heartbeat is not None:
+            heartbeat()
     candidates.sort(key=lambda item: (-item[0], item[1], item[2]))
 
     used_rgb: set[str] = set()
