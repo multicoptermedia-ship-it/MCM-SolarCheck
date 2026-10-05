@@ -7,7 +7,7 @@ from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
@@ -99,6 +99,12 @@ def _migrate_14_to_15(db:sqlite3.Connection)->None:
     db.execute("UPDATE schema_info SET version=15")
 
 
+def _migrate_15_to_16(db:sqlite3.Connection)->None:
+    """Add nullable capacity for legacy owned projects without inventing metadata."""
+    db.execute("ALTER TABLE project_owners ADD COLUMN capacity_kwp TEXT")
+    db.execute("UPDATE schema_info SET version=16")
+
+
 def _migrate_13_to_14(db:sqlite3.Connection)->None:
     """Add explicit IANA timezone for report-local project timestamps."""
     db.execute("ALTER TABLE project_profiles ADD COLUMN site_timezone TEXT")
@@ -135,6 +141,9 @@ class ProjectDatabase:
                 if version == 14:
                     _migrate_14_to_15(db)
                     version=15
+                if version == 15:
+                    _migrate_15_to_16(db)
+                    version=16
                 if version != SCHEMA_VERSION:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
@@ -157,6 +166,7 @@ class ProjectDatabase:
         with self.connect() as db:
             row=db.execute("SELECT capacity_kwp FROM project_owners WHERE customer_id=? AND project_id=?",(customer_id.strip(),project_id.strip())).fetchone()
         if row is None:raise PermissionError("project is not available")
+        if row["capacity_kwp"] is None:raise PermissionError("project pricing basis is unavailable")
         return Decimal(row["capacity_kwp"])
     @staticmethod
     def _save_project_profile(db,project_id,profile)->None:
