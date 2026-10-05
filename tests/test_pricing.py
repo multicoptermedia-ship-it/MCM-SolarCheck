@@ -91,6 +91,8 @@ def test_snapshot_contains_complete_pricing_rule() -> None:
         {"tiers": ()},
         {"planner_discount_rate": Decimal("-0.01")},
         {"repeat_discount_rate": Decimal("-0.01")},
+        {"planner_discount_rate": Decimal("1.01")},
+        {"repeat_discount_rate": Decimal("1.01")},
         {"maximum_discount_rate": Decimal("1.01")},
         {"vat_rate": Decimal("1.01")},
     ],
