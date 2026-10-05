@@ -321,6 +321,9 @@ def build_online_services(
             import_project_with_heartbeat=lambda directory, heartbeat: import_m3t_project(
                 directory, heartbeat=heartbeat
             ),
+            persist_import_with_heartbeat=lambda customer_id, project_id, imported, heartbeat: store_project_import(
+                persistence.projects, customer_id, project_id, imported, heartbeat=heartbeat
+            ),
             record_state_for_request=lambda request: ComputeJobProcessingStateRecorder(
                 compute_jobs,
                 job_id=request.job_id or "",
