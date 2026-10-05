@@ -810,6 +810,42 @@ def test_project_price_rejects_invalid_project_id_before_pricing_access() -> Non
         thread.join(timeout=2)
 
 
+
+def test_project_price_hides_foreign_project_as_not_found() -> None:
+    endpoint = Endpoint()
+
+    class Pricing:
+        def price(self, pricing_request):
+            assert pricing_request.customer_id == "user-1"
+            assert pricing_request.project_id == "P-foreign"
+            raise PermissionError("project is not available")
+
+    server = build_verification_server(
+        endpoint,
+        session_service=SessionService(),
+        customer_entry=lambda user_id: None,
+        project_pricing_service=Pricing(),
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        req = Request(
+            f"http://{host}:{port}/project-price?project_id=P-foreign",
+            headers={"Cookie": "solarcheck_session=opaque-session-token"},
+        )
+        try:
+            urlopen(req, timeout=2)
+        except HTTPError as exc:
+            assert exc.code == 404
+            assert "project is not available" in exc.read().decode("utf-8")
+        else:
+            raise AssertionError("foreign project pricing must return 404")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
 def test_project_price_returns_service_unavailable_when_pricing_fails() -> None:
     endpoint = Endpoint()
 
