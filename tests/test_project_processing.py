@@ -587,3 +587,39 @@ def test_processing_preserves_heartbeat_lease_loss_when_failed_finish_also_fails
 
     assert isinstance(error.value.__cause__, PermissionError)
 
+
+
+def test_processing_uses_request_recorder_heartbeat_for_import(tmp_path) -> None:
+    events = []
+
+    class Recorder:
+        def __call__(self, customer_id, project_id, state):
+            events.append(("state", state))
+
+        def heartbeat(self):
+            events.append(("heartbeat",))
+
+    recorder = Recorder()
+
+    def import_with_heartbeat(directory, heartbeat):
+        assert directory == tmp_path
+        assert heartbeat == recorder.heartbeat
+        heartbeat()
+        return import_result()
+
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: (_ for _ in ()).throw(AssertionError("plain import used")),
+        record_state_for_request=lambda request: recorder,
+        import_project_with_heartbeat=import_with_heartbeat,
+    )
+
+    result = service.process(ProjectProcessingRequest("user-1", "P-1", "job-1"))
+
+    assert result.state is ProjectProcessingState.COMPLETED
+    assert events == [
+        ("state", ProjectProcessingState.RUNNING),
+        ("heartbeat",),
+        ("state", ProjectProcessingState.COMPLETED),
+    ]
