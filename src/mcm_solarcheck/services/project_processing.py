@@ -53,6 +53,7 @@ class ComputeJobProcessingStateRecorder:
         worker_id: str | None = None,
         lease: ComputeJobLease | None = None,
         now: Callable[[], datetime] | None = None,
+        renew_lease: Callable[[], ComputeJobLease] | None = None,
     ) -> None:
         self._jobs = jobs
         self._job_id = job_id.strip()
@@ -61,10 +62,21 @@ class ComputeJobProcessingStateRecorder:
         self._worker_id = worker_id.strip() if worker_id is not None else None
         self._lease = lease
         self._now = now
+        self._renew_lease = renew_lease
         if worker_id is not None and not self._worker_id:
             raise ValueError("worker_id must be a non-empty string")
         if not self._job_id or not self._customer_id or not self._project_id:
             raise ValueError("job, customer and project are required")
+
+    def heartbeat(self) -> None:
+        """Renew the active processing lease for this worker when configured."""
+        if self._worker_id is None or self._renew_lease is None:
+            return
+        self._jobs.renew_claim(
+            self._job_id,
+            worker_id=self._worker_id,
+            lease=self._renew_lease(),
+        )
 
     def __call__(
         self,
