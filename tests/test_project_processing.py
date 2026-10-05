@@ -717,3 +717,24 @@ def test_processing_stops_persistence_when_lease_heartbeat_fails(tmp_path) -> No
         ("state", ProjectProcessingState.RUNNING),
         ("state", ProjectProcessingState.FAILED),
     ]
+
+
+def test_processing_adapts_constructor_callback_for_heartbeat_import(tmp_path) -> None:
+    states = []
+    heartbeat_calls = []
+
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: import_result(),
+        record_state=lambda customer_id, project_id, state: states.append(state),
+        import_project_with_heartbeat=lambda directory, heartbeat: (
+            heartbeat_calls.append(heartbeat()) or import_result()
+        ),
+    )
+
+    result = service.process(ProjectProcessingRequest("user-1", "P-1"))
+
+    assert result.state is ProjectProcessingState.COMPLETED
+    assert heartbeat_calls == [None]
+    assert states == [ProjectProcessingState.RUNNING, ProjectProcessingState.COMPLETED]
