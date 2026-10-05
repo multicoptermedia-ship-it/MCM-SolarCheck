@@ -563,3 +563,27 @@ def test_processing_recorder_rejects_incomplete_renewal_configuration(worker_id,
             renew_lease=lambda: lease,
         )
 
+
+def test_processing_preserves_heartbeat_lease_loss_when_failed_finish_also_fails(tmp_path) -> None:
+    class Recorder:
+        def __call__(self, customer_id, project_id, state):
+            if state is ProjectProcessingState.FAILED:
+                raise PermissionError("compute job worker lease has expired")
+
+        def heartbeat(self):
+            raise PermissionError("compute job worker lease has expired")
+
+    recorder = Recorder()
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: import_result(),
+        record_state_for_request=lambda request: recorder,
+        import_project_with_heartbeat=lambda directory, heartbeat: heartbeat(),
+    )
+
+    with pytest.raises(PermissionError, match="lease has expired") as error:
+        service.process(ProjectProcessingRequest("user-1", "P-1", "job-1"))
+
+    assert isinstance(error.value.__cause__, PermissionError)
+
