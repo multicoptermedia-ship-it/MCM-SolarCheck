@@ -87,7 +87,7 @@ class ProjectProcessingService:
         project_belongs_to_customer: Callable[[str, str], bool],
         upload_directory_for_project: Callable[[str, str], str | Path],
         import_project: Callable[[str | Path], ProjectImportResult],
-        record_state: Callable[[str, str, ProjectProcessingState], None],
+        record_state: Callable[[str, str, ProjectProcessingState], None] | None = None,
         persist_import: Callable[[str, str, ProjectImportResult], None] | None = None,
         record_state_for_request: Callable[[ProjectProcessingRequest], Callable[[str, str, ProjectProcessingState], None]] | None = None,
     ) -> None:
@@ -111,6 +111,8 @@ class ProjectProcessingService:
             if self._record_state_for_request is not None
             else self._record_state
         )
+        if record_state is None:
+            raise RuntimeError("project processing state recorder is not configured")
         directory = Path(self._upload_directory_for_project(customer_id, project_id))
         if not directory.is_dir():
             raise ValueError("project upload directory is not available")
