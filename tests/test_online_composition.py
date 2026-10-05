@@ -1299,7 +1299,7 @@ def test_composed_online_processing_uses_configured_claim_lease(tmp_path) -> Non
 
     import sqlite3
 
-    with sqlite3.connect(persistence.compute_jobs.path) as connection:
+    with sqlite3.connect(persistence.compute_jobs.database) as connection:
         worker_id, lease_expires_at = connection.execute(
             """
             SELECT worker_id, lease_expires_at
