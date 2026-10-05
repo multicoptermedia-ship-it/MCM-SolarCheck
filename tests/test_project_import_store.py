@@ -91,3 +91,24 @@ def test_store_project_import_propagates_heartbeat_failure() -> None:
         )
 
     assert database.saved == []
+
+
+def test_store_project_import_does_not_heartbeat_empty_batch() -> None:
+    database = RecordingDatabase()
+    heartbeats = []
+    imported = SimpleNamespace(
+        thermal_batch=SimpleNamespace(results=(), failures=(object(),))
+    )
+
+    summary = store_project_import(
+        database,
+        "user-1",
+        "P-1",
+        imported,
+        heartbeat=lambda: heartbeats.append(True),
+    )
+
+    assert summary.frames_saved == 0
+    assert summary.import_failures == 1
+    assert database.saved == []
+    assert heartbeats == []
