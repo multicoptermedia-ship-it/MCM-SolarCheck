@@ -684,3 +684,36 @@ def test_processing_adapts_request_bound_callback_without_heartbeat(tmp_path) ->
     assert result.state is ProjectProcessingState.COMPLETED
     assert heartbeat_import_used == [True]
     assert states == [ProjectProcessingState.RUNNING, ProjectProcessingState.COMPLETED]
+
+
+def test_processing_stops_persistence_when_lease_heartbeat_fails(tmp_path) -> None:
+    events = []
+
+    class Recorder:
+        def __call__(self, customer_id, project_id, state):
+            events.append(("state", state))
+
+        def heartbeat(self):
+            raise PermissionError("worker lease expired")
+
+    recorder = Recorder()
+
+    def persist(customer_id, project_id, imported, heartbeat):
+        heartbeat()
+        events.append(("persist",))
+
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        lambda directory: import_result(),
+        record_state_for_request=lambda request: recorder,
+        persist_import_with_heartbeat=persist,
+    )
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        service.process(ProjectProcessingRequest("user-1", "P-1", "job-1"))
+
+    assert events == [
+        ("state", ProjectProcessingState.RUNNING),
+        ("state", ProjectProcessingState.FAILED),
+    ]
