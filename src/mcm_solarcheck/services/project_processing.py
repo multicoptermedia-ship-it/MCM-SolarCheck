@@ -12,7 +12,7 @@ from mcm_solarcheck.importers.project import ProjectImportResult
 from mcm_solarcheck.services.compute_jobs import ComputeJobLease, ComputeJobStatus
 
 
-class ProjectProcessingStateRecorder(Protocol):\n    """Record lifecycle state and optionally renew long-running work."""\n\n    def __call__(self, customer_id: str, project_id: str, state: "ProjectProcessingState") -> None: ...\n\n    def heartbeat(self) -> None: ...\n\n\nclass ProjectProcessingConflict(RuntimeError):
+class ProjectProcessingStateRecorder(Protocol):\n    """Record lifecycle state and optionally renew long-running work."""\n\n    def __call__(self, customer_id: str, project_id: str, state: "ProjectProcessingState") -> None: ...\n\n    def heartbeat(self) -> None: ...\n\n\nclass _CallableStateRecorder:\n    """Adapt legacy state callbacks to the recorder contract."""\n\n    def __init__(self, callback: Callable[[str, str, "ProjectProcessingState"], None]) -> None:\n        self._callback = callback\n\n    def __call__(self, customer_id: str, project_id: str, state: "ProjectProcessingState") -> None:\n        self._callback(customer_id, project_id, state)\n\n    def heartbeat(self) -> None:\n        return None\n\n\nclass ProjectProcessingConflict(RuntimeError):
     """The requested project processing is already owned by another worker."""
 
 
@@ -151,7 +151,7 @@ class ProjectProcessingService:
         self._project_belongs_to_customer = project_belongs_to_customer
         self._upload_directory_for_project = upload_directory_for_project
         self._import_project = import_project
-        self._record_state = record_state
+        self._record_state = (\n            record_state\n            if record_state is None or callable(getattr(record_state, "heartbeat", None))\n            else _CallableStateRecorder(record_state)\n        )
         self._persist_import = persist_import or (lambda customer_id, project_id, imported: None)
         self._record_state_for_request = record_state_for_request
         self._import_project_with_heartbeat = import_project_with_heartbeat
