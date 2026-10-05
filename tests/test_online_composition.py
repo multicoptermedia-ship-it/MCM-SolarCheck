@@ -1402,6 +1402,7 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
             ("job-renew",),
         ).fetchone()
 
-    assert result.state is ProjectProcessingState.COMPLETED\n    assert result.imported_thermal_frames == 0
+    assert result.state is ProjectProcessingState.COMPLETED
+    assert result.imported_thermal_frames == 0
     assert status == ComputeJobStatus.COMPLETED.value
     assert lease_expires_at == (start + timedelta(minutes=6)).isoformat()
