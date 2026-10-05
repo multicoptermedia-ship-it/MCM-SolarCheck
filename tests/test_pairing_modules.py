@@ -141,3 +141,37 @@ def test_pairing_does_not_heartbeat_without_rgb_rows():
 
     assert pairs == ()
     assert heartbeats == []
+
+
+def test_pairing_stops_before_next_rgb_row_when_lease_is_lost(monkeypatch):
+    import mcm_solarcheck.pairing.rgb_thermal as module
+
+    rgbs = (
+        ImageFrame("V-0001", Path("DJI_x_0001_V.JPG")),
+        ImageFrame("V-0002", Path("DJI_x_0002_V.JPG")),
+    )
+    thermals = (ThermalFrame("T-0001", Path("DJI_x_0001_T.JPG")),)
+    scored = []
+    heartbeats = []
+
+    def score(rgb, thermal):
+        scored.append(rgb.frame_id)
+        return 1.0, "sequence", None, None
+
+    def heartbeat():
+        heartbeats.append(True)
+        if len(heartbeats) == 2:
+            raise PermissionError("worker lease expired")
+
+    monkeypatch.setattr(module, "pair_score", score)
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        module.pair_rgb_thermal_frames(
+            rgbs,
+            thermals,
+            minimum_confidence=0.65,
+            heartbeat=heartbeat,
+        )
+
+    assert len(heartbeats) == 2
+    assert scored == ["V-0001"]
