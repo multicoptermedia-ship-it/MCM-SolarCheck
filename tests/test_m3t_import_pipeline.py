@@ -1,3 +1,4 @@
+import pytest
 from pathlib import Path
 
 from mcm_solarcheck.domain.models import Pose, Position, RTKQuality
@@ -64,3 +65,27 @@ def test_batch_continues_after_failure(monkeypatch, tmp_path):
     assert batch.summary.failed == 1
     assert batch.summary.finding_count == 2
     assert batch.failures[0].error_type == "ValueError"
+
+def test_batch_does_not_swallow_heartbeat_failure(tmp_path):
+    for number in (1, 2):
+        (tmp_path / f"DJI_20250825_{number:04d}_T.JPG").write_bytes(b"fake")
+
+    class AlwaysFails(M3TImporter):
+        def import_file(self, path, **kwargs):
+            raise ValueError("broken fixture")
+
+    heartbeats = []
+
+    def fail_heartbeat():
+        heartbeats.append(True)
+        raise PermissionError("compute job worker lease expired")
+
+    with pytest.raises(PermissionError, match="lease expired"):
+        import_m3t_directory(
+            tmp_path,
+            importer=AlwaysFails(FakeParser()),
+            heartbeat=fail_heartbeat,
+        )
+
+    assert heartbeats == [True]
+
