@@ -63,6 +63,8 @@ class ComputeJobProcessingStateRecorder:
         self._lease = lease
         self._now = now
         self._renew_lease = renew_lease
+        if renew_lease is not None and (self._worker_id is None or lease is None):
+            raise ValueError("lease renewal requires worker_id and initial lease")
         if worker_id is not None and not self._worker_id:
             raise ValueError("worker_id must be a non-empty string")
         if not self._job_id or not self._customer_id or not self._project_id:
