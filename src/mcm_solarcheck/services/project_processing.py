@@ -143,6 +143,7 @@ class ProjectProcessingService:
         record_state: Callable[[str, str, ProjectProcessingState], None] | None = None,
         persist_import: Callable[[str, str, ProjectImportResult], None] | None = None,
         record_state_for_request: Callable[[ProjectProcessingRequest], Callable[[str, str, ProjectProcessingState], None]] | None = None,
+        import_project_with_heartbeat: Callable[[str | Path, Callable[[], None]], ProjectImportResult] | None = None,
     ) -> None:
         self._project_belongs_to_customer = project_belongs_to_customer
         self._upload_directory_for_project = upload_directory_for_project
@@ -150,6 +151,7 @@ class ProjectProcessingService:
         self._record_state = record_state
         self._persist_import = persist_import or (lambda customer_id, project_id, imported: None)
         self._record_state_for_request = record_state_for_request
+        self._import_project_with_heartbeat = import_project_with_heartbeat
 
     def process(self, request: ProjectProcessingRequest) -> ProjectProcessingResult:
         customer_id = request.customer_id.strip()
@@ -171,7 +173,11 @@ class ProjectProcessingService:
             raise ValueError("project upload directory is not available")
         record_state(customer_id, project_id, ProjectProcessingState.RUNNING)
         try:
-            imported = self._import_project(directory)
+            heartbeat = getattr(record_state, "heartbeat", None)
+            if self._import_project_with_heartbeat is not None and callable(heartbeat):
+                imported = self._import_project_with_heartbeat(directory, heartbeat)
+            else:
+                imported = self._import_project(directory)
             self._persist_import(customer_id, project_id, imported)
         except Exception as processing_error:
             try:
