@@ -35,7 +35,7 @@ class PricingRule:
         )
         if any(rate < 0 for rate in rates):
             raise ValueError("pricing rates must not be negative")
-        if self.maximum_discount_rate > 1 or self.vat_rate > 1:
+        if any(rate > 1 for rate in rates):
             raise ValueError("pricing rates must not exceed 1")
 
         previous_limit = Decimal("0")
