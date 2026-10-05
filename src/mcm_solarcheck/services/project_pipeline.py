@@ -77,6 +77,10 @@ class ProjectApplicationService:
         """Expose persisted project selection through the application boundary."""
         return InspectionQueries(self.database).projects()
 
+    def projects_for_customer(self, customer_id: str) -> tuple[ProjectRecord, ...]:
+        """Expose only projects owned by the authenticated online customer."""
+        return self.database.projects_for_customer(customer_id)
+
     def create_project(self, project_id: str, name: str) -> ProjectRecord:
         """Create a new persisted project without silently overwriting an existing one."""
         project_id = project_id.strip()
