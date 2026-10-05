@@ -305,3 +305,25 @@ def test_processing_does_not_report_success_when_completed_state_recording_fails
         "persisted",
         ProjectProcessingState.COMPLETED,
     ]
+
+
+def test_processing_preserves_import_error_when_failed_state_recording_fails(tmp_path) -> None:
+    def fail_import(directory):
+        raise RuntimeError("import failed")
+
+    def fail_failed_state(customer_id, project_id, state):
+        if state is ProjectProcessingState.FAILED:
+            raise OSError("failed transition unavailable")
+
+    service = ProjectProcessingService(
+        lambda customer_id, project_id: True,
+        lambda customer_id, project_id: tmp_path,
+        fail_import,
+        fail_failed_state,
+    )
+
+    with pytest.raises(RuntimeError, match="import failed") as error:
+        service.process(ProjectProcessingRequest("user-1", "P-1"))
+
+    assert isinstance(error.value.__cause__, OSError)
+    assert str(error.value.__cause__) == "failed transition unavailable"
