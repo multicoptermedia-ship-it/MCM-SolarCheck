@@ -1217,7 +1217,7 @@ def test_project_processing_uses_authenticated_customer_and_disables_caching() -
     try:
         host, port = server.server_address
         req = Request(
-            f"http://{host}:{port}/project-process?project_id=P-1",
+            f"http://{host}:{port}/project-process?project_id=P-1&job_id=job-1",
             data=b"",
             headers={"Cookie": "solarcheck_session=opaque-session-token"},
             method="POST",
@@ -1232,6 +1232,7 @@ def test_project_processing_uses_authenticated_customer_and_disables_caching() -
             assert "Importfehler: 1" in body
         assert processing.requests[0].customer_id == "user-1"
         assert processing.requests[0].project_id == "P-1"
+        assert processing.requests[0].job_id == "job-1"
     finally:
         server.shutdown()
         server.server_close()
@@ -1256,7 +1257,7 @@ def test_project_processing_rejects_missing_session_before_processing() -> None:
     try:
         host, port = server.server_address
         req = Request(
-            f"http://{host}:{port}/project-process?project_id=P-1",
+            f"http://{host}:{port}/project-process?project_id=P-1&job_id=job-1",
             data=b"",
             method="POST",
         )
@@ -1290,7 +1291,7 @@ def test_project_processing_hides_foreign_project() -> None:
     try:
         host, port = server.server_address
         req = Request(
-            f"http://{host}:{port}/project-process?project_id=P-other",
+            f"http://{host}:{port}/project-process?project_id=P-other&job_id=job-1",
             data=b"",
             headers={"Cookie": "solarcheck_session=opaque-session-token"},
             method="POST",
@@ -1363,7 +1364,7 @@ def test_project_processing_rejects_unavailable_customer_before_processing() -> 
     try:
         host, port = server.server_address
         req = Request(
-            f"http://{host}:{port}/project-process?project_id=P-1",
+            f"http://{host}:{port}/project-process?project_id=P-1&job_id=job-1",
             data=b"",
             headers={"Cookie": "solarcheck_session=opaque-session-token"},
             method="POST",
@@ -1398,7 +1399,7 @@ def test_project_processing_maps_import_failure_to_service_unavailable() -> None
     try:
         host, port = server.server_address
         req = Request(
-            f"http://{host}:{port}/project-process?project_id=P-1",
+            f"http://{host}:{port}/project-process?project_id=P-1&job_id=job-1",
             data=b"",
             headers={"Cookie": "solarcheck_session=opaque-session-token"},
             method="POST",
