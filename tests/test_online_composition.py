@@ -2737,3 +2737,20 @@ def test_payment_closeout_voucher_amount_survives_capture_and_execution_evidence
     assert captured.amount == authorized.amount
     assert persistence.vouchers.get("CLOSE-VOUCHER").redeemed_payment_id == captured.payment_id
     services.payment_execution.require_succeeded(captured)
+
+
+def test_unpaid_online_compute_job_cannot_start(tmp_path) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-paid-gate")
+    services = online_services(persistence)
+    services.compute_jobs.create(job_id="job-unpaid-gate", user_id="user-paid-gate", project_id="project-paid-gate")
+
+    with pytest.raises(KeyError):
+        services.compute_jobs.start(
+            "job-unpaid-gate", user_id="user-paid-gate", project_id="project-paid-gate",
+            capacity=ComputeCapacity(max_parallel_jobs=1),
+        )
+
+    assert persistence.compute_jobs.get("job-unpaid-gate").status is ComputeJobStatus.QUEUED
