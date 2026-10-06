@@ -453,7 +453,23 @@ def test_online_completed_job_delivery_releases_billing_and_allows_capture(tmp_p
         user_id="user-e2e",
         project_id="project-e2e",
     )
-    fund_compute_job_for_test(persistence, "job-delivery-e2e", "user-e2e", "project-e2e")
+    persistence.payments.create(
+        OnlinePayment(
+            "payment-delivery-e2e",
+            "user-e2e",
+            "project-e2e",
+            "job-delivery-e2e",
+            PaymentAmount(12900, "EUR"),
+            method=PaymentMethod.CARD,
+        )
+    )
+    persistence.payments.authorize(
+        "payment-delivery-e2e",
+        "user-e2e",
+        "project-e2e",
+        "provider-payment-reference",
+    )
+
     services.compute_jobs.start(
         "job-delivery-e2e",
         user_id="user-e2e",
@@ -478,22 +494,7 @@ def test_online_completed_job_delivery_releases_billing_and_allows_capture(tmp_p
     )
     persistence.reports.path_for("job-delivery-e2e").write_bytes(b"report-e2e")
 
-    persistence.payments.create(
-        OnlinePayment(
-            "payment-delivery-e2e",
-            "user-e2e",
-            "project-e2e",
-            "job-delivery-e2e",
-            PaymentAmount(12900, "EUR"),
-            method=PaymentMethod.CARD,
-        )
-    )
-    persistence.payments.authorize(
-        "payment-delivery-e2e",
-        "user-e2e",
-        "project-e2e",
-        "provider-payment-reference",
-    )
+
 
     sent = []
     released = services.report_delivery.deliver(
@@ -591,7 +592,17 @@ def test_online_card_checkout_delivery_and_capture_end_to_end(tmp_path) -> None:
         user_id="user-e2e",
         project_id="project-e2e",
     )
-    fund_compute_job_for_test(persistence, "job-card-e2e", "user-e2e", "project-e2e")
+    authorized = services.payment_checkout.checkout(
+        "payment-card-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+        job_id="job-card-e2e",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-card-e2e",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
     services.compute_jobs.start(
         "job-card-e2e",
         user_id="user-e2e",
@@ -610,17 +621,7 @@ def test_online_card_checkout_delivery_and_capture_end_to_end(tmp_path) -> None:
         project_id="project-e2e",
     )
 
-    authorized = services.payment_checkout.checkout(
-        "payment-card-e2e",
-        user_id="user-e2e",
-        project_id="project-e2e",
-        job_id="job-card-e2e",
-        plant_kwp=750,
-        method=PaymentMethod.CARD,
-        provider_id="provider-a",
-        merchant_account_id="merchant-card-e2e",
-        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
-    )
+
     assert authorized.status is PaymentStatus.AUTHORIZED
     assert authorized.amount == PaymentAmount(14500, "EUR")
 
@@ -801,7 +802,17 @@ def test_online_paypal_checkout_delivery_and_capture_end_to_end(tmp_path) -> Non
         user_id="user-paypal-e2e",
         project_id="project-paypal-e2e",
     )
-    fund_compute_job_for_test(persistence, "job-paypal-e2e", "user-paypal-e2e", "project-paypal-e2e")
+    authorized = services.payment_checkout.checkout(
+        "payment-paypal-e2e",
+        user_id="user-paypal-e2e",
+        project_id="project-paypal-e2e",
+        job_id="job-paypal-e2e",
+        plant_kwp=750,
+        method=PaymentMethod.PAYPAL,
+        provider_id="provider-a",
+        merchant_account_id="merchant-paypal-e2e",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
     services.compute_jobs.start(
         "job-paypal-e2e",
         user_id="user-paypal-e2e",
@@ -820,17 +831,7 @@ def test_online_paypal_checkout_delivery_and_capture_end_to_end(tmp_path) -> Non
         project_id="project-paypal-e2e",
     )
 
-    authorized = services.payment_checkout.checkout(
-        "payment-paypal-e2e",
-        user_id="user-paypal-e2e",
-        project_id="project-paypal-e2e",
-        job_id="job-paypal-e2e",
-        plant_kwp=750,
-        method=PaymentMethod.PAYPAL,
-        provider_id="provider-a",
-        merchant_account_id="merchant-paypal-e2e",
-        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
-    )
+
     assert authorized.status is PaymentStatus.AUTHORIZED
     assert authorized.amount == PaymentAmount(14500, "EUR")
     assert authorized.method is PaymentMethod.PAYPAL
@@ -913,7 +914,16 @@ def test_online_sepa_checkout_delivery_submission_and_reconciliation_end_to_end(
         user_id="user-sepa-e2e",
         project_id="project-sepa-e2e",
     )
-    fund_compute_job_for_test(persistence, "job-sepa-e2e", "user-sepa-e2e", "project-sepa-e2e")
+    payment = services.sepa_checkout.checkout(
+        "payment-sepa-e2e",
+        user_id="user-sepa-e2e",
+        project_id="project-sepa-e2e",
+        job_id="job-sepa-e2e",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-sepa-e2e",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
     services.compute_jobs.start(
         "job-sepa-e2e",
         user_id="user-sepa-e2e",
@@ -932,16 +942,7 @@ def test_online_sepa_checkout_delivery_submission_and_reconciliation_end_to_end(
         project_id="project-sepa-e2e",
     )
 
-    payment = services.sepa_checkout.checkout(
-        "payment-sepa-e2e",
-        user_id="user-sepa-e2e",
-        project_id="project-sepa-e2e",
-        job_id="job-sepa-e2e",
-        plant_kwp=750,
-        provider_id="provider-a",
-        merchant_account_id="merchant-sepa-e2e",
-        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
-    )
+
     assert payment.status is PaymentStatus.CREATED
     assert payment.method is PaymentMethod.SEPA_DIRECT_DEBIT
     assert payment.amount == PaymentAmount(14500, "EUR")
@@ -1023,7 +1024,17 @@ def test_online_failed_report_delivery_keeps_billing_unreleased_and_payment_auth
         user_id="user-delivery-failure",
         project_id="project-delivery-failure",
     )
-    fund_compute_job_for_test(persistence, "job-delivery-failure", "user-delivery-failure", "project-delivery-failure")
+    authorized = services.payment_checkout.checkout(
+        "payment-delivery-failure",
+        user_id="user-delivery-failure",
+        project_id="project-delivery-failure",
+        job_id="job-delivery-failure",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-delivery-failure",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
+    )
     services.compute_jobs.start(
         "job-delivery-failure",
         user_id="user-delivery-failure",
@@ -1041,17 +1052,7 @@ def test_online_failed_report_delivery_keeps_billing_unreleased_and_payment_auth
         user_id="user-delivery-failure",
         project_id="project-delivery-failure",
     )
-    authorized = services.payment_checkout.checkout(
-        "payment-delivery-failure",
-        user_id="user-delivery-failure",
-        project_id="project-delivery-failure",
-        job_id="job-delivery-failure",
-        plant_kwp=750,
-        method=PaymentMethod.CARD,
-        provider_id="provider-a",
-        merchant_account_id="merchant-delivery-failure",
-        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
-    )
+
     services.billing.mark_export_completed(
         "job-delivery-failure",
         user_id="user-delivery-failure",
