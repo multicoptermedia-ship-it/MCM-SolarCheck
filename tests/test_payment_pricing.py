@@ -1017,3 +1017,17 @@ def test_duplicate_payment_id_rejection_preserves_original_payment(tmp_path) -> 
         payments.create(OnlinePayment("payment-preserved-id", "user-b", "project-b", "job-other-id", PaymentAmount(6900, "EUR")))
 
     assert payments.get("payment-preserved-id") == original
+
+
+def test_duplicate_payment_id_rejection_does_not_reserve_second_job(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import OnlinePayment
+
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    payments.create(OnlinePayment("payment-reusable-job-id", "user-a", "project-a", "job-first-id", PaymentAmount(5900, "EUR")))
+
+    with pytest.raises(ValueError, match="payment id already exists"):
+        payments.create(OnlinePayment("payment-reusable-job-id", "user-a", "project-a", "job-second-id", PaymentAmount(5900, "EUR")))
+
+    second = OnlinePayment("payment-new-id", "user-a", "project-a", "job-second-id", PaymentAmount(5900, "EUR"))
+    payments.create(second)
+    assert payments.get("payment-new-id") == second
