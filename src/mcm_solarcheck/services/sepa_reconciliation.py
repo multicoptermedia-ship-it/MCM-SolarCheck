@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Protocol
 
-from mcm_solarcheck.services.introductory_offer import IntroductoryOfferStore
+from mcm_solarcheck.services.introductory_offer import (
+    IntroductoryOfferReservationNotFound,
+    IntroductoryOfferStore,
+)
 from mcm_solarcheck.services.sepa_collection import (
     SepaCollection,
     SepaCollectionStatus,
@@ -129,7 +132,7 @@ class SepaReconciliationService:
                     collection.payment_id,
                     used_at=datetime.now(timezone.utc),
                 )
-            except ValueError:
+            except IntroductoryOfferReservationNotFound:
                 return
         elif collection.status is SepaCollectionStatus.FAILED:
             self._introductory_offers.release(
