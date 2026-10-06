@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import pytest
+from datetime import datetime, timezone
+
+from mcm_solarcheck.infrastructure.sqlite_introductory_offer import SQLiteIntroductoryOfferStore
 
 from mcm_solarcheck.services.billing import (
     ComputeJobBilling,
@@ -147,3 +150,19 @@ def test_capture_requires_both_delivery_events(
         )
 
     assert payments.payment.status is PaymentStatus.AUTHORIZED
+
+
+def test_capture_finalizes_reserved_introductory_offer(tmp_path) -> None:
+    payments = MemoryPaymentStore(authorized_payment())
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+    assert offers.reserve("user-a", "payment-a", policy_version=1, now=now)
+    service = PaymentCaptureService(
+        payments,
+        MemoryBillingStore(billing(released=True)),
+        introductory_offers=offers,
+    )
+
+    service.capture("payment-a", user_id="user-a", project_id="project-a")
+
+    assert offers.has_used("user-a") is True
