@@ -994,3 +994,13 @@ def test_concurrent_duplicate_job_leaves_exactly_one_job_row(tmp_path) -> None:
             ("job-one-row",),
         ).fetchone()[0]
     assert count == 1
+
+
+def test_payment_store_duplicate_payment_id_raises_domain_value_error(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import OnlinePayment
+
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    payments.create(OnlinePayment("payment-same-id", "user-a", "project-a", "job-a", PaymentAmount(5900, "EUR")))
+
+    with pytest.raises(ValueError, match="payment id already exists"):
+        payments.create(OnlinePayment("payment-same-id", "user-a", "project-a", "job-b", PaymentAmount(6900, "EUR")))
