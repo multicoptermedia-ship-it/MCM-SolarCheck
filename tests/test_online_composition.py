@@ -2798,3 +2798,15 @@ def test_online_report_retrieval_accepts_matching_paid_order(tmp_path) -> None:
     report = services.report_delivery.retrieve("job-report-paid", user_id="user-report-paid", project_id="project-report-paid")
 
     assert report.content == b"paid-report"
+
+
+def test_online_report_retrieval_requires_completed_compute_job(tmp_path) -> None:
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-report-no-compute", "user-report-no-compute", "project-report-no-compute", export_completed=True)))
+    persistence.payments.create(OnlinePayment("payment-report-no-compute", "user-report-no-compute", "project-report-no-compute", "job-report-no-compute", PaymentAmount(9500, "EUR")))
+    services = online_services(persistence)
+    with pytest.raises(ValueError, match="completed compute job"):
+        services.report_delivery.retrieve("job-report-no-compute", user_id="user-report-no-compute", project_id="project-report-no-compute")
