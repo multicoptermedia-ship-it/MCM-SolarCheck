@@ -1967,3 +1967,29 @@ def test_sepa_checkout_retry_rejects_changed_project_identity(tmp_path) -> None:
             merchant_account_id="merchant-user-sepa-project",
             now=now,
         )
+
+
+def test_sepa_checkout_retry_rejects_changed_plant_size(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-plant")
+    services.sepa_checkout.checkout(
+        "payment-sepa-plant",
+        user_id="user-sepa-plant",
+        project_id="project-user-sepa-plant",
+        job_id="job-user-sepa-plant",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-plant",
+        now=now,
+    )
+
+    with pytest.raises(ValueError, match="plant"):
+        services.sepa_checkout.checkout(
+            "payment-sepa-plant",
+            user_id="user-sepa-plant",
+            project_id="project-user-sepa-plant",
+            job_id="job-user-sepa-plant",
+            plant_kwp=751,
+            provider_id="provider-a",
+            merchant_account_id="merchant-user-sepa-plant",
+            now=now,
+        )
