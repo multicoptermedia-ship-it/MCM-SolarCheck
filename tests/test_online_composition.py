@@ -2635,3 +2635,25 @@ def test_payment_closeout_card_capture_reaches_execution_evidence(tmp_path) -> N
     assert payment.status is PaymentStatus.AUTHORIZED
     assert captured.status is PaymentStatus.CAPTURED
     services.payment_execution.require_succeeded(captured)
+
+
+def test_payment_closeout_card_fails_execution_evidence_before_capture(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.merchant_accounts.save(MerchantAccount("merchant-close-uncaptured", "provider-a", MerchantAccountKind.CARD_PROCESSOR, "card"))
+    persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
+    persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-close-uncaptured", "user-close", "project-close")))
+    services = online_services(persistence)
+    authorized = services.payment_checkout.checkout(
+        "payment-close-uncaptured", user_id="user-close", project_id="project-close",
+        job_id="job-close-uncaptured", plant_kwp=750, method=PaymentMethod.CARD,
+        provider_id="provider-a", merchant_account_id="merchant-close-uncaptured",
+        now=datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc),
+    )
+
+    with pytest.raises(ValueError, match="captured payment"):
+        services.payment_execution.require_succeeded(authorized)
