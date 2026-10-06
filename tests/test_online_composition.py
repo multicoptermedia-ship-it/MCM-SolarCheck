@@ -2823,3 +2823,17 @@ def test_online_report_retrieval_rejects_failed_compute_job(tmp_path) -> None:
     services = online_services(persistence)
     with pytest.raises(ValueError, match="completed compute job"):
         services.report_delivery.retrieve("job-report-failed", user_id="user-report-failed", project_id="project-report-failed")
+
+
+def test_online_report_retrieval_accepts_completed_compute_job(tmp_path) -> None:
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+    from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.compute_jobs.create(ComputeJob("job-report-complete", "user-report-complete", "project-report-complete", ComputeJobStatus.COMPLETED))
+    persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-report-complete", "user-report-complete", "project-report-complete", export_completed=True)))
+    persistence.payments.create(OnlinePayment("payment-report-complete", "user-report-complete", "project-report-complete", "job-report-complete", PaymentAmount(9500, "EUR")))
+    persistence.reports.path_for("job-report-complete").write_bytes(b"completed-report")
+    services = online_services(persistence)
+    report = services.report_delivery.retrieve("job-report-complete", user_id="user-report-complete", project_id="project-report-complete")
+    assert report.content == b"completed-report"
