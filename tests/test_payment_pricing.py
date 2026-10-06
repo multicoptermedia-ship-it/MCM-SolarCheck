@@ -720,3 +720,23 @@ def test_shared_database_voucher_redemption_persists_policy_evidence(tmp_path) -
     assert redeemed.redeemed_discount_percent == 10
     assert redeemed.redeemed_policy_version == 2
     assert redeemed.redeemed_at == now
+
+
+def test_pricing_rejects_second_payment_for_same_job_without_voucher(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    service = PaymentPricingService(payments, vouchers, FlightPlanVoucherPolicy(10))
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    service.create_payment(
+        "payment-job-first", user_id="user-a", project_id="project-a",
+        job_id="job-one-payment", base_amount=PaymentAmount(5900, "EUR"), now=now,
+    )
+
+    with pytest.raises(ValueError, match="already has a payment"):
+        service.create_payment(
+            "payment-job-second", user_id="user-a", project_id="project-a",
+            job_id="job-one-payment", base_amount=PaymentAmount(5900, "EUR"), now=now,
+        )
+
+    with pytest.raises(KeyError):
+        payments.get("payment-job-second")
