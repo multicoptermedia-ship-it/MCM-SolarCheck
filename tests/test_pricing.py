@@ -259,3 +259,11 @@ def test_zero_price_tier_produces_zero_totals() -> None:
     assert snapshot.net_total == Decimal("0.00")
     assert snapshot.vat_amount == Decimal("0.00")
     assert snapshot.gross_total == Decimal("0.00")
+
+
+def test_price_snapshot_cannot_be_mutated() -> None:
+    from dataclasses import FrozenInstanceError
+
+    snapshot = rule().price(Decimal("10"))
+    with pytest.raises(FrozenInstanceError):
+        snapshot.net_total = Decimal("0")
