@@ -309,3 +309,14 @@ def test_fractional_capacity_selects_correct_tier() -> None:
     assert pricing.price(Decimal("29.999")).net_before_discount == Decimal("300.00")
     assert pricing.price(Decimal("30.000")).net_before_discount == Decimal("300.00")
     assert pricing.price(Decimal("30.001")).net_before_discount == Decimal("500.00")
+
+
+def test_pricing_snapshots_remain_independent_between_quotes() -> None:
+    pricing = rule()
+    standard = pricing.price(Decimal("50"))
+    discounted = pricing.price(Decimal("50"), planner_verified=True)
+    assert standard.net_total == Decimal("500.00")
+    assert standard.discount_rate == Decimal("0")
+    assert discounted.net_total == Decimal("450.00")
+    assert discounted.discount_rate == Decimal("0.10")
+    assert standard.rule_version == discounted.rule_version == pricing.version
