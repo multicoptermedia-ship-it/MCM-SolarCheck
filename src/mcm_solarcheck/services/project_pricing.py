@@ -13,8 +13,6 @@ from mcm_solarcheck.domain.pricing import PriceSnapshot, PricingRule
 class ProjectPricingRequest:
     customer_id: str
     project_id: str
-    planner_verified: bool = False
-    repeat_verified: bool = False
 
 
 class ProjectPricingService:
