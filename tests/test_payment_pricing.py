@@ -1171,3 +1171,28 @@ def test_voucher_duplicate_payment_id_does_not_reserve_second_job(tmp_path) -> N
         voucher_code="DUP-ID-RETRY", now=now,
     )
     assert payment.amount == PaymentAmount(5310, "EUR")
+
+
+def test_payment_store_rejects_legacy_null_amount(tmp_path) -> None:
+    database = tmp_path / "legacy-null-payment.sqlite"
+    import sqlite3
+
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """CREATE TABLE online_payments (
+                payment_id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
+                project_id TEXT NOT NULL, job_id TEXT NOT NULL,
+                amount_minor_units INTEGER, currency TEXT, status TEXT NOT NULL,
+                provider_reference TEXT
+            )"""
+        )
+        connection.execute(
+            """INSERT INTO online_payments (
+                payment_id, user_id, project_id, job_id,
+                amount_minor_units, currency, status, provider_reference
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("legacy-free", "user-a", "project-a", "job-a", None, None, "settled", None),
+        )
+
+    with pytest.raises(ValueError, match="without positive amount"):
+        SQLiteOnlinePaymentStore(database)
