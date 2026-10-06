@@ -688,3 +688,35 @@ def test_shared_database_redeemed_voucher_rejects_second_payment(tmp_path) -> No
 
     with pytest.raises(KeyError):
         payments.get("payment-shared-second")
+
+
+def test_shared_database_voucher_redemption_persists_policy_evidence(tmp_path) -> None:
+    database = tmp_path / "shared.sqlite"
+    payments = SQLiteOnlinePaymentStore(database)
+    vouchers = SQLiteFlightPlanVoucherStore(database)
+    policies = SQLiteFlightPlanVoucherPolicyStore(database)
+    policies.save(FlightPlanVoucherPolicy())
+    policies.save(FlightPlanVoucherPolicy().supersede())
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("SHARED-POLICY", now - timedelta(days=1), now + timedelta(days=1)))
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        policies,
+        SQLitePricedPaymentStore(database, database),
+    )
+
+    service.create_payment(
+        "payment-shared-policy",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-shared-policy",
+        base_amount=PaymentAmount(5900, "EUR"),
+        voucher_code="SHARED-POLICY",
+        now=now,
+    )
+
+    redeemed = vouchers.get("SHARED-POLICY")
+    assert redeemed.redeemed_discount_percent == 10
+    assert redeemed.redeemed_policy_version == 2
+    assert redeemed.redeemed_at == now
