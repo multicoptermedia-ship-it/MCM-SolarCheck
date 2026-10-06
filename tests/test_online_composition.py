@@ -2657,3 +2657,30 @@ def test_payment_closeout_card_fails_execution_evidence_before_capture(tmp_path)
 
     with pytest.raises(ValueError, match="captured payment"):
         services.payment_execution.require_succeeded(authorized)
+
+
+def test_payment_closeout_sepa_submission_reaches_execution_evidence(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.sepa import SepaMandate
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.merchant_accounts.save(MerchantAccount("merchant-close-sepa", "provider-a", MerchantAccountKind.BANK, "bank"))
+    persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
+    persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-close-sepa", "user-close-sepa", "project-close-sepa")))
+    persistence.sepa_mandates.create(SepaMandate("mandate-close-sepa", "user-close-sepa", "provider-a"))
+    persistence.sepa_mandates.activate("mandate-close-sepa", "user-close-sepa", "provider-mandate-close")
+    services = online_services(persistence)
+    payment = services.sepa_checkout.checkout(
+        "payment-close-sepa", user_id="user-close-sepa", project_id="project-close-sepa",
+        job_id="job-close-sepa", plant_kwp=750, provider_id="provider-a",
+        merchant_account_id="merchant-close-sepa", now=datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc),
+    )
+    services.billing.mark_export_completed("job-close-sepa", user_id="user-close-sepa", project_id="project-close-sepa")
+    services.billing.mark_report_retrieved("job-close-sepa", user_id="user-close-sepa", project_id="project-close-sepa")
+    services.billing.release("job-close-sepa", user_id="user-close-sepa", project_id="project-close-sepa")
+    services.sepa_payment.submit("payment-close-sepa", "mandate-close-sepa", user_id="user-close-sepa", project_id="project-close-sepa")
+
+    services.payment_execution.require_succeeded(persistence.payments.get(payment.payment_id))
