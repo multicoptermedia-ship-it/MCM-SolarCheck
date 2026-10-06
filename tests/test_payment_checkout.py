@@ -494,3 +494,37 @@ def test_failed_card_retry_releases_existing_same_payment_reservation(tmp_path) 
     assert offers.reserve(
         "user-failed-retry", "payment-after-failed-retry", policy_version=1, now=now
     )
+
+
+def test_card_checkout_retry_keeps_reserved_offer_after_deadline(tmp_path) -> None:
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers-deadline-retry.sqlite")
+
+    class Registrations:
+        def get(self, user_id):
+            raise AssertionError("existing reservation must not recheck registration")
+
+    checkout, _, _ = build_checkout(
+        tmp_path,
+        PaymentMethod.CARD,
+        MerchantAccountKind.CARD_PROCESSOR,
+        introductory_offers=offers,
+        registrations=Registrations(),
+    )
+    reserved_at = datetime(2026, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+    assert offers.reserve(
+        "user-deadline-retry", "payment-deadline-retry", policy_version=1, now=reserved_at
+    )
+
+    result = checkout.checkout(
+        "payment-deadline-retry",
+        user_id="user-deadline-retry",
+        project_id="project-a",
+        job_id="job-a",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-a",
+        now=datetime(2027, 1, 1, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.amount == PaymentAmount(5900, "EUR")
