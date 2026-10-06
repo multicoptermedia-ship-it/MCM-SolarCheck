@@ -65,10 +65,8 @@ class OnlinePayment:
         ):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must be a non-empty string")
-        if self.amount is None and self.status is not PaymentStatus.SETTLED:
-            raise ValueError("zero-amount payment must be settled")
-        if self.amount is not None and self.status is PaymentStatus.SETTLED:
-            raise ValueError("settled payment must have zero payable amount")
+        if self.amount is None:
+            raise ValueError("payment amount must be positive")
         if self.status is PaymentStatus.SETTLED and self.provider_reference is not None:
             raise ValueError("settled payment cannot have provider reference")
         if (self.merchant_account_id is None) != (self.merchant_account_version is None):
