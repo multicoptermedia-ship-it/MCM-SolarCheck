@@ -2705,3 +2705,35 @@ def test_payment_closeout_sepa_fails_execution_evidence_before_submission(tmp_pa
 
     with pytest.raises(ValueError, match="submitted SEPA payment"):
         services.payment_execution.require_succeeded(payment)
+
+
+def test_payment_closeout_voucher_amount_survives_capture_and_execution_evidence(tmp_path) -> None:
+    from datetime import datetime, timedelta, timezone
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.payment import PaymentAmount
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+    from mcm_solarcheck.services.voucher import FlightPlanVoucher
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    persistence.merchant_accounts.save(MerchantAccount("merchant-close-voucher", "provider-a", MerchantAccountKind.CARD_PROCESSOR, "card"))
+    persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
+    persistence.vouchers.create(FlightPlanVoucher("CLOSE-VOUCHER", now - timedelta(days=1), now + timedelta(days=1)))
+    persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-close-voucher", "user-close-voucher", "project-close-voucher")))
+    services = online_services(persistence)
+    authorized = services.payment_checkout.checkout(
+        "payment-close-voucher", user_id="user-close-voucher", project_id="project-close-voucher",
+        job_id="job-close-voucher", plant_kwp=750, method=PaymentMethod.CARD,
+        provider_id="provider-a", merchant_account_id="merchant-close-voucher",
+        voucher_code="CLOSE-VOUCHER", now=now,
+    )
+    services.billing.mark_export_completed("job-close-voucher", user_id="user-close-voucher", project_id="project-close-voucher")
+    services.billing.mark_report_retrieved("job-close-voucher", user_id="user-close-voucher", project_id="project-close-voucher")
+    services.billing.release("job-close-voucher", user_id="user-close-voucher", project_id="project-close-voucher")
+    captured = services.payment_capture.capture("payment-close-voucher", user_id="user-close-voucher", project_id="project-close-voucher")
+
+    assert authorized.amount == PaymentAmount(13050, "EUR")
+    assert captured.amount == authorized.amount
+    assert persistence.vouchers.get("CLOSE-VOUCHER").redeemed_payment_id == captured.payment_id
+    services.payment_execution.require_succeeded(captured)
