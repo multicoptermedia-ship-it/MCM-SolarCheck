@@ -416,3 +416,38 @@ def test_failed_card_snapshot_binding_releases_introductory_offer(tmp_path) -> N
         policy_version=1,
         now=datetime(2026, 10, 6, 10, 1, tzinfo=timezone.utc),
     )
+
+
+def test_card_checkout_retry_keeps_introductory_price(tmp_path) -> None:
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers-checkout-retry.sqlite")
+
+    class VerifiedRegistrations:
+        def get(self, user_id):
+            from mcm_solarcheck.services.registration import OnlineRegistration
+            return OnlineRegistration(user_id, "Customer", "customer@example.com").verify(
+                datetime(2026, 10, 1, tzinfo=timezone.utc)
+            )
+
+    checkout, _, _ = build_checkout(
+        tmp_path,
+        PaymentMethod.CARD,
+        MerchantAccountKind.CARD_PROCESSOR,
+        introductory_offers=offers,
+        registrations=VerifiedRegistrations(),
+    )
+    now = datetime(2026, 10, 6, 10, 0, tzinfo=timezone.utc)
+    assert offers.reserve("user-retry", "payment-retry", policy_version=1, now=now)
+
+    result = checkout.checkout(
+        "payment-retry",
+        user_id="user-retry",
+        project_id="project-a",
+        job_id="job-a",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-a",
+        now=now,
+    )
+
+    assert result.amount == PaymentAmount(5900, "EUR")
