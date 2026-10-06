@@ -113,3 +113,13 @@ def test_release_does_not_reopen_used_offer(tmp_path) -> None:
 
     assert store.has_used("user-a") is True
     assert not store.reserve("user-a", "payment-b", policy_version=1, now=now)
+
+
+def test_released_same_payment_reservation_is_not_idempotent(tmp_path) -> None:
+    store = SQLiteIntroductoryOfferStore(tmp_path / "offers-release-retry.sqlite")
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+
+    assert store.reserve("user-a", "payment-a", policy_version=1, now=now)
+    store.release("user-a", "payment-a")
+
+    assert store.reserve("user-a", "payment-a", policy_version=1, now=now)
