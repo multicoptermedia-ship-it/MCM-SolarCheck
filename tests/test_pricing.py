@@ -196,3 +196,17 @@ def test_non_finite_pricing_rates_are_rejected(field: str, invalid: str) -> None
             tiers=(PriceTier(None, Decimal("300")),),
             **{field: Decimal(invalid)},
         )
+
+@pytest.mark.parametrize("invalid", ["NaN", "Infinity", "-Infinity"])
+def test_non_finite_capacity_is_rejected(invalid: str) -> None:
+    with pytest.raises(ValueError, match="capacity_kwp must be finite"):
+        rule().price(Decimal(invalid))
+
+
+@pytest.mark.parametrize("invalid", ["NaN", "Infinity", "-Infinity"])
+@pytest.mark.parametrize("field", ["net_price", "up_to_kwp"])
+def test_non_finite_tier_values_are_rejected(field: str, invalid: str) -> None:
+    tier = {"net_price": Decimal("300"), "up_to_kwp": Decimal("30")}
+    tier[field] = Decimal(invalid)
+    with pytest.raises(ValueError, match="tier values must be finite"):
+        PricingRule(version="finite-tiers-test", tiers=(PriceTier(**tier),))
