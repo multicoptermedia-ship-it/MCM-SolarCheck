@@ -29,7 +29,7 @@ from mcm_solarcheck.services.online_admin_readiness import (
 from mcm_solarcheck.services.payment_capture import PaymentCaptureService
 from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
 from mcm_solarcheck.services.project_creation import ProjectCreationService
-from mcm_solarcheck.services.project_pricing import ProjectPricingService
+from mcm_solarcheck.services.project_pricing import DiscountEligibility, ProjectPricingService
 from mcm_solarcheck.services.project_upload import ProjectUploadService
 from mcm_solarcheck.services.project_processing import ProjectProcessingService, ComputeJobProcessingStateRecorder
 from mcm_solarcheck.importers.project import import_m3t_project
@@ -137,6 +137,7 @@ def build_online_services(
     admin_authorization: SMTPAdminAuthorization,
     admin_mutation_guard: SMTPAdminMutationGuard,
     pricing_rule: PricingRule | None = None,
+    discount_eligibility_for_project: Callable[[str, str], DiscountEligibility] | None = None,
     project_processing_lease: Callable[[], ComputeJobLease] | None = None,
 ) -> OnlineServices:
     """Compose services from durable stores and deployment-owned SMTP state."""
@@ -303,6 +304,7 @@ def build_online_services(
             ProjectPricingService(
                 pricing_rule,
                 persistence.projects.capacity_for_customer_project,
+                discount_eligibility_for_project,
             )
             if pricing_rule is not None
             else None
