@@ -107,19 +107,25 @@ class OnlinePaymentCheckoutService:
 
         offer_reserved = False
         base_amount = quote.amount
-        if (
-            self._introductory_offers is not None
-            and self._introductory_offer_policy.is_available_at(now)
-        ):
-            if self._registrations is None:
-                raise RuntimeError("introductory offer requires registration authority")
-            if has_verified_registration(self._registrations, user_id):
-                offer_reserved = self._introductory_offers.reserve(
-                    user_id,
-                    payment_id,
-                    policy_version=self._introductory_offer_policy.version,
-                    now=now,
-                )
+        if self._introductory_offers is not None:
+            offer_reserved = self._introductory_offers.is_reserved(
+                user_id,
+                payment_id,
+                policy_version=self._introductory_offer_policy.version,
+            )
+            if (
+                not offer_reserved
+                and self._introductory_offer_policy.is_available_at(now)
+            ):
+                if self._registrations is None:
+                    raise RuntimeError("introductory offer requires registration authority")
+                if has_verified_registration(self._registrations, user_id):
+                    offer_reserved = self._introductory_offers.reserve(
+                        user_id,
+                        payment_id,
+                        policy_version=self._introductory_offer_policy.version,
+                        now=now,
+                    )
             if offer_reserved:
                 base_amount = self._introductory_offer_policy.amount
 
