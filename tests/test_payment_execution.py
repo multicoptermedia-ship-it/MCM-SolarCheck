@@ -97,7 +97,11 @@ def test_settled_paid_payment_without_method_is_not_invoice_evidence() -> None:
         "payment-settled-no-method", "user-a", "project-a", "job-a",
         PaymentAmount(5900, "EUR"), PaymentStatus.SETTLED,
     )
-    evidence = PaymentExecutionEvidence(_SubmissionStore())
+    class EmptySubmissionStore:
+        def get(self, payment_id: str):
+            raise KeyError(payment_id)
+
+    evidence = PaymentExecutionEvidence(EmptySubmissionStore())
 
     with pytest.raises(ValueError, match="configured payment method"):
         evidence.require_succeeded(settled)
