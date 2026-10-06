@@ -2772,3 +2772,22 @@ def test_paid_online_compute_job_can_start(tmp_path) -> None:
     )
 
     assert started.status is ComputeJobStatus.RUNNING
+
+
+def test_online_compute_start_rejects_mismatched_payment_identity(tmp_path) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-job-owner")
+    services = online_services(persistence)
+    services.compute_jobs.create(job_id="job-payment-owner-gate", user_id="user-job-owner", project_id="project-job-owner")
+    persistence.payments.create(OnlinePayment("payment-wrong-owner", "other-user", "other-project", "job-payment-owner-gate", PaymentAmount(9500, "EUR")))
+
+    with pytest.raises(PermissionError, match="payment ownership"):
+        services.compute_jobs.start(
+            "job-payment-owner-gate", user_id="user-job-owner", project_id="project-job-owner",
+            capacity=ComputeCapacity(max_parallel_jobs=1),
+        )
+
+    assert persistence.compute_jobs.get("job-payment-owner-gate").status is ComputeJobStatus.QUEUED
