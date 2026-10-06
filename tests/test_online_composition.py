@@ -1510,17 +1510,17 @@ def test_verified_customer_gets_intro_price_once_then_regular_tariff(tmp_path) -
     )
     assert first.amount == PaymentAmount(5900, "EUR")
 
-    persistence.billing.mark_export_completed(
+    services.billing.mark_export_completed(
         "job-intro-first",
         user_id="user-intro-e2e",
         project_id="project-intro-first",
     )
-    persistence.billing.mark_report_retrieved(
+    services.billing.mark_report_retrieved(
         "job-intro-first",
         user_id="user-intro-e2e",
         project_id="project-intro-first",
     )
-    persistence.billing.release(
+    services.billing.release(
         "job-intro-first",
         user_id="user-intro-e2e",
         project_id="project-intro-first",
