@@ -280,3 +280,17 @@ def test_discount_cap_can_be_lower_than_planner_rate() -> None:
     assert snapshot.discount_rate == Decimal("0.07")
     assert snapshot.discount_amount == Decimal("35.00")
     assert snapshot.net_total == Decimal("465.00")
+
+
+def test_combined_discounts_equal_to_cap_are_not_reduced() -> None:
+    pricing = PricingRule(
+        version="exact-cap",
+        tiers=(PriceTier(None, Decimal("500")),),
+        planner_discount_rate=Decimal("0.10"),
+        repeat_discount_rate=Decimal("0.05"),
+        maximum_discount_rate=Decimal("0.15"),
+    )
+    snapshot = pricing.price(Decimal("10"), planner_verified=True, repeat_verified=True)
+    assert snapshot.discount_rate == Decimal("0.15")
+    assert snapshot.discount_amount == Decimal("75.00")
+    assert snapshot.net_total == Decimal("425.00")
