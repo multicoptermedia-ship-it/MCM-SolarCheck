@@ -71,7 +71,16 @@ class SQLiteIntroductoryOfferStore:
                 )
             return True
         except sqlite3.IntegrityError:
-            return False
+            with sqlite3.connect(self.database) as connection:
+                row = connection.execute(
+                    """
+                    SELECT policy_version, state
+                    FROM introductory_offer_usage
+                    WHERE user_id = ? AND payment_id = ?
+                    """,
+                    (user_id.strip(), payment_id.strip()),
+                ).fetchone()
+            return row == (policy_version, "reserved")
 
     def finalize(self, user_id: str, payment_id: str, *, used_at: datetime) -> None:
         if used_at.tzinfo is None or used_at.utcoffset() is None:
