@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
-from mcm_solarcheck.services.introductory_offer import IntroductoryOfferStore
+from mcm_solarcheck.services.introductory_offer import (
+    IntroductoryOfferReservationNotFound,
+    IntroductoryOfferStore,
+)
 from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
 from mcm_solarcheck.services.payment_gateway import PaymentGateway, payment_idempotency_key
 from mcm_solarcheck.services.payment_methods import payment_method_capabilities
@@ -115,5 +118,5 @@ class PaymentCaptureService:
             self._introductory_offers.finalize(
                 user_id, payment_id, used_at=datetime.now(timezone.utc)
             )
-        except ValueError:
+        except IntroductoryOfferReservationNotFound:
             return
