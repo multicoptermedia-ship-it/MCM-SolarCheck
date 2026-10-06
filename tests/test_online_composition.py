@@ -1857,3 +1857,31 @@ def test_sepa_released_offer_can_be_reserved_by_new_payment(tmp_path) -> None:
     assert persistence.introductory_offers.is_reserved(
         "user-sepa-released", "payment-sepa-released-new", policy_version=1
     )
+
+
+def test_failed_sepa_pricing_releases_new_introductory_reservation(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-pricing-fail")
+
+    def fail_create_payment(*args, **kwargs):
+        raise RuntimeError("SEPA pricing failed")
+
+    services.sepa_checkout._pricing.create_payment = fail_create_payment
+
+    with pytest.raises(RuntimeError, match="SEPA pricing failed"):
+        services.sepa_checkout.checkout(
+            "payment-sepa-pricing-fail",
+            user_id="user-sepa-pricing-fail",
+            project_id="project-user-sepa-pricing-fail",
+            job_id="job-user-sepa-pricing-fail",
+            plant_kwp=750,
+            provider_id="provider-a",
+            merchant_account_id="merchant-user-sepa-pricing-fail",
+            now=now,
+        )
+
+    assert persistence.introductory_offers.reserve(
+        "user-sepa-pricing-fail",
+        "payment-sepa-pricing-retry",
+        policy_version=1,
+        now=now,
+    )
