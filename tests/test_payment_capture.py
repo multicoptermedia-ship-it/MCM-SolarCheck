@@ -231,3 +231,18 @@ def test_regular_payment_capture_needs_no_intro_reservation(tmp_path) -> None:
 
     assert captured.status is PaymentStatus.CAPTURED
     assert offers.has_used("user-a") is False
+
+
+def test_capture_surfaces_introductory_offer_payment_mismatch(tmp_path) -> None:
+    payments = MemoryPaymentStore(authorized_payment())
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers-mismatch.sqlite")
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+    assert offers.reserve("user-a", "another-payment", policy_version=1, now=now)
+    service = PaymentCaptureService(
+        payments,
+        MemoryBillingStore(billing(released=True)),
+        introductory_offers=offers,
+    )
+
+    with pytest.raises(ValueError, match="payment mismatch"):
+        service.capture("payment-a", user_id="user-a", project_id="project-a")
