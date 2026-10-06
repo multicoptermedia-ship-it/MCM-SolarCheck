@@ -782,3 +782,21 @@ def test_settled_zero_amount_payment_also_blocks_second_job_payment(tmp_path) ->
             "payment-after-free-job", user_id="user-a", project_id="project-a",
             job_id="job-free", base_amount=PaymentAmount(5900, "EUR"), now=now,
         )
+
+
+def test_payment_store_duplicate_job_raises_domain_value_error(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import OnlinePayment
+
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    first = OnlinePayment(
+        "payment-store-first", "user-a", "project-a", "job-store-duplicate",
+        PaymentAmount(5900, "EUR"),
+    )
+    second = OnlinePayment(
+        "payment-store-second", "user-a", "project-a", "job-store-duplicate",
+        PaymentAmount(5900, "EUR"),
+    )
+    payments.create(first)
+
+    with pytest.raises(ValueError, match="compute job already has a payment"):
+        payments.create(second)
