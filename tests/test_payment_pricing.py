@@ -798,3 +798,26 @@ def test_payment_store_duplicate_job_raises_domain_value_error(tmp_path) -> None
 
     with pytest.raises(ValueError, match="compute job already has a payment"):
         payments.create(second)
+
+
+def test_pricing_never_creates_zero_payable_user_job(tmp_path) -> None:
+    class FullDiscountPolicy:
+        active = True
+        discount_percent = 100
+        version = 99
+
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("NO-FREE-JOB", now - timedelta(days=1), now + timedelta(days=1)))
+    service = PaymentPricingService(
+        payments, vouchers, FullDiscountPolicy(),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+
+    with pytest.raises(ValueError, match="positive payable amount"):
+        service.create_payment(
+            "payment-no-free-job", user_id="user-a", project_id="project-a",
+            job_id="job-no-free", base_amount=PaymentAmount(5900, "EUR"),
+            voucher_code="NO-FREE-JOB", now=now,
+        )
