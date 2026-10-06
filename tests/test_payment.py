@@ -104,3 +104,15 @@ def test_settled_paid_payment_cannot_have_provider_reference() -> None:
             PaymentAmount(5900, "EUR"), PaymentStatus.SETTLED,
             provider_reference="provider-reference",
         )
+
+
+def test_settled_paid_payment_preserves_job_identity() -> None:
+    payment = OnlinePayment(
+        "payment-settled-identity", "user-a", "project-a", "job-paid",
+        PaymentAmount(5900, "EUR"), PaymentStatus.SETTLED,
+    )
+
+    assert payment.payment_id == "payment-settled-identity"
+    assert payment.user_id == "user-a"
+    assert payment.project_id == "project-a"
+    assert payment.job_id == "job-paid"
