@@ -302,3 +302,10 @@ def test_vat_without_discount_uses_full_net_price() -> None:
     assert snapshot.net_total == Decimal("500.00")
     assert snapshot.vat_amount == Decimal("95.00")
     assert snapshot.gross_total == Decimal("595.00")
+
+
+def test_fractional_capacity_selects_correct_tier() -> None:
+    pricing = rule()
+    assert pricing.price(Decimal("29.999")).net_before_discount == Decimal("300.00")
+    assert pricing.price(Decimal("30.000")).net_before_discount == Decimal("300.00")
+    assert pricing.price(Decimal("30.001")).net_before_discount == Decimal("500.00")
