@@ -939,3 +939,29 @@ def test_concurrent_duplicate_job_preserves_winning_payment(tmp_path) -> None:
 
     winner = next(payment for payment in outcomes if payment is not None)
     assert store.get(winner.payment_id) == winner
+
+
+def test_concurrent_duplicate_job_rejection_is_domain_value_error(tmp_path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from mcm_solarcheck.services.payment import OnlinePayment
+
+    database = tmp_path / "payments.sqlite"
+    SQLiteOnlinePaymentStore(database)
+    payments = (
+        OnlinePayment("payment-domain-a", "user-a", "project-a", "job-domain-race", PaymentAmount(5900, "EUR")),
+        OnlinePayment("payment-domain-b", "user-a", "project-a", "job-domain-race", PaymentAmount(5900, "EUR")),
+    )
+
+    def create(payment):
+        try:
+            SQLiteOnlinePaymentStore(database).create(payment)
+            return None
+        except Exception as exc:
+            return exc
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        errors = [error for error in pool.map(create, payments) if error is not None]
+
+    assert len(errors) == 1
+    assert type(errors[0]) is ValueError
+    assert str(errors[0]) == "compute job already has a payment"
