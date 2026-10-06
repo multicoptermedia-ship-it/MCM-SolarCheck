@@ -1071,3 +1071,25 @@ def test_settled_paid_payment_round_trips_with_amount(tmp_path) -> None:
     restored = payments.get("payment-settled-roundtrip")
     assert restored == settled
     assert restored.amount == PaymentAmount(5900, "EUR")
+
+
+def test_voucher_payment_duplicate_payment_id_returns_domain_error(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("DUP-PAYMENT-ID", now - timedelta(days=1), now + timedelta(days=1)))
+    service = PaymentPricingService(
+        payments, vouchers, FlightPlanVoucherPolicy(),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+    payments.create(OnlinePayment(
+        "payment-voucher-duplicate", "user-a", "project-a", "job-original",
+        PaymentAmount(5900, "EUR"),
+    ))
+
+    with pytest.raises(ValueError, match="payment id already exists"):
+        service.create_payment(
+            "payment-voucher-duplicate", user_id="user-b", project_id="project-b",
+            job_id="job-voucher-second", base_amount=PaymentAmount(5900, "EUR"),
+            voucher_code="DUP-PAYMENT-ID", now=now,
+        )
