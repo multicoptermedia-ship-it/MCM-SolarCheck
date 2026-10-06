@@ -60,6 +60,8 @@ class PricingRule:
             previous_limit = tier.up_to_kwp
 
     def price(self, capacity_kwp: Decimal, *, planner_verified: bool = False, repeat_verified: bool = False) -> "PriceSnapshot":
+        if not capacity_kwp.is_finite():
+            raise ValueError("capacity_kwp must be finite")
         if capacity_kwp <= 0:
             raise ValueError("capacity_kwp must be positive")
         if not self.version.strip() or not self.tiers:
