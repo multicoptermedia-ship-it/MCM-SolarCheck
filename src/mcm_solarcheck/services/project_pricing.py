@@ -26,9 +26,11 @@ class ProjectPricingService:
         self,
         pricing_rule: PricingRule,
         capacity_for_project: Callable[[str, str], Decimal],
+        discount_eligibility_for_project: Callable[[str, str], DiscountEligibility] | None = None,
     ) -> None:
         self._pricing_rule = pricing_rule
         self._capacity_for_project = capacity_for_project
+        self._discount_eligibility_for_project = discount_eligibility_for_project
 
     def price(self, request: ProjectPricingRequest) -> PriceSnapshot:
         customer_id = request.customer_id.strip()
@@ -38,4 +40,15 @@ class ProjectPricingService:
         if not project_id:
             raise ValueError("project_id is required")
         capacity_kwp = self._capacity_for_project(customer_id, project_id)
-        return self._pricing_rule.price(capacity_kwp)
+        eligibility = (
+            self._discount_eligibility_for_project(customer_id, project_id)
+            if self._discount_eligibility_for_project is not None
+            else DiscountEligibility()
+        )
+        if not isinstance(eligibility, DiscountEligibility):
+            raise TypeError("discount eligibility must be server-owned DiscountEligibility")
+        return self._pricing_rule.price(
+            capacity_kwp,
+            planner_verified=eligibility.planner_verified,
+            repeat_verified=eligibility.repeat_verified,
+        )
