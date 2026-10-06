@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from mcm_solarcheck.services.payment import PaymentAmount
+from mcm_solarcheck.services.registration import RegistrationStatus
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,12 @@ class IntroductoryOfferPolicy:
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("offer evaluation time must be timezone-aware")
         return now < self.valid_until
+
+
+def require_verified_registration(registrations, user_id: str) -> None:
+    registration = registrations.get(user_id)
+    if registration.status is not RegistrationStatus.VERIFIED:
+        raise PermissionError("introductory offer requires verified registration")
 
 
 class IntroductoryOfferStore:
