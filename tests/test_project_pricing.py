@@ -67,3 +67,15 @@ def test_project_pricing_rejects_missing_customer_id_before_metadata_access() ->
 
     with pytest.raises(ValueError):
         service.price(ProjectPricingRequest("   ", "P-1"))
+
+def test_project_pricing_does_not_apply_configured_discounts_without_authority() -> None:
+    service = ProjectPricingService(
+        pricing_rule(),
+        lambda customer_id, project_id: Decimal("50"),
+    )
+
+    snapshot = service.price(ProjectPricingRequest("user-1", "P-1"))
+
+    assert snapshot.discount_rate == Decimal("0")
+    assert snapshot.discount_amount == Decimal("0.00")
+    assert snapshot.net_total == Decimal("500.00")
