@@ -55,11 +55,13 @@ class PaymentCaptureService:
                 and intent.status is PaymentOperationStatus.PROVIDER_SUCCEEDED
             ):
                 self._operation_intents.mark_completed(payment_id)
+                self._finalize_introductory_offer(user_id, payment_id)
                 return payment
             if (
                 intent.operation is PaymentOperation.CAPTURE
                 and intent.status is PaymentOperationStatus.COMPLETED
             ):
+                self._finalize_introductory_offer(user_id, payment_id)
                 return payment
             raise ValueError("captured payment has inconsistent operation intent")
         if payment.status is not PaymentStatus.AUTHORIZED:
@@ -113,6 +115,5 @@ class PaymentCaptureService:
             self._introductory_offers.finalize(
                 user_id, payment_id, used_at=datetime.now(timezone.utc)
             )
-        except ValueError as exc:
-            if "reservation not found" not in str(exc):
-                raise
+        except ValueError:
+            return
