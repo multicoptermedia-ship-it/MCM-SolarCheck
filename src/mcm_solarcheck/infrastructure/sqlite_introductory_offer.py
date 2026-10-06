@@ -80,8 +80,18 @@ class SQLiteIntroductoryOfferStore:
                 """,
                 (used_at.isoformat(), user_id.strip(), payment_id.strip()),
             )
-            if cursor.rowcount != 1:
-                raise ValueError("introductory offer reservation not found")
+            if cursor.rowcount == 1:
+                return
+            row = connection.execute(
+                """
+                SELECT state FROM introductory_offer_usage
+                WHERE user_id = ? AND payment_id = ?
+                """,
+                (user_id.strip(), payment_id.strip()),
+            ).fetchone()
+            if row is not None and row[0] == "used":
+                return
+            raise ValueError("introductory offer reservation not found")
 
     def release(self, user_id: str, payment_id: str) -> None:
         with sqlite3.connect(self.database) as connection:
