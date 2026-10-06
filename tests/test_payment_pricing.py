@@ -1004,3 +1004,16 @@ def test_payment_store_duplicate_payment_id_raises_domain_value_error(tmp_path) 
 
     with pytest.raises(ValueError, match="payment id already exists"):
         payments.create(OnlinePayment("payment-same-id", "user-a", "project-a", "job-b", PaymentAmount(6900, "EUR")))
+
+
+def test_duplicate_payment_id_rejection_preserves_original_payment(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import OnlinePayment
+
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    original = OnlinePayment("payment-preserved-id", "user-a", "project-a", "job-original-id", PaymentAmount(5900, "EUR"))
+    payments.create(original)
+
+    with pytest.raises(ValueError, match="payment id already exists"):
+        payments.create(OnlinePayment("payment-preserved-id", "user-b", "project-b", "job-other-id", PaymentAmount(6900, "EUR")))
+
+    assert payments.get("payment-preserved-id") == original
