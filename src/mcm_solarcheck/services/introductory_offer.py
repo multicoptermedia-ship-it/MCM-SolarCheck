@@ -52,6 +52,9 @@ class IntroductoryOfferStore:
     def reserve(self, user_id: str, payment_id: str, *, policy_version: int, now: datetime) -> bool:
         ...
 
+    def is_reserved(self, user_id: str, payment_id: str, *, policy_version: int) -> bool:
+        ...
+
     def finalize(self, user_id: str, payment_id: str, *, used_at: datetime) -> None:
         ...
 
