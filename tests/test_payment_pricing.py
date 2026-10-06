@@ -616,3 +616,38 @@ def test_shared_database_missing_voucher_does_not_create_payment(tmp_path) -> No
 
     with pytest.raises(KeyError):
         payments.get("payment-missing-voucher")
+
+
+def test_shared_database_duplicate_job_does_not_redeem_voucher(tmp_path) -> None:
+    database = tmp_path / "shared.sqlite"
+    payments = SQLiteOnlinePaymentStore(database)
+    vouchers = SQLiteFlightPlanVoucherStore(database)
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("SHARED-DUPJOB", now - timedelta(days=1), now + timedelta(days=1)))
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        FlightPlanVoucherPolicy(10),
+        SQLitePricedPaymentStore(database, database),
+    )
+    service.create_payment(
+        "payment-existing-shared",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-shared-duplicate",
+        base_amount=PaymentAmount(5900, "EUR"),
+        now=now,
+    )
+
+    with pytest.raises(ValueError, match="already has a payment"):
+        service.create_payment(
+            "payment-duplicate-shared",
+            user_id="user-a",
+            project_id="project-a",
+            job_id="job-shared-duplicate",
+            base_amount=PaymentAmount(5900, "EUR"),
+            voucher_code="SHARED-DUPJOB",
+            now=now,
+        )
+
+    assert vouchers.get("SHARED-DUPJOB").redeemed is False
