@@ -2758,3 +2758,16 @@ def test_online_report_retrieval_requires_paid_order(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="paid order"):
         services.report_delivery.retrieve("job-report-unpaid", user_id="user-report-unpaid", project_id="project-report-unpaid")
+
+
+def test_online_report_retrieval_rejects_payment_identity_mismatch(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+    persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-report-mismatch", "user-report", "project-report", export_completed=True)))
+    persistence.payments.create(OnlinePayment("payment-report-mismatch", "other-user", "other-project", "job-report-mismatch", PaymentAmount(9500, "EUR")))
+    persistence.reports.path_for("job-report-mismatch").write_bytes(b"mismatched-report")
+
+    with pytest.raises(PermissionError, match="payment ownership"):
+        services.report_delivery.retrieve("job-report-mismatch", user_id="user-report", project_id="project-report")
