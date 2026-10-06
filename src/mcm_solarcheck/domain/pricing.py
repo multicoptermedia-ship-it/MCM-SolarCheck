@@ -33,6 +33,8 @@ class PricingRule:
             self.maximum_discount_rate,
             self.vat_rate,
         )
+        if any(not rate.is_finite() for rate in rates):
+            raise ValueError("pricing rates must be finite")
         if any(rate < 0 for rate in rates):
             raise ValueError("pricing rates must not be negative")
         if any(rate > 1 for rate in rates):
