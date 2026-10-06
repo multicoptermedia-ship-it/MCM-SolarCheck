@@ -104,13 +104,15 @@ class PaymentPricingService:
                 base_amount,
                 discount_percent=discount_percent,
             )
+        if amount is None:
+            raise ValueError("SolarCheck jobs must always have a positive payable amount")
         payment = OnlinePayment(
             payment_id,
             user_id,
             project_id,
             job_id,
             amount,
-            PaymentStatus.SETTLED if amount is None else PaymentStatus.CREATED,
+            PaymentStatus.CREATED,
             tariff_version=tariff_version,
             plant_kwp=plant_kwp,
         )
