@@ -2410,3 +2410,34 @@ def test_sepa_checkout_retry_requires_sepa_payment_snapshot(tmp_path) -> None:
     )
 
     assert retried.method is PaymentMethod.SEPA_DIRECT_DEBIT
+
+
+def test_sepa_checkout_retry_preserves_authorized_payment(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-authorized-retry")
+    services.sepa_checkout.checkout(
+        "payment-sepa-authorized-retry",
+        user_id="user-sepa-authorized-retry",
+        project_id="project-user-sepa-authorized-retry",
+        job_id="job-user-sepa-authorized-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-authorized-retry",
+        now=now,
+    )
+    authorized = persistence.payments.authorize(
+        "payment-sepa-authorized-retry", "user-sepa-authorized-retry",
+        "project-user-sepa-authorized-retry", "provider-reference"
+    )
+
+    retried = services.sepa_checkout.checkout(
+        "payment-sepa-authorized-retry",
+        user_id="user-sepa-authorized-retry",
+        project_id="project-user-sepa-authorized-retry",
+        job_id="job-user-sepa-authorized-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-authorized-retry",
+        now=now,
+    )
+
+    assert retried == authorized
