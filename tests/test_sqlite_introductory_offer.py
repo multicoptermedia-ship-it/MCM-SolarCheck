@@ -62,3 +62,12 @@ def test_offer_finalization_is_idempotent_only_for_same_payment(tmp_path) -> Non
     assert store.has_used("user-a") is True
     with pytest.raises(ValueError, match="payment mismatch"):
         store.finalize("user-a", "payment-b", used_at=now)
+
+
+def test_same_payment_can_retry_offer_reservation(tmp_path) -> None:
+    store = SQLiteIntroductoryOfferStore(tmp_path / "offers-retry.sqlite")
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+
+    assert store.reserve("user-a", "payment-a", policy_version=1, now=now)
+    assert store.reserve("user-a", "payment-a", policy_version=1, now=now)
+    assert store.has_used("user-a") is False
