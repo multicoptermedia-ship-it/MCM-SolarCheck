@@ -1756,3 +1756,28 @@ def test_verified_sepa_checkout_after_deadline_uses_regular_price(tmp_path) -> N
     assert not persistence.introductory_offers.is_reserved(
         "user-sepa-expired", "payment-sepa-expired", policy_version=1
     )
+
+
+def test_sepa_reserved_offer_is_not_reused_by_different_payment_id(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import PaymentAmount
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-other-payment")
+    assert persistence.introductory_offers.reserve(
+        "user-sepa-other-payment", "payment-sepa-original", policy_version=1, now=now
+    )
+
+    payment = services.sepa_checkout.checkout(
+        "payment-sepa-other",
+        user_id="user-sepa-other-payment",
+        project_id="project-user-sepa-other-payment",
+        job_id="job-user-sepa-other-payment",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-other-payment",
+        now=now,
+    )
+
+    assert payment.amount == PaymentAmount(14500, "EUR")
+    assert persistence.introductory_offers.is_reserved(
+        "user-sepa-other-payment", "payment-sepa-original", policy_version=1
+    )
