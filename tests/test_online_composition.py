@@ -980,6 +980,7 @@ def test_online_sepa_checkout_delivery_submission_and_reconciliation_end_to_end(
     assert submission.status is SepaSubmissionStatus.SUBMITTED
     assert collection.status is SepaCollectionStatus.SUBMITTED
     assert reconciled.status is SepaCollectionStatus.SUCCEEDED
+    assert persistence.introductory_offers.has_used("user-sepa-e2e") is False
     assert persistence.sepa_collections.get("sepa:payment-sepa-e2e").status is SepaCollectionStatus.SUCCEEDED
     assert persistence.payments.get("payment-sepa-e2e") == payment
 
