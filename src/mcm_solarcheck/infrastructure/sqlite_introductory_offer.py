@@ -6,6 +6,10 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+from mcm_solarcheck.services.introductory_offer import (
+    IntroductoryOfferReservationNotFound,
+)
+
 
 class SQLiteIntroductoryOfferStore:
     def __init__(self, database: str | Path) -> None:
@@ -91,7 +95,9 @@ class SQLiteIntroductoryOfferStore:
             ).fetchone()
             if row is not None and row[0] == "used":
                 return
-            raise ValueError("introductory offer reservation not found")
+            raise IntroductoryOfferReservationNotFound(
+                "introductory offer reservation not found"
+            )
 
     def release(self, user_id: str, payment_id: str) -> None:
         with sqlite3.connect(self.database) as connection:
