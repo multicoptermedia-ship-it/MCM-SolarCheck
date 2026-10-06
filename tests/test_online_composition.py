@@ -1829,3 +1829,31 @@ def test_sepa_used_offer_is_not_reissued_for_new_payment(tmp_path) -> None:
 
     assert payment.amount == PaymentAmount(14500, "EUR")
     assert persistence.introductory_offers.has_used("user-sepa-used")
+
+
+def test_sepa_released_offer_can_be_reserved_by_new_payment(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import PaymentAmount
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-released")
+    assert persistence.introductory_offers.reserve(
+        "user-sepa-released", "payment-sepa-released-old", policy_version=1, now=now
+    )
+    persistence.introductory_offers.release(
+        "user-sepa-released", "payment-sepa-released-old"
+    )
+
+    payment = services.sepa_checkout.checkout(
+        "payment-sepa-released-new",
+        user_id="user-sepa-released",
+        project_id="project-user-sepa-released",
+        job_id="job-user-sepa-released",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-released",
+        now=now,
+    )
+
+    assert payment.amount == PaymentAmount(5900, "EUR")
+    assert persistence.introductory_offers.is_reserved(
+        "user-sepa-released", "payment-sepa-released-new", policy_version=1
+    )
