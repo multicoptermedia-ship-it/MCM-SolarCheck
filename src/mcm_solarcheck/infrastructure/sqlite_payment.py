@@ -93,6 +93,12 @@ class SQLiteOnlinePaymentStore:
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
+            existing_payment = connection.execute(
+                "SELECT job_id FROM online_payments WHERE payment_id = ?",
+                (payment.payment_id,),
+            ).fetchone()
+            if existing_payment is not None:
+                raise ValueError("payment id already exists")
             existing_job = connection.execute(
                 "SELECT payment_id FROM online_payments WHERE job_id = ?",
                 (payment.job_id,),
