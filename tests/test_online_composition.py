@@ -1733,3 +1733,26 @@ def test_sepa_checkout_retry_keeps_reserved_offer_after_deadline(tmp_path) -> No
     )
 
     assert payment.amount == PaymentAmount(5900, "EUR")
+
+
+def test_verified_sepa_checkout_after_deadline_uses_regular_price(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.payment import PaymentAmount
+
+    persistence, services, _ = _verified_sepa_intro_services(tmp_path, "user-sepa-expired")
+
+    payment = services.sepa_checkout.checkout(
+        "payment-sepa-expired",
+        user_id="user-sepa-expired",
+        project_id="project-user-sepa-expired",
+        job_id="job-user-sepa-expired",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-expired",
+        now=datetime(2027, 1, 1, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert payment.amount == PaymentAmount(14500, "EUR")
+    assert not persistence.introductory_offers.is_reserved(
+        "user-sepa-expired", "payment-sepa-expired", policy_version=1
+    )
