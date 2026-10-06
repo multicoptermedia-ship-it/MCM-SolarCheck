@@ -1449,3 +1449,98 @@ def test_online_project_pricing_cannot_claim_configured_discount(tmp_path) -> No
     )
     assert snapshot.discount_rate == Decimal("0")
     assert snapshot.net_total == Decimal("500.00")
+
+
+def test_verified_customer_gets_intro_price_once_then_regular_tariff(tmp_path) -> None:
+    from datetime import datetime, timedelta, timezone
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.payment import PaymentAmount
+    from mcm_solarcheck.services.registration import OnlineRegistration
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    now = datetime(2026, 10, 6, 10, 0, tzinfo=timezone.utc)
+    pending = OnlineRegistration(
+        "user-intro-e2e",
+        "Intro Customer",
+        "intro@example.com",
+        street="Musterweg 1",
+        postal_code="50181",
+        city="Bedburg",
+    )
+    persistence.registrations.create(
+        pending,
+        token="intro-token",
+        expires_at=now + timedelta(minutes=30),
+    )
+    persistence.registrations.verify("intro-token", now=now)
+    persistence.merchant_accounts.save(
+        MerchantAccount(
+            "merchant-intro-e2e",
+            "provider-a",
+            MerchantAccountKind.CARD_PROCESSOR,
+            "merchant display",
+        )
+    )
+    persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
+    services = online_services(persistence)
+
+    for suffix in ("first", "second"):
+        persistence.billing.create(
+            ComputeJobBilling(
+                ComputeJobDelivery(
+                    f"job-intro-{suffix}",
+                    "user-intro-e2e",
+                    f"project-intro-{suffix}",
+                )
+            )
+        )
+
+    first = services.payment_checkout.checkout(
+        "payment-intro-first",
+        user_id="user-intro-e2e",
+        project_id="project-intro-first",
+        job_id="job-intro-first",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-intro-e2e",
+        now=now,
+    )
+    assert first.amount == PaymentAmount(5900, "EUR")
+
+    persistence.billing.mark_export_completed(
+        "job-intro-first",
+        user_id="user-intro-e2e",
+        project_id="project-intro-first",
+    )
+    persistence.billing.mark_report_retrieved(
+        "job-intro-first",
+        user_id="user-intro-e2e",
+        project_id="project-intro-first",
+    )
+    persistence.billing.release(
+        "job-intro-first",
+        user_id="user-intro-e2e",
+        project_id="project-intro-first",
+    )
+    services.payment_capture.capture(
+        "payment-intro-first",
+        user_id="user-intro-e2e",
+        project_id="project-intro-first",
+    )
+    assert persistence.introductory_offers.has_used("user-intro-e2e") is True
+
+    second = services.payment_checkout.checkout(
+        "payment-intro-second",
+        user_id="user-intro-e2e",
+        project_id="project-intro-second",
+        job_id="job-intro-second",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-intro-e2e",
+        now=now,
+    )
+    assert second.amount == PaymentAmount(14500, "EUR")
