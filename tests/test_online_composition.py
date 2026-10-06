@@ -2751,6 +2751,7 @@ def test_payment_closeout_voucher_amount_survives_capture_and_execution_evidence
 
 
 def test_online_report_retrieval_requires_paid_order(tmp_path) -> None:
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
     persistence = setup_persistence(tmp_path, secret_configured=True)
     services = online_services(persistence)
     persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-report-unpaid", "user-report-unpaid", "project-report-unpaid", export_completed=True)))
@@ -2761,6 +2762,7 @@ def test_online_report_retrieval_requires_paid_order(tmp_path) -> None:
 
 
 def test_online_report_retrieval_rejects_payment_identity_mismatch(tmp_path) -> None:
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
     from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
 
     persistence = setup_persistence(tmp_path, secret_configured=True)
@@ -2774,6 +2776,7 @@ def test_online_report_retrieval_rejects_payment_identity_mismatch(tmp_path) -> 
 
 
 def test_online_report_retrieval_accepts_matching_paid_order(tmp_path) -> None:
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
     from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
 
     persistence = setup_persistence(tmp_path, secret_configured=True)
