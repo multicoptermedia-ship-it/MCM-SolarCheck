@@ -218,3 +218,19 @@ def test_tier_price_rounds_half_up_to_cents() -> None:
 
     assert snapshot.net_before_discount == Decimal("10.01")
     assert snapshot.net_total == Decimal("10.01")
+
+
+def test_discount_and_vat_are_rounded_independently() -> None:
+    pricing = PricingRule(
+        version="rounding",
+        tiers=(PriceTier(None, Decimal("10.05")),),
+        planner_discount_rate=Decimal("0.10"),
+        maximum_discount_rate=Decimal("0.10"),
+        vat_rate=Decimal("0.19"),
+    )
+    snapshot = pricing.price(Decimal("1"), planner_verified=True)
+
+    assert snapshot.discount_amount == Decimal("1.01")
+    assert snapshot.net_total == Decimal("9.04")
+    assert snapshot.vat_amount == Decimal("1.72")
+    assert snapshot.gross_total == Decimal("10.76")
