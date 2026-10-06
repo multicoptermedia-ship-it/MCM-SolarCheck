@@ -62,15 +62,15 @@ def test_gateway_receives_fixed_payable_amount(tmp_path) -> None:
     assert authorized.provider_reference == "provider-auth-a"
 
 
-def test_settled_zero_amount_payment_never_reaches_gateway(tmp_path) -> None:
+def test_settled_paid_payment_never_reaches_gateway(tmp_path) -> None:
     store = SQLiteOnlinePaymentStore(tmp_path / "payment.sqlite")
     store.create(
         OnlinePayment(
-            "payment-free",
+            "payment-settled-paid",
             "user-a",
             "project-a",
             "job-a",
-            None,
+            PaymentAmount(5900, "EUR"),
             PaymentStatus.SETTLED,
         )
     )
@@ -79,7 +79,7 @@ def test_settled_zero_amount_payment_never_reaches_gateway(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="no provider authorization"):
         service.authorize(
-            "payment-free", user_id="user-a", project_id="project-a"
+            "payment-settled-paid", user_id="user-a", project_id="project-a"
         )
 
     assert gateway.authorized == []
