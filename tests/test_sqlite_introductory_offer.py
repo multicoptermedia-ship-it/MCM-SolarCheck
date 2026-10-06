@@ -34,3 +34,18 @@ def test_concurrent_offer_claims_allow_only_one_use(tmp_path) -> None:
 
     assert sorted(results) == [False, True]
     assert store.has_used("user-a") is True
+
+
+def test_released_offer_reservation_can_be_used_by_later_payment(tmp_path) -> None:
+    store = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+
+    assert store.reserve("user-a", "failed-payment", policy_version=1, now=now)
+    assert store.has_used("user-a") is False
+    assert not store.reserve("user-a", "parallel-payment", policy_version=1, now=now)
+
+    store.release("user-a", "failed-payment")
+
+    assert store.reserve("user-a", "successful-payment", policy_version=1, now=now)
+    store.finalize("user-a", "successful-payment", used_at=now)
+    assert store.has_used("user-a") is True
