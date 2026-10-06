@@ -186,3 +186,13 @@ def test_combined_verified_discounts_use_configured_twelve_percent_cap() -> None
     assert snapshot.planner_discount_rate + snapshot.repeat_discount_rate == Decimal("0.15")
     assert snapshot.maximum_discount_rate == Decimal("0.12")
     assert snapshot.discount_rate == Decimal("0.12")
+
+@pytest.mark.parametrize("invalid", ["NaN", "Infinity", "-Infinity"])
+@pytest.mark.parametrize("field", ["planner_discount_rate", "repeat_discount_rate", "maximum_discount_rate", "vat_rate"])
+def test_non_finite_pricing_rates_are_rejected(field: str, invalid: str) -> None:
+    with pytest.raises(ValueError, match="finite"):
+        PricingRule(
+            version="finite-rates-test",
+            tiers=(PriceTier(None, Decimal("300")),),
+            **{field: Decimal(invalid)},
+        )
