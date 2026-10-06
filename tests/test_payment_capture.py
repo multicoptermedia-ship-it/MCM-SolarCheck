@@ -214,3 +214,20 @@ def test_repeated_local_capture_keeps_introductory_offer_used(tmp_path) -> None:
     service.capture("payment-a", user_id="user-a", project_id="project-a")
 
     assert offers.has_used("user-a") is True
+
+
+def test_regular_payment_capture_needs_no_intro_reservation(tmp_path) -> None:
+    payments = MemoryPaymentStore(authorized_payment())
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers-regular.sqlite")
+    service = PaymentCaptureService(
+        payments,
+        MemoryBillingStore(billing(released=True)),
+        introductory_offers=offers,
+    )
+
+    captured = service.capture(
+        "payment-a", user_id="user-a", project_id="project-a"
+    )
+
+    assert captured.status is PaymentStatus.CAPTURED
+    assert offers.has_used("user-a") is False
