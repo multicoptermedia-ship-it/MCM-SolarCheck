@@ -123,3 +123,13 @@ def test_released_same_payment_reservation_is_not_idempotent(tmp_path) -> None:
     store.release("user-a", "payment-a")
 
     assert store.reserve("user-a", "payment-a", policy_version=1, now=now)
+
+
+def test_reservation_lookup_requires_matching_payment_and_policy(tmp_path) -> None:
+    store = SQLiteIntroductoryOfferStore(tmp_path / "offers-lookup.sqlite")
+    now = datetime(2026, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+    assert store.reserve("user-a", "payment-a", policy_version=1, now=now)
+
+    assert store.is_reserved("user-a", "payment-a", policy_version=1)
+    assert not store.is_reserved("user-a", "payment-b", policy_version=1)
+    assert not store.is_reserved("user-a", "payment-a", policy_version=2)
