@@ -847,3 +847,28 @@ def test_rejected_zero_payable_job_is_not_persisted(tmp_path) -> None:
 
     with pytest.raises(KeyError):
         payments.get("payment-no-free-persist")
+
+
+def test_rejected_zero_payable_job_does_not_redeem_voucher(tmp_path) -> None:
+    class FullDiscountPolicy:
+        active = True
+        discount_percent = 100
+        version = 99
+
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("NO-FREE-REDEEM", now - timedelta(days=1), now + timedelta(days=1)))
+    service = PaymentPricingService(
+        payments, vouchers, FullDiscountPolicy(),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+
+    with pytest.raises(ValueError, match="positive payable amount"):
+        service.create_payment(
+            "payment-no-free-redeem", user_id="user-a", project_id="project-a",
+            job_id="job-no-free-redeem", base_amount=PaymentAmount(5900, "EUR"),
+            voucher_code="NO-FREE-REDEEM", now=now,
+        )
+
+    assert vouchers.get("NO-FREE-REDEEM").redeemed is False
