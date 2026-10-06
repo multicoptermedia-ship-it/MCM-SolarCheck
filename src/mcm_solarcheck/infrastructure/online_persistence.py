@@ -13,6 +13,7 @@ from mcm_solarcheck.infrastructure.sqlite_compute_jobs import SQLiteComputeJobSt
 from mcm_solarcheck.infrastructure.sqlite_credentials import SQLiteCredentialStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_admin_delivery import SQLiteInvoiceAdminDeliveryStore
 from mcm_solarcheck.infrastructure.sqlite_invoice_identity import SQLiteInvoiceIdentityStore
+from mcm_solarcheck.infrastructure.sqlite_introductory_offer import SQLiteIntroductoryOfferStore
 from mcm_solarcheck.infrastructure.sqlite_merchant_account import SQLiteMerchantAccountStore
 from mcm_solarcheck.infrastructure.sqlite_online_entitlement import SQLiteOnlineEntitlementStore
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
@@ -70,6 +71,7 @@ class OnlinePersistence:
     payments: OnlinePaymentPersistence
     merchant_accounts: MerchantAccountPersistence
     tariffs: SolarCheckTariffPersistence
+    introductory_offers: object
     vouchers: FlightPlanVoucherPersistence
     voucher_policy: FlightPlanVoucherPolicyPersistence
     priced_payments: AtomicPricedPaymentStore
@@ -124,6 +126,7 @@ def build_online_persistence(
         payments=payments,
         merchant_accounts=SQLiteMerchantAccountStore(database),
         tariffs=SQLiteSolarCheckTariffStore(database),
+        introductory_offers=SQLiteIntroductoryOfferStore(database),
         vouchers=vouchers,
         voucher_policy=voucher_policy,
         priced_payments=SQLitePricedPaymentStore(database, database),
