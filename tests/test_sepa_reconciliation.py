@@ -296,3 +296,24 @@ def test_sepa_failure_releases_introductory_offer(tmp_path) -> None:
 
     assert offers.has_used("user-a") is False
     assert offers.reserve("user-a", "payment-b", policy_version=1, now=now)
+
+
+def test_duplicate_sepa_success_keeps_introductory_offer_used(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+    from datetime import datetime, timezone
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+    assert offers.reserve("user-a", "payment-a", policy_version=1, now=now)
+    service = SepaReconciliationService(store, offers)
+    event = SepaProviderEvent(
+        "provider-a",
+        "provider-debit-a",
+        SepaCollectionStatus.SUCCEEDED,
+    )
+
+    first = service.apply(event)
+    second = service.apply(event)
+
+    assert first.status is SepaCollectionStatus.SUCCEEDED
+    assert second.status is SepaCollectionStatus.SUCCEEDED
+    assert offers.has_used("user-a") is True
