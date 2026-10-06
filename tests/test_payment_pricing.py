@@ -1118,3 +1118,27 @@ def test_voucher_duplicate_payment_id_preserves_original_payment(tmp_path) -> No
         )
 
     assert payments.get("payment-voucher-preserved") == original
+
+
+def test_voucher_duplicate_payment_id_leaves_voucher_unredeemed(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("DUP-ID-UNUSED", now - timedelta(days=1), now + timedelta(days=1)))
+    payments.create(OnlinePayment(
+        "payment-voucher-unused", "user-a", "project-a", "job-original-unused",
+        PaymentAmount(5900, "EUR"),
+    ))
+    service = PaymentPricingService(
+        payments, vouchers, FlightPlanVoucherPolicy(),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+
+    with pytest.raises(ValueError, match="payment id already exists"):
+        service.create_payment(
+            "payment-voucher-unused", user_id="user-b", project_id="project-b",
+            job_id="job-voucher-unused", base_amount=PaymentAmount(5900, "EUR"),
+            voucher_code="DUP-ID-UNUSED", now=now,
+        )
+
+    assert vouchers.get("DUP-ID-UNUSED").redeemed is False
