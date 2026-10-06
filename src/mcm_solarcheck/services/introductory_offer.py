@@ -29,10 +29,12 @@ class IntroductoryOfferPolicy:
         return now < self.valid_until
 
 
-def require_verified_registration(registrations, user_id: str) -> None:
-    registration = registrations.get(user_id)
-    if registration.status is not RegistrationStatus.VERIFIED:
-        raise PermissionError("introductory offer requires verified registration")
+def has_verified_registration(registrations, user_id: str) -> bool:
+    try:
+        registration = registrations.get(user_id)
+    except KeyError:
+        return False
+    return registration.status is RegistrationStatus.VERIFIED
 
 
 class IntroductoryOfferStore:
