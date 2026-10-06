@@ -2240,3 +2240,40 @@ def test_sepa_voucher_retry_keeps_discounted_amount(tmp_path) -> None:
 
     assert first.amount == PaymentAmount(5310, "EUR")
     assert second.amount == first.amount
+
+
+def test_sepa_voucher_retry_does_not_change_redemption_evidence(tmp_path) -> None:
+    from datetime import timedelta
+    from mcm_solarcheck.services.voucher import FlightPlanVoucher
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-voucher-evidence")
+    persistence.vouchers.create(
+        FlightPlanVoucher("SEPA-VOUCHER-EVIDENCE", now - timedelta(days=1), now + timedelta(days=1))
+    )
+    services.sepa_checkout.checkout(
+        "payment-sepa-voucher-evidence",
+        user_id="user-sepa-voucher-evidence",
+        project_id="project-user-sepa-voucher-evidence",
+        job_id="job-user-sepa-voucher-evidence",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-voucher-evidence",
+        voucher_code="SEPA-VOUCHER-EVIDENCE",
+        now=now,
+    )
+    before = persistence.vouchers.get("SEPA-VOUCHER-EVIDENCE")
+
+    services.sepa_checkout.checkout(
+        "payment-sepa-voucher-evidence",
+        user_id="user-sepa-voucher-evidence",
+        project_id="project-user-sepa-voucher-evidence",
+        job_id="job-user-sepa-voucher-evidence",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-voucher-evidence",
+        voucher_code="SEPA-VOUCHER-EVIDENCE",
+        now=now + timedelta(minutes=1),
+    )
+    after = persistence.vouchers.get("SEPA-VOUCHER-EVIDENCE")
+
+    assert after == before
