@@ -267,3 +267,16 @@ def test_price_snapshot_cannot_be_mutated() -> None:
     snapshot = rule().price(Decimal("10"))
     with pytest.raises(FrozenInstanceError):
         snapshot.net_total = Decimal("0")
+
+
+def test_discount_cap_can_be_lower_than_planner_rate() -> None:
+    pricing = PricingRule(
+        version="low-cap",
+        tiers=(PriceTier(None, Decimal("500")),),
+        planner_discount_rate=Decimal("0.10"),
+        maximum_discount_rate=Decimal("0.07"),
+    )
+    snapshot = pricing.price(Decimal("10"), planner_verified=True)
+    assert snapshot.discount_rate == Decimal("0.07")
+    assert snapshot.discount_amount == Decimal("35.00")
+    assert snapshot.net_total == Decimal("465.00")
