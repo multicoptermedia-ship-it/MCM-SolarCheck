@@ -47,6 +47,8 @@ class PricingRule:
 
         previous_limit = Decimal("0")
         for index, tier in enumerate(self.tiers):
+            if not tier.net_price.is_finite() or (tier.up_to_kwp is not None and not tier.up_to_kwp.is_finite()):
+                raise ValueError("tier values must be finite")
             if tier.net_price < 0:
                 raise ValueError("tier prices must not be negative")
             if tier.up_to_kwp is None:
