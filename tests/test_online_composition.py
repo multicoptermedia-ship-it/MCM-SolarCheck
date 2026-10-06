@@ -1656,3 +1656,25 @@ def test_failed_sepa_snapshot_binding_releases_introductory_offer(tmp_path) -> N
     assert persistence.introductory_offers.reserve(
         "user-sepa-snapshot", "payment-sepa-snapshot-retry", policy_version=1, now=now
     )
+
+
+def test_sepa_checkout_retry_keeps_introductory_price(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import PaymentAmount
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-retry")
+    assert persistence.introductory_offers.reserve(
+        "user-sepa-retry", "payment-sepa-retry", policy_version=1, now=now
+    )
+
+    payment = services.sepa_checkout.checkout(
+        "payment-sepa-retry",
+        user_id="user-sepa-retry",
+        project_id="project-user-sepa-retry",
+        job_id="job-user-sepa-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-retry",
+        now=now,
+    )
+
+    assert payment.amount == PaymentAmount(5900, "EUR")
