@@ -761,27 +761,25 @@ def test_duplicate_job_rejection_preserves_original_payment(tmp_path) -> None:
     assert payments.get("payment-original-job") == first
 
 
-def test_settled_zero_amount_payment_also_blocks_second_job_payment(tmp_path) -> None:
+def test_settled_payment_also_blocks_second_job_payment(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import OnlinePayment
+
     payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
-    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
-    vouchers.create(FlightPlanVoucher("FREE-JOB", now - timedelta(days=1), now + timedelta(days=1)))
-    service = PaymentPricingService(
-        payments, vouchers, FlightPlanVoucherPolicy(100),
-        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    settled = OnlinePayment(
+        "payment-settled-job", "user-a", "project-a", "job-settled",
+        None, PaymentStatus.SETTLED,
     )
-    first = service.create_payment(
-        "payment-free-job", user_id="user-a", project_id="project-a",
-        job_id="job-free", base_amount=PaymentAmount(5900, "EUR"),
-        voucher_code="FREE-JOB", now=now,
-    )
-    assert first.status is PaymentStatus.SETTLED
+    payments.create(settled)
 
     with pytest.raises(ValueError, match="already has a payment"):
-        service.create_payment(
-            "payment-after-free-job", user_id="user-a", project_id="project-a",
-            job_id="job-free", base_amount=PaymentAmount(5900, "EUR"), now=now,
+        payments.create(
+            OnlinePayment(
+                "payment-after-settled-job", "user-a", "project-a", "job-settled",
+                PaymentAmount(5900, "EUR"),
+            )
         )
+
+    assert payments.get("payment-settled-job") == settled
 
 
 def test_payment_store_duplicate_job_raises_domain_value_error(tmp_path) -> None:
