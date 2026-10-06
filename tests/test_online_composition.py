@@ -2577,3 +2577,33 @@ def test_sepa_checkout_retry_uses_explicit_payment_store(tmp_path) -> None:
     )
 
     assert retried == first
+
+
+def test_sepa_checkout_retry_does_not_touch_voucher_store(tmp_path) -> None:
+    from datetime import timedelta
+    from mcm_solarcheck.services.voucher import FlightPlanVoucher
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-no-revoucher")
+    persistence.vouchers.create(
+        FlightPlanVoucher("SEPA-NO-REVOUCHER", now - timedelta(days=1), now + timedelta(days=1))
+    )
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-no-revoucher", user_id="user-sepa-no-revoucher",
+        project_id="project-user-sepa-no-revoucher", job_id="job-user-sepa-no-revoucher",
+        plant_kwp=750, provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-no-revoucher",
+        voucher_code="SEPA-NO-REVOUCHER", now=now,
+    )
+    before = persistence.vouchers.get("SEPA-NO-REVOUCHER")
+
+    services.sepa_checkout._pricing._vouchers = object()
+    retried = services.sepa_checkout.checkout(
+        "payment-sepa-no-revoucher", user_id="user-sepa-no-revoucher",
+        project_id="project-user-sepa-no-revoucher", job_id="job-user-sepa-no-revoucher",
+        plant_kwp=750, provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-no-revoucher",
+        voucher_code="SEPA-NO-REVOUCHER", now=now,
+    )
+
+    assert retried == first
+    assert persistence.vouchers.get("SEPA-NO-REVOUCHER") == before
