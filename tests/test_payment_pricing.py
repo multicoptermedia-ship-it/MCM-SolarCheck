@@ -562,3 +562,31 @@ def test_legacy_voucher_schema_migrates_without_inventing_policy_version(tmp_pat
     assert legacy.redeemed_payment_id == "payment-legacy"
     assert legacy.redeemed_discount_percent == 10
     assert legacy.redeemed_policy_version is None
+
+
+def test_atomic_priced_payment_store_supports_shared_database(tmp_path) -> None:
+    database = tmp_path / "shared.sqlite"
+    payments = SQLiteOnlinePaymentStore(database)
+    vouchers = SQLiteFlightPlanVoucherStore(database)
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("SHARED-DB", now - timedelta(days=1), now + timedelta(days=1)))
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        FlightPlanVoucherPolicy(10),
+        SQLitePricedPaymentStore(database, database),
+    )
+
+    payment = service.create_payment(
+        "payment-shared-db",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-shared-db",
+        base_amount=PaymentAmount(5900, "EUR"),
+        voucher_code="SHARED-DB",
+        now=now,
+    )
+
+    assert payment.amount == PaymentAmount(5310, "EUR")
+    assert payments.get("payment-shared-db") == payment
+    assert vouchers.get("SHARED-DB").redeemed_payment_id == "payment-shared-db"
