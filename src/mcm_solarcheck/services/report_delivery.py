@@ -40,9 +40,11 @@ class ReportDeliveryService:
         self,
         billing: ComputeJobBillingStore,
         reports: ReportArtifactStore,
+        payments=None,
     ) -> None:
         self._billing = billing
         self._reports = reports
+        self._payments = payments
 
     def retrieve(
         self,
@@ -58,6 +60,13 @@ class ReportDeliveryService:
             raise ReportDeliveryAccessError("report delivery ownership mismatch")
         if not delivery.export_completed:
             raise ReportDeliveryNotReadyError("report is unavailable until export is completed")
+        if self._payments is not None:
+            try:
+                payment = self._payments.get_for_job(job_id)
+            except KeyError as exc:
+                raise ReportDeliveryNotReadyError("report delivery requires a paid order") from exc
+            if payment.user_id != user_id or payment.project_id != project_id:
+                raise ReportDeliveryAccessError("report payment ownership mismatch")
 
         report = self._reports.get(job_id)
         if report.job_id != job_id:
