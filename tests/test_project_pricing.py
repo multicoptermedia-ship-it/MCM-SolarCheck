@@ -92,3 +92,30 @@ def test_server_verified_planner_eligibility_applies_discount() -> None:
 
     assert snapshot.discount_rate == Decimal("0.10")
     assert snapshot.net_total == Decimal("450.00")
+
+def test_server_verified_combined_eligibility_respects_discount_cap() -> None:
+    service = ProjectPricingService(
+        pricing_rule(),
+        lambda customer_id, project_id: Decimal("50"),
+        lambda customer_id, project_id: DiscountEligibility(
+            planner_verified=True,
+            repeat_verified=True,
+        ),
+    )
+
+    snapshot = service.price(ProjectPricingRequest("user-1", "P-1"))
+
+    assert snapshot.discount_rate == Decimal("0.12")
+    assert snapshot.discount_amount == Decimal("60.00")
+    assert snapshot.net_total == Decimal("440.00")
+
+
+def test_invalid_discount_authority_result_fails_closed() -> None:
+    service = ProjectPricingService(
+        pricing_rule(),
+        lambda customer_id, project_id: Decimal("50"),
+        lambda customer_id, project_id: {"planner_verified": True},
+    )
+
+    with pytest.raises(TypeError, match="server-owned DiscountEligibility"):
+        service.price(ProjectPricingRequest("user-1", "P-1"))
