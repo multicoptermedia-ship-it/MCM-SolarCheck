@@ -43,7 +43,7 @@ class RecordingGateway:
         raise AssertionError("checkout must not void")
 
 
-def build_checkout(tmp_path, method, kind, *, introductory_offers=None):
+def build_checkout(tmp_path, method, kind, *, introductory_offers=None, registrations=None):
     payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
     vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
     accounts = SQLiteMerchantAccountStore(tmp_path / "merchants.sqlite")
@@ -78,6 +78,7 @@ def build_checkout(tmp_path, method, kind, *, introductory_offers=None):
         payments,
         tariffs,
         introductory_offers=introductory_offers,
+        registrations=registrations,
     )
     return checkout, payments, gateway
 
@@ -199,11 +200,21 @@ def test_checkout_uses_new_tariff_version_after_effective_time(tmp_path) -> None
 
 def test_checkout_applies_introductory_offer_only_while_reserved(tmp_path) -> None:
     offers = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+    class VerifiedRegistrations:
+        def get(self, user_id):
+            from mcm_solarcheck.services.registration import OnlineRegistration
+            return OnlineRegistration(
+                user_id,
+                "Customer",
+                "customer@example.com",
+            ).verify(datetime(2026, 10, 1, tzinfo=timezone.utc))
+
     checkout, payments, gateway = build_checkout(
         tmp_path,
         PaymentMethod.CARD,
         MerchantAccountKind.CARD_PROCESSOR,
         introductory_offers=offers,
+        registrations=VerifiedRegistrations(),
     )
 
     result = checkout.checkout(
@@ -220,3 +231,30 @@ def test_checkout_applies_introductory_offer_only_while_reserved(tmp_path) -> No
 
     assert result.amount == PaymentAmount(5900, "EUR")
     assert offers.has_used("user-intro") is False
+
+
+def test_checkout_uses_regular_tariff_after_offer_deadline(tmp_path) -> None:
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+    class Registrations:
+        def get(self, user_id):
+            raise AssertionError("expired offer must not query registration")
+
+    checkout, payments, gateway = build_checkout(
+        tmp_path,
+        PaymentMethod.CARD,
+        MerchantAccountKind.CARD_PROCESSOR,
+        introductory_offers=offers,
+        registrations=Registrations(),
+    )
+    result = checkout.checkout(
+        "payment-after-offer",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-after-offer",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-a",
+        now=datetime(2027, 1, 1, 0, 0, tzinfo=timezone.utc),
+    )
+    assert result.amount == PaymentAmount(14500, "EUR")
