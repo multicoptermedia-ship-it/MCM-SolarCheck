@@ -317,3 +317,20 @@ def test_duplicate_sepa_success_keeps_introductory_offer_used(tmp_path) -> None:
     assert first.status is SepaCollectionStatus.SUCCEEDED
     assert second.status is SepaCollectionStatus.SUCCEEDED
     assert offers.has_used("user-a") is True
+
+
+def test_regular_sepa_success_needs_no_intro_reservation(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers-regular.sqlite")
+    service = SepaReconciliationService(store, offers)
+
+    result = service.apply(
+        SepaProviderEvent(
+            "provider-a",
+            "provider-debit-a",
+            SepaCollectionStatus.SUCCEEDED,
+        )
+    )
+
+    assert result.status is SepaCollectionStatus.SUCCEEDED
+    assert offers.has_used("user-a") is False
