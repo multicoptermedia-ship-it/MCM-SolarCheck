@@ -2054,3 +2054,31 @@ def test_sepa_checkout_retry_preserves_processing_snapshot(tmp_path) -> None:
     assert second.merchant_account_id == first.merchant_account_id
     assert second.merchant_account_version == first.merchant_account_version
     assert second.provider_id == first.provider_id
+
+
+def test_sepa_checkout_retry_preserves_tariff_snapshot(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-tariff-snapshot")
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-tariff-snapshot",
+        user_id="user-sepa-tariff-snapshot",
+        project_id="project-user-sepa-tariff-snapshot",
+        job_id="job-user-sepa-tariff-snapshot",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-tariff-snapshot",
+        now=now,
+    )
+
+    second = services.sepa_checkout.checkout(
+        "payment-sepa-tariff-snapshot",
+        user_id="user-sepa-tariff-snapshot",
+        project_id="project-user-sepa-tariff-snapshot",
+        job_id="job-user-sepa-tariff-snapshot",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-tariff-snapshot",
+        now=now,
+    )
+
+    assert second.tariff_version == first.tariff_version
+    assert second.plant_kwp == first.plant_kwp
