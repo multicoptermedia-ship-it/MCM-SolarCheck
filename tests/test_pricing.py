@@ -294,3 +294,11 @@ def test_combined_discounts_equal_to_cap_are_not_reduced() -> None:
     assert snapshot.discount_rate == Decimal("0.15")
     assert snapshot.discount_amount == Decimal("75.00")
     assert snapshot.net_total == Decimal("425.00")
+
+
+def test_vat_without_discount_uses_full_net_price() -> None:
+    snapshot = rule().price(Decimal("50"))
+    assert snapshot.discount_amount == Decimal("0.00")
+    assert snapshot.net_total == Decimal("500.00")
+    assert snapshot.vat_amount == Decimal("95.00")
+    assert snapshot.gross_total == Decimal("595.00")
