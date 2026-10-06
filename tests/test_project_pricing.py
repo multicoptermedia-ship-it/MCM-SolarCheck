@@ -40,23 +40,13 @@ def test_project_pricing_resolves_capacity_from_customer_project_metadata() -> N
     assert snapshot.rule_version == "2026-10-online"
 
 
-def test_project_pricing_applies_only_verified_discount_flags() -> None:
-    service = ProjectPricingService(
-        pricing_rule(),
-        lambda customer_id, project_id: Decimal("50"),
-    )
-
-    snapshot = service.price(
+def test_project_pricing_request_rejects_client_owned_discount_flags() -> None:
+    with pytest.raises(TypeError):
         ProjectPricingRequest(
             "user-1",
             "P-1",
             planner_verified=True,
-            repeat_verified=True,
         )
-    )
-
-    assert snapshot.discount_rate == Decimal("0.12")
-    assert snapshot.net_total == Decimal("440.00")
 
 
 def test_project_pricing_rejects_missing_project_id_before_metadata_access() -> None:
