@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+from mcm_solarcheck.infrastructure.sqlite_introductory_offer import SQLiteIntroductoryOfferStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_collection import (
     SQLiteSepaCollectionStore,
 )
@@ -256,3 +257,42 @@ def test_concurrent_return_and_stale_events_leave_returned_terminal(tmp_path) ->
 
     assert all(result.status is SepaCollectionStatus.RETURNED for result in results)
     assert store.get("collection-a").status is SepaCollectionStatus.RETURNED
+
+
+def test_sepa_success_finalizes_introductory_offer(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+    from datetime import datetime, timezone
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+    assert offers.reserve("user-a", "payment-a", policy_version=1, now=now)
+    service = SepaReconciliationService(store, offers)
+
+    service.apply(
+        SepaProviderEvent(
+            "provider-a",
+            "provider-debit-a",
+            SepaCollectionStatus.SUCCEEDED,
+        )
+    )
+
+    assert offers.has_used("user-a") is True
+
+
+def test_sepa_failure_releases_introductory_offer(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+    from datetime import datetime, timezone
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+    assert offers.reserve("user-a", "payment-a", policy_version=1, now=now)
+    service = SepaReconciliationService(store, offers)
+
+    service.apply(
+        SepaProviderEvent(
+            "provider-a",
+            "provider-debit-a",
+            SepaCollectionStatus.FAILED,
+        )
+    )
+
+    assert offers.has_used("user-a") is False
+    assert offers.reserve("user-a", "payment-b", policy_version=1, now=now)
