@@ -95,3 +95,12 @@ def test_settled_payment_requires_and_retains_positive_amount() -> None:
 
     assert payment.amount == amount
     assert payment.status is PaymentStatus.SETTLED
+
+
+def test_settled_paid_payment_cannot_have_provider_reference() -> None:
+    with pytest.raises(ValueError, match="settled payment cannot have provider reference"):
+        OnlinePayment(
+            "payment-settled-reference", "user-a", "project-a", "job-a",
+            PaymentAmount(5900, "EUR"), PaymentStatus.SETTLED,
+            provider_reference="provider-reference",
+        )
