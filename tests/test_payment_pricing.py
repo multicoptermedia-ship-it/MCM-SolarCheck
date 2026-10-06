@@ -651,3 +651,40 @@ def test_shared_database_duplicate_job_does_not_redeem_voucher(tmp_path) -> None
         )
 
     assert vouchers.get("SHARED-DUPJOB").redeemed is False
+
+
+def test_shared_database_redeemed_voucher_rejects_second_payment(tmp_path) -> None:
+    database = tmp_path / "shared.sqlite"
+    payments = SQLiteOnlinePaymentStore(database)
+    vouchers = SQLiteFlightPlanVoucherStore(database)
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("SHARED-ONCE", now - timedelta(days=1), now + timedelta(days=1)))
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        FlightPlanVoucherPolicy(10),
+        SQLitePricedPaymentStore(database, database),
+    )
+    service.create_payment(
+        "payment-shared-first",
+        user_id="user-a",
+        project_id="project-a",
+        job_id="job-shared-first",
+        base_amount=PaymentAmount(5900, "EUR"),
+        voucher_code="SHARED-ONCE",
+        now=now,
+    )
+
+    with pytest.raises(ValueError, match="already redeemed"):
+        service.create_payment(
+            "payment-shared-second",
+            user_id="user-a",
+            project_id="project-b",
+            job_id="job-shared-second",
+            base_amount=PaymentAmount(5900, "EUR"),
+            voucher_code="SHARED-ONCE",
+            now=now,
+        )
+
+    with pytest.raises(KeyError):
+        payments.get("payment-shared-second")
