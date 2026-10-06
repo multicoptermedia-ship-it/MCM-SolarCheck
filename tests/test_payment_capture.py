@@ -197,3 +197,20 @@ def test_repeated_local_capture_is_idempotent() -> None:
 
     assert first.status is PaymentStatus.CAPTURED
     assert second == first
+
+
+def test_repeated_local_capture_keeps_introductory_offer_used(tmp_path) -> None:
+    payments = MemoryPaymentStore(authorized_payment())
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers-repeat.sqlite")
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+    assert offers.reserve("user-a", "payment-a", policy_version=1, now=now)
+    service = PaymentCaptureService(
+        payments,
+        MemoryBillingStore(billing(released=True)),
+        introductory_offers=offers,
+    )
+
+    service.capture("payment-a", user_id="user-a", project_id="project-a")
+    service.capture("payment-a", user_id="user-a", project_id="project-a")
+
+    assert offers.has_used("user-a") is True
