@@ -13,7 +13,7 @@ from mcm_solarcheck.infrastructure.sqlite_voucher import (
     SQLiteFlightPlanVoucherPolicyStore,
     SQLiteFlightPlanVoucherStore,
 )
-from mcm_solarcheck.services.payment import PaymentAmount, PaymentStatus
+from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount, PaymentStatus
 from mcm_solarcheck.services.payment_pricing import PaymentPricingService
 from mcm_solarcheck.services.voucher import FlightPlanVoucher
 from mcm_solarcheck.services.voucher_admin import FlightPlanVoucherPolicy
