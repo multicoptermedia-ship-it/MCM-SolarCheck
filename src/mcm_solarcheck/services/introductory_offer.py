@@ -9,6 +9,11 @@ from mcm_solarcheck.services.payment import PaymentAmount
 from mcm_solarcheck.services.registration import RegistrationStatus
 
 
+class IntroductoryOfferReservationNotFound(ValueError):
+    """Raised when no matching introductory offer reservation exists."""
+
+
+
 @dataclass(frozen=True)
 class IntroductoryOfferPolicy:
     amount: PaymentAmount = PaymentAmount(5900, "EUR")
