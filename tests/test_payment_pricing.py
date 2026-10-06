@@ -761,13 +761,13 @@ def test_duplicate_job_rejection_preserves_original_payment(tmp_path) -> None:
     assert payments.get("payment-original-job") == first
 
 
-def test_settled_payment_also_blocks_second_job_payment(tmp_path) -> None:
+def test_settled_paid_payment_also_blocks_second_job_payment(tmp_path) -> None:
     from mcm_solarcheck.services.payment import OnlinePayment
 
     payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
     settled = OnlinePayment(
         "payment-settled-job", "user-a", "project-a", "job-settled",
-        None, PaymentStatus.SETTLED,
+        PaymentAmount(5900, "EUR"), PaymentStatus.SETTLED,
     )
     payments.create(settled)
 
