@@ -129,9 +129,8 @@ class SepaReconciliationService:
                     collection.payment_id,
                     used_at=datetime.now(timezone.utc),
                 )
-            except ValueError as exc:
-                if "reservation not found" not in str(exc):
-                    raise
+            except ValueError:
+                return
         elif collection.status is SepaCollectionStatus.FAILED:
             self._introductory_offers.release(
                 collection.user_id,
