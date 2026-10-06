@@ -2082,3 +2082,36 @@ def test_sepa_checkout_retry_preserves_tariff_snapshot(tmp_path) -> None:
 
     assert second.tariff_version == first.tariff_version
     assert second.plant_kwp == first.plant_kwp
+
+
+def test_sepa_checkout_retry_keeps_payment_after_intro_reservation_release(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import PaymentAmount
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-release-retry")
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-release-retry",
+        user_id="user-sepa-release-retry",
+        project_id="project-user-sepa-release-retry",
+        job_id="job-user-sepa-release-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-release-retry",
+        now=now,
+    )
+    persistence.introductory_offers.release(
+        "user-sepa-release-retry", "payment-sepa-release-retry"
+    )
+
+    second = services.sepa_checkout.checkout(
+        "payment-sepa-release-retry",
+        user_id="user-sepa-release-retry",
+        project_id="project-user-sepa-release-retry",
+        job_id="job-user-sepa-release-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-release-retry",
+        now=now,
+    )
+
+    assert first.amount == PaymentAmount(5900, "EUR")
+    assert second.amount == first.amount
