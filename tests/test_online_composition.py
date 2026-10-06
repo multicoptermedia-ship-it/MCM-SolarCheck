@@ -2684,3 +2684,24 @@ def test_payment_closeout_sepa_submission_reaches_execution_evidence(tmp_path) -
     services.sepa_payment.submit("payment-close-sepa", "mandate-close-sepa", user_id="user-close-sepa", project_id="project-close-sepa")
 
     services.payment_execution.require_succeeded(persistence.payments.get(payment.payment_id))
+
+
+def test_payment_closeout_sepa_fails_execution_evidence_before_submission(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.merchant_accounts.save(MerchantAccount("merchant-close-sepa-missing", "provider-a", MerchantAccountKind.BANK, "bank"))
+    persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
+    persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-close-sepa-missing", "user-close-sepa", "project-close-sepa")))
+    services = online_services(persistence)
+    payment = services.sepa_checkout.checkout(
+        "payment-close-sepa-missing", user_id="user-close-sepa", project_id="project-close-sepa",
+        job_id="job-close-sepa-missing", plant_kwp=750, provider_id="provider-a",
+        merchant_account_id="merchant-close-sepa-missing", now=datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc),
+    )
+
+    with pytest.raises(ValueError, match="submitted SEPA payment"):
+        services.payment_execution.require_succeeded(payment)
