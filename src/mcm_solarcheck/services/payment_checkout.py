@@ -154,23 +154,28 @@ class OnlinePaymentCheckoutService:
             tariff_version=payment.tariff_version,
             plant_kwp=payment.plant_kwp,
         )
-        bound = self._merchants.bind(
-            proposed,
-            merchant_account_id,
-            provider_id=provider.provider_id,
-        )
+        try:
+            bound = self._merchants.bind(
+                proposed,
+                merchant_account_id,
+                provider_id=provider.provider_id,
+            )
 
-        self._payments.bind_processing_snapshot(
-            payment.payment_id,
-            user_id,
-            project_id,
-            method=method,
-            merchant_account_id=bound.merchant_account_id,
-            merchant_account_version=bound.merchant_account_version,
-            provider_id=bound.provider_id,
-        )
-        return self._authorization.authorize(
-            payment.payment_id,
-            user_id=user_id,
-            project_id=project_id,
-        )
+            self._payments.bind_processing_snapshot(
+                payment.payment_id,
+                user_id,
+                project_id,
+                method=method,
+                merchant_account_id=bound.merchant_account_id,
+                merchant_account_version=bound.merchant_account_version,
+                provider_id=bound.provider_id,
+            )
+            return self._authorization.authorize(
+                payment.payment_id,
+                user_id=user_id,
+                project_id=project_id,
+            )
+        except Exception:
+            if offer_reserved:
+                self._introductory_offers.release(user_id, payment_id)
+            raise
