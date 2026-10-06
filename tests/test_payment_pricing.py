@@ -590,3 +590,29 @@ def test_atomic_priced_payment_store_supports_shared_database(tmp_path) -> None:
     assert payment.amount == PaymentAmount(5310, "EUR")
     assert payments.get("payment-shared-db") == payment
     assert vouchers.get("SHARED-DB").redeemed_payment_id == "payment-shared-db"
+
+
+def test_shared_database_missing_voucher_does_not_create_payment(tmp_path) -> None:
+    database = tmp_path / "shared.sqlite"
+    payments = SQLiteOnlinePaymentStore(database)
+    vouchers = SQLiteFlightPlanVoucherStore(database)
+    service = PaymentPricingService(
+        payments,
+        vouchers,
+        FlightPlanVoucherPolicy(10),
+        SQLitePricedPaymentStore(database, database),
+    )
+
+    with pytest.raises(KeyError):
+        service.create_payment(
+            "payment-missing-voucher",
+            user_id="user-a",
+            project_id="project-a",
+            job_id="job-missing-voucher",
+            base_amount=PaymentAmount(5900, "EUR"),
+            voucher_code="MISSING",
+            now=datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc),
+        )
+
+    with pytest.raises(KeyError):
+        payments.get("payment-missing-voucher")
