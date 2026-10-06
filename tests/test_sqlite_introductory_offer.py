@@ -49,3 +49,16 @@ def test_released_offer_reservation_can_be_used_by_later_payment(tmp_path) -> No
     assert store.reserve("user-a", "successful-payment", policy_version=1, now=now)
     store.finalize("user-a", "successful-payment", used_at=now)
     assert store.has_used("user-a") is True
+
+
+def test_offer_finalization_is_idempotent_only_for_same_payment(tmp_path) -> None:
+    store = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+
+    assert store.reserve("user-a", "payment-a", policy_version=1, now=now)
+    store.finalize("user-a", "payment-a", used_at=now)
+    store.finalize("user-a", "payment-a", used_at=now)
+
+    assert store.has_used("user-a") is True
+    with pytest.raises(ValueError, match="reservation not found"):
+        store.finalize("user-a", "payment-b", used_at=now)
