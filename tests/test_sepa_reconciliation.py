@@ -334,3 +334,21 @@ def test_regular_sepa_success_needs_no_intro_reservation(tmp_path) -> None:
 
     assert result.status is SepaCollectionStatus.SUCCEEDED
     assert offers.has_used("user-a") is False
+
+
+def test_sepa_success_surfaces_introductory_offer_payment_mismatch(tmp_path) -> None:
+    store = store_with_collection(tmp_path)
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers-mismatch.sqlite")
+    from datetime import datetime, timezone
+    now = datetime(2026, 10, 6, tzinfo=timezone.utc)
+    assert offers.reserve("user-a", "another-payment", policy_version=1, now=now)
+    service = SepaReconciliationService(store, offers)
+
+    with pytest.raises(ValueError, match="payment mismatch"):
+        service.apply(
+            SepaProviderEvent(
+                "provider-a",
+                "provider-debit-a",
+                SepaCollectionStatus.SUCCEEDED,
+            )
+        )
