@@ -26,3 +26,16 @@ class IntroductoryOfferPolicy:
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("offer evaluation time must be timezone-aware")
         return now < self.valid_until
+
+
+class IntroductoryOfferStore:
+    """Atomic reservation boundary for the one-time registered-customer offer."""
+
+    def reserve(self, user_id: str, payment_id: str, *, policy_version: int, now: datetime) -> bool:
+        ...
+
+    def finalize(self, user_id: str, payment_id: str, *, used_at: datetime) -> None:
+        ...
+
+    def release(self, user_id: str, payment_id: str) -> None:
+        ...
