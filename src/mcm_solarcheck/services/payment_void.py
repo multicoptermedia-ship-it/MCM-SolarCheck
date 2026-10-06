@@ -42,11 +42,15 @@ class PaymentVoidService:
                 and intent.status is PaymentOperationStatus.PROVIDER_SUCCEEDED
             ):
                 self._operation_intents.mark_completed(payment_id)
+                if self._introductory_offers is not None:
+                    self._introductory_offers.release(user_id, payment_id)
                 return payment
             if (
                 intent.operation is PaymentOperation.VOID
                 and intent.status is PaymentOperationStatus.COMPLETED
             ):
+                if self._introductory_offers is not None:
+                    self._introductory_offers.release(user_id, payment_id)
                 return payment
             raise ValueError("voided payment has inconsistent operation intent")
         if payment.status is not PaymentStatus.AUTHORIZED:
