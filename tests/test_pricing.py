@@ -234,3 +234,13 @@ def test_discount_and_vat_are_rounded_independently() -> None:
     assert snapshot.net_total == Decimal("9.04")
     assert snapshot.vat_amount == Decimal("1.72")
     assert snapshot.gross_total == Decimal("10.76")
+
+
+def test_capacity_above_last_finite_tier_is_rejected() -> None:
+    pricing = PricingRule(
+        version="finite-tiers",
+        tiers=(PriceTier(Decimal("30"), Decimal("300")),),
+    )
+    assert pricing.price(Decimal("30")).net_total == Decimal("300.00")
+    with pytest.raises(ValueError, match="does not cover capacity"):
+        pricing.price(Decimal("30.01"))
