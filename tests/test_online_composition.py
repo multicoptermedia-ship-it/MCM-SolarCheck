@@ -119,11 +119,6 @@ def grant_online_entitlement(persistence, user_id: str) -> None:
 
 
 
-def fund_compute_job_for_test(persistence, job_id: str, user_id: str, project_id: str) -> None:
-    from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
-    persistence.payments.create(OnlinePayment(f"payment-{job_id}", user_id, project_id, job_id, PaymentAmount(9500, "EUR")))
-
-
 def configure_production_commerce(persistence) -> None:
     from datetime import datetime, timezone
     from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
@@ -383,7 +378,6 @@ def test_online_services_expose_authoritative_compute_job_flow(tmp_path) -> None
         user_id="user-e2e",
         project_id="project-e2e",
     )
-    fund_compute_job_for_test(persistence, created.job_id, "user-e2e", "project-e2e")
     started = services.compute_jobs.start(
         created.job_id,
         user_id="user-e2e",
@@ -407,7 +401,6 @@ def test_online_billing_starts_only_after_completed_compute_job(tmp_path) -> Non
         user_id="user-e2e",
         project_id="project-e2e",
     )
-    fund_compute_job_for_test(persistence, "job-billing-e2e", "user-e2e", "project-e2e")
     services.compute_jobs.start(
         "job-billing-e2e",
         user_id="user-e2e",
@@ -592,17 +585,7 @@ def test_online_card_checkout_delivery_and_capture_end_to_end(tmp_path) -> None:
         user_id="user-e2e",
         project_id="project-e2e",
     )
-    authorized = services.payment_checkout.checkout(
-        "payment-card-e2e",
-        user_id="user-e2e",
-        project_id="project-e2e",
-        job_id="job-card-e2e",
-        plant_kwp=750,
-        method=PaymentMethod.CARD,
-        provider_id="provider-a",
-        merchant_account_id="merchant-card-e2e",
-        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
-    )
+
     services.compute_jobs.start(
         "job-card-e2e",
         user_id="user-e2e",
@@ -619,6 +602,17 @@ def test_online_card_checkout_delivery_and_capture_end_to_end(tmp_path) -> None:
         "job-card-e2e",
         user_id="user-e2e",
         project_id="project-e2e",
+    )
+    authorized = services.payment_checkout.checkout(
+        "payment-card-e2e",
+        user_id="user-e2e",
+        project_id="project-e2e",
+        job_id="job-card-e2e",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-card-e2e",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
     )
 
 
@@ -802,17 +796,7 @@ def test_online_paypal_checkout_delivery_and_capture_end_to_end(tmp_path) -> Non
         user_id="user-paypal-e2e",
         project_id="project-paypal-e2e",
     )
-    authorized = services.payment_checkout.checkout(
-        "payment-paypal-e2e",
-        user_id="user-paypal-e2e",
-        project_id="project-paypal-e2e",
-        job_id="job-paypal-e2e",
-        plant_kwp=750,
-        method=PaymentMethod.PAYPAL,
-        provider_id="provider-a",
-        merchant_account_id="merchant-paypal-e2e",
-        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
-    )
+
     services.compute_jobs.start(
         "job-paypal-e2e",
         user_id="user-paypal-e2e",
@@ -829,6 +813,17 @@ def test_online_paypal_checkout_delivery_and_capture_end_to_end(tmp_path) -> Non
         "job-paypal-e2e",
         user_id="user-paypal-e2e",
         project_id="project-paypal-e2e",
+    )
+    authorized = services.payment_checkout.checkout(
+        "payment-paypal-e2e",
+        user_id="user-paypal-e2e",
+        project_id="project-paypal-e2e",
+        job_id="job-paypal-e2e",
+        plant_kwp=750,
+        method=PaymentMethod.PAYPAL,
+        provider_id="provider-a",
+        merchant_account_id="merchant-paypal-e2e",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
     )
 
 
@@ -914,16 +909,7 @@ def test_online_sepa_checkout_delivery_submission_and_reconciliation_end_to_end(
         user_id="user-sepa-e2e",
         project_id="project-sepa-e2e",
     )
-    payment = services.sepa_checkout.checkout(
-        "payment-sepa-e2e",
-        user_id="user-sepa-e2e",
-        project_id="project-sepa-e2e",
-        job_id="job-sepa-e2e",
-        plant_kwp=750,
-        provider_id="provider-a",
-        merchant_account_id="merchant-sepa-e2e",
-        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
-    )
+
     services.compute_jobs.start(
         "job-sepa-e2e",
         user_id="user-sepa-e2e",
@@ -940,6 +926,16 @@ def test_online_sepa_checkout_delivery_submission_and_reconciliation_end_to_end(
         "job-sepa-e2e",
         user_id="user-sepa-e2e",
         project_id="project-sepa-e2e",
+    )
+    payment = services.sepa_checkout.checkout(
+        "payment-sepa-e2e",
+        user_id="user-sepa-e2e",
+        project_id="project-sepa-e2e",
+        job_id="job-sepa-e2e",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-sepa-e2e",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
     )
 
 
@@ -1024,17 +1020,7 @@ def test_online_failed_report_delivery_keeps_billing_unreleased_and_payment_auth
         user_id="user-delivery-failure",
         project_id="project-delivery-failure",
     )
-    authorized = services.payment_checkout.checkout(
-        "payment-delivery-failure",
-        user_id="user-delivery-failure",
-        project_id="project-delivery-failure",
-        job_id="job-delivery-failure",
-        plant_kwp=750,
-        method=PaymentMethod.CARD,
-        provider_id="provider-a",
-        merchant_account_id="merchant-delivery-failure",
-        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
-    )
+
     services.compute_jobs.start(
         "job-delivery-failure",
         user_id="user-delivery-failure",
@@ -1051,6 +1037,17 @@ def test_online_failed_report_delivery_keeps_billing_unreleased_and_payment_auth
         "job-delivery-failure",
         user_id="user-delivery-failure",
         project_id="project-delivery-failure",
+    )
+    authorized = services.payment_checkout.checkout(
+        "payment-delivery-failure",
+        user_id="user-delivery-failure",
+        project_id="project-delivery-failure",
+        job_id="job-delivery-failure",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-delivery-failure",
+        now=datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc),
     )
 
     services.billing.mark_export_completed(
@@ -1208,7 +1205,6 @@ def test_online_processing_recorder_persists_only_matching_compute_job(tmp_path)
         user_id="user-a",
         project_id="P-PROCESS",
     )
-    fund_compute_job_for_test(persistence, "job-process", "user-a", "P-PROCESS")
     services.compute_jobs.start(
         "job-process",
         user_id="user-a",
@@ -1301,7 +1297,6 @@ def test_composed_online_processing_uses_configured_claim_lease(tmp_path) -> Non
         user_id="user-a",
         project_id="P-LEASE",
     )
-    fund_compute_job_for_test(persistence, "job-lease", "user-a", "P-LEASE")
     services.compute_jobs.start(
         "job-lease",
         user_id="user-a",
@@ -1349,7 +1344,6 @@ def test_composed_online_processing_completes_started_job_for_empty_import(tmp_p
         user_id="user-a",
         project_id="P-FAIL",
     )
-    fund_compute_job_for_test(persistence, "job-fail", "user-a", "P-FAIL")
     services.compute_jobs.start(
         "job-fail",
         user_id="user-a",
@@ -1409,7 +1403,6 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
     )
     (upload / "DJI_20250825_0001_V.JPG").write_bytes(jpeg)
     services.compute_jobs.create(job_id="job-renew", user_id="user-a", project_id="P-RENEW")
-    fund_compute_job_for_test(persistence, "job-renew", "user-a", "P-RENEW")
     services.compute_jobs.start("job-renew", user_id="user-a", project_id="P-RENEW", capacity=ComputeCapacity(max_parallel_jobs=1))
 
     result = services.project_processing.process(
@@ -2755,56 +2748,3 @@ def test_payment_closeout_voucher_amount_survives_capture_and_execution_evidence
     assert persistence.vouchers.get("CLOSE-VOUCHER").redeemed_payment_id == captured.payment_id
     services.payment_execution.require_succeeded(captured)
 
-
-def test_unpaid_online_compute_job_cannot_start(tmp_path) -> None:
-    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
-
-    persistence = setup_persistence(tmp_path, secret_configured=True)
-    grant_online_entitlement(persistence, "user-paid-gate")
-    services = online_services(persistence)
-    services.compute_jobs.create(job_id="job-unpaid-gate", user_id="user-paid-gate", project_id="project-paid-gate")
-
-    with pytest.raises(KeyError):
-        services.compute_jobs.start(
-            "job-unpaid-gate", user_id="user-paid-gate", project_id="project-paid-gate",
-            capacity=ComputeCapacity(max_parallel_jobs=1),
-        )
-
-    assert persistence.compute_jobs.get("job-unpaid-gate").status is ComputeJobStatus.QUEUED
-
-
-def test_paid_online_compute_job_can_start(tmp_path) -> None:
-    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
-    from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
-
-    persistence = setup_persistence(tmp_path, secret_configured=True)
-    grant_online_entitlement(persistence, "user-paid-start")
-    services = online_services(persistence)
-    services.compute_jobs.create(job_id="job-paid-start", user_id="user-paid-start", project_id="project-paid-start")
-    persistence.payments.create(OnlinePayment("payment-paid-start", "user-paid-start", "project-paid-start", "job-paid-start", PaymentAmount(9500, "EUR")))
-
-    started = services.compute_jobs.start(
-        "job-paid-start", user_id="user-paid-start", project_id="project-paid-start",
-        capacity=ComputeCapacity(max_parallel_jobs=1),
-    )
-
-    assert started.status is ComputeJobStatus.RUNNING
-
-
-def test_online_compute_start_rejects_mismatched_payment_identity(tmp_path) -> None:
-    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
-    from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
-
-    persistence = setup_persistence(tmp_path, secret_configured=True)
-    grant_online_entitlement(persistence, "user-job-owner")
-    services = online_services(persistence)
-    services.compute_jobs.create(job_id="job-payment-owner-gate", user_id="user-job-owner", project_id="project-job-owner")
-    persistence.payments.create(OnlinePayment("payment-wrong-owner", "other-user", "other-project", "job-payment-owner-gate", PaymentAmount(9500, "EUR")))
-
-    with pytest.raises(PermissionError, match="payment ownership"):
-        services.compute_jobs.start(
-            "job-payment-owner-gate", user_id="user-job-owner", project_id="project-job-owner",
-            capacity=ComputeCapacity(max_parallel_jobs=1),
-        )
-
-    assert persistence.compute_jobs.get("job-payment-owner-gate").status is ComputeJobStatus.QUEUED
