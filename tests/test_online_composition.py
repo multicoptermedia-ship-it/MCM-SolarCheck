@@ -1497,6 +1497,10 @@ def test_verified_customer_gets_intro_price_once_then_regular_tariff(tmp_path) -
     persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
     services = online_services(persistence)
 
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+    for suffix in ("first", "second"):
+        persistence.compute_jobs.create(ComputeJob(f"job-intro-{suffix}", "user-intro-e2e", f"project-intro-{suffix}", ComputeJobStatus.COMPLETED))
+
     for suffix in ("first", "second"):
         persistence.billing.create(
             ComputeJobBilling(
@@ -2629,6 +2633,8 @@ def test_payment_closeout_card_capture_reaches_execution_evidence(tmp_path) -> N
     persistence = setup_persistence(tmp_path, secret_configured=True)
     persistence.merchant_accounts.save(MerchantAccount("merchant-close-card", "provider-a", MerchantAccountKind.CARD_PROCESSOR, "card"))
     persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+    persistence.compute_jobs.create(ComputeJob("job-close-card", "user-close", "project-close", ComputeJobStatus.COMPLETED))
     persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-close-card", "user-close", "project-close")))
     services = online_services(persistence)
     payment = services.payment_checkout.checkout(
@@ -2679,6 +2685,8 @@ def test_payment_closeout_sepa_submission_reaches_execution_evidence(tmp_path) -
     persistence = setup_persistence(tmp_path, secret_configured=True)
     persistence.merchant_accounts.save(MerchantAccount("merchant-close-sepa", "provider-a", MerchantAccountKind.BANK, "bank"))
     persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+    persistence.compute_jobs.create(ComputeJob("job-close-sepa", "user-close-sepa", "project-close-sepa", ComputeJobStatus.COMPLETED))
     persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-close-sepa", "user-close-sepa", "project-close-sepa")))
     persistence.sepa_mandates.create(SepaMandate("mandate-close-sepa", "user-close-sepa", "provider-a"))
     persistence.sepa_mandates.activate("mandate-close-sepa", "user-close-sepa", "provider-mandate-close")
@@ -2730,6 +2738,8 @@ def test_payment_closeout_voucher_amount_survives_capture_and_execution_evidence
     persistence.merchant_accounts.save(MerchantAccount("merchant-close-voucher", "provider-a", MerchantAccountKind.CARD_PROCESSOR, "card"))
     persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
     persistence.vouchers.create(FlightPlanVoucher("CLOSE-VOUCHER", now - timedelta(days=1), now + timedelta(days=1)))
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+    persistence.compute_jobs.create(ComputeJob("job-close-voucher", "user-close-voucher", "project-close-voucher", ComputeJobStatus.COMPLETED))
     persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-close-voucher", "user-close-voucher", "project-close-voucher")))
     services = online_services(persistence)
     authorized = services.payment_checkout.checkout(
