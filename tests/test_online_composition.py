@@ -1631,3 +1631,28 @@ def test_failed_sepa_merchant_binding_releases_introductory_offer(tmp_path) -> N
     assert persistence.introductory_offers.reserve(
         "user-sepa-bind", "payment-sepa-bind-retry", policy_version=1, now=now
     )
+
+
+def test_failed_sepa_snapshot_binding_releases_introductory_offer(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-snapshot")
+
+    def fail_snapshot(*args, **kwargs):
+        raise RuntimeError("SEPA snapshot binding failed")
+
+    services.sepa_checkout._payments.bind_processing_snapshot = fail_snapshot
+
+    with pytest.raises(RuntimeError, match="SEPA snapshot binding failed"):
+        services.sepa_checkout.checkout(
+            "payment-sepa-snapshot",
+            user_id="user-sepa-snapshot",
+            project_id="project-user-sepa-snapshot",
+            job_id="job-user-sepa-snapshot",
+            plant_kwp=750,
+            provider_id="provider-a",
+            merchant_account_id="merchant-user-sepa-snapshot",
+            now=now,
+        )
+
+    assert persistence.introductory_offers.reserve(
+        "user-sepa-snapshot", "payment-sepa-snapshot-retry", policy_version=1, now=now
+    )
