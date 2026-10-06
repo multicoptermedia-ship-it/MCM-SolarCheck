@@ -4,6 +4,7 @@ import pytest
 
 from mcm_solarcheck.domain.pricing import PriceTier, PricingRule
 from mcm_solarcheck.services.project_pricing import (
+    DiscountEligibility,
     ProjectPricingRequest,
     ProjectPricingService,
 )
@@ -79,3 +80,15 @@ def test_project_pricing_does_not_apply_configured_discounts_without_authority()
     assert snapshot.discount_rate == Decimal("0")
     assert snapshot.discount_amount == Decimal("0.00")
     assert snapshot.net_total == Decimal("500.00")
+
+def test_server_verified_planner_eligibility_applies_discount() -> None:
+    service = ProjectPricingService(
+        pricing_rule(),
+        lambda customer_id, project_id: Decimal("50"),
+        lambda customer_id, project_id: DiscountEligibility(planner_verified=True),
+    )
+
+    snapshot = service.price(ProjectPricingRequest("user-1", "P-1"))
+
+    assert snapshot.discount_rate == Decimal("0.10")
+    assert snapshot.net_total == Decimal("450.00")
