@@ -372,3 +372,47 @@ def test_failed_card_merchant_binding_releases_introductory_offer(tmp_path) -> N
         policy_version=1,
         now=datetime(2026, 10, 6, 10, 1, tzinfo=timezone.utc),
     )
+
+
+def test_failed_card_snapshot_binding_releases_introductory_offer(tmp_path) -> None:
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers-snapshot.sqlite")
+
+    class VerifiedRegistrations:
+        def get(self, user_id):
+            from mcm_solarcheck.services.registration import OnlineRegistration
+            return OnlineRegistration(user_id, "Customer", "customer@example.com").verify(
+                datetime(2026, 10, 1, tzinfo=timezone.utc)
+            )
+
+    checkout, _, _ = build_checkout(
+        tmp_path,
+        PaymentMethod.CARD,
+        MerchantAccountKind.CARD_PROCESSOR,
+        introductory_offers=offers,
+        registrations=VerifiedRegistrations(),
+    )
+
+    def fail_snapshot(*args, **kwargs):
+        raise RuntimeError("snapshot binding failed")
+
+    checkout._payments.bind_processing_snapshot = fail_snapshot
+
+    with pytest.raises(RuntimeError, match="snapshot binding failed"):
+        checkout.checkout(
+            "payment-snapshot-failure",
+            user_id="user-snapshot-failure",
+            project_id="project-a",
+            job_id="job-a",
+            plant_kwp=750,
+            method=PaymentMethod.CARD,
+            provider_id="provider-a",
+            merchant_account_id="merchant-a",
+            now=datetime(2026, 10, 6, 10, 0, tzinfo=timezone.utc),
+        )
+
+    assert offers.reserve(
+        "user-snapshot-failure",
+        "payment-snapshot-retry",
+        policy_version=1,
+        now=datetime(2026, 10, 6, 10, 1, tzinfo=timezone.utc),
+    )
