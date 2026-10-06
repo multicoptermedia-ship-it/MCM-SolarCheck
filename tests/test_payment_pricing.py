@@ -1232,3 +1232,17 @@ def test_payment_store_rejects_legacy_payment_without_currency(tmp_path) -> None
 
     with pytest.raises(ValueError, match="without positive amount"):
         SQLiteOnlinePaymentStore(database)
+
+
+def test_payment_store_accepts_existing_positive_payment(tmp_path) -> None:
+    database = tmp_path / "paid-payment.sqlite"
+    store = SQLiteOnlinePaymentStore(database)
+    paid = OnlinePayment(
+        "payment-paid-existing", "user-a", "project-a", "job-paid-existing",
+        PaymentAmount(5900, "EUR"),
+    )
+    store.create(paid)
+
+    reopened = SQLiteOnlinePaymentStore(database)
+
+    assert reopened.get("payment-paid-existing") == paid
