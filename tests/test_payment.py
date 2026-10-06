@@ -76,3 +76,11 @@ def test_payment_identity_is_preserved_through_transitions() -> None:
     assert captured.project_id == "project-a"
     assert captured.job_id == "job-a"
     assert captured.amount == PaymentAmount(12900, "EUR")
+
+
+def test_online_payment_rejects_missing_amount_even_when_settled() -> None:
+    with pytest.raises(ValueError, match="payment amount must be positive"):
+        OnlinePayment(
+            "payment-no-amount", "user-a", "project-a", "job-a",
+            None, PaymentStatus.SETTLED,
+        )
