@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from mcm_solarcheck.services.introductory_offer import IntroductoryOfferStore
 from mcm_solarcheck.services.payment import OnlinePayment, OnlinePaymentStore, PaymentStatus
 from mcm_solarcheck.services.payment_gateway import PaymentGateway, payment_idempotency_key
 from mcm_solarcheck.services.payment_methods import payment_method_capabilities
@@ -21,10 +22,12 @@ class PaymentVoidService:
         payments: OnlinePaymentStore,
         gateway: PaymentGateway,
         operation_intents: PaymentOperationIntentStore,
+        introductory_offers: IntroductoryOfferStore | None = None,
     ) -> None:
         self._payments = payments
         self._gateway = gateway
         self._operation_intents = operation_intents
+        self._introductory_offers = introductory_offers
 
     def void(
         self, payment_id: str, *, user_id: str, project_id: str
@@ -68,4 +71,6 @@ class PaymentVoidService:
         updated = self._payments.void(payment_id, user_id, project_id)
         if self._operation_intents is not None:
             self._operation_intents.mark_completed(payment_id)
+        if self._introductory_offers is not None:
+            self._introductory_offers.release(user_id, payment_id)
         return updated
