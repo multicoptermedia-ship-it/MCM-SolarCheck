@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
-from mcm_solarcheck.services.introductory_offer import IntroductoryOfferPolicy, IntroductoryOfferStore, require_verified_registration
+from mcm_solarcheck.services.introductory_offer import IntroductoryOfferPolicy, IntroductoryOfferStore, has_verified_registration
 from mcm_solarcheck.services.merchant_binding import MerchantAccountBindingService
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentStatus
 from mcm_solarcheck.services.payment_checkout import (
@@ -78,13 +78,13 @@ class OnlineSepaCheckoutService:
         ):
             if self._registrations is None:
                 raise RuntimeError("introductory offer requires registration authority")
-            require_verified_registration(self._registrations, user_id)
-            offer_reserved = self._introductory_offers.reserve(
-                user_id,
-                payment_id,
-                policy_version=self._introductory_offer_policy.version,
-                now=now,
-            )
+            if has_verified_registration(self._registrations, user_id):
+                offer_reserved = self._introductory_offers.reserve(
+                    user_id,
+                    payment_id,
+                    policy_version=self._introductory_offer_policy.version,
+                    now=now,
+                )
             if offer_reserved:
                 base_amount = self._introductory_offer_policy.amount
 
