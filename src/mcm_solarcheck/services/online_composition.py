@@ -246,17 +246,21 @@ def build_online_services(
         persistence.payments,
         persistence.tariffs,
         persistence.billing,
+        persistence.introductory_offers,
+        registrations=persistence.registrations,
     )
     payment_capture = PaymentCaptureService(
         persistence.payments,
         persistence.billing,
         payment_gateway,
         persistence.payment_operations,
+        persistence.introductory_offers,
     )
     payment_void = PaymentVoidService(
         persistence.payments,
         payment_gateway,
         persistence.payment_operations,
+        persistence.introductory_offers,
     )
     sepa_checkout = OnlineSepaCheckoutService(
         payment_pricing,
@@ -265,6 +269,8 @@ def build_online_services(
         persistence.payments,
         persistence.tariffs,
         persistence.billing,
+        persistence.introductory_offers,
+        registrations=persistence.registrations,
     )
     sepa_payment = SepaPaymentService(
         persistence.payments,
@@ -275,7 +281,10 @@ def build_online_services(
         submissions=persistence.sepa_submissions,
         billing=persistence.billing,
     )
-    sepa_reconciliation = SepaReconciliationService(persistence.sepa_collections)
+    sepa_reconciliation = SepaReconciliationService(
+        persistence.sepa_collections,
+        persistence.introductory_offers,
+    )
     payment_execution = PaymentExecutionEvidence(persistence.sepa_submissions)
     invoice_admin_delivery = InvoiceAdminDeliveryService(
         persistence.invoices,
