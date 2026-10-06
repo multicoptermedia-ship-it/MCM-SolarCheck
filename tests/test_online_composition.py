@@ -2607,3 +2607,31 @@ def test_sepa_checkout_retry_does_not_touch_voucher_store(tmp_path) -> None:
 
     assert retried == first
     assert persistence.vouchers.get("SEPA-NO-REVOUCHER") == before
+
+
+def test_payment_closeout_card_capture_reaches_execution_evidence(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.payment import PaymentStatus
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.merchant_accounts.save(MerchantAccount("merchant-close-card", "provider-a", MerchantAccountKind.CARD_PROCESSOR, "card"))
+    persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
+    persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-close-card", "user-close", "project-close")))
+    services = online_services(persistence)
+    payment = services.payment_checkout.checkout(
+        "payment-close-card", user_id="user-close", project_id="project-close",
+        job_id="job-close-card", plant_kwp=750, method=PaymentMethod.CARD,
+        provider_id="provider-a", merchant_account_id="merchant-close-card",
+        now=datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc),
+    )
+    services.billing.mark_export_completed("job-close-card", user_id="user-close", project_id="project-close")
+    services.billing.mark_report_retrieved("job-close-card", user_id="user-close", project_id="project-close")
+    services.billing.release("job-close-card", user_id="user-close", project_id="project-close")
+    captured = services.payment_capture.capture("payment-close-card", user_id="user-close", project_id="project-close")
+
+    assert payment.status is PaymentStatus.AUTHORIZED
+    assert captured.status is PaymentStatus.CAPTURED
+    services.payment_execution.require_succeeded(captured)
