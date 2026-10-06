@@ -68,6 +68,32 @@ class OnlineSepaCheckoutService:
 
         provider = self._providers.get(provider_id)
         provider.require(PaymentMethod.SEPA_DIRECT_DEBIT)
+
+        existing_payment = None
+        payment_store = getattr(self._pricing, "_payments", None)
+        if payment_store is not None:
+            try:
+                existing_payment = payment_store.get(payment_id)
+            except KeyError:
+                pass
+        if existing_payment is not None:
+            if (
+                existing_payment.user_id != user_id
+                or existing_payment.project_id != project_id
+                or existing_payment.job_id != job_id
+            ):
+                raise PermissionError("SEPA checkout payment ownership mismatch")
+            if existing_payment.plant_kwp != plant_kwp:
+                raise ValueError("SEPA checkout plant size mismatch")
+            if (
+                existing_payment.merchant_account_id is not None
+                and existing_payment.merchant_account_id != merchant_account_id
+            ):
+                raise ValueError("SEPA checkout merchant account mismatch")
+            if existing_payment.provider_id is not None and existing_payment.provider_id != provider_id:
+                raise ValueError("SEPA checkout provider mismatch")
+            return existing_payment
+
         tariff = self._tariffs.current(now)
         quote = quote_solarcheck(tariff, plant_kwp=plant_kwp, quoted_at=now)
         offer_reserved = False
