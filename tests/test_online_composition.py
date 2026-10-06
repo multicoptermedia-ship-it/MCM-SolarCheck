@@ -1678,3 +1678,34 @@ def test_sepa_checkout_retry_keeps_introductory_price(tmp_path) -> None:
     )
 
     assert payment.amount == PaymentAmount(5900, "EUR")
+
+
+def test_failed_sepa_retry_releases_existing_same_payment_reservation(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-failed-retry")
+    assert persistence.introductory_offers.reserve(
+        "user-sepa-failed-retry", "payment-sepa-failed-retry", policy_version=1, now=now
+    )
+
+    def fail_snapshot(*args, **kwargs):
+        raise RuntimeError("SEPA retry snapshot failed")
+
+    services.sepa_checkout._payments.bind_processing_snapshot = fail_snapshot
+
+    with pytest.raises(RuntimeError, match="SEPA retry snapshot failed"):
+        services.sepa_checkout.checkout(
+            "payment-sepa-failed-retry",
+            user_id="user-sepa-failed-retry",
+            project_id="project-user-sepa-failed-retry",
+            job_id="job-user-sepa-failed-retry",
+            plant_kwp=750,
+            provider_id="provider-a",
+            merchant_account_id="merchant-user-sepa-failed-retry",
+            now=now,
+        )
+
+    assert persistence.introductory_offers.reserve(
+        "user-sepa-failed-retry",
+        "payment-sepa-after-failed-retry",
+        policy_version=1,
+        now=now,
+    )
