@@ -2441,3 +2441,38 @@ def test_sepa_checkout_retry_preserves_authorized_payment(tmp_path) -> None:
     )
 
     assert retried == authorized
+
+
+def test_sepa_checkout_retry_preserves_captured_payment(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-captured-retry")
+    services.sepa_checkout.checkout(
+        "payment-sepa-captured-retry",
+        user_id="user-sepa-captured-retry",
+        project_id="project-user-sepa-captured-retry",
+        job_id="job-user-sepa-captured-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-captured-retry",
+        now=now,
+    )
+    persistence.payments.authorize(
+        "payment-sepa-captured-retry", "user-sepa-captured-retry",
+        "project-user-sepa-captured-retry", "provider-reference"
+    )
+    captured = persistence.payments.capture(
+        "payment-sepa-captured-retry", "user-sepa-captured-retry",
+        "project-user-sepa-captured-retry"
+    )
+
+    retried = services.sepa_checkout.checkout(
+        "payment-sepa-captured-retry",
+        user_id="user-sepa-captured-retry",
+        project_id="project-user-sepa-captured-retry",
+        job_id="job-user-sepa-captured-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-captured-retry",
+        now=now,
+    )
+
+    assert retried == captured
