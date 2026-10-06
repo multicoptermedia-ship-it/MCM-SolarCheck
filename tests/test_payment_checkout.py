@@ -286,3 +286,50 @@ def test_unregistered_customer_keeps_regular_card_price(tmp_path) -> None:
     )
     assert result.amount == PaymentAmount(14500, "EUR")
     assert offers.has_used("user-unregistered") is False
+
+
+def test_failed_authorization_releases_introductory_offer(tmp_path) -> None:
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+
+    class VerifiedRegistrations:
+        def get(self, user_id):
+            from mcm_solarcheck.services.registration import OnlineRegistration
+            return OnlineRegistration(
+                user_id,
+                "Customer",
+                "customer@example.com",
+            ).verify(datetime(2026, 10, 1, tzinfo=timezone.utc))
+
+    checkout, payments, gateway = build_checkout(
+        tmp_path,
+        PaymentMethod.CARD,
+        MerchantAccountKind.CARD_PROCESSOR,
+        introductory_offers=offers,
+        registrations=VerifiedRegistrations(),
+    )
+
+    def fail_authorize(*args, **kwargs):
+        raise RuntimeError("provider authorization failed")
+
+    checkout._authorization.authorize = fail_authorize
+
+    with pytest.raises(RuntimeError, match="provider authorization failed"):
+        checkout.checkout(
+            "payment-failed-intro",
+            user_id="user-failed-intro",
+            project_id="project-a",
+            job_id="job-failed-intro",
+            plant_kwp=750,
+            method=PaymentMethod.CARD,
+            provider_id="provider-a",
+            merchant_account_id="merchant-a",
+            now=datetime(2026, 10, 6, 10, 0, tzinfo=timezone.utc),
+        )
+
+    assert offers.has_used("user-failed-intro") is False
+    assert offers.reserve(
+        "user-failed-intro",
+        "payment-retry-intro",
+        policy_version=1,
+        now=datetime(2026, 10, 6, 10, 1, tzinfo=timezone.utc),
+    ) is True
