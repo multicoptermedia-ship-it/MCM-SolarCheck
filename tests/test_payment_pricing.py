@@ -1031,3 +1031,28 @@ def test_duplicate_payment_id_rejection_does_not_reserve_second_job(tmp_path) ->
     second = OnlinePayment("payment-new-id", "user-a", "project-a", "job-second-id", PaymentAmount(5900, "EUR"))
     payments.create(second)
     assert payments.get("payment-new-id") == second
+
+
+def test_concurrent_duplicate_payment_id_creation_has_one_winner(tmp_path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from mcm_solarcheck.services.payment import OnlinePayment
+
+    database = tmp_path / "payments.sqlite"
+    SQLiteOnlinePaymentStore(database)
+    candidates = (
+        OnlinePayment("payment-race-id", "user-a", "project-a", "job-race-id-a", PaymentAmount(5900, "EUR")),
+        OnlinePayment("payment-race-id", "user-b", "project-b", "job-race-id-b", PaymentAmount(6900, "EUR")),
+    )
+
+    def create(payment):
+        try:
+            SQLiteOnlinePaymentStore(database).create(payment)
+            return "created"
+        except ValueError as exc:
+            assert str(exc) == "payment id already exists"
+            return "rejected"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(create, candidates))
+
+    assert sorted(results) == ["created", "rejected"]
