@@ -1941,3 +1941,29 @@ def test_sepa_checkout_retry_rejects_changed_user_identity(tmp_path) -> None:
             merchant_account_id="merchant-user-sepa-owner",
             now=now,
         )
+
+
+def test_sepa_checkout_retry_rejects_changed_project_identity(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-project")
+    services.sepa_checkout.checkout(
+        "payment-sepa-project",
+        user_id="user-sepa-project",
+        project_id="project-user-sepa-project",
+        job_id="job-user-sepa-project",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-project",
+        now=now,
+    )
+
+    with pytest.raises(PermissionError):
+        services.sepa_checkout.checkout(
+            "payment-sepa-project",
+            user_id="user-sepa-project",
+            project_id="other-project",
+            job_id="job-user-sepa-project",
+            plant_kwp=750,
+            provider_id="provider-a",
+            merchant_account_id="merchant-user-sepa-project",
+            now=now,
+        )
