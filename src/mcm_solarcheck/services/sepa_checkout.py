@@ -119,17 +119,22 @@ class OnlineSepaCheckoutService:
             tariff_version=payment.tariff_version,
             plant_kwp=payment.plant_kwp,
         )
-        bound = self._merchants.bind(
-            proposed,
-            merchant_account_id,
-            provider_id=provider.provider_id,
-        )
-        return self._payments.bind_processing_snapshot(
-            payment.payment_id,
-            user_id,
-            project_id,
-            method=PaymentMethod.SEPA_DIRECT_DEBIT,
-            merchant_account_id=bound.merchant_account_id,
-            merchant_account_version=bound.merchant_account_version,
-            provider_id=bound.provider_id,
-        )
+        try:
+            bound = self._merchants.bind(
+                proposed,
+                merchant_account_id,
+                provider_id=provider.provider_id,
+            )
+            return self._payments.bind_processing_snapshot(
+                payment.payment_id,
+                user_id,
+                project_id,
+                method=PaymentMethod.SEPA_DIRECT_DEBIT,
+                merchant_account_id=bound.merchant_account_id,
+                merchant_account_version=bound.merchant_account_version,
+                provider_id=bound.provider_id,
+            )
+        except Exception:
+            if offer_reserved:
+                self._introductory_offers.release(user_id, payment_id)
+            raise
