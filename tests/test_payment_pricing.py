@@ -914,3 +914,28 @@ def test_concurrent_duplicate_job_creation_has_one_winner(tmp_path) -> None:
         results = list(pool.map(create, (first, second)))
 
     assert sorted(results) == ["created", "rejected"]
+
+
+def test_concurrent_duplicate_job_preserves_winning_payment(tmp_path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from mcm_solarcheck.services.payment import OnlinePayment
+
+    database = tmp_path / "payments.sqlite"
+    store = SQLiteOnlinePaymentStore(database)
+    payments = (
+        OnlinePayment("payment-winner-a", "user-a", "project-a", "job-winner", PaymentAmount(5900, "EUR")),
+        OnlinePayment("payment-winner-b", "user-b", "project-b", "job-winner", PaymentAmount(6900, "EUR")),
+    )
+
+    def create(payment):
+        try:
+            SQLiteOnlinePaymentStore(database).create(payment)
+            return payment
+        except ValueError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(create, payments))
+
+    winner = next(payment for payment in outcomes if payment is not None)
+    assert store.get(winner.payment_id) == winner
