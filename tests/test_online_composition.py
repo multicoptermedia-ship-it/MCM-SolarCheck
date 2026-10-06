@@ -2511,3 +2511,26 @@ def test_sepa_checkout_retry_preserves_voided_payment(tmp_path) -> None:
     )
 
     assert retried == voided
+
+
+def test_sepa_checkout_retry_does_not_call_pricing(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-no-reprice")
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-no-reprice", user_id="user-sepa-no-reprice",
+        project_id="project-user-sepa-no-reprice", job_id="job-user-sepa-no-reprice",
+        plant_kwp=750, provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-no-reprice", now=now,
+    )
+
+    def fail_pricing(*args, **kwargs):
+        raise AssertionError("retry must not call pricing")
+
+    services.sepa_checkout._pricing.create_payment = fail_pricing
+    retried = services.sepa_checkout.checkout(
+        "payment-sepa-no-reprice", user_id="user-sepa-no-reprice",
+        project_id="project-user-sepa-no-reprice", job_id="job-user-sepa-no-reprice",
+        plant_kwp=750, provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-no-reprice", now=now,
+    )
+
+    assert retried == first
