@@ -2534,3 +2534,26 @@ def test_sepa_checkout_retry_does_not_call_pricing(tmp_path) -> None:
     )
 
     assert retried == first
+
+
+def test_sepa_checkout_retry_does_not_read_current_tariff(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-no-retariff")
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-no-retariff", user_id="user-sepa-no-retariff",
+        project_id="project-user-sepa-no-retariff", job_id="job-user-sepa-no-retariff",
+        plant_kwp=750, provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-no-retariff", now=now,
+    )
+
+    def fail_tariff(*args, **kwargs):
+        raise AssertionError("retry must not read tariff")
+
+    services.sepa_checkout._tariffs.current = fail_tariff
+    retried = services.sepa_checkout.checkout(
+        "payment-sepa-no-retariff", user_id="user-sepa-no-retariff",
+        project_id="project-user-sepa-no-retariff", job_id="job-user-sepa-no-retariff",
+        plant_kwp=750, provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-no-retariff", now=now,
+    )
+
+    assert retried == first
