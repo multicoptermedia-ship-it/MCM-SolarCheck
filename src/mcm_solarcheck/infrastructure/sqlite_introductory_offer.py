@@ -82,6 +82,24 @@ class SQLiteIntroductoryOfferStore:
                 ).fetchone()
             return row == (policy_version, "reserved")
 
+    def is_reserved(
+        self, user_id: str, payment_id: str, *, policy_version: int
+    ) -> bool:
+        if not user_id.strip() or not payment_id.strip():
+            raise ValueError("offer usage identity must be non-empty")
+        if policy_version <= 0:
+            raise ValueError("policy_version must be positive")
+        with sqlite3.connect(self.database) as connection:
+            row = connection.execute(
+                """
+                SELECT 1 FROM introductory_offer_usage
+                WHERE user_id = ? AND payment_id = ?
+                  AND policy_version = ? AND state = 'reserved'
+                """,
+                (user_id.strip(), payment_id.strip(), policy_version),
+            ).fetchone()
+        return row is not None
+
     def finalize(self, user_id: str, payment_id: str, *, used_at: datetime) -> None:
         if used_at.tzinfo is None or used_at.utcoffset() is None:
             raise ValueError("used_at must be timezone-aware")
