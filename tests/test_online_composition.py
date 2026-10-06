@@ -2557,3 +2557,23 @@ def test_sepa_checkout_retry_does_not_read_current_tariff(tmp_path) -> None:
     )
 
     assert retried == first
+
+
+def test_sepa_checkout_retry_uses_explicit_payment_store(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-explicit-store")
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-explicit-store", user_id="user-sepa-explicit-store",
+        project_id="project-user-sepa-explicit-store", job_id="job-user-sepa-explicit-store",
+        plant_kwp=750, provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-explicit-store", now=now,
+    )
+
+    services.sepa_checkout._pricing._payments = object()
+    retried = services.sepa_checkout.checkout(
+        "payment-sepa-explicit-store", user_id="user-sepa-explicit-store",
+        project_id="project-user-sepa-explicit-store", job_id="job-user-sepa-explicit-store",
+        plant_kwp=750, provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-explicit-store", now=now,
+    )
+
+    assert retried == first
