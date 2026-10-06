@@ -7,7 +7,7 @@ from datetime import datetime
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
 from mcm_solarcheck.services.introductory_offer import IntroductoryOfferPolicy, IntroductoryOfferStore, has_verified_registration
 from mcm_solarcheck.services.merchant_binding import MerchantAccountBindingService
-from mcm_solarcheck.services.payment import OnlinePayment, PaymentStatus
+from mcm_solarcheck.services.payment import OnlinePayment
 from mcm_solarcheck.services.payment_checkout import (
     PaymentProcessingSnapshotStore,
     SolarCheckTariffStore,
@@ -134,9 +134,6 @@ class OnlineSepaCheckoutService:
             if offer_reserved:
                 self._introductory_offers.release(user_id, payment_id)
             raise
-        if payment.status is PaymentStatus.SETTLED:
-            return payment
-
         proposed = OnlinePayment(
             payment.payment_id,
             payment.user_id,
