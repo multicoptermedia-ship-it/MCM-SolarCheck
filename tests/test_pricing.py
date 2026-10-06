@@ -244,3 +244,18 @@ def test_capacity_above_last_finite_tier_is_rejected() -> None:
     assert pricing.price(Decimal("30")).net_total == Decimal("300.00")
     with pytest.raises(ValueError, match="does not cover capacity"):
         pricing.price(Decimal("30.01"))
+
+
+def test_zero_price_tier_produces_zero_totals() -> None:
+    pricing = PricingRule(
+        version="zero-price",
+        tiers=(PriceTier(None, Decimal("0")),),
+        vat_rate=Decimal("0.19"),
+    )
+    snapshot = pricing.price(Decimal("1"))
+
+    assert snapshot.net_before_discount == Decimal("0.00")
+    assert snapshot.discount_amount == Decimal("0.00")
+    assert snapshot.net_total == Decimal("0.00")
+    assert snapshot.vat_amount == Decimal("0.00")
+    assert snapshot.gross_total == Decimal("0.00")
