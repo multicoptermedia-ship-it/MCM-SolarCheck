@@ -1885,3 +1885,33 @@ def test_failed_sepa_pricing_releases_new_introductory_reservation(tmp_path) -> 
         policy_version=1,
         now=now,
     )
+
+
+def test_sepa_checkout_retry_preserves_existing_payment_amount(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import PaymentAmount
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-existing-payment")
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-existing",
+        user_id="user-sepa-existing-payment",
+        project_id="project-user-sepa-existing-payment",
+        job_id="job-user-sepa-existing-payment",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-existing-payment",
+        now=now,
+    )
+
+    second = services.sepa_checkout.checkout(
+        "payment-sepa-existing",
+        user_id="user-sepa-existing-payment",
+        project_id="project-user-sepa-existing-payment",
+        job_id="job-user-sepa-existing-payment",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-existing-payment",
+        now=now,
+    )
+
+    assert first.amount == PaymentAmount(5900, "EUR")
+    assert second.amount == first.amount
