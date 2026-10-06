@@ -2352,3 +2352,33 @@ def test_sepa_voucher_retry_cannot_switch_to_different_voucher(tmp_path) -> None
     assert second.amount == first.amount
     assert persistence.vouchers.get("SEPA-VOUCHER-FIRST").redeemed_payment_id == first.payment_id
     assert persistence.vouchers.get("SEPA-VOUCHER-SECOND").redeemed is False
+
+
+def test_sepa_checkout_retry_rejects_changed_provider(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-provider-retry")
+    services.sepa_checkout.checkout(
+        "payment-sepa-provider-retry",
+        user_id="user-sepa-provider-retry",
+        project_id="project-user-sepa-provider-retry",
+        job_id="job-user-sepa-provider-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-provider-retry",
+        now=now,
+    )
+    services.sepa_checkout._providers = PaymentProviderRegistry((
+        PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.SEPA_DIRECT_DEBIT})),
+        PaymentProviderCapabilities("provider-b", frozenset({PaymentMethod.SEPA_DIRECT_DEBIT})),
+    ))
+
+    with pytest.raises(ValueError, match="provider"):
+        services.sepa_checkout.checkout(
+            "payment-sepa-provider-retry",
+            user_id="user-sepa-provider-retry",
+            project_id="project-user-sepa-provider-retry",
+            job_id="job-user-sepa-provider-retry",
+            plant_kwp=750,
+            provider_id="provider-b",
+            merchant_account_id="merchant-user-sepa-provider-retry",
+            now=now,
+        )
