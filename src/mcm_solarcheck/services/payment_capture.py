@@ -51,6 +51,9 @@ class PaymentCaptureService:
         payment = self._payments.get(payment_id)
         if payment.user_id != user_id or payment.project_id != project_id:
             raise PermissionError("payment ownership mismatch")
+        if payment.status is PaymentStatus.CAPTURED and self._gateway is None:
+            self._finalize_introductory_offer(user_id, payment_id)
+            return payment
         if payment.status is PaymentStatus.CAPTURED and self._gateway is not None:
             intent = self._operation_intents.get(payment_id)
             if (
