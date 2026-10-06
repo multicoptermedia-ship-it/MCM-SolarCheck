@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from mcm_solarcheck.infrastructure.sqlite_introductory_offer import SQLiteIntroductoryOfferStore
 from mcm_solarcheck.infrastructure.sqlite_merchant_account import SQLiteMerchantAccountStore
 from mcm_solarcheck.infrastructure.sqlite_payment import SQLiteOnlinePaymentStore
 from mcm_solarcheck.infrastructure.sqlite_solarcheck_tariff import SQLiteSolarCheckTariffStore
@@ -42,7 +43,7 @@ class RecordingGateway:
         raise AssertionError("checkout must not void")
 
 
-def build_checkout(tmp_path, method, kind):
+def build_checkout(tmp_path, method, kind, *, introductory_offers=None):
     payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
     vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
     accounts = SQLiteMerchantAccountStore(tmp_path / "merchants.sqlite")
@@ -76,6 +77,7 @@ def build_checkout(tmp_path, method, kind):
         ),
         payments,
         tariffs,
+        introductory_offers=introductory_offers,
     )
     return checkout, payments, gateway
 
@@ -193,3 +195,28 @@ def test_checkout_uses_new_tariff_version_after_effective_time(tmp_path) -> None
     assert persisted.tariff_version == 2
     assert persisted.plant_kwp == 750
     assert len(gateway.authorizations) == 1
+
+
+def test_checkout_applies_introductory_offer_only_while_reserved(tmp_path) -> None:
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+    checkout, payments, gateway = build_checkout(
+        tmp_path,
+        PaymentMethod.CARD,
+        MerchantAccountKind.CARD_PROCESSOR,
+        introductory_offers=offers,
+    )
+
+    result = checkout.checkout(
+        "payment-intro",
+        user_id="user-intro",
+        project_id="project-a",
+        job_id="job-intro",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-a",
+        now=datetime(2026, 10, 6, 10, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.amount == PaymentAmount(5900, "EUR")
+    assert offers.has_used("user-intro") is False
