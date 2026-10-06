@@ -90,7 +90,9 @@ class SQLiteOnlinePaymentStore:
         return sqlite3.connect(self.database)
 
     def create(self, payment: OnlinePayment) -> None:
-        with self._connect() as connection:
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
             existing_job = connection.execute(
                 "SELECT payment_id FROM online_payments WHERE job_id = ?",
                 (payment.job_id,),
@@ -123,6 +125,12 @@ class SQLiteOnlinePaymentStore:
                     payment.plant_kwp,
                 ),
             )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def get(self, payment_id: str) -> OnlinePayment:
         with self._connect() as connection:
