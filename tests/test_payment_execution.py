@@ -78,13 +78,13 @@ def test_payment_execution_evidence_requires_sepa_store() -> None:
         PaymentExecutionEvidence(object())
 
 
-def test_zero_amount_settled_payment_is_not_payable_invoice_evidence() -> None:
+def test_settled_paid_payment_is_not_payable_invoice_evidence() -> None:
     settled = OnlinePayment(
-        "payment-free",
+        "payment-settled-paid",
         "user-a",
         "project-a",
         "job-a",
-        None,
+        PaymentAmount(5900, "EUR"),
         status=PaymentStatus.SETTLED,
     )
 
