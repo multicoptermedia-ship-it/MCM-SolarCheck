@@ -759,3 +759,26 @@ def test_duplicate_job_rejection_preserves_original_payment(tmp_path) -> None:
         )
 
     assert payments.get("payment-original-job") == first
+
+
+def test_settled_zero_amount_payment_also_blocks_second_job_payment(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("FREE-JOB", now - timedelta(days=1), now + timedelta(days=1)))
+    service = PaymentPricingService(
+        payments, vouchers, FlightPlanVoucherPolicy(100),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+    first = service.create_payment(
+        "payment-free-job", user_id="user-a", project_id="project-a",
+        job_id="job-free", base_amount=PaymentAmount(5900, "EUR"),
+        voucher_code="FREE-JOB", now=now,
+    )
+    assert first.status is PaymentStatus.SETTLED
+
+    with pytest.raises(ValueError, match="already has a payment"):
+        service.create_payment(
+            "payment-after-free-job", user_id="user-a", project_id="project-a",
+            job_id="job-free", base_amount=PaymentAmount(5900, "EUR"), now=now,
+        )
