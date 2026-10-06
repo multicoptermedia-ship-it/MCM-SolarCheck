@@ -892,3 +892,25 @@ def test_valid_flightplan_voucher_always_leaves_positive_charge(tmp_path) -> Non
 
     assert payment.amount == PaymentAmount(5310, "EUR")
     assert payment.status is PaymentStatus.CREATED
+
+
+def test_concurrent_duplicate_job_creation_has_one_winner(tmp_path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from mcm_solarcheck.services.payment import OnlinePayment
+
+    database = tmp_path / "payments.sqlite"
+    store = SQLiteOnlinePaymentStore(database)
+    first = OnlinePayment("payment-race-a", "user-a", "project-a", "job-race", PaymentAmount(5900, "EUR"))
+    second = OnlinePayment("payment-race-b", "user-a", "project-a", "job-race", PaymentAmount(5900, "EUR"))
+
+    def create(payment):
+        try:
+            SQLiteOnlinePaymentStore(database).create(payment)
+            return "created"
+        except ValueError:
+            return "rejected"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(create, (first, second)))
+
+    assert sorted(results) == ["created", "rejected"]
