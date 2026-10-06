@@ -183,6 +183,16 @@ class SQLiteOnlinePaymentStore:
             row[12],
         )
 
+    def get_for_job(self, job_id: str) -> OnlinePayment:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payment_id FROM online_payments WHERE job_id = ?",
+                (job_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(job_id)
+        return self.get(row[0])
+
     def bind_processing_snapshot(
         self,
         payment_id: str,
