@@ -2024,3 +2024,33 @@ def test_sepa_checkout_retry_rejects_changed_merchant_account(tmp_path) -> None:
             merchant_account_id="merchant-sepa-other",
             now=now,
         )
+
+
+def test_sepa_checkout_retry_preserves_processing_snapshot(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-snapshot")
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-snapshot",
+        user_id="user-sepa-snapshot",
+        project_id="project-user-sepa-snapshot",
+        job_id="job-user-sepa-snapshot",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-snapshot",
+        now=now,
+    )
+
+    second = services.sepa_checkout.checkout(
+        "payment-sepa-snapshot",
+        user_id="user-sepa-snapshot",
+        project_id="project-user-sepa-snapshot",
+        job_id="job-user-sepa-snapshot",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-snapshot",
+        now=now,
+    )
+
+    assert second.method == first.method
+    assert second.merchant_account_id == first.merchant_account_id
+    assert second.merchant_account_version == first.merchant_account_version
+    assert second.provider_id == first.provider_id
