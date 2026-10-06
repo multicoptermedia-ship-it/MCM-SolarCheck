@@ -2382,3 +2382,31 @@ def test_sepa_checkout_retry_rejects_changed_provider(tmp_path) -> None:
             merchant_account_id="merchant-user-sepa-provider-retry",
             now=now,
         )
+
+
+def test_sepa_checkout_retry_requires_sepa_payment_snapshot(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-method-retry")
+    payment = services.sepa_checkout.checkout(
+        "payment-sepa-method-retry",
+        user_id="user-sepa-method-retry",
+        project_id="project-user-sepa-method-retry",
+        job_id="job-user-sepa-method-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-method-retry",
+        now=now,
+    )
+    assert payment.method is PaymentMethod.SEPA_DIRECT_DEBIT
+
+    retried = services.sepa_checkout.checkout(
+        "payment-sepa-method-retry",
+        user_id="user-sepa-method-retry",
+        project_id="project-user-sepa-method-retry",
+        job_id="job-user-sepa-method-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-method-retry",
+        now=now,
+    )
+
+    assert retried.method is PaymentMethod.SEPA_DIRECT_DEBIT
