@@ -10,6 +10,12 @@ from mcm_solarcheck.domain.pricing import PriceSnapshot, PricingRule
 
 
 @dataclass(frozen=True)
+class DiscountEligibility:
+    planner_verified: bool = False
+    repeat_verified: bool = False
+
+
+@dataclass(frozen=True)
 class ProjectPricingRequest:
     customer_id: str
     project_id: str
