@@ -1993,3 +1993,34 @@ def test_sepa_checkout_retry_rejects_changed_plant_size(tmp_path) -> None:
             merchant_account_id="merchant-user-sepa-plant",
             now=now,
         )
+
+
+def test_sepa_checkout_retry_rejects_changed_merchant_account(tmp_path) -> None:
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-merchant-retry")
+    services.sepa_checkout.checkout(
+        "payment-sepa-merchant-retry",
+        user_id="user-sepa-merchant-retry",
+        project_id="project-user-sepa-merchant-retry",
+        job_id="job-user-sepa-merchant-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-merchant-retry",
+        now=now,
+    )
+    persistence.merchant_accounts.save(
+        MerchantAccount("merchant-sepa-other", "provider-a", MerchantAccountKind.BANK, "SEPA")
+    )
+
+    with pytest.raises(ValueError, match="merchant"):
+        services.sepa_checkout.checkout(
+            "payment-sepa-merchant-retry",
+            user_id="user-sepa-merchant-retry",
+            project_id="project-user-sepa-merchant-retry",
+            job_id="job-user-sepa-merchant-retry",
+            plant_kwp=750,
+            provider_id="provider-a",
+            merchant_account_id="merchant-sepa-other",
+            now=now,
+        )
