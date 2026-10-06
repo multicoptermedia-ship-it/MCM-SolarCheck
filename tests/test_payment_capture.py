@@ -166,3 +166,20 @@ def test_capture_finalizes_reserved_introductory_offer(tmp_path) -> None:
     service.capture("payment-a", user_id="user-a", project_id="project-a")
 
     assert offers.has_used("user-a") is True
+
+
+def test_capture_does_not_hide_introductory_offer_store_errors() -> None:
+    payments = MemoryPaymentStore(authorized_payment())
+
+    class BrokenOfferStore:
+        def finalize(self, user_id, payment_id, *, used_at):
+            raise ValueError("introductory offer store failure")
+
+    service = PaymentCaptureService(
+        payments,
+        MemoryBillingStore(billing(released=True)),
+        introductory_offers=BrokenOfferStore(),
+    )
+
+    with pytest.raises(ValueError, match="store failure"):
+        service.capture("payment-a", user_id="user-a", project_id="project-a")
