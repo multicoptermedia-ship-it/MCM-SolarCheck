@@ -872,3 +872,23 @@ def test_rejected_zero_payable_job_does_not_redeem_voucher(tmp_path) -> None:
         )
 
     assert vouchers.get("NO-FREE-REDEEM").redeemed is False
+
+
+def test_valid_flightplan_voucher_always_leaves_positive_charge(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("PAID-JOB", now - timedelta(days=1), now + timedelta(days=1)))
+    service = PaymentPricingService(
+        payments, vouchers, FlightPlanVoucherPolicy(),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+
+    payment = service.create_payment(
+        "payment-paid-job", user_id="user-a", project_id="project-a",
+        job_id="job-paid", base_amount=PaymentAmount(5900, "EUR"),
+        voucher_code="PAID-JOB", now=now,
+    )
+
+    assert payment.amount == PaymentAmount(5310, "EUR")
+    assert payment.status is PaymentStatus.CREATED
