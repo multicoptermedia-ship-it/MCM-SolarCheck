@@ -1056,3 +1056,18 @@ def test_concurrent_duplicate_payment_id_creation_has_one_winner(tmp_path) -> No
         results = list(pool.map(create, candidates))
 
     assert sorted(results) == ["created", "rejected"]
+
+
+def test_settled_paid_payment_round_trips_with_amount(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import OnlinePayment
+
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    settled = OnlinePayment(
+        "payment-settled-roundtrip", "user-a", "project-a", "job-settled-roundtrip",
+        PaymentAmount(5900, "EUR"), PaymentStatus.SETTLED,
+    )
+    payments.create(settled)
+
+    restored = payments.get("payment-settled-roundtrip")
+    assert restored == settled
+    assert restored.amount == PaymentAmount(5900, "EUR")
