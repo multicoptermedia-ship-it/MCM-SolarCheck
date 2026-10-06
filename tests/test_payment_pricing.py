@@ -1214,3 +1214,21 @@ def test_payment_store_rejects_legacy_zero_amount(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="without positive amount"):
         SQLiteOnlinePaymentStore(database)
+
+
+def test_payment_store_rejects_legacy_payment_without_currency(tmp_path) -> None:
+    database = tmp_path / "legacy-currency-payment.sqlite"
+    import sqlite3
+
+    store = SQLiteOnlinePaymentStore(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """INSERT INTO online_payments (
+                payment_id, user_id, project_id, job_id,
+                amount_minor_units, currency, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            ("legacy-currency", "user-a", "project-a", "job-currency", 5900, None, "created"),
+        )
+
+    with pytest.raises(ValueError, match="without positive amount"):
+        SQLiteOnlinePaymentStore(database)
