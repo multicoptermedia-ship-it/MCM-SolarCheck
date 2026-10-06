@@ -2748,3 +2748,13 @@ def test_payment_closeout_voucher_amount_survives_capture_and_execution_evidence
     assert persistence.vouchers.get("CLOSE-VOUCHER").redeemed_payment_id == captured.payment_id
     services.payment_execution.require_succeeded(captured)
 
+
+
+def test_online_report_retrieval_requires_paid_order(tmp_path) -> None:
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    services = online_services(persistence)
+    persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-report-unpaid", "user-report-unpaid", "project-report-unpaid", export_completed=True)))
+    persistence.reports.path_for("job-report-unpaid").write_bytes(b"unpaid-report")
+
+    with pytest.raises(ValueError, match="paid order"):
+        services.report_delivery.retrieve("job-report-unpaid", user_id="user-report-unpaid", project_id="project-report-unpaid")
