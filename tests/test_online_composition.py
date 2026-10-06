@@ -1915,3 +1915,29 @@ def test_sepa_checkout_retry_preserves_existing_payment_amount(tmp_path) -> None
 
     assert first.amount == PaymentAmount(5900, "EUR")
     assert second.amount == first.amount
+
+
+def test_sepa_checkout_retry_rejects_changed_user_identity(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-owner")
+    services.sepa_checkout.checkout(
+        "payment-sepa-owner",
+        user_id="user-sepa-owner",
+        project_id="project-user-sepa-owner",
+        job_id="job-user-sepa-owner",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-owner",
+        now=now,
+    )
+
+    with pytest.raises(PermissionError):
+        services.sepa_checkout.checkout(
+            "payment-sepa-owner",
+            user_id="other-user",
+            project_id="project-user-sepa-owner",
+            job_id="job-user-sepa-owner",
+            plant_kwp=750,
+            provider_id="provider-a",
+            merchant_account_id="merchant-user-sepa-owner",
+            now=now,
+        )
