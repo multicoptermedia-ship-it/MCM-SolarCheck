@@ -2754,3 +2754,21 @@ def test_unpaid_online_compute_job_cannot_start(tmp_path) -> None:
         )
 
     assert persistence.compute_jobs.get("job-unpaid-gate").status is ComputeJobStatus.QUEUED
+
+
+def test_paid_online_compute_job_can_start(tmp_path) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    grant_online_entitlement(persistence, "user-paid-start")
+    services = online_services(persistence)
+    services.compute_jobs.create(job_id="job-paid-start", user_id="user-paid-start", project_id="project-paid-start")
+    persistence.payments.create(OnlinePayment("payment-paid-start", "user-paid-start", "project-paid-start", "job-paid-start", PaymentAmount(9500, "EUR")))
+
+    started = services.compute_jobs.start(
+        "job-paid-start", user_id="user-paid-start", project_id="project-paid-start",
+        capacity=ComputeCapacity(max_parallel_jobs=1),
+    )
+
+    assert started.status is ComputeJobStatus.RUNNING
