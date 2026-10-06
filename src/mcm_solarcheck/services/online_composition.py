@@ -58,13 +58,20 @@ from mcm_solarcheck.services.smtp_admin import (
 class EntitledComputeJobService:
     """Online-only gate that requires durable product access before job creation."""
 
-    def __init__(self, jobs: ComputeJobService, entitlements) -> None:
+    def __init__(self, jobs: ComputeJobService, entitlements, payments) -> None:
         self._jobs = jobs
         self._entitlements = entitlements
+        self._payments = payments
 
     def create(self, *, job_id: str, user_id: str, project_id: str):
         self._entitlements.require_active(user_id)
         return self._jobs.create(job_id=job_id, user_id=user_id, project_id=project_id)
+
+    def start(self, job_id: str, *, user_id: str, project_id: str, **kwargs):
+        payment = self._payments.get_for_job(job_id)
+        if payment.user_id != user_id or payment.project_id != project_id:
+            raise PermissionError("compute job payment ownership mismatch")
+        return self._jobs.start(job_id, user_id=user_id, project_id=project_id, **kwargs)
 
     def __getattr__(self, name):
         return getattr(self._jobs, name)
@@ -173,7 +180,7 @@ def build_online_services(
         admission=persistence.compute_jobs,
         claims=persistence.compute_jobs,
     )
-    compute_jobs = EntitledComputeJobService(compute_jobs_core, persistence.entitlements)
+    compute_jobs = EntitledComputeJobService(compute_jobs_core, persistence.entitlements, persistence.payments)
     billing = ComputeJobBillingService(persistence.billing, persistence.compute_jobs)
     report_delivery = ReportDeliveryService(persistence.billing, persistence.reports)
     report_notifications = ReportRecoveryNotificationService(
