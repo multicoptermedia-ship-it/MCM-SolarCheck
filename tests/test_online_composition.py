@@ -2476,3 +2476,38 @@ def test_sepa_checkout_retry_preserves_captured_payment(tmp_path) -> None:
     )
 
     assert retried == captured
+
+
+def test_sepa_checkout_retry_preserves_voided_payment(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-voided-retry")
+    services.sepa_checkout.checkout(
+        "payment-sepa-voided-retry",
+        user_id="user-sepa-voided-retry",
+        project_id="project-user-sepa-voided-retry",
+        job_id="job-user-sepa-voided-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-voided-retry",
+        now=now,
+    )
+    persistence.payments.authorize(
+        "payment-sepa-voided-retry", "user-sepa-voided-retry",
+        "project-user-sepa-voided-retry", "provider-reference"
+    )
+    voided = persistence.payments.void(
+        "payment-sepa-voided-retry", "user-sepa-voided-retry",
+        "project-user-sepa-voided-retry"
+    )
+
+    retried = services.sepa_checkout.checkout(
+        "payment-sepa-voided-retry",
+        user_id="user-sepa-voided-retry",
+        project_id="project-user-sepa-voided-retry",
+        job_id="job-user-sepa-voided-retry",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-voided-retry",
+        now=now,
+    )
+
+    assert retried == voided
