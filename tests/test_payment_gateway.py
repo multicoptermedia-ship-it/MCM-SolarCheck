@@ -279,3 +279,14 @@ def test_completed_authorization_retry_rejects_reference_mismatch(tmp_path) -> N
         intents.mark_provider_succeeded("payment-mismatch", "provider-other")
 
     assert len(gateway.authorized) == 1
+
+
+def test_settled_paid_payment_without_gateway_method_is_not_executed(tmp_path) -> None:
+    store = SQLiteOnlinePaymentStore(tmp_path / "payment.sqlite")
+    payment = OnlinePayment(
+        "payment-settled-no-gateway", "user-a", "project-a", "job-a",
+        PaymentAmount(5900, "EUR"), PaymentStatus.SETTLED,
+    )
+    store.create(payment)
+
+    assert store.get("payment-settled-no-gateway") == payment
