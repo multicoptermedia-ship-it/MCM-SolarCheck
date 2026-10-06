@@ -2762,7 +2762,9 @@ def test_payment_closeout_voucher_amount_survives_capture_and_execution_evidence
 
 def test_online_report_retrieval_requires_paid_order(tmp_path) -> None:
     from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.compute_jobs.create(ComputeJob("job-report-unpaid", "user-report-unpaid", "project-report-unpaid", ComputeJobStatus.COMPLETED))
     services = online_services(persistence)
     persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-report-unpaid", "user-report-unpaid", "project-report-unpaid", export_completed=True)))
     persistence.reports.path_for("job-report-unpaid").write_bytes(b"unpaid-report")
@@ -2775,7 +2777,9 @@ def test_online_report_retrieval_rejects_payment_identity_mismatch(tmp_path) -> 
     from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
     from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
 
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.compute_jobs.create(ComputeJob("job-report-mismatch", "user-report", "project-report", ComputeJobStatus.COMPLETED))
     services = online_services(persistence)
     persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-report-mismatch", "user-report", "project-report", export_completed=True)))
     persistence.payments.create(OnlinePayment("payment-report-mismatch", "other-user", "other-project", "job-report-mismatch", PaymentAmount(9500, "EUR")))
@@ -2789,7 +2793,9 @@ def test_online_report_retrieval_accepts_matching_paid_order(tmp_path) -> None:
     from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
     from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
 
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
     persistence = setup_persistence(tmp_path, secret_configured=True)
+    persistence.compute_jobs.create(ComputeJob("job-report-paid", "user-report-paid", "project-report-paid", ComputeJobStatus.COMPLETED))
     services = online_services(persistence)
     persistence.billing.create(ComputeJobBilling(ComputeJobDelivery("job-report-paid", "user-report-paid", "project-report-paid", export_completed=True)))
     persistence.payments.create(OnlinePayment("payment-report-paid", "user-report-paid", "project-report-paid", "job-report-paid", PaymentAmount(9500, "EUR")))
