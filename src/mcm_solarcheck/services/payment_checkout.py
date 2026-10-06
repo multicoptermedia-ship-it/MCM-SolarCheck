@@ -7,6 +7,7 @@ from typing import Protocol
 
 from mcm_solarcheck.services.billing import ComputeJobBillingStore
 
+from mcm_solarcheck.services.introductory_offer import IntroductoryOfferPolicy, IntroductoryOfferStore
 from mcm_solarcheck.services.merchant_binding import MerchantAccountBindingService
 from mcm_solarcheck.services.payment import OnlinePayment, PaymentStatus
 from mcm_solarcheck.services.payment_gateway import PaymentAuthorizationService
@@ -51,6 +52,8 @@ class OnlinePaymentCheckoutService:
         payments: PaymentProcessingSnapshotStore,
         tariffs: SolarCheckTariffStore,
         billing: ComputeJobBillingStore | None = None,
+        introductory_offers: IntroductoryOfferStore | None = None,
+        introductory_offer_policy: IntroductoryOfferPolicy = IntroductoryOfferPolicy(),
     ) -> None:
         self._pricing = pricing
         self._merchants = merchants
@@ -59,6 +62,8 @@ class OnlinePaymentCheckoutService:
         self._payments = payments
         self._tariffs = tariffs
         self._billing = billing
+        self._introductory_offers = introductory_offers
+        self._introductory_offer_policy = introductory_offer_policy
 
     def checkout(
         self,
@@ -98,17 +103,37 @@ class OnlinePaymentCheckoutService:
         tariff = self._tariffs.current(now)
         quote = quote_solarcheck(tariff, plant_kwp=plant_kwp, quoted_at=now)
 
-        payment = self._pricing.create_payment(
+        offer_reserved = False
+        base_amount = quote.amount
+        if (
+            self._introductory_offers is not None
+            and self._introductory_offer_policy.is_available_at(now)
+        ):
+            offer_reserved = self._introductory_offers.reserve(
+                user_id,
+                payment_id,
+                policy_version=self._introductory_offer_policy.version,
+                now=now,
+            )
+            if offer_reserved:
+                base_amount = self._introductory_offer_policy.amount
+
+        try:
+            payment = self._pricing.create_payment(
             payment_id,
             user_id=user_id,
             project_id=project_id,
             job_id=job_id,
-            base_amount=quote.amount,
+            base_amount=base_amount,
             now=now,
             voucher_code=voucher_code,
             tariff_version=quote.tariff_version,
             plant_kwp=quote.plant_kwp,
-        )
+            )
+        except Exception:
+            if offer_reserved:
+                self._introductory_offers.release(user_id, payment_id)
+            raise
         if payment.status is PaymentStatus.SETTLED:
             return payment
 
