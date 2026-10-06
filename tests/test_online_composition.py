@@ -119,6 +119,11 @@ def grant_online_entitlement(persistence, user_id: str) -> None:
 
 
 
+def fund_compute_job_for_test(persistence, job_id: str, user_id: str, project_id: str) -> None:
+    from mcm_solarcheck.services.payment import OnlinePayment, PaymentAmount
+    persistence.payments.create(OnlinePayment(f"payment-{job_id}", user_id, project_id, job_id, PaymentAmount(9500, "EUR")))
+
+
 def configure_production_commerce(persistence) -> None:
     from datetime import datetime, timezone
     from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
@@ -378,6 +383,7 @@ def test_online_services_expose_authoritative_compute_job_flow(tmp_path) -> None
         user_id="user-e2e",
         project_id="project-e2e",
     )
+    fund_compute_job_for_test(persistence, created.job_id, "user-e2e", "project-e2e")
     started = services.compute_jobs.start(
         created.job_id,
         user_id="user-e2e",
@@ -401,6 +407,7 @@ def test_online_billing_starts_only_after_completed_compute_job(tmp_path) -> Non
         user_id="user-e2e",
         project_id="project-e2e",
     )
+    fund_compute_job_for_test(persistence, "job-billing-e2e", "user-e2e", "project-e2e")
     services.compute_jobs.start(
         "job-billing-e2e",
         user_id="user-e2e",
@@ -446,6 +453,7 @@ def test_online_completed_job_delivery_releases_billing_and_allows_capture(tmp_p
         user_id="user-e2e",
         project_id="project-e2e",
     )
+    fund_compute_job_for_test(persistence, "job-delivery-e2e", "user-e2e", "project-e2e")
     services.compute_jobs.start(
         "job-delivery-e2e",
         user_id="user-e2e",
@@ -583,6 +591,7 @@ def test_online_card_checkout_delivery_and_capture_end_to_end(tmp_path) -> None:
         user_id="user-e2e",
         project_id="project-e2e",
     )
+    fund_compute_job_for_test(persistence, "job-card-e2e", "user-e2e", "project-e2e")
     services.compute_jobs.start(
         "job-card-e2e",
         user_id="user-e2e",
@@ -792,6 +801,7 @@ def test_online_paypal_checkout_delivery_and_capture_end_to_end(tmp_path) -> Non
         user_id="user-paypal-e2e",
         project_id="project-paypal-e2e",
     )
+    fund_compute_job_for_test(persistence, "job-paypal-e2e", "user-paypal-e2e", "project-paypal-e2e")
     services.compute_jobs.start(
         "job-paypal-e2e",
         user_id="user-paypal-e2e",
@@ -903,6 +913,7 @@ def test_online_sepa_checkout_delivery_submission_and_reconciliation_end_to_end(
         user_id="user-sepa-e2e",
         project_id="project-sepa-e2e",
     )
+    fund_compute_job_for_test(persistence, "job-sepa-e2e", "user-sepa-e2e", "project-sepa-e2e")
     services.compute_jobs.start(
         "job-sepa-e2e",
         user_id="user-sepa-e2e",
@@ -1012,6 +1023,7 @@ def test_online_failed_report_delivery_keeps_billing_unreleased_and_payment_auth
         user_id="user-delivery-failure",
         project_id="project-delivery-failure",
     )
+    fund_compute_job_for_test(persistence, "job-delivery-failure", "user-delivery-failure", "project-delivery-failure")
     services.compute_jobs.start(
         "job-delivery-failure",
         user_id="user-delivery-failure",
@@ -1195,6 +1207,7 @@ def test_online_processing_recorder_persists_only_matching_compute_job(tmp_path)
         user_id="user-a",
         project_id="P-PROCESS",
     )
+    fund_compute_job_for_test(persistence, "job-process", "user-a", "P-PROCESS")
     services.compute_jobs.start(
         "job-process",
         user_id="user-a",
@@ -1287,6 +1300,7 @@ def test_composed_online_processing_uses_configured_claim_lease(tmp_path) -> Non
         user_id="user-a",
         project_id="P-LEASE",
     )
+    fund_compute_job_for_test(persistence, "job-lease", "user-a", "P-LEASE")
     services.compute_jobs.start(
         "job-lease",
         user_id="user-a",
@@ -1334,6 +1348,7 @@ def test_composed_online_processing_completes_started_job_for_empty_import(tmp_p
         user_id="user-a",
         project_id="P-FAIL",
     )
+    fund_compute_job_for_test(persistence, "job-fail", "user-a", "P-FAIL")
     services.compute_jobs.start(
         "job-fail",
         user_id="user-a",
@@ -1393,6 +1408,7 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
     )
     (upload / "DJI_20250825_0001_V.JPG").write_bytes(jpeg)
     services.compute_jobs.create(job_id="job-renew", user_id="user-a", project_id="P-RENEW")
+    fund_compute_job_for_test(persistence, "job-renew", "user-a", "P-RENEW")
     services.compute_jobs.start("job-renew", user_id="user-a", project_id="P-RENEW", capacity=ComputeCapacity(max_parallel_jobs=1))
 
     result = services.project_processing.process(
