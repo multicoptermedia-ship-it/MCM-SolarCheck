@@ -1408,3 +1408,44 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
     assert result.imported_thermal_frames == 0
     assert status == ComputeJobStatus.COMPLETED.value
     assert lease_expires_at == (start + timedelta(minutes=7)).isoformat()
+
+def test_online_project_pricing_cannot_claim_configured_discount(tmp_path) -> None:
+    from decimal import Decimal
+    from mcm_solarcheck.domain.pricing import PriceTier, PricingRule
+    from mcm_solarcheck.services.project_creation import CreateProjectRequest
+    from mcm_solarcheck.services.project_pricing import ProjectPricingRequest
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    pricing_rule = PricingRule(
+        version="discount-boundary-test",
+        tiers=(PriceTier(None, Decimal("500")),),
+        planner_discount_rate=Decimal("0.10"),
+        maximum_discount_rate=Decimal("0.10"),
+        vat_rate=Decimal("0.19"),
+    )
+    services = build_online_services(
+        persistence,
+        invoice_render=invoice_render_config(),
+        public_base_url="https://app.mcm-solarcheck.de",
+        payment_gateway=FakePaymentGateway(),
+        sepa_gateway=FakeSepaGateway(),
+        sepa_provider_id="provider-a",
+        payment_providers=PaymentProviderRegistry((PaymentProviderCapabilities("provider-a", frozenset({PaymentMethod.CARD, PaymentMethod.PAYPAL, PaymentMethod.SEPA_DIRECT_DEBIT})),)),
+        payment_provider_readiness=FakeReadiness(),
+        sepa_provider_readiness=FakeReadiness(),
+        admin_authorization=AllowAdmin(),
+        admin_mutation_guard=AllowMutation(),
+        pricing_rule=pricing_rule,
+    )
+    services.project_creation.create(
+        CreateProjectRequest("user-a", "P-DISCOUNT", "Discount Boundary", Decimal("50"))
+    )
+
+    with pytest.raises(TypeError):
+        ProjectPricingRequest("user-a", "P-DISCOUNT", planner_verified=True)
+
+    snapshot = services.project_pricing.price(
+        ProjectPricingRequest("user-a", "P-DISCOUNT")
+    )
+    assert snapshot.discount_rate == Decimal("0")
+    assert snapshot.net_total == Decimal("500.00")
