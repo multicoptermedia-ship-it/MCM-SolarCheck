@@ -183,3 +183,17 @@ def test_capture_does_not_hide_introductory_offer_store_errors() -> None:
 
     with pytest.raises(ValueError, match="store failure"):
         service.capture("payment-a", user_id="user-a", project_id="project-a")
+
+
+def test_repeated_local_capture_is_idempotent() -> None:
+    payments = MemoryPaymentStore(authorized_payment())
+    service = PaymentCaptureService(
+        payments,
+        MemoryBillingStore(billing(released=True)),
+    )
+
+    first = service.capture("payment-a", user_id="user-a", project_id="project-a")
+    second = service.capture("payment-a", user_id="user-a", project_id="project-a")
+
+    assert first.status is PaymentStatus.CAPTURED
+    assert second == first
