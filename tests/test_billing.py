@@ -103,3 +103,20 @@ def test_report_retrieval_without_export_is_invalid_delivery_state() -> None:
             export_completed=False,
             report_retrieved=True,
         )
+
+
+def test_export_evidence_rejects_running_compute_job() -> None:
+    from mcm_solarcheck.services.billing import ComputeJobBillingService
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+
+    class Jobs:
+        def get(self, job_id):
+            return ComputeJob(job_id, "user-a", "project-a", ComputeJobStatus.RUNNING)
+
+    class Store:
+        def mark_export_completed(self, *args):
+            raise AssertionError("store must not be mutated")
+
+    service = ComputeJobBillingService(Store(), Jobs())
+    with pytest.raises(ValueError, match="completed compute job"):
+        service.mark_export_completed("job-a", user_id="user-a", project_id="project-a")
