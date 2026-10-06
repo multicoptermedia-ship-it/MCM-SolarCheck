@@ -32,8 +32,4 @@ class ProjectPricingService:
         if not project_id:
             raise ValueError("project_id is required")
         capacity_kwp = self._capacity_for_project(customer_id, project_id)
-        return self._pricing_rule.price(
-            capacity_kwp,
-            planner_verified=request.planner_verified,
-            repeat_verified=request.repeat_verified,
-        )
+        return self._pricing_rule.price(capacity_kwp)
