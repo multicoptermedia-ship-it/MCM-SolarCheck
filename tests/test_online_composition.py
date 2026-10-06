@@ -2146,3 +2146,34 @@ def test_sepa_checkout_retry_preserves_payment_after_intro_deadline(tmp_path) ->
 
     assert first.amount == PaymentAmount(5900, "EUR")
     assert second.amount == first.amount
+
+
+def test_sepa_checkout_retry_returns_persisted_payment_identity(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-persisted")
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-persisted",
+        user_id="user-sepa-persisted",
+        project_id="project-user-sepa-persisted",
+        job_id="job-user-sepa-persisted",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-persisted",
+        now=now,
+    )
+
+    second = services.sepa_checkout.checkout(
+        "payment-sepa-persisted",
+        user_id="user-sepa-persisted",
+        project_id="project-user-sepa-persisted",
+        job_id="job-user-sepa-persisted",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-persisted",
+        now=now,
+    )
+
+    assert second.payment_id == first.payment_id
+    assert second.user_id == first.user_id
+    assert second.project_id == first.project_id
+    assert second.job_id == first.job_id
+    assert second.status == first.status
