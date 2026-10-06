@@ -71,6 +71,16 @@ class SQLitePricedPaymentStore:
                 connection.execute("ATTACH DATABASE ? AS vouchers", (self.voucher_database,))
             voucher_schema = "main" if same_database else "vouchers"
             connection.execute("BEGIN IMMEDIATE")
+            existing_payment = connection.execute(
+                """
+                SELECT job_id
+                FROM online_payments
+                WHERE payment_id = ?
+                """,
+                (payment.payment_id,),
+            ).fetchone()
+            if existing_payment is not None:
+                raise ValueError("payment id already exists")
             normalized = voucher_code.strip()
             row = connection.execute(
                 f"""
