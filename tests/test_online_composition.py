@@ -1544,3 +1544,4 @@ def test_verified_customer_gets_intro_price_once_then_regular_tariff(tmp_path) -
         now=now,
     )
     assert second.amount == PaymentAmount(14500, "EUR")
+    assert persistence.introductory_offers.has_used("user-intro-e2e") is True
