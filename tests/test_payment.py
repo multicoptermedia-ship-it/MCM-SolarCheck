@@ -84,3 +84,14 @@ def test_online_payment_rejects_missing_amount_even_when_settled() -> None:
             "payment-no-amount", "user-a", "project-a", "job-a",
             None, PaymentStatus.SETTLED,
         )
+
+
+def test_settled_payment_requires_and_retains_positive_amount() -> None:
+    amount = PaymentAmount(5900, "EUR")
+    payment = OnlinePayment(
+        "payment-settled-paid", "user-a", "project-a", "job-a",
+        amount, PaymentStatus.SETTLED,
+    )
+
+    assert payment.amount == amount
+    assert payment.status is PaymentStatus.SETTLED
