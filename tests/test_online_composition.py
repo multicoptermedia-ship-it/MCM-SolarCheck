@@ -2177,3 +2177,29 @@ def test_sepa_checkout_retry_returns_persisted_payment_identity(tmp_path) -> Non
     assert second.project_id == first.project_id
     assert second.job_id == first.job_id
     assert second.status == first.status
+
+
+def test_sepa_voucher_discounts_introductory_price(tmp_path) -> None:
+    from datetime import timedelta
+    from mcm_solarcheck.services.payment import PaymentAmount
+    from mcm_solarcheck.services.voucher import FlightPlanVoucher
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-voucher")
+    persistence.vouchers.create(
+        FlightPlanVoucher("SEPA-VOUCHER", now - timedelta(days=1), now + timedelta(days=1))
+    )
+
+    payment = services.sepa_checkout.checkout(
+        "payment-sepa-voucher",
+        user_id="user-sepa-voucher",
+        project_id="project-user-sepa-voucher",
+        job_id="job-user-sepa-voucher",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-voucher",
+        voucher_code="SEPA-VOUCHER",
+        now=now,
+    )
+
+    assert payment.amount == PaymentAmount(5310, "EUR")
+    assert persistence.vouchers.get("SEPA-VOUCHER").redeemed_payment_id == payment.payment_id
