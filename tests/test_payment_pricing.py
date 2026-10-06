@@ -1093,3 +1093,28 @@ def test_voucher_payment_duplicate_payment_id_returns_domain_error(tmp_path) -> 
             job_id="job-voucher-second", base_amount=PaymentAmount(5900, "EUR"),
             voucher_code="DUP-PAYMENT-ID", now=now,
         )
+
+
+def test_voucher_duplicate_payment_id_preserves_original_payment(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    vouchers.create(FlightPlanVoucher("DUP-ID-PRESERVE", now - timedelta(days=1), now + timedelta(days=1)))
+    original = OnlinePayment(
+        "payment-voucher-preserved", "user-a", "project-a", "job-original-preserved",
+        PaymentAmount(5900, "EUR"),
+    )
+    payments.create(original)
+    service = PaymentPricingService(
+        payments, vouchers, FlightPlanVoucherPolicy(),
+        SQLitePricedPaymentStore(payments.database, vouchers.database),
+    )
+
+    with pytest.raises(ValueError, match="payment id already exists"):
+        service.create_payment(
+            "payment-voucher-preserved", user_id="user-b", project_id="project-b",
+            job_id="job-other-preserved", base_amount=PaymentAmount(6900, "EUR"),
+            voucher_code="DUP-ID-PRESERVE", now=now,
+        )
+
+    assert payments.get("payment-voucher-preserved") == original
