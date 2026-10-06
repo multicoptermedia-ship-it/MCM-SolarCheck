@@ -210,3 +210,11 @@ def test_non_finite_tier_values_are_rejected(field: str, invalid: str) -> None:
     tier[field] = Decimal(invalid)
     with pytest.raises(ValueError, match="tier values must be finite"):
         PricingRule(version="finite-tiers-test", tiers=(PriceTier(**tier),))
+
+
+def test_tier_price_rounds_half_up_to_cents() -> None:
+    pricing = PricingRule(version="rounding", tiers=(PriceTier(None, Decimal("10.005")),))
+    snapshot = pricing.price(Decimal("1"))
+
+    assert snapshot.net_before_discount == Decimal("10.01")
+    assert snapshot.net_total == Decimal("10.01")
