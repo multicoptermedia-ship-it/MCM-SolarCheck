@@ -258,3 +258,31 @@ def test_checkout_uses_regular_tariff_after_offer_deadline(tmp_path) -> None:
         now=datetime(2027, 1, 1, 0, 0, tzinfo=timezone.utc),
     )
     assert result.amount == PaymentAmount(14500, "EUR")
+
+
+def test_unregistered_customer_keeps_regular_card_price(tmp_path) -> None:
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers.sqlite")
+    class MissingRegistrations:
+        def get(self, user_id):
+            raise KeyError(user_id)
+
+    checkout, payments, gateway = build_checkout(
+        tmp_path,
+        PaymentMethod.CARD,
+        MerchantAccountKind.CARD_PROCESSOR,
+        introductory_offers=offers,
+        registrations=MissingRegistrations(),
+    )
+    result = checkout.checkout(
+        "payment-unregistered",
+        user_id="user-unregistered",
+        project_id="project-a",
+        job_id="job-unregistered",
+        plant_kwp=750,
+        method=PaymentMethod.CARD,
+        provider_id="provider-a",
+        merchant_account_id="merchant-a",
+        now=datetime(2026, 10, 6, 10, 0, tzinfo=timezone.utc),
+    )
+    assert result.amount == PaymentAmount(14500, "EUR")
+    assert offers.has_used("user-unregistered") is False
