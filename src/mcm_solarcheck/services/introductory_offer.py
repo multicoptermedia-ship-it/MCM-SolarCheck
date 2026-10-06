@@ -10,7 +10,11 @@ from mcm_solarcheck.services.registration import RegistrationStatus
 
 
 class IntroductoryOfferReservationNotFound(ValueError):
-    """Raised when no matching introductory offer reservation exists."""
+    """Raised when no introductory offer reservation exists for the customer."""
+
+
+class IntroductoryOfferPaymentMismatch(ValueError):
+    """Raised when an offer belongs to another payment for the same customer."""
 
 
 
