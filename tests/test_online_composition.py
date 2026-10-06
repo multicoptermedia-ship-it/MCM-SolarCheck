@@ -2115,3 +2115,34 @@ def test_sepa_checkout_retry_keeps_payment_after_intro_reservation_release(tmp_p
 
     assert first.amount == PaymentAmount(5900, "EUR")
     assert second.amount == first.amount
+
+
+def test_sepa_checkout_retry_preserves_payment_after_intro_deadline(tmp_path) -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.payment import PaymentAmount
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-existing-deadline")
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-existing-deadline",
+        user_id="user-sepa-existing-deadline",
+        project_id="project-user-sepa-existing-deadline",
+        job_id="job-user-sepa-existing-deadline",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-existing-deadline",
+        now=now,
+    )
+
+    second = services.sepa_checkout.checkout(
+        "payment-sepa-existing-deadline",
+        user_id="user-sepa-existing-deadline",
+        project_id="project-user-sepa-existing-deadline",
+        job_id="job-user-sepa-existing-deadline",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-existing-deadline",
+        now=datetime(2027, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert first.amount == PaymentAmount(5900, "EUR")
+    assert second.amount == first.amount
