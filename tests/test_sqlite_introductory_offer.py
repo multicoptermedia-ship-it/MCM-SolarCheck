@@ -133,3 +133,13 @@ def test_reservation_lookup_requires_matching_payment_and_policy(tmp_path) -> No
     assert store.is_reserved("user-a", "payment-a", policy_version=1)
     assert not store.is_reserved("user-a", "payment-b", policy_version=1)
     assert not store.is_reserved("user-a", "payment-a", policy_version=2)
+
+
+def test_finalized_offer_is_not_reported_as_reserved(tmp_path) -> None:
+    store = SQLiteIntroductoryOfferStore(tmp_path / "offers-lookup-used.sqlite")
+    now = datetime(2026, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+    assert store.reserve("user-a", "payment-a", policy_version=1, now=now)
+    store.finalize("user-a", "payment-a", used_at=now)
+
+    assert not store.is_reserved("user-a", "payment-a", policy_version=1)
+    assert store.has_used("user-a")
