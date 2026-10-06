@@ -175,7 +175,7 @@ def build_online_services(
     )
     compute_jobs = EntitledComputeJobService(compute_jobs_core, persistence.entitlements)
     billing = ComputeJobBillingService(persistence.billing, persistence.compute_jobs)
-    report_delivery = ReportDeliveryService(persistence.billing, persistence.reports)
+    report_delivery = ReportDeliveryService(persistence.billing, persistence.reports, persistence.payments)
     report_notifications = ReportRecoveryNotificationService(
         sender,
         ReportRecoveryEmailConfig(
