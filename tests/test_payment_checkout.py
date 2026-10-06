@@ -333,3 +333,42 @@ def test_failed_authorization_releases_introductory_offer(tmp_path) -> None:
         policy_version=1,
         now=datetime(2026, 10, 6, 10, 1, tzinfo=timezone.utc),
     ) is True
+
+
+def test_failed_card_merchant_binding_releases_introductory_offer(tmp_path) -> None:
+    offers = SQLiteIntroductoryOfferStore(tmp_path / "offers-bind.sqlite")
+
+    class VerifiedRegistrations:
+        def get(self, user_id):
+            from mcm_solarcheck.services.registration import OnlineRegistration
+            return OnlineRegistration(user_id, "Customer", "customer@example.com").verify(
+                datetime(2026, 10, 1, tzinfo=timezone.utc)
+            )
+
+    checkout, _, _ = build_checkout(
+        tmp_path,
+        PaymentMethod.CARD,
+        MerchantAccountKind.CARD_PROCESSOR,
+        introductory_offers=offers,
+        registrations=VerifiedRegistrations(),
+    )
+
+    with pytest.raises(KeyError):
+        checkout.checkout(
+            "payment-bind-failure",
+            user_id="user-bind-failure",
+            project_id="project-a",
+            job_id="job-a",
+            plant_kwp=750,
+            method=PaymentMethod.CARD,
+            provider_id="provider-a",
+            merchant_account_id="missing-merchant",
+            now=datetime(2026, 10, 6, 10, 0, tzinfo=timezone.utc),
+        )
+
+    assert offers.reserve(
+        "user-bind-failure",
+        "payment-bind-retry",
+        policy_version=1,
+        now=datetime(2026, 10, 6, 10, 1, tzinfo=timezone.utc),
+    )
