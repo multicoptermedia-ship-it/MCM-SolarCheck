@@ -2314,3 +2314,41 @@ def test_sepa_retry_cannot_reprice_existing_payment_with_new_voucher(tmp_path) -
     assert first.amount == PaymentAmount(5900, "EUR")
     assert second.amount == first.amount
     assert persistence.vouchers.get("SEPA-LATE-VOUCHER").redeemed is False
+
+
+def test_sepa_voucher_retry_cannot_switch_to_different_voucher(tmp_path) -> None:
+    from datetime import timedelta
+    from mcm_solarcheck.services.voucher import FlightPlanVoucher
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-switch-voucher")
+    for code in ("SEPA-VOUCHER-FIRST", "SEPA-VOUCHER-SECOND"):
+        persistence.vouchers.create(
+            FlightPlanVoucher(code, now - timedelta(days=1), now + timedelta(days=1))
+        )
+    first = services.sepa_checkout.checkout(
+        "payment-sepa-switch-voucher",
+        user_id="user-sepa-switch-voucher",
+        project_id="project-user-sepa-switch-voucher",
+        job_id="job-user-sepa-switch-voucher",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-switch-voucher",
+        voucher_code="SEPA-VOUCHER-FIRST",
+        now=now,
+    )
+
+    second = services.sepa_checkout.checkout(
+        "payment-sepa-switch-voucher",
+        user_id="user-sepa-switch-voucher",
+        project_id="project-user-sepa-switch-voucher",
+        job_id="job-user-sepa-switch-voucher",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-switch-voucher",
+        voucher_code="SEPA-VOUCHER-SECOND",
+        now=now,
+    )
+
+    assert second.amount == first.amount
+    assert persistence.vouchers.get("SEPA-VOUCHER-FIRST").redeemed_payment_id == first.payment_id
+    assert persistence.vouchers.get("SEPA-VOUCHER-SECOND").redeemed is False
