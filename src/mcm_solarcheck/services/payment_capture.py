@@ -99,14 +99,20 @@ class PaymentCaptureService:
             updated = self._payments.capture(payment_id, user_id, project_id)
             if self._operation_intents is not None:
                 self._operation_intents.mark_completed(payment_id)
-            if self._introductory_offers is not None:
-                try:
-                    self._introductory_offers.finalize(
-                        user_id, payment_id, used_at=datetime.now(timezone.utc)
-                    )
-                except ValueError as exc:
-                    if "reservation not found" not in str(exc):
-                        raise
+            self._finalize_introductory_offer(user_id, payment_id)
             return updated
 
-        return self._payments.capture(payment_id, user_id, project_id)
+        updated = self._payments.capture(payment_id, user_id, project_id)
+        self._finalize_introductory_offer(user_id, payment_id)
+        return updated
+
+    def _finalize_introductory_offer(self, user_id: str, payment_id: str) -> None:
+        if self._introductory_offers is None:
+            return
+        try:
+            self._introductory_offers.finalize(
+                user_id, payment_id, used_at=datetime.now(timezone.utc)
+            )
+        except ValueError as exc:
+            if "reservation not found" not in str(exc):
+                raise
