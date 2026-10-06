@@ -740,3 +740,22 @@ def test_pricing_rejects_second_payment_for_same_job_without_voucher(tmp_path) -
 
     with pytest.raises(KeyError):
         payments.get("payment-job-second")
+
+
+def test_duplicate_job_rejection_preserves_original_payment(tmp_path) -> None:
+    payments = SQLiteOnlinePaymentStore(tmp_path / "payments.sqlite")
+    vouchers = SQLiteFlightPlanVoucherStore(tmp_path / "vouchers.sqlite")
+    service = PaymentPricingService(payments, vouchers, FlightPlanVoucherPolicy(10))
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    first = service.create_payment(
+        "payment-original-job", user_id="user-a", project_id="project-a",
+        job_id="job-preserved", base_amount=PaymentAmount(5900, "EUR"), now=now,
+    )
+
+    with pytest.raises(ValueError, match="already has a payment"):
+        service.create_payment(
+            "payment-rejected-job", user_id="user-b", project_id="project-b",
+            job_id="job-preserved", base_amount=PaymentAmount(14500, "EUR"), now=now,
+        )
+
+    assert payments.get("payment-original-job") == first
