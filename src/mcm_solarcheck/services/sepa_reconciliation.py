@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Protocol
 
+from mcm_solarcheck.services.introductory_offer import IntroductoryOfferStore
 from mcm_solarcheck.services.sepa_collection import (
     SepaCollection,
     SepaCollectionStatus,
@@ -59,8 +61,13 @@ class SepaReconciliationStore(Protocol):
 
 
 class SepaReconciliationService:
-    def __init__(self, collections: SepaReconciliationStore) -> None:
+    def __init__(
+        self,
+        collections: SepaReconciliationStore,
+        introductory_offers: IntroductoryOfferStore | None = None,
+    ) -> None:
         self._collections = collections
+        self._introductory_offers = introductory_offers
 
     def resolve(
         self, provider_id: str, provider_reference: str
@@ -72,11 +79,13 @@ class SepaReconciliationService:
     def apply(self, event: SepaProviderEvent) -> SepaCollection:
         atomic_apply = getattr(self._collections, "apply_provider_event", None)
         if callable(atomic_apply):
-            return atomic_apply(
+            result = atomic_apply(
                 event.provider_id,
                 event.provider_reference,
                 target=event.status,
             )
+            self._apply_offer_result(result)
+            return result
 
         collection = self._collections.get_by_provider_reference(
             event.provider_id,
@@ -102,8 +111,29 @@ class SepaReconciliationService:
         if event.status in stale_after_terminal.get(collection.status, set()):
             return collection
 
-        return self._collections.transition(
+        result = self._collections.transition(
             collection.collection_id,
             user_id=collection.user_id,
             target=event.status,
         )
+        self._apply_offer_result(result)
+        return result
+
+    def _apply_offer_result(self, collection: SepaCollection) -> None:
+        if self._introductory_offers is None:
+            return
+        if collection.status is SepaCollectionStatus.SUCCEEDED:
+            try:
+                self._introductory_offers.finalize(
+                    collection.user_id,
+                    collection.payment_id,
+                    used_at=datetime.now(timezone.utc),
+                )
+            except ValueError as exc:
+                if "reservation not found" not in str(exc):
+                    raise
+        elif collection.status is SepaCollectionStatus.FAILED:
+            self._introductory_offers.release(
+                collection.user_id,
+                collection.payment_id,
+            )
