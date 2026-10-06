@@ -21,7 +21,10 @@ class SQLitePricedPaymentStore:
     def _validate_schema(self) -> None:
         connection = sqlite3.connect(self.payment_database, timeout=30)
         try:
-            connection.execute("ATTACH DATABASE ? AS vouchers", (self.voucher_database,))
+            same_database = Path(self.payment_database).resolve() == Path(self.voucher_database).resolve()
+            if not same_database:
+                connection.execute("ATTACH DATABASE ? AS vouchers", (self.voucher_database,))
+            voucher_schema = "main" if same_database else "vouchers"
             payment_table = connection.execute(
                 """
                 SELECT 1 FROM main.sqlite_master
@@ -29,8 +32,8 @@ class SQLitePricedPaymentStore:
                 """
             ).fetchone()
             voucher_table = connection.execute(
-                """
-                SELECT 1 FROM vouchers.sqlite_master
+                f"""
+                SELECT 1 FROM {voucher_schema}.sqlite_master
                 WHERE type = 'table' AND name = 'flightplan_vouchers'
                 """
             ).fetchone()
@@ -42,7 +45,7 @@ class SQLitePricedPaymentStore:
                 "PRAGMA main.journal_mode"
             ).fetchone()[0].lower()
             voucher_journal = connection.execute(
-                "PRAGMA vouchers.journal_mode"
+                f"PRAGMA {voucher_schema}.journal_mode"
             ).fetchone()[0].lower()
             if "wal" in {payment_journal, voucher_journal}:
                 raise ValueError(
@@ -63,15 +66,18 @@ class SQLitePricedPaymentStore:
     ) -> FlightPlanVoucher:
         connection = sqlite3.connect(self.payment_database, timeout=30)
         try:
-            connection.execute("ATTACH DATABASE ? AS vouchers", (self.voucher_database,))
+            same_database = Path(self.payment_database).resolve() == Path(self.voucher_database).resolve()
+            if not same_database:
+                connection.execute("ATTACH DATABASE ? AS vouchers", (self.voucher_database,))
+            voucher_schema = "main" if same_database else "vouchers"
             connection.execute("BEGIN IMMEDIATE")
             normalized = voucher_code.strip()
             row = connection.execute(
-                """
+                f"""
                 SELECT valid_from, valid_until, redeemed_payment_id,
                        redeemed_at, redeemed_discount_percent,
                        redeemed_policy_version
-                FROM vouchers.flightplan_vouchers
+                FROM {voucher_schema}.flightplan_vouchers
                 WHERE code = ?
                 """,
                 (normalized,),
@@ -130,8 +136,8 @@ class SQLitePricedPaymentStore:
                 ),
             )
             connection.execute(
-                """
-                UPDATE vouchers.flightplan_vouchers
+                f"""
+                UPDATE {voucher_schema}.flightplan_vouchers
                 SET redeemed_payment_id = ?, redeemed_at = ?,
                     redeemed_discount_percent = ?,
                     redeemed_policy_version = ?
