@@ -65,6 +65,20 @@ class SQLiteOnlinePaymentStore:
                 connection.execute(
                     "ALTER TABLE online_payments ADD COLUMN plant_kwp INTEGER"
                 )
+            invalid_amount = connection.execute(
+                """
+                SELECT payment_id
+                FROM online_payments
+                WHERE amount_minor_units IS NULL
+                   OR currency IS NULL
+                   OR amount_minor_units <= 0
+                LIMIT 1
+                """
+            ).fetchone()
+            if invalid_amount is not None:
+                raise ValueError(
+                    "payment database contains payment without positive amount"
+                )
             duplicate = connection.execute(
                 """
                 SELECT job_id, COUNT(*)
