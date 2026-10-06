@@ -1586,3 +1586,48 @@ def test_verified_sepa_checkout_uses_introductory_price(tmp_path) -> None:
 
     assert payment.amount == PaymentAmount(5900, "EUR")
     assert persistence.introductory_offers.has_used("user-sepa-intro") is False
+
+
+def _verified_sepa_intro_services(tmp_path, user_id):
+    from datetime import datetime, timedelta, timezone
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobDelivery
+    from mcm_solarcheck.services.merchant_account import MerchantAccount, MerchantAccountKind
+    from mcm_solarcheck.services.registration import OnlineRegistration
+    from mcm_solarcheck.services.solarcheck_tariff import initial_solarcheck_tariff
+
+    persistence = setup_persistence(tmp_path, secret_configured=True)
+    now = datetime(2026, 10, 6, 10, 0, tzinfo=timezone.utc)
+    persistence.registrations.create(
+        OnlineRegistration(user_id, "SEPA Intro", user_id + "@example.com"),
+        token=user_id + "-token",
+        expires_at=now + timedelta(minutes=30),
+    )
+    persistence.registrations.verify(user_id + "-token", now=now)
+    persistence.merchant_accounts.save(
+        MerchantAccount("merchant-" + user_id, "provider-a", MerchantAccountKind.BANK, "SEPA")
+    )
+    persistence.tariffs.save(initial_solarcheck_tariff(datetime(2026, 9, 30, tzinfo=timezone.utc)))
+    persistence.billing.create(
+        ComputeJobBilling(ComputeJobDelivery("job-" + user_id, user_id, "project-" + user_id))
+    )
+    return persistence, online_services(persistence), now
+
+
+def test_failed_sepa_merchant_binding_releases_introductory_offer(tmp_path) -> None:
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-bind")
+
+    with pytest.raises(KeyError):
+        services.sepa_checkout.checkout(
+            "payment-sepa-bind",
+            user_id="user-sepa-bind",
+            project_id="project-user-sepa-bind",
+            job_id="job-user-sepa-bind",
+            plant_kwp=750,
+            provider_id="provider-a",
+            merchant_account_id="missing-merchant",
+            now=now,
+        )
+
+    assert persistence.introductory_offers.reserve(
+        "user-sepa-bind", "payment-sepa-bind-retry", policy_version=1, now=now
+    )
