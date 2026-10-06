@@ -60,5 +60,5 @@ def test_offer_finalization_is_idempotent_only_for_same_payment(tmp_path) -> Non
     store.finalize("user-a", "payment-a", used_at=now)
 
     assert store.has_used("user-a") is True
-    with pytest.raises(ValueError, match="reservation not found"):
+    with pytest.raises(ValueError, match="payment mismatch"):
         store.finalize("user-a", "payment-b", used_at=now)
