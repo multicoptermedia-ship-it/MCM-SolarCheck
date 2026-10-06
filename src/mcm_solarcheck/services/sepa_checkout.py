@@ -70,12 +70,10 @@ class OnlineSepaCheckoutService:
         provider.require(PaymentMethod.SEPA_DIRECT_DEBIT)
 
         existing_payment = None
-        payment_store = getattr(self._pricing, "_payments", None)
-        if payment_store is not None:
-            try:
-                existing_payment = payment_store.get(payment_id)
-            except KeyError:
-                pass
+        try:
+            existing_payment = self._payments.get(payment_id)
+        except KeyError:
+            pass
         if existing_payment is not None:
             if (
                 existing_payment.user_id != user_id
