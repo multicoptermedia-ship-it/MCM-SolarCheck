@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from mcm_solarcheck.services.introductory_offer import (
+    IntroductoryOfferPaymentMismatch,
     IntroductoryOfferReservationNotFound,
 )
 
@@ -95,6 +96,17 @@ class SQLiteIntroductoryOfferStore:
             ).fetchone()
             if row is not None and row[0] == "used":
                 return
+            owner_row = connection.execute(
+                """
+                SELECT payment_id FROM introductory_offer_usage
+                WHERE user_id = ?
+                """,
+                (user_id.strip(),),
+            ).fetchone()
+            if owner_row is not None:
+                raise IntroductoryOfferPaymentMismatch(
+                    "introductory offer payment mismatch"
+                )
             raise IntroductoryOfferReservationNotFound(
                 "introductory offer reservation not found"
             )
