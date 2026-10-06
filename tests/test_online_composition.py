@@ -1806,3 +1806,26 @@ def test_sepa_reserved_offer_is_not_reused_by_different_policy_version(tmp_path)
     assert persistence.introductory_offers.is_reserved(
         "user-sepa-policy-mismatch", "payment-sepa-policy", policy_version=2
     )
+
+
+def test_sepa_used_offer_is_not_reissued_for_new_payment(tmp_path) -> None:
+    from mcm_solarcheck.services.payment import PaymentAmount
+
+    persistence, services, now = _verified_sepa_intro_services(tmp_path, "user-sepa-used")
+    persistence.introductory_offers.mark_used(
+        "user-sepa-used", "payment-sepa-used-original", policy_version=1, used_at=now
+    )
+
+    payment = services.sepa_checkout.checkout(
+        "payment-sepa-used-next",
+        user_id="user-sepa-used",
+        project_id="project-user-sepa-used",
+        job_id="job-user-sepa-used",
+        plant_kwp=750,
+        provider_id="provider-a",
+        merchant_account_id="merchant-user-sepa-used",
+        now=now,
+    )
+
+    assert payment.amount == PaymentAmount(14500, "EUR")
+    assert persistence.introductory_offers.has_used("user-sepa-used")
