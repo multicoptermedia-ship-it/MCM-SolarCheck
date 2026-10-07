@@ -596,3 +596,14 @@ def test_compute_job_service_claim_accepts_running_job() -> None:
     service = ComputeJobService(store, claims=claims)
     assert service.claim("job-a", worker_id="worker-a") == running
     assert claims.calls == [("job-a", "worker-a", None)]
+
+
+def test_compute_job_service_renew_claim_rejects_queued_job() -> None:
+    from datetime import datetime, timedelta, timezone
+    from mcm_solarcheck.services.compute_jobs import ComputeJobLease, ComputeJobService
+    lease = ComputeJobLease(datetime(2026, 1, 1, tzinfo=timezone.utc), timedelta(minutes=5))
+    class Claims:
+        def renew_claim(self, *args, **kwargs): raise AssertionError("renew must not be called")
+    store = _InMemoryComputeJobStore(); store.create(ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.QUEUED))
+    with pytest.raises(ValueError, match="running compute job"):
+        ComputeJobService(store, claims=Claims()).renew_claim("job-a", worker_id="worker-a", lease=lease)
