@@ -103,3 +103,15 @@ def test_upload_store_allows_project_symlink_inside_upload_root(tmp_path) -> Non
     store.store(upload())
 
     assert (target / "thermal.jpg").read_bytes() == b"validated-content"
+
+
+def test_upload_escape_is_rejected_before_external_project_directory_creation(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    external = tmp_path / "external"
+    external.mkdir()
+    (store.root / "user-1").symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="outside configured root"):
+        store.project_directory("user-1", "P-1")
+
+    assert not (external / "P-1").exists()
