@@ -154,3 +154,14 @@ def test_upload_file_symlink_escape_does_not_modify_external_bytes(tmp_path) -> 
         store.store(upload())
 
     assert external.read_bytes() == b"keep-me"
+
+
+def test_upload_store_writes_regular_file_within_private_root(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+
+    store.store(upload(filename="regular.jpg"))
+
+    destination = store.root / "user-1" / "P-1" / "regular.jpg"
+    assert destination.is_file()
+    assert not destination.is_symlink()
+    assert destination.read_bytes() == b"validated-content"
