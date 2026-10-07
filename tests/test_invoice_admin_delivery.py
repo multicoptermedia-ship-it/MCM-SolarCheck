@@ -1352,3 +1352,20 @@ def test_invoice_archive_root_retarget_does_not_expose_external_existing_pdf(tmp
 
     with pytest.raises(ValueError, match="outside configured archive"):
         archive.store("invoice-42", b"%PDF external")
+
+
+def test_invoice_package_rejects_root_symlink_retarget_after_initialization(tmp_path) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    root = tmp_path / "invoices"
+    root.symlink_to(trusted, target_is_directory=True)
+    archive = FileSystemInvoiceArchive(root)
+    root.unlink()
+    root.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="outside configured archive"):
+        archive.store_package("invoice-42", b"%PDF invoice", b"invoice_id;item_number\n")
+
+    assert list(external.iterdir()) == []
