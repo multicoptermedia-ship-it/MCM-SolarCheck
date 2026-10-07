@@ -108,3 +108,19 @@ def test_report_store_missing_artifact_still_raises_file_not_found(tmp_path) -> 
 
     with pytest.raises(FileNotFoundError):
         store.get("job-missing")
+
+
+def test_report_store_rejects_root_symlink_retarget_after_initialization(tmp_path) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    (external / "job-a.pdf").write_bytes(b"external report")
+    root = tmp_path / "reports"
+    root.symlink_to(trusted, target_is_directory=True)
+    store = FileSystemReportArtifactStore(root)
+    root.unlink()
+    root.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.get("job-a")
