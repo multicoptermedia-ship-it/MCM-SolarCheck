@@ -39,7 +39,13 @@ class FileSystemReportArtifactStore:
 
     def get(self, job_id: str) -> ReportArtifact:
         path = self.path_for(job_id)
-        content = path.read_bytes()
+        resolved_root = self.root.resolve()
+        resolved_path = path.resolve()
+        try:
+            resolved_path.relative_to(resolved_root)
+        except ValueError as exc:
+            raise ValueError("report artifact resolves outside configured report directory") from exc
+        content = resolved_path.read_bytes()
         return ReportArtifact(
             self._safe_job_id(job_id),
             content,
