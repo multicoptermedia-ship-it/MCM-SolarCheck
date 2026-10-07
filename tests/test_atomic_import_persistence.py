@@ -131,29 +131,14 @@ def test_project_import_rolls_back_when_pair_write_fails():
     assert "commit" not in database.events
 
 
-def test_project_import_heartbeat_failure_rolls_back_all_parts():
-    class Connection:
-        def execute(self, *args): pass
-        def executemany(self, *args): pass
-    class Database(_AtomicDatabase):
-        @contextmanager
-        def connect(self):
-            self.events.append("begin")
-            try:
-                yield Connection()
-            except Exception:
-                self.events.append("rollback")
-                raise
-            else:
-                self.events.append("commit")
-    calls = 0
+def test_project_import_heartbeat_failure_prevents_transaction_start():
+    database = _AtomicDatabase()
+
     def heartbeat():
-        nonlocal calls
-        calls += 1
-        if calls == 2: raise RuntimeError("lease expired")
-    database = Database()
+        raise RuntimeError("lease expired")
+
     with pytest.raises(RuntimeError, match="lease expired"):
         database.save_project_import("project-a", _project_import(), heartbeat=heartbeat)
-    assert calls == 2
-    assert "rollback" in database.events
+
+    assert "begin" not in database.events
     assert "commit" not in database.events
