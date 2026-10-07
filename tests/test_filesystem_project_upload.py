@@ -64,3 +64,15 @@ def test_project_directory_resolver_does_not_create_directory(tmp_path) -> None:
 
     assert directory == store.root / "user-1" / "P-1"
     assert not directory.exists()
+
+
+def test_upload_store_rejects_customer_directory_symlink_escape(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    external = tmp_path / "external"
+    external.mkdir()
+    (store.root / "user-1").symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="outside configured root"):
+        store.store(upload())
+
+    assert not (external / "P-1" / "thermal.jpg").exists()
