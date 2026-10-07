@@ -47,4 +47,12 @@ def store_project_import(
     """
     if not customer_id.strip() or not project_id.strip():
         raise ValueError("customer and project are required")
-    return store_m3t_batch(database, project_id.strip(), imported.thermal_batch, heartbeat=heartbeat)
+    project_id = project_id.strip()
+    if callable(getattr(database, "save_project_import", None)):
+        database.save_project_import(project_id, imported, heartbeat=heartbeat)
+        return PersistenceSummary(
+            len(imported.thermal_batch.results),
+            sum(len(result.findings) for result in imported.thermal_batch.results),
+            len(imported.thermal_batch.failures),
+        )
+    return store_m3t_batch(database, project_id, imported.thermal_batch, heartbeat=heartbeat)
