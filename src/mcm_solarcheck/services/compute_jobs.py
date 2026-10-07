@@ -284,6 +284,9 @@ class ComputeJobService:
         """Claim one running job through the configured worker boundary."""
         if self.claims is None:
             raise RuntimeError("compute job claim source is required")
+        current = self.store.get(job_id)
+        if current.status is not ComputeJobStatus.RUNNING:
+            raise ValueError("only a running compute job can be claimed")
         return self.claims.claim(job_id, worker_id, lease)
 
     def renew_claim(
