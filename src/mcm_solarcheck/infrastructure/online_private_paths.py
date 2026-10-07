@@ -48,8 +48,12 @@ class OnlinePrivatePaths:
             raise ValueError("state database must not be inside a private document directory")
         if web is not None:
             for private_path in (database, *private_roots):
-                if private_path == web or _is_within(private_path, web):
-                    raise ValueError("private SolarCheck storage must be outside web root")
+                if (
+                    private_path == web
+                    or _is_within(private_path, web)
+                    or _is_within(web, private_path)
+                ):
+                    raise ValueError("private SolarCheck storage must be separate from web root")
 
         object.__setattr__(self, "state_database", database)
         object.__setattr__(self, "reports_root", reports)
