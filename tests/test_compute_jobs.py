@@ -711,3 +711,18 @@ def test_compute_job_service_finish_claimed_rejects_failed_job() -> None:
     store = _InMemoryComputeJobStore(); store.create(ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.FAILED))
     with pytest.raises(ValueError, match="running compute job"):
         ComputeJobService(store, claims=Claims()).finish_claimed("job-a", worker_id="worker-a", succeeded=False)
+
+
+def test_compute_job_service_finish_claimed_accepts_running_job() -> None:
+    from datetime import datetime, timezone
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    completed = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.COMPLETED)
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    class Claims:
+        def __init__(self): self.calls = []
+        def finish_claimed(self, job_id, worker_id, *, succeeded, now=None): self.calls.append((job_id, worker_id, succeeded, now)); return completed
+    store = _InMemoryComputeJobStore(); store.create(running); claims = Claims()
+    service = ComputeJobService(store, claims=claims)
+    assert service.finish_claimed("job-a", worker_id="worker-a", succeeded=True, now=now) == completed
+    assert claims.calls == [("job-a", "worker-a", True, now)]
