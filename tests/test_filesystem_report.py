@@ -232,3 +232,20 @@ def test_report_path_allows_internal_symlink_write_target(tmp_path) -> None:
     store.path_for("job-a").write_bytes(b"new")
 
     assert target.read_bytes() == b"new"
+
+
+def test_report_publish_rejects_destination_symlink_escape(tmp_path) -> None:
+    root = tmp_path / "private" / "reports"
+    root.mkdir(parents=True)
+    external = tmp_path / "external.pdf"
+    external.write_bytes(b"keep-me")
+    (root / "job-a.pdf").symlink_to(external)
+    temporary = root / ".job-a.tmp"
+    temporary.write_bytes(b"new report")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.publish("job-a", temporary)
+
+    assert external.read_bytes() == b"keep-me"
+    assert temporary.read_bytes() == b"new report"
