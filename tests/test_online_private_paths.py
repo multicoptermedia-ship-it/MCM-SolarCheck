@@ -107,3 +107,15 @@ def test_online_private_paths_reject_web_root_inside_uploads(tmp_path) -> None:
             private / "uploads" / "public",
             private / "uploads",
         )
+
+
+def test_online_private_paths_reject_web_root_below_database_path(tmp_path) -> None:
+    private = tmp_path / "private"
+
+    with pytest.raises(ValueError, match="separate from web root"):
+        OnlinePrivatePaths(
+            private / "state",
+            private / "reports",
+            private / "invoices",
+            private / "state" / "public",
+        )
