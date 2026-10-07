@@ -1272,3 +1272,15 @@ def test_invoice_delivery_sqlite_schema_never_duplicates_document_data(tmp_path)
         "recipient",
     }
     assert forbidden.isdisjoint(columns)
+
+
+def test_invoice_archive_rejects_pdf_symlink_escape(tmp_path) -> None:
+    root = tmp_path / "private" / "invoices"
+    root.mkdir(parents=True)
+    secret = tmp_path / "secret.pdf"
+    secret.write_bytes(b"%PDF server secret")
+    (root / "invoice-42.pdf").symlink_to(secret)
+    archive = FileSystemInvoiceArchive(root)
+
+    with pytest.raises(ValueError, match="outside configured archive"):
+        archive.store("invoice-42", b"%PDF invoice")
