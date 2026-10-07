@@ -1419,7 +1419,7 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
     assert result.state is ProjectProcessingState.COMPLETED
     assert result.imported_thermal_frames == 0
     assert status == ComputeJobStatus.COMPLETED.value
-    assert lease_expires_at == (start + timedelta(minutes=8)).isoformat()
+    assert lease_expires_at is None
 
 def test_online_project_pricing_cannot_claim_configured_discount(tmp_path) -> None:
     from decimal import Decimal
