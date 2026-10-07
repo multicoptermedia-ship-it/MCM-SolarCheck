@@ -14,8 +14,16 @@ class PersistenceSummary:
 
 def store_m3t_batch(database:ProjectDatabase,project_id:str,batch:M3TBatchResult,*,heartbeat:Callable[[],None]|None=None)->PersistenceSummary:
     """Store each successful frame and its findings in one transaction."""
+    results=tuple(batch.results)
+    if callable(getattr(database, "save_thermal_results", None)):
+        database.save_thermal_results(project_id, results, heartbeat=heartbeat)
+        return PersistenceSummary(
+            len(results),
+            sum(len(result.findings) for result in results),
+            len(batch.failures),
+        )
     frames=findings=0
-    for result in batch.results:
+    for result in results:
         if heartbeat is not None:
             heartbeat()
         database.save_thermal_result(project_id,result.frame,result.quality,result.findings)
