@@ -1382,3 +1382,21 @@ def test_invoice_archive_accepts_unchanged_symlink_root_target(tmp_path) -> None
 
     assert path == root / "invoice-42.pdf"
     assert (trusted / "invoice-42.pdf").read_bytes() == b"%PDF invoice"
+
+
+def test_invoice_atomic_write_rechecks_retargeted_parent(tmp_path) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    root = tmp_path / "invoices"
+    root.symlink_to(trusted, target_is_directory=True)
+    archive = FileSystemInvoiceArchive(root)
+    path = archive.path_for("invoice-42")
+    root.unlink()
+    root.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="outside configured archive"):
+        archive._atomic_write(path, b"%PDF invoice")
+
+    assert not (external / "invoice-42.pdf").exists()
