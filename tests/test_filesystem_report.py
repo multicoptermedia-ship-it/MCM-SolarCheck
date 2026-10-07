@@ -54,3 +54,15 @@ def test_report_file_can_be_manually_deleted_without_state_side_effects(tmp_path
 
     with pytest.raises(FileNotFoundError):
         store.get("job-a")
+
+
+def test_report_store_rejects_symlink_escape(tmp_path) -> None:
+    root = tmp_path / "private" / "reports"
+    root.mkdir(parents=True)
+    secret = tmp_path / "secret.pdf"
+    secret.write_bytes(b"server secret")
+    (root / "job-a.pdf").symlink_to(secret)
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.get("job-a")
