@@ -150,3 +150,14 @@ def test_report_root_retarget_does_not_expose_external_bytes(tmp_path, monkeypat
     with pytest.raises(ValueError, match="outside configured report directory"):
         store.get("job-a")
     assert reads == []
+
+
+def test_report_store_accepts_unchanged_symlink_root_target(tmp_path) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    (trusted / "job-a.pdf").write_bytes(b"private report")
+    root = tmp_path / "reports"
+    root.symlink_to(trusted, target_is_directory=True)
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.get("job-a").content == b"private report"
