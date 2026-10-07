@@ -1,0 +1,53 @@
+from contextlib import contextmanager
+from types import SimpleNamespace
+
+import pytest
+
+from mcm_solarcheck.storage.sqlite import ProjectDatabase
+
+
+def _result(name):
+    return SimpleNamespace(
+        frame=SimpleNamespace(frame_id=name),
+        quality=object(),
+        findings=(),
+    )
+
+
+class _AtomicDatabase(ProjectDatabase):
+    def __init__(self):
+        self.events = []
+
+    @contextmanager
+    def connect(self):
+        self.events.append("begin")
+        try:
+            yield object()
+        except Exception:
+            self.events.append("rollback")
+            raise
+        else:
+            self.events.append("commit")
+
+    def _save_thermal_frame(self, db, project_id, frame, quality):
+        self.events.append(("frame", frame.frame_id))
+
+    def _save_training_frame(self, db, project_id, frame, modality):
+        self.events.append(("training", frame.frame_id))
+
+    def _save_findings(self, db, project_id, findings):
+        self.events.append(("findings", project_id))
+
+    def _save_sensor_links(self, db, project_id, findings):
+        self.events.append(("links", project_id))
+
+
+def test_atomic_thermal_batch_uses_one_transaction():
+    database = _AtomicDatabase()
+
+    database.save_thermal_results("project-a", (_result("a"), _result("b")))
+
+    assert database.events.count("begin") == 1
+    assert database.events.count("commit") == 1
+    assert ("frame", "a") in database.events
+    assert ("frame", "b") in database.events
