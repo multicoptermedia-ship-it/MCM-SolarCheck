@@ -1308,3 +1308,14 @@ def test_invoice_archive_rejects_ready_marker_symlink_escape(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="outside configured archive"):
         archive.package_is_ready("invoice-42")
+
+
+def test_invoice_archive_allows_existing_symlink_target_inside_archive(tmp_path) -> None:
+    root = tmp_path / "private" / "invoices"
+    root.mkdir(parents=True)
+    target = root / "stored.pdf"
+    target.write_bytes(b"%PDF invoice")
+    (root / "invoice-42.pdf").symlink_to(target)
+    archive = FileSystemInvoiceArchive(root)
+
+    assert archive.store("invoice-42", b"%PDF invoice") == root / "invoice-42.pdf"
