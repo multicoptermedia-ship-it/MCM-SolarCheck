@@ -66,3 +66,14 @@ def test_report_store_rejects_symlink_escape(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="outside configured report directory"):
         store.get("job-a")
+
+
+def test_report_store_allows_symlink_target_inside_report_root(tmp_path) -> None:
+    root = tmp_path / "private" / "reports"
+    root.mkdir(parents=True)
+    target = root / "stored.pdf"
+    target.write_bytes(b"private report")
+    (root / "job-a.pdf").symlink_to(target)
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.get("job-a").content == b"private report"
