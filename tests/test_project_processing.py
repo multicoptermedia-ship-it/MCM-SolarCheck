@@ -817,3 +817,15 @@ def test_processing_heartbeat_rechecks_job_ownership() -> None:
     recorder = ComputeJobProcessingStateRecorder(Jobs(), job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a", lease=lease, renew_lease=lambda: lease)
     with pytest.raises(PermissionError, match="access denied"):
         recorder.heartbeat()
+
+
+def test_processing_heartbeat_rejects_missing_job() -> None:
+    from datetime import datetime, timedelta, timezone
+    from mcm_solarcheck.services.compute_jobs import ComputeJobLease
+    lease = ComputeJobLease(datetime(2026, 1, 1, tzinfo=timezone.utc), timedelta(minutes=5))
+    class Jobs:
+        def get(self, job_id, *, user_id, project_id): raise KeyError(job_id)
+        def renew_claim(self, *args, **kwargs): raise AssertionError("claim must not renew")
+    recorder = ComputeJobProcessingStateRecorder(Jobs(), job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a", lease=lease, renew_lease=lambda: lease)
+    with pytest.raises(PermissionError, match="not available"):
+        recorder.heartbeat()
