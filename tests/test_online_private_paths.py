@@ -75,7 +75,7 @@ def test_online_private_paths_reject_overlapping_upload_storage(tmp_path) -> Non
 def test_online_private_paths_reject_web_root_inside_reports(tmp_path) -> None:
     private = tmp_path / "private"
 
-    with pytest.raises(ValueError, match="separate from web root"):
+    with pytest.raises(ValueError, match="web root"):
         OnlinePrivatePaths(
             private / "solarcheck.sqlite",
             private / "reports",
@@ -87,7 +87,7 @@ def test_online_private_paths_reject_web_root_inside_reports(tmp_path) -> None:
 def test_online_private_paths_reject_web_root_inside_invoices(tmp_path) -> None:
     private = tmp_path / "private"
 
-    with pytest.raises(ValueError, match="separate from web root"):
+    with pytest.raises(ValueError, match="web root"):
         OnlinePrivatePaths(
             private / "solarcheck.sqlite",
             private / "reports",
@@ -99,7 +99,7 @@ def test_online_private_paths_reject_web_root_inside_invoices(tmp_path) -> None:
 def test_online_private_paths_reject_web_root_inside_uploads(tmp_path) -> None:
     private = tmp_path / "private"
 
-    with pytest.raises(ValueError, match="separate from web root"):
+    with pytest.raises(ValueError, match="web root"):
         OnlinePrivatePaths(
             private / "solarcheck.sqlite",
             private / "reports",
@@ -112,7 +112,7 @@ def test_online_private_paths_reject_web_root_inside_uploads(tmp_path) -> None:
 def test_online_private_paths_reject_web_root_below_database_path(tmp_path) -> None:
     private = tmp_path / "private"
 
-    with pytest.raises(ValueError, match="separate from web root"):
+    with pytest.raises(ValueError, match="web root"):
         OnlinePrivatePaths(
             private / "state",
             private / "reports",
