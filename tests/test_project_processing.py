@@ -856,3 +856,17 @@ def test_processing_heartbeat_renews_owned_running_job() -> None:
     recorder = ComputeJobProcessingStateRecorder(jobs, job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a", lease=initial, renew_lease=lambda: renewed)
     recorder.heartbeat()
     assert jobs.renewals == [("job-1", "worker-a", renewed)]
+
+
+def test_processing_completion_transition_failure_records_failed_state(tmp_path) -> None:
+    states = []
+    class Recorder:
+        def __call__(self, customer_id, project_id, state):
+            states.append(state)
+            if state is ProjectProcessingState.COMPLETED:
+                raise RuntimeError("completion failed")
+        def heartbeat(self): pass
+    service = ProjectProcessingService(lambda c, p: True, lambda c, p: tmp_path, lambda d: _project_import_result(), record_state=Recorder())
+    with pytest.raises(RuntimeError, match="completion failed"):
+        service.process(ProjectProcessingRequest("customer-a", "project-a"))
+    assert states[-2:] == [ProjectProcessingState.COMPLETED, ProjectProcessingState.FAILED]
