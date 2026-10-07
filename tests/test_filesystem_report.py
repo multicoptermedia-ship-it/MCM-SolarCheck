@@ -219,3 +219,16 @@ def test_report_path_rejects_root_retarget_before_write(tmp_path) -> None:
         store.path_for("job-a")
 
     assert not (external / "job-a.pdf").exists()
+
+
+def test_report_path_allows_internal_symlink_write_target(tmp_path) -> None:
+    root = tmp_path / "private" / "reports"
+    root.mkdir(parents=True)
+    target = root / "stored.pdf"
+    target.write_bytes(b"old")
+    (root / "job-a.pdf").symlink_to(target)
+    store = FileSystemReportArtifactStore(root)
+
+    store.path_for("job-a").write_bytes(b"new")
+
+    assert target.read_bytes() == b"new"
