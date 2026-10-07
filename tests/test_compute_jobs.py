@@ -582,3 +582,17 @@ def test_compute_job_service_claim_rejects_failed_job() -> None:
     service = ComputeJobService(store, claims=Claims())
     with pytest.raises(ValueError, match="running compute job"):
         service.claim("job-a", worker_id="worker-a")
+
+
+def test_compute_job_service_claim_accepts_running_job() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    class Claims:
+        def __init__(self): self.calls = []
+        def claim(self, job_id, worker_id, lease=None):
+            self.calls.append((job_id, worker_id, lease))
+            return running
+    store = _InMemoryComputeJobStore(); store.create(running); claims = Claims()
+    service = ComputeJobService(store, claims=claims)
+    assert service.claim("job-a", worker_id="worker-a") == running
+    assert claims.calls == [("job-a", "worker-a", None)]
