@@ -176,7 +176,7 @@ def test_upload_store_rechecks_directory_after_creation(tmp_path, monkeypatch) -
 
     def retarget_after_mkdir(path, *args, **kwargs):
         result = original_mkdir(path, *args, **kwargs)
-        if path == directory:
+        if path == directory and path.is_dir() and not path.is_symlink():
             path.rmdir()
             path.symlink_to(external, target_is_directory=True)
         return result
