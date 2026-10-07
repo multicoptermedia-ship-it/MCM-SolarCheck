@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-import tempfile
 from pathlib import Path
 
 from mcm_solarcheck.infrastructure.filesystem_report import FileSystemReportArtifactStore
@@ -49,15 +47,7 @@ class PrivateReportExportService:
         if report.project_id != project_id:
             raise ReportExportProjectMismatchError("report project does not match compute job")
 
-        destination = self._reports.path_for(job_id)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        descriptor, temporary_name = tempfile.mkstemp(
-            prefix=f".{destination.stem}-",
-            suffix=self._reports.suffix,
-            dir=destination.parent,
-        )
-        os.close(descriptor)
-        temporary = Path(temporary_name)
+        temporary = self._reports.create_temporary(job_id)
         try:
             export_report(
                 report,
