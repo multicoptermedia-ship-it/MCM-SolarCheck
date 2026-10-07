@@ -69,3 +69,26 @@ def test_atomic_thermal_batch_rolls_back_on_write_failure():
     assert database.events.count("begin") == 1
     assert database.events.count("rollback") == 1
     assert "commit" not in database.events
+
+
+def test_atomic_thermal_batch_rolls_back_on_heartbeat_failure():
+    database = _AtomicDatabase()
+    calls = 0
+
+    def heartbeat():
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("lease expired")
+
+    with pytest.raises(RuntimeError, match="lease expired"):
+        database.save_thermal_results(
+            "project-a",
+            (_result("a"), _result("b")),
+            heartbeat=heartbeat,
+        )
+
+    assert calls == 2
+    assert database.events.count("rollback") == 1
+    assert ("frame", "a") in database.events
+    assert ("frame", "b") not in database.events
