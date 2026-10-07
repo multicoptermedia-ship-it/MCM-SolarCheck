@@ -106,6 +106,20 @@ class ReportDeliveryService:
         )
         send(report)
 
+        if self._jobs is not None:
+            try:
+                job = self._jobs.get(job_id)
+            except KeyError as exc:
+                raise ReportDeliveryNotReadyError(
+                    "report delivery requires a completed compute job"
+                ) from exc
+            if job.user_id != user_id or job.project_id != project_id:
+                raise ReportDeliveryAccessError("report compute job ownership mismatch")
+            if job.status is not ComputeJobStatus.COMPLETED:
+                raise ReportDeliveryNotReadyError(
+                    "report delivery requires a completed compute job"
+                )
+
         delivered = self._billing.mark_report_retrieved(
             job_id,
             user_id,
