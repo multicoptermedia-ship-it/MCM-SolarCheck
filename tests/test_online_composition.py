@@ -1378,6 +1378,8 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
         ComputeJobLease(start + timedelta(minutes=1), timedelta(minutes=5)),
         ComputeJobLease(start + timedelta(minutes=2), timedelta(minutes=5)),
         ComputeJobLease(start + timedelta(minutes=3), timedelta(minutes=5)),
+        ComputeJobLease(start + timedelta(minutes=4), timedelta(minutes=5)),
+        ComputeJobLease(start + timedelta(minutes=5), timedelta(minutes=5)),
     ))
     services = build_online_services(
         persistence,
@@ -1418,7 +1420,7 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
     assert result.state is ProjectProcessingState.COMPLETED
     assert result.imported_thermal_frames == 0
     assert status == ComputeJobStatus.COMPLETED.value
-    assert lease_expires_at == (start + timedelta(minutes=7)).isoformat()
+    assert lease_expires_at == (start + timedelta(minutes=10)).isoformat()
 
 def test_online_project_pricing_cannot_claim_configured_discount(tmp_path) -> None:
     from decimal import Decimal
