@@ -197,3 +197,15 @@ def test_retrieval_evidence_rejects_failed_compute_job() -> None:
     service = ComputeJobBillingService(Store(), Jobs())
     with pytest.raises(ValueError, match="completed compute job"):
         service.mark_report_retrieved("job-a", user_id="user-a", project_id="project-a")
+
+
+def test_retrieval_evidence_rejects_compute_job_ownership_mismatch() -> None:
+    from mcm_solarcheck.services.billing import ComputeJobBillingService
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+    class Jobs:
+        def get(self, job_id): return ComputeJob(job_id, "other-user", "other-project", ComputeJobStatus.COMPLETED)
+    class Store:
+        def mark_report_retrieved(self, *args): raise AssertionError("store must not be mutated")
+    service = ComputeJobBillingService(Store(), Jobs())
+    with pytest.raises(PermissionError, match="ownership mismatch"):
+        service.mark_report_retrieved("job-a", user_id="user-a", project_id="project-a")
