@@ -19,6 +19,7 @@ class FileSystemReportArtifactStore:
 
     def __init__(self, root: str | Path, *, suffix: str = ".pdf") -> None:
         self.root = Path(root)
+        self._resolved_root = self.root.expanduser().resolve()
         normalized = suffix.lower()
         if normalized not in _MEDIA_TYPES:
             raise ValueError("unsupported report artifact suffix")
@@ -39,10 +40,9 @@ class FileSystemReportArtifactStore:
 
     def get(self, job_id: str) -> ReportArtifact:
         path = self.path_for(job_id)
-        resolved_root = self.root.resolve()
         resolved_path = path.resolve()
         try:
-            resolved_path.relative_to(resolved_root)
+            resolved_path.relative_to(self._resolved_root)
         except ValueError as exc:
             raise ValueError("report artifact resolves outside configured report directory") from exc
         content = resolved_path.read_bytes()
