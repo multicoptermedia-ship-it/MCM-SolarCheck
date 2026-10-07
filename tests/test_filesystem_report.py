@@ -176,3 +176,15 @@ def test_report_store_retarget_is_rejected_even_when_external_artifact_is_missin
 
     with pytest.raises(ValueError, match="outside configured report directory"):
         store.get("job-missing")
+
+
+def test_report_path_rejects_file_symlink_escape(tmp_path) -> None:
+    root = tmp_path / "private" / "reports"
+    root.mkdir(parents=True)
+    external = tmp_path / "external.pdf"
+    external.write_bytes(b"outside")
+    (root / "job-a.pdf").symlink_to(external)
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.path_for("job-a")
