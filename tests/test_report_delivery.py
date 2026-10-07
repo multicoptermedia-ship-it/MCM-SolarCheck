@@ -211,3 +211,32 @@ def test_failed_attempt_can_retry_once_then_release_billing(tmp_path) -> None:
     assert attempts == 2
     assert released.delivery.report_retrieved is True
     assert released.billing_released is True
+
+
+class MutableJobStore:
+    def __init__(self, job) -> None:
+        self.job = job
+
+    def get(self, job_id: str):
+        if self.job is None or self.job.job_id != job_id:
+            raise KeyError(job_id)
+        return self.job
+
+
+def test_delivery_rechecks_completed_job_after_transport(tmp_path) -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+
+    store, billing, reports, _delivery = setup_delivery(tmp_path)
+    billing.mark_export_completed("job-a", user_id="user-a", project_id="project-a")
+    jobs = MutableJobStore(ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.COMPLETED))
+    delivery = ReportDeliveryService(store, reports, jobs=jobs)
+
+    def send(_report: ReportArtifact) -> None:
+        jobs.job = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.FAILED)
+
+    with pytest.raises(ValueError, match="completed compute job"):
+        delivery.deliver("job-a", user_id="user-a", project_id="project-a", send=send)
+
+    persisted = store.get("job-a")
+    assert persisted.delivery.report_retrieved is False
+    assert persisted.billing_released is False
