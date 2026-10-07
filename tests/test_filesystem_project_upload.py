@@ -187,3 +187,30 @@ def test_upload_store_rechecks_directory_after_creation(tmp_path, monkeypatch) -
         store.store(upload())
 
     assert not (external / "thermal.jpg").exists()
+
+
+def test_upload_parent_retarget_before_write_preserves_external_directory(tmp_path, monkeypatch) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    external = tmp_path / "external"
+    external.mkdir()
+    original_resolve = type(directory).resolve
+    destination = directory / "thermal.jpg"
+    calls = {"destination": 0}
+
+    def retarget_on_destination_resolve(path, *args, **kwargs):
+        resolved = original_resolve(path, *args, **kwargs)
+        if path == destination:
+            calls["destination"] += 1
+            if calls["destination"] == 1:
+                directory.rmdir()
+                directory.symlink_to(external, target_is_directory=True)
+        return resolved
+
+    monkeypatch.setattr(type(directory), "resolve", retarget_on_destination_resolve)
+
+    with pytest.raises(ValueError, match="outside configured root"):
+        store.store(upload())
+
+    assert not (external / "thermal.jpg").exists()
