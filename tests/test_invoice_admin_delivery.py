@@ -1438,3 +1438,13 @@ def test_invoice_package_atomic_write_rejects_parent_retarget(tmp_path) -> None:
         archive._atomic_write(pdf_path, b"%PDF invoice")
 
     assert list(external.iterdir()) == []
+
+
+def test_invoice_atomic_write_allows_unchanged_trusted_parent(tmp_path) -> None:
+    root = tmp_path / "private" / "invoices"
+    archive = FileSystemInvoiceArchive(root)
+    path = archive.path_for("invoice-42")
+
+    archive._atomic_write(path, b"%PDF invoice")
+
+    assert path.read_bytes() == b"%PDF invoice"
