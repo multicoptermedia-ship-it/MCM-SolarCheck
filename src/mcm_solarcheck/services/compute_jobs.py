@@ -314,6 +314,9 @@ class ComputeJobService:
         """Release one job through its authoritative worker claim."""
         if self.claims is None:
             raise RuntimeError("compute job claim source is required")
+        current = self.store.get(job_id)
+        if current.status is not ComputeJobStatus.RUNNING:
+            raise ValueError("only a running compute job claim can be released")
         return self.claims.release_claim(job_id, worker_id, now=now)
 
     def finish_claimed(
