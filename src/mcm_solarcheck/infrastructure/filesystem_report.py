@@ -45,6 +45,19 @@ class FileSystemReportArtifactStore:
             ) from exc
         return path
 
+    def publish(self, job_id: str, temporary: str | Path) -> Path:
+        destination = self.path_for(job_id)
+        source = Path(temporary)
+        try:
+            destination.parent.resolve().relative_to(self._resolved_root)
+            destination.resolve().relative_to(self._resolved_root)
+        except ValueError as exc:
+            raise ValueError(
+                "report artifact resolves outside configured report directory"
+            ) from exc
+        source.replace(destination)
+        return destination
+
     def get(self, job_id: str) -> ReportArtifact:
         path = self.path_for(job_id)
         resolved_path = path.resolve()
