@@ -764,3 +764,14 @@ def test_processing_adapts_request_callback_for_heartbeat_persistence(tmp_path) 
     assert result.state is ProjectProcessingState.COMPLETED
     assert persisted == [("user-1", "P-1", imported)]
     assert states == [ProjectProcessingState.RUNNING, ProjectProcessingState.COMPLETED]
+
+
+def test_claimed_processing_completion_rechecks_job_ownership() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+    class Jobs:
+        def get(self, job_id, *, user_id, project_id):
+            raise PermissionError("compute job access denied")
+        def finish_claimed(self, *args, **kwargs): raise AssertionError("job must not finish")
+    recorder = ComputeJobProcessingStateRecorder(Jobs(), job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a")
+    with pytest.raises(PermissionError, match="access denied"):
+        recorder("user-1", "P-1", ProjectProcessingState.COMPLETED)
