@@ -155,3 +155,26 @@ def test_export_publishes_through_report_store_boundary(tmp_path, monkeypatch) -
     assert published == ["job-a"]
     assert artifacts.get("job-a").content
     assert state.delivery.export_completed is True
+
+
+def test_export_creates_temporary_through_report_store(tmp_path, monkeypatch) -> None:
+    billing, artifacts, service = setup_export(tmp_path)
+    created = []
+    original_create_temporary = artifacts.create_temporary
+
+    def tracked_create_temporary(job_id):
+        created.append(job_id)
+        return original_create_temporary(job_id)
+
+    monkeypatch.setattr(artifacts, "create_temporary", tracked_create_temporary)
+
+    state = service.export(
+        report(),
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    assert created == ["job-a"]
+    assert artifacts.get("job-a").content
+    assert state.delivery.export_completed is True
