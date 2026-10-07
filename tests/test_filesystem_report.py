@@ -99,3 +99,12 @@ def test_report_store_escape_does_not_expose_external_bytes(tmp_path, monkeypatc
     with pytest.raises(ValueError, match="outside configured report directory"):
         store.get("job-a")
     assert reads == []
+
+
+def test_report_store_missing_artifact_still_raises_file_not_found(tmp_path) -> None:
+    root = tmp_path / "private" / "reports"
+    root.mkdir(parents=True)
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(FileNotFoundError):
+        store.get("job-missing")
