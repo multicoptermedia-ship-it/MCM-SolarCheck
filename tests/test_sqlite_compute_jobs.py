@@ -906,3 +906,18 @@ def test_sqlite_renewed_lease_delays_crash_recovery_reclaim(tmp_path) -> None:
         ComputeJobLease(start + timedelta(minutes=9), timedelta(minutes=5)),
     ) == running
 
+
+
+def test_sqlite_successful_claimed_finish_clears_persisted_lease(tmp_path) -> None:
+    database = tmp_path / "compute-jobs.sqlite"
+    store = SQLiteComputeJobStore(database)
+    running = ComputeJob("job-clear-success", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    start = datetime(2026, 10, 7, 12, 0, tzinfo=timezone.utc)
+    store.claim(running.job_id, "worker-a", ComputeJobLease(start, timedelta(minutes=5)))
+
+    store.finish_claimed(running.job_id, "worker-a", succeeded=True, now=start + timedelta(minutes=1))
+
+    with sqlite3.connect(database) as connection:
+        row = connection.execute("SELECT status, worker_id, lease_expires_at FROM compute_jobs WHERE job_id = ?", (running.job_id,)).fetchone()
+    assert row == (ComputeJobStatus.COMPLETED.value, None, None)
