@@ -775,3 +775,12 @@ def test_claimed_processing_completion_rechecks_job_ownership() -> None:
     recorder = ComputeJobProcessingStateRecorder(Jobs(), job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a")
     with pytest.raises(PermissionError, match="access denied"):
         recorder("user-1", "P-1", ProjectProcessingState.COMPLETED)
+
+
+def test_claimed_processing_failure_rechecks_job_ownership() -> None:
+    class Jobs:
+        def get(self, job_id, *, user_id, project_id): raise PermissionError("compute job access denied")
+        def finish_claimed(self, *args, **kwargs): raise AssertionError("job must not finish")
+    recorder = ComputeJobProcessingStateRecorder(Jobs(), job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a")
+    with pytest.raises(PermissionError, match="access denied"):
+        recorder("user-1", "P-1", ProjectProcessingState.FAILED)
