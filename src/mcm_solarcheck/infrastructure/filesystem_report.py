@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 
 from mcm_solarcheck.services.report_delivery import ReportArtifact
@@ -44,6 +46,23 @@ class FileSystemReportArtifactStore:
                 "report artifact resolves outside configured report directory"
             ) from exc
         return path
+
+    def create_temporary(self, job_id: str) -> Path:
+        destination = self.path_for(job_id)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            destination.parent.resolve().relative_to(self._resolved_root)
+        except ValueError as exc:
+            raise ValueError(
+                "report artifact resolves outside configured report directory"
+            ) from exc
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{destination.stem}-",
+            suffix=self.suffix,
+            dir=destination.parent,
+        )
+        os.close(descriptor)
+        return Path(temporary_name)
 
     def publish(self, job_id: str, temporary: str | Path) -> Path:
         destination = self.path_for(job_id)
