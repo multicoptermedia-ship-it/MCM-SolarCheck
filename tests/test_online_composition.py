@@ -1378,6 +1378,7 @@ def test_composed_online_processing_renews_lease_during_rgb_import(tmp_path) -> 
         ComputeJobLease(start + timedelta(minutes=1), timedelta(minutes=5)),
         ComputeJobLease(start + timedelta(minutes=2), timedelta(minutes=5)),
         ComputeJobLease(start + timedelta(minutes=3), timedelta(minutes=5)),
+        ComputeJobLease(start + timedelta(minutes=4), timedelta(minutes=5)),
     ))
     services = build_online_services(
         persistence,
