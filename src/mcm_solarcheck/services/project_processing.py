@@ -119,6 +119,14 @@ class ComputeJobProcessingStateRecorder:
         """Renew the active processing lease for this worker when configured."""
         if self._worker_id is None or self._renew_lease is None:
             return
+        try:
+            self._jobs.get(
+                self._job_id,
+                user_id=self._customer_id,
+                project_id=self._project_id,
+            )
+        except KeyError as exc:
+            raise PermissionError("processing job is not available") from exc
         self._jobs.renew_claim(
             self._job_id,
             worker_id=self._worker_id,
