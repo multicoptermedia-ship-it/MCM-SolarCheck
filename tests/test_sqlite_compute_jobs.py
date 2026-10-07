@@ -936,3 +936,19 @@ def test_sqlite_failed_claimed_finish_clears_persisted_lease(tmp_path) -> None:
     with sqlite3.connect(database) as connection:
         row = connection.execute("SELECT status, worker_id, lease_expires_at FROM compute_jobs WHERE job_id = ?", (running.job_id,)).fetchone()
     assert row == (ComputeJobStatus.FAILED.value, None, None)
+
+
+def test_compute_worker_finish_clears_persisted_claim_metadata(tmp_path) -> None:
+    database = tmp_path / "compute-jobs.sqlite"
+    store = SQLiteComputeJobStore(database)
+    running = ComputeJob("job-worker-clear", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    store.create(running)
+    worker = ComputeWorkerService(dispatch=store, claims=store)
+    start = datetime(2026, 10, 7, 12, 0, tzinfo=timezone.utc)
+    worker.claim_next(worker_id="worker-a", lease=ComputeJobLease(start, timedelta(minutes=5)))
+
+    worker.finish(running.job_id, worker_id="worker-a", succeeded=True, now=start + timedelta(minutes=1))
+
+    with sqlite3.connect(database) as connection:
+        claim = connection.execute("SELECT worker_id, lease_expires_at FROM compute_jobs WHERE job_id = ?", (running.job_id,)).fetchone()
+    assert claim == (None, None)
