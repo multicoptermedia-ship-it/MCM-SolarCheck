@@ -560,3 +560,14 @@ def test_compute_job_service_claim_rejects_queued_job() -> None:
     service = ComputeJobService(store, claims=Claims())
     with pytest.raises(ValueError, match="running compute job"):
         service.claim("job-a", worker_id="worker-a")
+
+
+def test_compute_job_service_claim_rejects_completed_job() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+    class Claims:
+        def claim(self, *args, **kwargs): raise AssertionError("claim must not be called")
+    store = _InMemoryComputeJobStore()
+    store.create(ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.COMPLETED))
+    service = ComputeJobService(store, claims=Claims())
+    with pytest.raises(ValueError, match="running compute job"):
+        service.claim("job-a", worker_id="worker-a")
