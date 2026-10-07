@@ -1369,3 +1369,16 @@ def test_invoice_package_rejects_root_symlink_retarget_after_initialization(tmp_
         archive.store_package("invoice-42", b"%PDF invoice", b"invoice_id;item_number\n")
 
     assert list(external.iterdir()) == []
+
+
+def test_invoice_archive_accepts_unchanged_symlink_root_target(tmp_path) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    root = tmp_path / "invoices"
+    root.symlink_to(trusted, target_is_directory=True)
+    archive = FileSystemInvoiceArchive(root)
+
+    path = archive.store("invoice-42", b"%PDF invoice")
+
+    assert path == root / "invoice-42.pdf"
+    assert (trusted / "invoice-42.pdf").read_bytes() == b"%PDF invoice"
