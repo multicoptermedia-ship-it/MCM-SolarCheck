@@ -145,6 +145,12 @@ class ComputeJobBillingService:
         user_id: str,
         project_id: str,
     ) -> ComputeJobBilling:
+        if self.jobs is not None:
+            job = self.jobs.get(job_id)
+            if job.user_id != user_id or job.project_id != project_id:
+                raise PermissionError("compute job billing ownership mismatch")
+            if job.status is not ComputeJobStatus.COMPLETED:
+                raise ValueError("report retrieval requires a completed compute job")
         return self.store.mark_report_retrieved(job_id, user_id, project_id)
 
     def release(
