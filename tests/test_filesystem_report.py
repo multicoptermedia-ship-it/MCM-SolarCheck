@@ -269,3 +269,28 @@ def test_report_publish_rejects_root_retarget(tmp_path) -> None:
 
     assert not (external / "job-a.pdf").exists()
     assert temporary.read_bytes() == b"new report"
+
+
+def test_report_temporary_creation_rejects_root_retarget_after_mkdir(tmp_path, monkeypatch) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    root = tmp_path / "reports"
+    root.symlink_to(trusted, target_is_directory=True)
+    store = FileSystemReportArtifactStore(root)
+    original_mkdir = type(root).mkdir
+
+    def retarget_after_mkdir(path, *args, **kwargs):
+        result = original_mkdir(path, *args, **kwargs)
+        if path == root and path.is_symlink():
+            path.unlink()
+            path.symlink_to(external, target_is_directory=True)
+        return result
+
+    monkeypatch.setattr(type(root), "mkdir", retarget_after_mkdir)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.create_temporary("job-a")
+
+    assert list(external.iterdir()) == []
