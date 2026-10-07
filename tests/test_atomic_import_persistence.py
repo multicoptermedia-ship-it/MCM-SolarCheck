@@ -22,7 +22,7 @@ class _AtomicDatabase(ProjectDatabase):
     def connect(self):
         self.events.append("begin")
         try:
-            yield object()
+            yield SimpleNamespace(execute=lambda *args: None, executemany=lambda *args: None)
         except Exception:
             self.events.append("rollback")
             raise
