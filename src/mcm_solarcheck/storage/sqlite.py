@@ -245,6 +245,24 @@ class ProjectDatabase:
                 self._save_training_frame(db,project_id,result.frame,'thermal')
                 self._save_findings(db,project_id,findings)
                 self._save_sensor_links(db,project_id,findings)
+    def save_project_import(self,project_id,imported,*,heartbeat=None):
+        rgb_frames=tuple(imported.rgb_frames);thermal_results=tuple(imported.thermal_batch.results);pairs=tuple(imported.pairs)
+        image_cols=('project_id','frame_id','source_file','timestamp_utc','camera_make','camera_model','width','height','latitude','longitude','altitude_m','metadata_json');image_sql=_upsert('image_frames',image_cols,('project_id','frame_id'))
+        pair_cols=('project_id','pair_id','rgb_frame_id','thermal_frame_id','confidence','method','distance_m','time_delta_s');pair_sql=_upsert('image_pairs',pair_cols,('project_id','pair_id'))
+        with self.connect() as db:
+            for frame in rgb_frames:
+                if heartbeat is not None:heartbeat()
+                db.execute(image_sql,(project_id,frame.frame_id,str(frame.source_file),frame.timestamp_utc.isoformat() if frame.timestamp_utc else None,frame.camera_make,frame.camera_model,frame.width,frame.height,frame.position.latitude if frame.position else None,frame.position.longitude if frame.position else None,frame.position.altitude_m if frame.position else None,json.dumps(frame.metadata,ensure_ascii=False)))
+                self._save_training_frame(db,project_id,frame,'rgb')
+            for result in thermal_results:
+                if heartbeat is not None:heartbeat()
+                findings=tuple(result.findings)
+                self._save_thermal_frame(db,project_id,result.frame,result.quality)
+                self._save_training_frame(db,project_id,result.frame,'thermal')
+                self._save_findings(db,project_id,findings)
+                self._save_sensor_links(db,project_id,findings)
+            if heartbeat is not None:heartbeat()
+            db.executemany(pair_sql,[(project_id,p.pair_id,p.rgb_frame_id,p.thermal_frame_id,p.confidence,p.method,p.distance_m,p.time_delta_s) for p in pairs])
     def save_image_frames(self,project_id,frames):
         cols=('project_id','frame_id','source_file','timestamp_utc','camera_make','camera_model','width','height','latitude','longitude','altitude_m','metadata_json');sql=_upsert('image_frames',cols,('project_id','frame_id'))
         frames=tuple(frames)
