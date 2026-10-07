@@ -22,14 +22,24 @@ class FileSystemInvoiceArchive:
             raise ValueError("invoice_id contains unsafe path characters")
         return value
 
+    def _private_path(self, filename: str) -> Path:
+        path = self.root / filename
+        resolved_root = self.root.resolve()
+        resolved_path = path.resolve()
+        try:
+            resolved_path.relative_to(resolved_root)
+        except ValueError as exc:
+            raise ValueError("invoice artifact resolves outside configured archive") from exc
+        return path
+
     def path_for(self, invoice_id: str) -> Path:
-        return self.root / f"{self._safe_invoice_id(invoice_id)}.pdf"
+        return self._private_path(f"{self._safe_invoice_id(invoice_id)}.pdf")
 
     def csv_path_for(self, invoice_id: str) -> Path:
-        return self.root / f"{self._safe_invoice_id(invoice_id)}.csv"
+        return self._private_path(f"{self._safe_invoice_id(invoice_id)}.csv")
 
     def ready_path_for(self, invoice_id: str) -> Path:
-        return self.root / f".{self._safe_invoice_id(invoice_id)}.ready"
+        return self._private_path(f".{self._safe_invoice_id(invoice_id)}.ready")
 
     def package_is_ready(self, invoice_id: str) -> bool:
         """A release marker is valid only while both package components exist."""
