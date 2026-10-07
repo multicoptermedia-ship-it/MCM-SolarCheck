@@ -793,3 +793,15 @@ def test_claimed_processing_terminal_state_rejects_missing_job() -> None:
     recorder = ComputeJobProcessingStateRecorder(Jobs(), job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a")
     with pytest.raises(PermissionError, match="not available"):
         recorder("user-1", "P-1", ProjectProcessingState.COMPLETED)
+
+
+def test_claimed_processing_terminal_state_finishes_owned_job() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+    class Jobs:
+        def __init__(self): self.finished = []
+        def get(self, job_id, *, user_id, project_id): return ComputeJob(job_id, user_id, project_id, ComputeJobStatus.RUNNING)
+        def finish_claimed(self, job_id, *, worker_id, succeeded, now=None): self.finished.append((job_id, worker_id, succeeded, now))
+    jobs = Jobs()
+    recorder = ComputeJobProcessingStateRecorder(Jobs() if False else jobs, job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a")
+    recorder("user-1", "P-1", ProjectProcessingState.COMPLETED)
+    assert jobs.finished == [("job-1", "worker-a", True, None)]
