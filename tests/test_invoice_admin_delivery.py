@@ -1400,3 +1400,23 @@ def test_invoice_atomic_write_rechecks_retargeted_parent(tmp_path) -> None:
         archive._atomic_write(path, b"%PDF invoice")
 
     assert not (external / "invoice-42.pdf").exists()
+
+
+def test_invoice_atomic_write_retarget_preserves_external_file(tmp_path) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    external_file = external / "invoice-42.pdf"
+    external_file.write_bytes(b"%PDF keep")
+    root = tmp_path / "invoices"
+    root.symlink_to(trusted, target_is_directory=True)
+    archive = FileSystemInvoiceArchive(root)
+    path = archive.path_for("invoice-42")
+    root.unlink()
+    root.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="outside configured archive"):
+        archive._atomic_write(path, b"%PDF overwrite")
+
+    assert external_file.read_bytes() == b"%PDF keep"
