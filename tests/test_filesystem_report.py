@@ -294,3 +294,15 @@ def test_report_temporary_creation_rejects_root_retarget_after_mkdir(tmp_path, m
         store.create_temporary("job-a")
 
     assert list(external.iterdir()) == []
+
+
+def test_report_temporary_creation_stays_inside_private_root(tmp_path) -> None:
+    root = tmp_path / "private" / "reports"
+    store = FileSystemReportArtifactStore(root)
+
+    temporary = store.create_temporary("job-a")
+
+    assert temporary.parent.resolve() == root.resolve()
+    assert temporary.is_file()
+    assert temporary.name.startswith(".job-a-")
+    assert temporary.suffix == ".pdf"
