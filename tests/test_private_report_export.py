@@ -132,3 +132,26 @@ def test_atomic_export_publishes_only_final_report_name(tmp_path) -> None:
     assert artifacts.path_for("job-a").is_file()
     assert list(artifacts.root.glob(".*.tmp")) == []
     assert billing.get("job-a").delivery.export_completed is True
+
+
+def test_export_publishes_through_report_store_boundary(tmp_path, monkeypatch) -> None:
+    billing, artifacts, service = setup_export(tmp_path)
+    published = []
+    original_publish = artifacts.publish
+
+    def tracked_publish(job_id, temporary):
+        published.append(job_id)
+        return original_publish(job_id, temporary)
+
+    monkeypatch.setattr(artifacts, "publish", tracked_publish)
+
+    state = service.export(
+        report(),
+        "job-a",
+        user_id="user-a",
+        project_id="project-a",
+    )
+
+    assert published == ["job-a"]
+    assert artifacts.get("job-a").content
+    assert state.delivery.export_completed is True
