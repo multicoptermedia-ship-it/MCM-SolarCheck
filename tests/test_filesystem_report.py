@@ -124,3 +124,29 @@ def test_report_store_rejects_root_symlink_retarget_after_initialization(tmp_pat
 
     with pytest.raises(ValueError, match="outside configured report directory"):
         store.get("job-a")
+
+
+def test_report_root_retarget_does_not_expose_external_bytes(tmp_path, monkeypatch) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    secret = external / "job-a.pdf"
+    secret.write_bytes(b"do not expose")
+    root = tmp_path / "reports"
+    root.symlink_to(trusted, target_is_directory=True)
+    store = FileSystemReportArtifactStore(root)
+    root.unlink()
+    root.symlink_to(external, target_is_directory=True)
+    reads = []
+    original = type(secret).read_bytes
+
+    def tracked_read(path):
+        reads.append(path)
+        return original(path)
+
+    monkeypatch.setattr(type(secret), "read_bytes", tracked_read)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.get("job-a")
+    assert reads == []
