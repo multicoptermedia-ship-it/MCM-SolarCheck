@@ -40,4 +40,8 @@ class FileSystemProjectUploadStore:
         directory = self.project_directory(request.customer_id, request.project_id)
         directory.mkdir(parents=True, exist_ok=True)
         destination = directory / request.filename
+        try:
+            destination.resolve().relative_to(self.root)
+        except ValueError as exc:
+            raise ValueError("project upload file resolves outside configured root") from exc
         destination.write_bytes(request.content)
