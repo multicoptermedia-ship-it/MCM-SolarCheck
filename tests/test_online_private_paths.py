@@ -70,3 +70,15 @@ def test_online_private_paths_reject_overlapping_upload_storage(tmp_path) -> Non
             private / "invoices",
             uploads_root=private / "reports" / "uploads",
         )
+
+
+def test_online_private_paths_reject_web_root_inside_reports(tmp_path) -> None:
+    private = tmp_path / "private"
+
+    with pytest.raises(ValueError, match="separate from web root"):
+        OnlinePrivatePaths(
+            private / "solarcheck.sqlite",
+            private / "reports",
+            private / "invoices",
+            private / "reports" / "public",
+        )
