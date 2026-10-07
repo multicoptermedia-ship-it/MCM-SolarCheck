@@ -235,6 +235,16 @@ class ProjectDatabase:
     def save_thermal_result(self,project_id,frame,quality,findings):
         findings=tuple(findings)
         with self.connect() as db:self._save_thermal_frame(db,project_id,frame,quality);self._save_training_frame(db,project_id,frame,'thermal');self._save_findings(db,project_id,findings);self._save_sensor_links(db,project_id,findings)
+    def save_thermal_results(self,project_id,results,*,heartbeat=None):
+        results=tuple(results)
+        with self.connect() as db:
+            for result in results:
+                if heartbeat is not None:heartbeat()
+                findings=tuple(result.findings)
+                self._save_thermal_frame(db,project_id,result.frame,result.quality)
+                self._save_training_frame(db,project_id,result.frame,'thermal')
+                self._save_findings(db,project_id,findings)
+                self._save_sensor_links(db,project_id,findings)
     def save_image_frames(self,project_id,frames):
         cols=('project_id','frame_id','source_file','timestamp_utc','camera_make','camera_model','width','height','latitude','longitude','altitude_m','metadata_json');sql=_upsert('image_frames',cols,('project_id','frame_id'))
         frames=tuple(frames)
