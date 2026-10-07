@@ -90,3 +90,16 @@ def test_upload_store_rejects_project_directory_symlink_escape(tmp_path) -> None
         store.store(upload())
 
     assert not (external / "thermal.jpg").exists()
+
+
+def test_upload_store_allows_project_symlink_inside_upload_root(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    customer = store.root / "user-1"
+    customer.mkdir()
+    target = store.root / "stored-project"
+    target.mkdir()
+    (customer / "P-1").symlink_to(target, target_is_directory=True)
+
+    store.store(upload())
+
+    assert (target / "thermal.jpg").read_bytes() == b"validated-content"
