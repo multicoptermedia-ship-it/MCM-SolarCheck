@@ -1284,3 +1284,15 @@ def test_invoice_archive_rejects_pdf_symlink_escape(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="outside configured archive"):
         archive.store("invoice-42", b"%PDF invoice")
+
+
+def test_invoice_archive_rejects_csv_symlink_escape(tmp_path) -> None:
+    root = tmp_path / "private" / "invoices"
+    root.mkdir(parents=True)
+    secret = tmp_path / "secret.csv"
+    secret.write_bytes(b"server secret")
+    (root / "invoice-42.csv").symlink_to(secret)
+    archive = FileSystemInvoiceArchive(root)
+
+    with pytest.raises(ValueError, match="outside configured archive"):
+        archive.store_package("invoice-42", b"%PDF invoice", b"invoice_id;item_number\n")
