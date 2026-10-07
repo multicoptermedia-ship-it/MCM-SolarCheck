@@ -36,7 +36,14 @@ class FileSystemReportArtifactStore:
 
     def path_for(self, job_id: str) -> Path:
         safe = self._safe_job_id(job_id)
-        return self.root / f"{safe}{self.suffix}"
+        path = self.root / f"{safe}{self.suffix}"
+        try:
+            path.resolve().relative_to(self._resolved_root)
+        except ValueError as exc:
+            raise ValueError(
+                "report artifact resolves outside configured report directory"
+            ) from exc
+        return path
 
     def get(self, job_id: str) -> ReportArtifact:
         path = self.path_for(job_id)
