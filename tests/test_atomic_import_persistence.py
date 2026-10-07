@@ -51,3 +51,21 @@ def test_atomic_thermal_batch_uses_one_transaction():
     assert database.events.count("commit") == 1
     assert ("frame", "a") in database.events
     assert ("frame", "b") in database.events
+
+
+def test_atomic_thermal_batch_rolls_back_on_write_failure():
+    database = _AtomicDatabase()
+    original = database._save_thermal_frame
+
+    def fail_second(db, project_id, frame, quality):
+        original(db, project_id, frame, quality)
+        if frame.frame_id == "b":
+            raise RuntimeError("write failed")
+
+    database._save_thermal_frame = fail_second
+    with pytest.raises(RuntimeError, match="write failed"):
+        database.save_thermal_results("project-a", (_result("a"), _result("b")))
+
+    assert database.events.count("begin") == 1
+    assert database.events.count("rollback") == 1
+    assert "commit" not in database.events
