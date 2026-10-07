@@ -305,6 +305,7 @@ def test_processing_does_not_report_success_when_completed_state_recording_fails
         ProjectProcessingState.RUNNING,
         "persisted",
         ProjectProcessingState.COMPLETED,
+        ProjectProcessingState.FAILED,
     ]
 
 
@@ -866,7 +867,7 @@ def test_processing_completion_transition_failure_records_failed_state(tmp_path)
             if state is ProjectProcessingState.COMPLETED:
                 raise RuntimeError("completion failed")
         def heartbeat(self): pass
-    service = ProjectProcessingService(lambda c, p: True, lambda c, p: tmp_path, lambda d: _project_import_result(), record_state=Recorder())
+    service = ProjectProcessingService(lambda c, p: True, lambda c, p: tmp_path, lambda d: import_result(), record_state=Recorder())
     with pytest.raises(RuntimeError, match="completion failed"):
         service.process(ProjectProcessingRequest("customer-a", "project-a"))
     assert states[-2:] == [ProjectProcessingState.COMPLETED, ProjectProcessingState.FAILED]
@@ -878,7 +879,7 @@ def test_processing_completion_failure_preserves_original_error(tmp_path) -> Non
             if state is ProjectProcessingState.COMPLETED: raise LookupError("original completion error")
             if state is ProjectProcessingState.FAILED: raise RuntimeError("failed-state error")
         def heartbeat(self): pass
-    service = ProjectProcessingService(lambda c, p: True, lambda c, p: tmp_path, lambda d: _project_import_result(), record_state=Recorder())
+    service = ProjectProcessingService(lambda c, p: True, lambda c, p: tmp_path, lambda d: import_result(), record_state=Recorder())
     with pytest.raises(LookupError, match="original completion error") as exc:
         service.process(ProjectProcessingRequest("customer-a", "project-a"))
     assert isinstance(exc.value.__cause__, RuntimeError)
@@ -889,7 +890,7 @@ def test_processing_successful_completion_does_not_record_failed_state(tmp_path)
     class Recorder:
         def __call__(self, customer_id, project_id, state): states.append(state)
         def heartbeat(self): pass
-    service = ProjectProcessingService(lambda c, p: True, lambda c, p: tmp_path, lambda d: _project_import_result(), record_state=Recorder())
+    service = ProjectProcessingService(lambda c, p: True, lambda c, p: tmp_path, lambda d: import_result(), record_state=Recorder())
     result = service.process(ProjectProcessingRequest("customer-a", "project-a"))
     assert result.state is ProjectProcessingState.COMPLETED
     assert states == [ProjectProcessingState.RUNNING, ProjectProcessingState.COMPLETED]
@@ -903,7 +904,7 @@ def test_processing_completion_failure_happens_after_persisted_import(tmp_path) 
             if state is ProjectProcessingState.COMPLETED: raise RuntimeError("completion failed")
         def heartbeat(self): pass
     def persist(customer_id, project_id, imported): events.append("persisted")
-    service = ProjectProcessingService(lambda c, p: True, lambda c, p: tmp_path, lambda d: _project_import_result(), record_state=Recorder(), persist_import=persist)
+    service = ProjectProcessingService(lambda c, p: True, lambda c, p: tmp_path, lambda d: import_result(), record_state=Recorder(), persist_import=persist)
     with pytest.raises(RuntimeError, match="completion failed"):
         service.process(ProjectProcessingRequest("customer-a", "project-a"))
     assert events == ["running", "persisted", "completed", "failed"]
