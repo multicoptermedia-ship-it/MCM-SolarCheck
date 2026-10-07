@@ -805,3 +805,15 @@ def test_claimed_processing_terminal_state_finishes_owned_job() -> None:
     recorder = ComputeJobProcessingStateRecorder(Jobs() if False else jobs, job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a")
     recorder("user-1", "P-1", ProjectProcessingState.COMPLETED)
     assert jobs.finished == [("job-1", "worker-a", True, None)]
+
+
+def test_processing_heartbeat_rechecks_job_ownership() -> None:
+    from datetime import datetime, timedelta, timezone
+    from mcm_solarcheck.services.compute_jobs import ComputeJobLease
+    lease = ComputeJobLease(datetime(2026, 1, 1, tzinfo=timezone.utc), timedelta(minutes=5))
+    class Jobs:
+        def get(self, job_id, *, user_id, project_id): raise PermissionError("compute job access denied")
+        def renew_claim(self, *args, **kwargs): raise AssertionError("claim must not renew")
+    recorder = ComputeJobProcessingStateRecorder(Jobs(), job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a", lease=lease, renew_lease=lambda: lease)
+    with pytest.raises(PermissionError, match="access denied"):
+        recorder.heartbeat()
