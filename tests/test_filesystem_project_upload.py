@@ -127,3 +127,16 @@ def test_upload_store_rejects_file_symlink_escape(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="outside configured root"):
         store.store(upload())
+
+
+def test_upload_store_allows_file_symlink_inside_upload_root(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    target = store.root / "shared.jpg"
+    target.write_bytes(b"old")
+    (directory / "thermal.jpg").symlink_to(target)
+
+    store.store(upload())
+
+    assert target.read_bytes() == b"validated-content"
