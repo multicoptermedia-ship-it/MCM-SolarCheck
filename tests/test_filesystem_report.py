@@ -202,3 +202,20 @@ def test_report_path_symlink_escape_preserves_external_bytes(tmp_path) -> None:
         store.path_for("job-a").write_bytes(b"overwrite")
 
     assert external.read_bytes() == b"keep-me"
+
+
+def test_report_path_rejects_root_retarget_before_write(tmp_path) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    root = tmp_path / "reports"
+    root.symlink_to(trusted, target_is_directory=True)
+    store = FileSystemReportArtifactStore(root)
+    root.unlink()
+    root.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.path_for("job-a")
+
+    assert not (external / "job-a.pdf").exists()
