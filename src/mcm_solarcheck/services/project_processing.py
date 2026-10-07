@@ -160,6 +160,14 @@ class ComputeJobProcessingStateRecorder:
             return
         if state in (ProjectProcessingState.COMPLETED, ProjectProcessingState.FAILED):
             if self._worker_id is not None:
+                try:
+                    self._jobs.get(
+                        self._job_id,
+                        user_id=self._customer_id,
+                        project_id=self._project_id,
+                    )
+                except KeyError as exc:
+                    raise PermissionError("processing job is not available") from exc
                 self._jobs.finish_claimed(
                     self._job_id,
                     worker_id=self._worker_id,
