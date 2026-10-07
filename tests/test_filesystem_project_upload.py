@@ -165,3 +165,25 @@ def test_upload_store_writes_regular_file_within_private_root(tmp_path) -> None:
     assert destination.is_file()
     assert not destination.is_symlink()
     assert destination.read_bytes() == b"validated-content"
+
+
+def test_upload_store_rechecks_directory_after_creation(tmp_path, monkeypatch) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    external = tmp_path / "external"
+    external.mkdir()
+    original_mkdir = type(directory).mkdir
+
+    def retarget_after_mkdir(path, *args, **kwargs):
+        result = original_mkdir(path, *args, **kwargs)
+        if path == directory:
+            path.rmdir()
+            path.symlink_to(external, target_is_directory=True)
+        return result
+
+    monkeypatch.setattr(type(directory), "mkdir", retarget_after_mkdir)
+
+    with pytest.raises(ValueError, match="outside configured root"):
+        store.store(upload())
+
+    assert not (external / "thermal.jpg").exists()
