@@ -629,3 +629,17 @@ def test_compute_job_service_renew_claim_rejects_failed_job() -> None:
     store = _InMemoryComputeJobStore(); store.create(ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.FAILED))
     with pytest.raises(ValueError, match="running compute job"):
         ComputeJobService(store, claims=Claims()).renew_claim("job-a", worker_id="worker-a", lease=lease)
+
+
+def test_compute_job_service_renew_claim_accepts_running_job() -> None:
+    from datetime import datetime, timedelta, timezone
+    from mcm_solarcheck.services.compute_jobs import ComputeJobLease, ComputeJobService
+    running = ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.RUNNING)
+    lease = ComputeJobLease(datetime(2026, 1, 1, tzinfo=timezone.utc), timedelta(minutes=5))
+    class Claims:
+        def __init__(self): self.calls = []
+        def renew_claim(self, job_id, worker_id, renewed): self.calls.append((job_id, worker_id, renewed)); return running
+    store = _InMemoryComputeJobStore(); store.create(running); claims = Claims()
+    service = ComputeJobService(store, claims=claims)
+    assert service.renew_claim("job-a", worker_id="worker-a", lease=lease) == running
+    assert claims.calls == [("job-a", "worker-a", lease)]
