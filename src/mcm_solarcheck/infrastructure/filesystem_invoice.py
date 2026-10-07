@@ -49,8 +49,11 @@ class FileSystemInvoiceArchive:
             and self.csv_path_for(invoice_id).is_file()
         )
 
-    @staticmethod
-    def _atomic_write(path: Path, content: bytes) -> None:
+    def _atomic_write(self, path: Path, content: bytes) -> None:
+        try:
+            path.parent.resolve().relative_to(self._resolved_root)
+        except ValueError as exc:
+            raise ValueError("invoice artifact resolves outside configured archive") from exc
         path.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary_name = tempfile.mkstemp(
             prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
