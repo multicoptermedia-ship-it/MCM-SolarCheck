@@ -1319,3 +1319,20 @@ def test_invoice_archive_allows_existing_symlink_target_inside_archive(tmp_path)
     archive = FileSystemInvoiceArchive(root)
 
     assert archive.store("invoice-42", b"%PDF invoice") == root / "invoice-42.pdf"
+
+
+def test_invoice_archive_rejects_root_symlink_retarget_after_initialization(tmp_path) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    root = tmp_path / "invoices"
+    root.symlink_to(trusted, target_is_directory=True)
+    archive = FileSystemInvoiceArchive(root)
+    root.unlink()
+    root.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="outside configured archive"):
+        archive.store("invoice-42", b"%PDF invoice")
+
+    assert not (external / "invoice-42.pdf").exists()
