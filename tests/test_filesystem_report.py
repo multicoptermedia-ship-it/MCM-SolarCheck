@@ -77,3 +77,25 @@ def test_report_store_allows_symlink_target_inside_report_root(tmp_path) -> None
     store = FileSystemReportArtifactStore(root)
 
     assert store.get("job-a").content == b"private report"
+
+
+def test_report_store_escape_does_not_expose_external_bytes(tmp_path, monkeypatch) -> None:
+    root = tmp_path / "private" / "reports"
+    root.mkdir(parents=True)
+    secret = tmp_path / "secret.pdf"
+    secret.write_bytes(b"do not expose")
+    link = root / "job-a.pdf"
+    link.symlink_to(secret)
+    store = FileSystemReportArtifactStore(root)
+    reads = []
+    original = type(secret).read_bytes
+
+    def tracked_read(path):
+        reads.append(path)
+        return original(path)
+
+    monkeypatch.setattr(type(secret), "read_bytes", tracked_read)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.get("job-a")
+    assert reads == []
