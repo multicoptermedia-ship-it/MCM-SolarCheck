@@ -67,7 +67,7 @@ class PrivateReportExportService:
             )
             if not temporary.is_file() or temporary.stat().st_size == 0:
                 raise RuntimeError("report export did not create artifact")
-            temporary.replace(destination)
+            self._reports.publish(job_id, temporary)
         finally:
             temporary.unlink(missing_ok=True)
 
