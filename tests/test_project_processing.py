@@ -841,3 +841,18 @@ def test_processing_heartbeat_preserves_claim_renewal_failure() -> None:
     recorder = ComputeJobProcessingStateRecorder(Jobs(), job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a", lease=lease, renew_lease=lambda: lease)
     with pytest.raises(PermissionError, match="lease expired"):
         recorder.heartbeat()
+
+
+def test_processing_heartbeat_renews_owned_running_job() -> None:
+    from datetime import datetime, timedelta, timezone
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobLease, ComputeJobStatus
+    initial = ComputeJobLease(datetime(2026, 1, 1, tzinfo=timezone.utc), timedelta(minutes=5))
+    renewed = ComputeJobLease(datetime(2026, 1, 1, 0, 4, tzinfo=timezone.utc), timedelta(minutes=5))
+    class Jobs:
+        def __init__(self): self.renewals = []
+        def get(self, job_id, *, user_id, project_id): return ComputeJob(job_id, user_id, project_id, ComputeJobStatus.RUNNING)
+        def renew_claim(self, job_id, *, worker_id, lease): self.renewals.append((job_id, worker_id, lease))
+    jobs = Jobs()
+    recorder = ComputeJobProcessingStateRecorder(jobs, job_id="job-1", customer_id="user-1", project_id="P-1", worker_id="worker-a", lease=initial, renew_lease=lambda: renewed)
+    recorder.heartbeat()
+    assert jobs.renewals == [("job-1", "worker-a", renewed)]
