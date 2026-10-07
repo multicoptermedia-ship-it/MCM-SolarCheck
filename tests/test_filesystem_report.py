@@ -161,3 +161,18 @@ def test_report_store_accepts_unchanged_symlink_root_target(tmp_path) -> None:
     store = FileSystemReportArtifactStore(root)
 
     assert store.get("job-a").content == b"private report"
+
+
+def test_report_store_retarget_is_rejected_even_when_external_artifact_is_missing(tmp_path) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    root = tmp_path / "reports"
+    root.symlink_to(trusted, target_is_directory=True)
+    store = FileSystemReportArtifactStore(root)
+    root.unlink()
+    root.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.get("job-missing")
