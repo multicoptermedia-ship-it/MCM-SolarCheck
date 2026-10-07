@@ -107,3 +107,25 @@ def test_complete_project_import_shares_one_transaction():
     assert database.events.count("begin") == 1
     assert database.events.count("commit") == 1
     assert ("frame", "thermal-a") in database.events
+
+
+def test_project_import_rolls_back_when_pair_write_fails():
+    class FailingConnection:
+        def execute(self, *args): pass
+        def executemany(self, *args): raise RuntimeError("pair write failed")
+    class Database(_AtomicDatabase):
+        @contextmanager
+        def connect(self):
+            self.events.append("begin")
+            try:
+                yield FailingConnection()
+            except Exception:
+                self.events.append("rollback")
+                raise
+            else:
+                self.events.append("commit")
+    database = Database()
+    with pytest.raises(RuntimeError, match="pair write failed"):
+        database.save_project_import("project-a", _project_import())
+    assert "rollback" in database.events
+    assert "commit" not in database.events
