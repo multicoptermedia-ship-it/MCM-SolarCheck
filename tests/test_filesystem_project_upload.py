@@ -214,3 +214,12 @@ def test_upload_parent_retarget_before_write_preserves_external_directory(tmp_pa
         store.store(upload())
 
     assert not (external / "thermal.jpg").exists()
+
+
+def test_upload_rechecks_still_allow_regular_private_write(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+
+    store.store(upload(filename="race-safe.jpg"))
+
+    destination = store.root / "user-1" / "P-1" / "race-safe.jpg"
+    assert destination.read_bytes() == b"validated-content"
