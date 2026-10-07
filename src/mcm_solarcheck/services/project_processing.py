@@ -258,7 +258,14 @@ class ProjectProcessingService:
                 raise processing_error from state_error
             raise
 
-        record_state(customer_id, project_id, ProjectProcessingState.COMPLETED)
+        try:
+            record_state(customer_id, project_id, ProjectProcessingState.COMPLETED)
+        except Exception as completion_error:
+            try:
+                record_state(customer_id, project_id, ProjectProcessingState.FAILED)
+            except Exception as state_error:
+                raise completion_error from state_error
+            raise
         return ProjectProcessingResult(
             customer_id=customer_id,
             project_id=project_id,
