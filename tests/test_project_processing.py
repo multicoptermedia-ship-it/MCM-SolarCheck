@@ -882,3 +882,14 @@ def test_processing_completion_failure_preserves_original_error(tmp_path) -> Non
     with pytest.raises(LookupError, match="original completion error") as exc:
         service.process(ProjectProcessingRequest("customer-a", "project-a"))
     assert isinstance(exc.value.__cause__, RuntimeError)
+
+
+def test_processing_successful_completion_does_not_record_failed_state(tmp_path) -> None:
+    states = []
+    class Recorder:
+        def __call__(self, customer_id, project_id, state): states.append(state)
+        def heartbeat(self): pass
+    service = ProjectProcessingService(lambda c, p: True, lambda c, p: tmp_path, lambda d: _project_import_result(), record_state=Recorder())
+    result = service.process(ProjectProcessingRequest("customer-a", "project-a"))
+    assert result.state is ProjectProcessingState.COMPLETED
+    assert states == [ProjectProcessingState.RUNNING, ProjectProcessingState.COMPLETED]
