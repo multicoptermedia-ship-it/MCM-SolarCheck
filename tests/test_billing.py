@@ -259,3 +259,17 @@ def test_billing_release_rejects_compute_job_ownership_mismatch() -> None:
     service = ComputeJobBillingService(Store(), Jobs())
     with pytest.raises(PermissionError, match="ownership mismatch"):
         service.release("job-a", user_id="user-a", project_id="project-a")
+
+
+def test_billing_release_accepts_completed_compute_job() -> None:
+    from mcm_solarcheck.services.billing import ComputeJobBilling, ComputeJobBillingService, ComputeJobDelivery
+    from mcm_solarcheck.services.compute_jobs import ComputeJob, ComputeJobStatus
+    expected = ComputeJobBilling(ComputeJobDelivery("job-a", "user-a", "project-a", export_completed=True, report_retrieved=True), billing_released=True)
+    class Jobs:
+        def get(self, job_id): return ComputeJob(job_id, "user-a", "project-a", ComputeJobStatus.COMPLETED)
+    class Store:
+        def release(self, job_id, user_id, project_id):
+            assert (job_id, user_id, project_id) == ("job-a", "user-a", "project-a")
+            return expected
+    service = ComputeJobBillingService(Store(), Jobs())
+    assert service.release("job-a", user_id="user-a", project_id="project-a") == expected
