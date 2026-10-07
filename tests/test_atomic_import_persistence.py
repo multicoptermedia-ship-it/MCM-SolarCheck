@@ -92,3 +92,18 @@ def test_atomic_thermal_batch_rolls_back_on_heartbeat_failure():
     assert database.events.count("rollback") == 1
     assert ("frame", "a") in database.events
     assert ("frame", "b") not in database.events
+
+
+def _project_import():
+    rgb = SimpleNamespace(frame_id="rgb-a", source_file="rgb.jpg", timestamp_utc=None, camera_make=None, camera_model=None, width=None, height=None, position=None, metadata={})
+    thermal = _result("thermal-a")
+    pair = SimpleNamespace(pair_id="pair-a", rgb_frame_id="rgb-a", thermal_frame_id="thermal-a", confidence=1.0, method="test", distance_m=None, time_delta_s=None)
+    return SimpleNamespace(rgb_frames=(rgb,), thermal_batch=SimpleNamespace(results=(thermal,), failures=()), pairs=(pair,))
+
+
+def test_complete_project_import_shares_one_transaction():
+    database = _AtomicDatabase()
+    database.save_project_import("project-a", _project_import())
+    assert database.events.count("begin") == 1
+    assert database.events.count("commit") == 1
+    assert ("frame", "thermal-a") in database.events
