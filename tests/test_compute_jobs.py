@@ -652,3 +652,12 @@ def test_compute_job_service_release_claim_rejects_queued_job() -> None:
     store = _InMemoryComputeJobStore(); store.create(ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.QUEUED))
     with pytest.raises(ValueError, match="running compute job"):
         ComputeJobService(store, claims=Claims()).release_claim("job-a", worker_id="worker-a")
+
+
+def test_compute_job_service_release_claim_rejects_completed_job() -> None:
+    from mcm_solarcheck.services.compute_jobs import ComputeJobService
+    class Claims:
+        def release_claim(self, *args, **kwargs): raise AssertionError("release must not be called")
+    store = _InMemoryComputeJobStore(); store.create(ComputeJob("job-a", "user-a", "project-a", ComputeJobStatus.COMPLETED))
+    with pytest.raises(ValueError, match="running compute job"):
+        ComputeJobService(store, claims=Claims()).release_claim("job-a", worker_id="worker-a")
