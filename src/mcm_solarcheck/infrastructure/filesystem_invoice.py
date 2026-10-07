@@ -12,6 +12,7 @@ class FileSystemInvoiceArchive:
 
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root)
+        self._resolved_root = self.root.expanduser().resolve()
 
     @staticmethod
     def _safe_invoice_id(invoice_id: str) -> str:
@@ -24,10 +25,9 @@ class FileSystemInvoiceArchive:
 
     def _private_path(self, filename: str) -> Path:
         path = self.root / filename
-        resolved_root = self.root.resolve()
         resolved_path = path.resolve()
         try:
-            resolved_path.relative_to(resolved_root)
+            resolved_path.relative_to(self._resolved_root)
         except ValueError as exc:
             raise ValueError("invoice artifact resolves outside configured archive") from exc
         return path
