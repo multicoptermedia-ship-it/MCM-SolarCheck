@@ -267,7 +267,11 @@ class SQLiteComputeJobStore:
             status = ComputeJobStatus.COMPLETED if succeeded else ComputeJobStatus.FAILED
             finished = transition_job(job, status)
             connection.execute(
-                "UPDATE compute_jobs SET status = ? WHERE job_id = ?",
+                """
+                UPDATE compute_jobs
+                SET status = ?, worker_id = NULL, lease_expires_at = NULL
+                WHERE job_id = ?
+                """,
                 (finished.status.value, finished.job_id),
             )
             connection.commit()
