@@ -649,8 +649,8 @@ def test_sqlite_store_migrates_legacy_compute_jobs_without_data_loss(tmp_path) -
         "user-a",
         "project-a",
         ComputeJobStatus.COMPLETED.value,
-        "worker-a",
-        (start + timedelta(minutes=5)).isoformat(),
+        None,
+        None,
     )
 
 
