@@ -53,7 +53,7 @@ class OnlinePrivatePaths:
                     or _is_within(private_path, web)
                     or _is_within(web, private_path)
                 ):
-                    raise ValueError("private SolarCheck storage must be separate from web root")
+                    raise ValueError("private SolarCheck storage must be outside web root and web root must be separate")
 
         object.__setattr__(self, "state_database", database)
         object.__setattr__(self, "reports_root", reports)
