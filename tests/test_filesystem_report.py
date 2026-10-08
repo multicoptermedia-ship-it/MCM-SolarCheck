@@ -1515,3 +1515,26 @@ def test_report_publish_allows_source_unchanged_during_sync(tmp_path) -> None:
     destination = store.publish("job-a", source)
     assert destination.read_bytes() == b"stable report"
     assert not source.exists()
+
+
+def test_report_publish_rejects_symlink_substitution_during_sync(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"original")
+    other = store.root / "other.pdf"
+    other.write_bytes(b"replacement")
+    real_fsync = os.fsync
+
+    def replace_with_link(descriptor):
+        result = real_fsync(descriptor)
+        source.unlink()
+        source.symlink_to(other)
+        return result
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", replace_with_link)
+    with pytest.raises(ValueError, match="source changed during publication"):
+        store.publish("job-a", source)
+    assert not (store.root / "job-a.pdf").exists()
