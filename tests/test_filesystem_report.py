@@ -990,3 +990,14 @@ def test_report_publish_hardlink_rejection_preserves_existing_report(tmp_path) -
         store.publish("job-a", source)
 
     assert destination.read_bytes() == b"existing report"
+
+
+def test_report_publish_accepts_single_link_temporary(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a-temp.pdf"
+    source.write_bytes(b"report")
+    assert source.stat().st_nlink == 1
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-a", source).read_bytes() == b"report"
