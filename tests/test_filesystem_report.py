@@ -1928,3 +1928,29 @@ def test_report_get_rejects_zero_byte_read_of_nonempty_file(tmp_path, monkeypatc
     monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: EmptyReader(original_fdopen(fd, *a, **kw)))
     with pytest.raises(ValueError, match="read was incomplete"):
         store.get("job-a")
+
+
+def test_report_get_short_read_keeps_published_artifact_unchanged(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    temporary = store.create_temporary("job-a")
+    temporary.write_bytes(b"original report")
+    destination = store.publish("job-a", temporary)
+    original_fdopen = os.fdopen
+
+    class ShortReader:
+        def __init__(self, stream):
+            self.stream = stream
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+        def read(self):
+            return self.stream.read(3)
+
+    monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: ShortReader(original_fdopen(fd, *a, **kw)))
+    with pytest.raises(ValueError, match="read was incomplete"):
+        store.get("job-a")
+    assert destination.read_bytes() == b"original report"
