@@ -724,3 +724,13 @@ def test_report_publish_accepts_job_temporary_with_dot_separator(tmp_path) -> No
     store = FileSystemReportArtifactStore(root)
 
     assert store.publish("job-a", source).read_bytes() == b"report"
+
+
+def test_report_publish_accepts_job_temporary_with_dash_separator(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a-123.pdf"
+    source.write_bytes(b"report")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-a", source).read_bytes() == b"report"
