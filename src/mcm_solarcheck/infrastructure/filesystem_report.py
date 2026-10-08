@@ -99,6 +99,8 @@ class FileSystemReportArtifactStore:
             resolved_path.relative_to(self._resolved_root)
         except ValueError as exc:
             raise ValueError("report artifact resolves outside configured report directory") from exc
+        if not resolved_path.exists():
+            raise FileNotFoundError(resolved_path)
         if not resolved_path.is_file():
             raise ValueError("report artifact must be a regular file")
         content = resolved_path.read_bytes()
