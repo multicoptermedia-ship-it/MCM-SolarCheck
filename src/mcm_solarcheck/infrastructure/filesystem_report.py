@@ -75,6 +75,8 @@ class FileSystemReportArtifactStore:
             raise ValueError(
                 "report artifact resolves outside configured report directory"
             ) from exc
+        if source.is_symlink():
+            raise ValueError("report temporary source must not be a symlink")
         source.replace(destination)
         return destination
 
