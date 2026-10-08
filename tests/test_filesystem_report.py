@@ -1221,3 +1221,17 @@ def test_report_get_rejects_fifo_without_waiting_for_writer(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="artifact must be a regular file"):
         store.get("job-a")
+
+
+def test_report_get_rejects_private_fifo_symlink_without_waiting(tmp_path) -> None:
+    import os
+
+    root = tmp_path / "private"
+    root.mkdir()
+    fifo = root / "pipe"
+    os.mkfifo(fifo)
+    (root / "job-a.pdf").symlink_to(fifo)
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="artifact must be a regular file"):
+        store.get("job-a")
