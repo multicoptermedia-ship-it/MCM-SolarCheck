@@ -109,6 +109,8 @@ class FileSystemReportArtifactStore:
             raise FileNotFoundError(resolved_path)
         if not resolved_path.is_file():
             raise ValueError("report artifact must be a regular file")
+        if resolved_path.stat().st_nlink != 1:
+            raise ValueError("report artifact must not be hard-linked")
         content = resolved_path.read_bytes()
         if not content:
             raise ValueError("report artifact must not be empty")
