@@ -1254,3 +1254,17 @@ def test_report_get_opens_file_with_nonblocking_flag(tmp_path, monkeypatch) -> N
     monkeypatch.setattr(filesystem_report.os, "open", inspect_flags)
     assert FileSystemReportArtifactStore(root).get("job-a").content == b"report"
     assert observed and observed[0] & os.O_NONBLOCK
+
+
+def test_report_get_rejects_unix_socket_artifact(tmp_path) -> None:
+    import socket
+
+    root = tmp_path / "private"
+    root.mkdir()
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        sock.bind(str(root / "job-a.pdf"))
+        with pytest.raises((ValueError, OSError)):
+            FileSystemReportArtifactStore(root).get("job-a")
+    finally:
+        sock.close()
