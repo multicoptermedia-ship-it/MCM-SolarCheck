@@ -876,3 +876,18 @@ def test_report_get_empty_artifact_does_not_modify_file(tmp_path) -> None:
 
     assert path.exists()
     assert path.read_bytes() == b""
+
+
+def test_report_publish_rejects_directory_destination(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    (root / "job-a.pdf").mkdir()
+    source = root / ".job-a-temp.pdf"
+    source.write_bytes(b"report")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="destination must be a regular file"):
+        store.publish("job-a", source)
+
+    assert source.read_bytes() == b"report"
+    assert (root / "job-a.pdf").is_dir()
