@@ -607,3 +607,13 @@ def test_report_publish_rejects_mismatched_report_format(tmp_path) -> None:
 
     assert source.read_bytes() == b"wrong format"
     assert not (root / "job-a.pdf").exists()
+
+
+def test_report_publish_accepts_generic_temporary_suffix(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a.tmp"
+    source.write_bytes(b"valid report")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-a", source).read_bytes() == b"valid report"
