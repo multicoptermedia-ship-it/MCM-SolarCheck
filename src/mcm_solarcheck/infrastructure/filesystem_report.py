@@ -68,6 +68,7 @@ class FileSystemReportArtifactStore:
         destination = self.path_for(job_id)
         source = Path(temporary)
         try:
+            source.resolve().relative_to(self._resolved_root)
             destination.parent.resolve().relative_to(self._resolved_root)
             destination.resolve().relative_to(self._resolved_root)
         except ValueError as exc:
