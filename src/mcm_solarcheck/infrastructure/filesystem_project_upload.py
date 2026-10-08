@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 
 from mcm_solarcheck.services.project_upload import ValidatedProjectUpload
@@ -59,4 +61,18 @@ class FileSystemProjectUploadStore:
             raise ValueError("project upload destination must be a regular file")
         if destination.exists() and destination.stat().st_nlink > 1:
             raise ValueError("project upload destination must not be hard-linked")
-        destination.write_bytes(request.content)
+        # Replace the resolved target atomically; internal symlinks retain their
+        # existing semantics without truncating a previously valid upload.
+        target = destination.resolve()
+        temporary = None
+        try:
+            descriptor, name = tempfile.mkstemp(prefix=".upload-", dir=target.parent)
+            temporary = Path(name)
+            with os.fdopen(descriptor, "wb") as output:
+                output.write(request.content)
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, target)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
