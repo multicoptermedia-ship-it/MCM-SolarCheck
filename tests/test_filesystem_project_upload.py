@@ -313,3 +313,16 @@ def test_upload_still_creates_missing_regular_destination(tmp_path) -> None:
     store.store(upload())
     assert destination.read_bytes() == b"validated-content"
     assert not destination.is_symlink()
+
+
+def test_upload_rejects_hardlink_to_external_file(tmp_path) -> None:
+    import os
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    external = tmp_path / "external.jpg"
+    external.write_bytes(b"preserve")
+    os.link(external, directory / "thermal.jpg")
+    with pytest.raises(ValueError, match="must not be hard-linked"):
+        store.store(upload())
+    assert external.read_bytes() == b"preserve"
