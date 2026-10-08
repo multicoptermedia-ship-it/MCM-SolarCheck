@@ -369,3 +369,20 @@ def test_report_publish_rejects_retargeted_source_root(tmp_path) -> None:
 
     assert source.read_bytes() == b"outside"
     assert not (trusted / "job-a.pdf").exists()
+
+
+def test_report_publish_rejects_internal_source_symlink(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    target = root / "other.pdf"
+    target.write_bytes(b"other")
+    source = root / ".job-a.tmp"
+    source.symlink_to(target)
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must not be a symlink"):
+        store.publish("job-a", source)
+
+    assert source.is_symlink()
+    assert target.read_bytes() == b"other"
+    assert not (root / "job-a.pdf").exists()
