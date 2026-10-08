@@ -971,3 +971,22 @@ def test_report_publish_rejects_hardlink_to_private_file(tmp_path) -> None:
 
     assert original.read_bytes() == b"other report"
     assert source.exists()
+
+
+def test_report_publish_hardlink_rejection_preserves_existing_report(tmp_path) -> None:
+    import os
+
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-a.pdf"
+    destination.write_bytes(b"existing report")
+    original = root / "other.pdf"
+    original.write_bytes(b"other report")
+    source = root / ".job-a-temp.pdf"
+    os.link(original, source)
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must not be hard-linked"):
+        store.publish("job-a", source)
+
+    assert destination.read_bytes() == b"existing report"
