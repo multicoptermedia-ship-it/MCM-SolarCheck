@@ -85,7 +85,7 @@ class FileSystemReportArtifactStore:
             raise ValueError("report temporary source must not be empty")
         if source.suffix.lower() in _MEDIA_TYPES and source.suffix.lower() != self.suffix:
             raise ValueError("report temporary source suffix does not match report format")
-        if not source.name.startswith(f".{destination.stem}"):
+        if not source.name.startswith((f".{destination.stem}-", f".{destination.stem}.")):
             raise ValueError("report temporary source does not match destination job")
         source.replace(destination)
         return destination
