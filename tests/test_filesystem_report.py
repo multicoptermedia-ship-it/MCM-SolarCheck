@@ -1581,3 +1581,28 @@ def test_report_publish_rejects_directory_substitution_during_sync(tmp_path, mon
     with pytest.raises(ValueError, match="source changed during publication"):
         store.publish("job-a", source)
     assert not (store.root / "job-a.pdf").exists()
+
+
+def test_report_publish_symlink_substitution_preserves_existing_report(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"original")
+    destination = store.root / "job-a.pdf"
+    destination.write_bytes(b"previous")
+    other = store.root / "other.pdf"
+    other.write_bytes(b"replacement")
+    real_fsync = os.fsync
+
+    def replace_with_link(descriptor):
+        result = real_fsync(descriptor)
+        source.unlink()
+        source.symlink_to(other)
+        return result
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", replace_with_link)
+    with pytest.raises(ValueError, match="source changed during publication"):
+        store.publish("job-a", source)
+    assert destination.read_bytes() == b"previous"
