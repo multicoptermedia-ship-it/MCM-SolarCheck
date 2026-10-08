@@ -320,3 +320,20 @@ def test_report_publish_rejects_external_source(tmp_path) -> None:
 
     assert external.read_bytes() == b"untrusted"
     assert not (root / "job-a.pdf").exists()
+
+
+def test_report_publish_rejects_source_symlink_escape(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    external = tmp_path / "external.tmp"
+    external.write_bytes(b"untrusted")
+    source = root / ".job-a.tmp"
+    source.symlink_to(external)
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.publish("job-a", source)
+
+    assert source.is_symlink()
+    assert external.read_bytes() == b"untrusted"
+    assert not (root / "job-a.pdf").exists()
