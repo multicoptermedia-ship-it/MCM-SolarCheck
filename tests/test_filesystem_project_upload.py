@@ -445,3 +445,20 @@ def test_upload_atomic_replace_preserves_previous_file_on_replace_failure(tmp_pa
         store.store(upload())
     assert destination.read_bytes() == b"previous"
     assert sorted(p.name for p in destination.parent.iterdir()) == ["thermal.jpg"]
+
+
+def test_upload_atomic_write_preserves_existing_file_on_fsync_failure(tmp_path, monkeypatch) -> None:
+    import os
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    destination.parent.mkdir(parents=True)
+    destination.write_bytes(b"previous")
+
+    def fail_fsync(fd):
+        raise OSError("simulated fsync failure")
+
+    monkeypatch.setattr(os, "fsync", fail_fsync)
+    with pytest.raises(OSError, match="simulated fsync failure"):
+        store.store(upload())
+    assert destination.read_bytes() == b"previous"
+    assert sorted(p.name for p in destination.parent.iterdir()) == ["thermal.jpg"]
