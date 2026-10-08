@@ -628,3 +628,13 @@ def test_upload_rejects_project_directory_retarget_during_fsync(tmp_path, monkey
     with pytest.raises(ValueError, match="outside configured root"):
         store.store(upload())
     assert list(external.iterdir()) == []
+
+
+def test_upload_path_recheck_allows_stable_destination(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    store.store(upload())
+    assert destination.read_bytes() == b"validated-content"
+    store.store(upload())
+    assert destination.read_bytes() == b"validated-content"
+    assert sorted(p.name for p in destination.parent.iterdir()) == ["thermal.jpg"]
