@@ -1053,3 +1053,16 @@ def test_report_publish_symlink_rejection_preserves_existing_private_target(tmp_
 
     assert target.read_bytes() == b"other report"
     assert source.exists()
+
+
+def test_report_publish_regular_destination_remains_replaceable_after_symlink_guard(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-a.pdf"
+    destination.write_bytes(b"old")
+    source = root / ".job-a-temp.pdf"
+    source.write_bytes(b"new")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-a", source) == destination
+    assert destination.read_bytes() == b"new"
