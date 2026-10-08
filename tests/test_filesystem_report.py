@@ -1787,3 +1787,30 @@ def test_report_retrieval_accepts_unchanged_artifact_after_metadata_check(tmp_pa
     store.publish("job-a", source)
     artifact = store.get("job-a")
     assert artifact.content == b"stable report"
+
+
+def test_report_retrieval_rejects_hardlink_created_during_read(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"report")
+    store.publish("job-a", source)
+    real_fdopen = os.fdopen
+
+    class LinkingReader:
+        def __init__(self, stream):
+            self.stream = stream
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+        def read(self):
+            content = self.stream.read()
+            os.link(store.root / "job-a.pdf", store.root / "alias.pdf")
+            return content
+
+    monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: LinkingReader(real_fdopen(fd, *a, **kw)))
+    with pytest.raises(ValueError, match="must not be hard-linked"):
+        store.get("job-a")
