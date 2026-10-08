@@ -1098,3 +1098,14 @@ def test_report_get_rejects_private_hardlinked_artifact(tmp_path) -> None:
         store.get("job-a")
 
     assert other.read_bytes() == b"private report"
+
+
+def test_report_get_accepts_regular_single_link_artifact(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    path = root / "job-a.pdf"
+    path.write_bytes(b"report bytes")
+    assert path.stat().st_nlink == 1
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.get("job-a").content == b"report bytes"
