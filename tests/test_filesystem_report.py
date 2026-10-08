@@ -801,3 +801,15 @@ def test_report_get_rejects_directory_named_like_report(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="must be a regular file"):
         store.get("job-a")
+
+
+def test_report_get_rejects_symlink_to_directory_inside_private_root(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    directory = root / "directory"
+    directory.mkdir()
+    (root / "job-a.pdf").symlink_to(directory, target_is_directory=True)
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must be a regular file"):
+        store.get("job-a")
