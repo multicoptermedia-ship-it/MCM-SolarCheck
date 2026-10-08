@@ -607,3 +607,24 @@ def test_upload_rejects_destination_retargeted_outside_root_during_fsync(tmp_pat
         store.store(upload())
     assert outside.read_bytes() == b"outside"
     assert sorted(p.name for p in directory.iterdir()) == ["thermal.jpg"]
+
+
+def test_upload_rejects_project_directory_retarget_during_fsync(tmp_path, monkeypatch) -> None:
+    import os
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    external = tmp_path / "external"
+    external.mkdir()
+    original_fsync = os.fsync
+
+    def retarget(fd):
+        if directory.is_dir() and not directory.is_symlink():
+            directory.rename(directory.with_name("P-1-moved"))
+            directory.symlink_to(external, target_is_directory=True)
+        return original_fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", retarget)
+    with pytest.raises(ValueError, match="outside configured root"):
+        store.store(upload())
+    assert list(external.iterdir()) == []
