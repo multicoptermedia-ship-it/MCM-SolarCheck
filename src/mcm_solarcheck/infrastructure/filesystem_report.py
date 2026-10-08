@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import stat
 import tempfile
 from pathlib import Path
 
@@ -105,13 +106,17 @@ class FileSystemReportArtifactStore:
             resolved_path.relative_to(self._resolved_root)
         except ValueError as exc:
             raise ValueError("report artifact resolves outside configured report directory") from exc
-        if not resolved_path.exists():
-            raise FileNotFoundError(resolved_path)
-        if not resolved_path.is_file():
-            raise ValueError("report artifact must be a regular file")
-        if resolved_path.stat().st_nlink != 1:
-            raise ValueError("report artifact must not be hard-linked")
-        content = resolved_path.read_bytes()
+        try:
+            descriptor = os.open(resolved_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        except FileNotFoundError:
+            raise FileNotFoundError(resolved_path) from None
+        with os.fdopen(descriptor, "rb") as report_file:
+            details = os.fstat(report_file.fileno())
+            if not stat.S_ISREG(details.st_mode):
+                raise ValueError("report artifact must be a regular file")
+            if details.st_nlink != 1:
+                raise ValueError("report artifact must not be hard-linked")
+            content = report_file.read()
         if not content:
             raise ValueError("report artifact must not be empty")
         return ReportArtifact(
