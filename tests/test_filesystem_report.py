@@ -1691,3 +1691,33 @@ def test_report_publish_truncation_during_sync_preserves_previous_report(tmp_pat
     with pytest.raises(ValueError, match="must not be empty"):
         store.publish("job-a", source)
     assert destination.read_bytes() == b"previous"
+
+
+def test_report_retrieval_rejects_truncation_during_read(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"original report")
+    store.publish("job-a", source)
+    real_fdopen = os.fdopen
+
+    class TruncatingReader:
+        def __init__(self, stream):
+            self.stream = stream
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+        def read(self):
+            content = self.stream.read()
+            (store.root / "job-a.pdf").write_bytes(b"")
+            return content
+
+    def fdopen_and_truncate(descriptor, *args, **kwargs):
+        return TruncatingReader(real_fdopen(descriptor, *args, **kwargs))
+
+    monkeypatch.setattr(filesystem_report.os, "fdopen", fdopen_and_truncate)
+    with pytest.raises(ValueError, match="changed during retrieval"):
+        store.get("job-a")
