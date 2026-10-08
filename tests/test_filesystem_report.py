@@ -776,3 +776,19 @@ def test_report_publish_accepts_temporary_from_same_directory(tmp_path) -> None:
 
     assert store.publish("job-a", source).read_bytes() == b"report"
     assert not source.exists()
+
+
+def test_report_publish_rejects_sibling_private_directory_temporary(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    sibling = tmp_path / "sibling"
+    sibling.mkdir()
+    source = sibling / ".job-a-temp.pdf"
+    source.write_bytes(b"sibling")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.publish("job-a", source)
+
+    assert source.read_bytes() == b"sibling"
+    assert not (root / "job-a.pdf").exists()
