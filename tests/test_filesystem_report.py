@@ -569,3 +569,14 @@ def test_empty_report_temporary_preserves_existing_report(tmp_path) -> None:
 
     assert destination.read_bytes() == b"existing"
     assert source.stat().st_size == 0
+
+
+def test_nonempty_report_temporary_publishes_successfully(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a.tmp"
+    source.write_bytes(b"report")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-a", source).read_bytes() == b"report"
+    assert not source.exists()
