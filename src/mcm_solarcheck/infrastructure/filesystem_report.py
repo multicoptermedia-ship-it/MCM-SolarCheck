@@ -89,6 +89,8 @@ class FileSystemReportArtifactStore:
             raise ValueError("report temporary source suffix does not match report format")
         if not source.name.startswith((f".{destination.stem}-", f".{destination.stem}.")):
             raise ValueError("report temporary source does not match destination job")
+        if destination.exists() and not destination.is_file():
+            raise ValueError("report destination must be a regular file")
         source.replace(destination)
         return destination
 
