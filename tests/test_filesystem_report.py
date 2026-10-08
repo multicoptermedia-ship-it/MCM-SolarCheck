@@ -662,3 +662,13 @@ def test_report_publish_other_job_temporary_preserves_existing_report(tmp_path) 
         store.publish("job-a", source)
 
     assert destination.read_bytes() == b"existing"
+
+
+def test_report_publish_accepts_matching_job_temporary(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a-temp.pdf"
+    source.write_bytes(b"matching job")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-a", source).read_bytes() == b"matching job"
