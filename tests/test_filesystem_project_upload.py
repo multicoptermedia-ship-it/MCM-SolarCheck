@@ -392,3 +392,10 @@ def test_upload_store_accepts_simple_filename_after_boundary_validation(tmp_path
     store.store(upload(filename="validated-image.jpg"))
     destination = store.project_directory("user-1", "P-1") / "validated-image.jpg"
     assert destination.read_bytes() == b"validated-content"
+
+
+def test_invalid_filename_does_not_create_customer_directory(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    with pytest.raises(ValueError, match="filename is invalid"):
+        store.store(upload(filename="../escape.jpg"))
+    assert not (store.root / "user-1").exists()
