@@ -1440,3 +1440,25 @@ def test_report_publish_syncs_directory_when_replacing_existing_report(tmp_path,
     store.publish("job-a", source)
     assert (store.root / "job-a.pdf").read_bytes() == b"new report"
     assert directory_syncs == [True]
+
+
+def test_report_publish_rejects_source_swap_during_sync(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"original")
+    replacement = store.root / "replacement.pdf"
+    replacement.write_bytes(b"replacement")
+    real_fsync = os.fsync
+
+    def swap_on_sync(descriptor):
+        result = real_fsync(descriptor)
+        replacement.replace(source)
+        return result
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", swap_on_sync)
+    with pytest.raises(ValueError, match="source changed during publication"):
+        store.publish("job-a", source)
+    assert not (store.root / "job-a.pdf").exists()
