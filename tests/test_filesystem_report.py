@@ -1876,4 +1876,5 @@ def test_report_retrieval_allows_unlinked_open_descriptor_during_read(tmp_path, 
             return content
 
     monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: UnlinkingReader(real_fdopen(fd, *a, **kw)))
-    assert store.get("job-a").content == b"unlinked report"
+    with pytest.raises(ValueError, match="changed during retrieval"):
+        store.get("job-a")
