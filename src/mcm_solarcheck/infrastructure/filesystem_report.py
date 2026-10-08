@@ -83,6 +83,8 @@ class FileSystemReportArtifactStore:
             raise ValueError("report temporary source must be a regular file")
         if source.resolve() == destination.resolve():
             raise ValueError("report temporary source must differ from destination")
+        if source.stat().st_nlink != 1:
+            raise ValueError("report temporary source must not be hard-linked")
         if source.stat().st_size == 0:
             raise ValueError("report temporary source must not be empty")
         if source.suffix.lower() in _MEDIA_TYPES and source.suffix.lower() != self.suffix:
