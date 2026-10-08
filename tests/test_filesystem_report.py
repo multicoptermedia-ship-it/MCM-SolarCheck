@@ -1082,3 +1082,19 @@ def test_report_get_rejects_external_hardlinked_artifact(tmp_path) -> None:
         store.get("job-a")
 
     assert external.read_bytes() == b"external data"
+
+
+def test_report_get_rejects_private_hardlinked_artifact(tmp_path) -> None:
+    import os
+
+    root = tmp_path / "private"
+    root.mkdir()
+    other = root / "other.pdf"
+    other.write_bytes(b"private report")
+    os.link(other, root / "job-a.pdf")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="artifact must not be hard-linked"):
+        store.get("job-a")
+
+    assert other.read_bytes() == b"private report"
