@@ -1749,3 +1749,32 @@ def test_report_retrieval_rejects_same_size_rewrite_during_read(tmp_path, monkey
     monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: RewritingReader(real_fdopen(fd, *a, **kw)))
     with pytest.raises(ValueError, match="changed during retrieval"):
         store.get("job-a")
+
+
+def test_report_retrieval_rejects_timestamp_change_during_read(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"original")
+    store.publish("job-a", source)
+    real_fdopen = os.fdopen
+
+    class TimestampReader:
+        def __init__(self, stream):
+            self.stream = stream
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+        def read(self):
+            content = self.stream.read()
+            path = store.root / "job-a.pdf"
+            original = path.stat()
+            os.utime(path, ns=(original.st_atime_ns, original.st_mtime_ns + 2_000_000_000))
+            return content
+
+    monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: TimestampReader(real_fdopen(fd, *a, **kw)))
+    with pytest.raises(ValueError, match="changed during retrieval"):
+        store.get("job-a")
