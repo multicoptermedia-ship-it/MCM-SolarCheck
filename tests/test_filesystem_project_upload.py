@@ -363,3 +363,10 @@ def test_upload_still_overwrites_single_link_file(tmp_path) -> None:
     assert destination.stat().st_nlink == 1
     store.store(upload())
     assert destination.read_bytes() == b"validated-content"
+
+
+def test_upload_store_rejects_parent_traversal_filename(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    with pytest.raises(ValueError, match="filename is invalid"):
+        store.store(upload(filename="../escape.jpg"))
+    assert not (store.root / "user-1" / "escape.jpg").exists()
