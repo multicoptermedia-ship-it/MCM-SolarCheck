@@ -580,3 +580,16 @@ def test_nonempty_report_temporary_publishes_successfully(tmp_path) -> None:
 
     assert store.publish("job-a", source).read_bytes() == b"report"
     assert not source.exists()
+
+
+def test_nonempty_report_temporary_replaces_existing_artifact(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-a.pdf"
+    destination.write_bytes(b"old")
+    source = root / ".job-a.tmp"
+    source.write_bytes(b"new")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-a", source) == destination
+    assert destination.read_bytes() == b"new"
