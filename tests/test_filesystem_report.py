@@ -1288,3 +1288,23 @@ def test_report_publish_syncs_temporary_file_before_replacement(tmp_path, monkey
     monkeypatch.setattr(filesystem_report.os, "fsync", record_sync)
     store.publish("job-a", source)
     assert synced == [len(b"report")]
+
+
+def test_report_publish_sync_failure_preserves_existing_report(tmp_path, monkeypatch) -> None:
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    root = tmp_path / "reports"
+    store = FileSystemReportArtifactStore(root)
+    existing = root / "job-a.pdf"
+    source = store.create_temporary("job-a")
+    existing.write_bytes(b"previous")
+    source.write_bytes(b"replacement")
+
+    def fail_sync(descriptor):
+        raise OSError("sync failed")
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", fail_sync)
+    with pytest.raises(OSError, match="sync failed"):
+        store.publish("job-a", source)
+    assert existing.read_bytes() == b"previous"
+    assert source.read_bytes() == b"replacement"
