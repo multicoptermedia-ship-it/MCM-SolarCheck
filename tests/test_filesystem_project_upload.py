@@ -259,3 +259,12 @@ def test_upload_rejects_fifo_destination_without_blocking(tmp_path) -> None:
     with pytest.raises(ValueError, match="must be a regular file"):
         store.store(upload())
     assert destination.exists()
+
+
+def test_upload_still_overwrites_existing_regular_file(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    destination.parent.mkdir(parents=True)
+    destination.write_bytes(b"previous")
+    store.store(upload())
+    assert destination.read_bytes() == b"validated-content"
