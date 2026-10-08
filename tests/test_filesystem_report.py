@@ -1506,3 +1506,12 @@ def test_report_publish_preserves_existing_report_on_source_swap(tmp_path, monke
     with pytest.raises(ValueError, match="source changed during publication"):
         store.publish("job-a", source)
     assert destination.read_bytes() == b"previous"
+
+
+def test_report_publish_allows_source_unchanged_during_sync(tmp_path) -> None:
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"stable report")
+    destination = store.publish("job-a", source)
+    assert destination.read_bytes() == b"stable report"
+    assert not source.exists()
