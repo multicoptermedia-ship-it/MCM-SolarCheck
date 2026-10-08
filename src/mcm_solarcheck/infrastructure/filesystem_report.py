@@ -75,6 +75,8 @@ class FileSystemReportArtifactStore:
             raise ValueError(
                 "report artifact resolves outside configured report directory"
             ) from exc
+        if source.parent.resolve() != destination.parent.resolve():
+            raise ValueError("report temporary source must share destination directory")
         if source.is_symlink():
             raise ValueError("report temporary source must not be a symlink")
         if not source.is_file():
