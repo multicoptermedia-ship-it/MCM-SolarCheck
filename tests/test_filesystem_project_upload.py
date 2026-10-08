@@ -304,3 +304,12 @@ def test_upload_dangling_symlink_rejection_preserves_other_files(tmp_path) -> No
     with pytest.raises(ValueError, match="dangling symlink"):
         store.store(upload())
     assert existing.read_bytes() == b"preserved"
+
+
+def test_upload_still_creates_missing_regular_destination(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    assert not destination.exists()
+    store.store(upload())
+    assert destination.read_bytes() == b"validated-content"
+    assert not destination.is_symlink()
