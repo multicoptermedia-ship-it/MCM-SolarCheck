@@ -246,3 +246,16 @@ def test_upload_rejects_internal_directory_symlink_as_destination(tmp_path) -> N
         store.store(upload())
     assert destination.is_symlink()
     assert list(target.iterdir()) == []
+
+
+def test_upload_rejects_fifo_destination_without_blocking(tmp_path) -> None:
+    import os
+    if not hasattr(os, "mkfifo"):
+        pytest.skip("FIFO files not supported")
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    destination.parent.mkdir(parents=True)
+    os.mkfifo(destination)
+    with pytest.raises(ValueError, match="must be a regular file"):
+        store.store(upload())
+    assert destination.exists()
