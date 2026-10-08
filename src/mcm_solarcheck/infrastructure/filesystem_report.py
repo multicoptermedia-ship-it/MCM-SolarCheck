@@ -109,6 +109,11 @@ class FileSystemReportArtifactStore:
         finally:
             os.close(descriptor)
         source.replace(destination)
+        directory_descriptor = os.open(destination.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
         return destination
 
     def get(self, job_id: str) -> ReportArtifact:
