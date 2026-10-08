@@ -432,3 +432,17 @@ def test_report_publish_regular_source_still_replaces_existing_artifact(tmp_path
     assert store.publish("job-a", source) == destination
     assert destination.read_bytes() == b"new"
     assert not source.exists()
+
+
+def test_report_publish_rejects_directory_source(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a.tmp"
+    source.mkdir()
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must be a regular file"):
+        store.publish("job-a", source)
+
+    assert source.is_dir()
+    assert not (root / "job-a.pdf").exists()
