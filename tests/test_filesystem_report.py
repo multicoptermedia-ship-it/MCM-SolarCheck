@@ -853,3 +853,12 @@ def test_report_get_rejects_empty_private_symlink_target(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="must not be empty"):
         store.get("job-a")
+
+
+def test_report_get_accepts_single_byte_artifact(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    (root / "job-a.pdf").write_bytes(b"x")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.get("job-a").content == b"x"
