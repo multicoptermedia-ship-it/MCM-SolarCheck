@@ -1372,3 +1372,24 @@ def test_report_publish_syncs_directory_after_source_file(tmp_path, monkeypatch)
     monkeypatch.setattr(filesystem_report.os, "fsync", record_sync)
     store.publish("job-a", source)
     assert observed == ["file", "directory"]
+
+
+def test_report_publish_directory_sync_failure_reports_error(tmp_path, monkeypatch) -> None:
+    import os
+    import stat
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"report")
+    real_fsync = os.fsync
+
+    def fail_directory_sync(descriptor):
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            raise OSError("directory sync failed")
+        return real_fsync(descriptor)
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", fail_directory_sync)
+    with pytest.raises(OSError, match="directory sync failed"):
+        store.publish("job-a", source)
+    assert (store.root / "job-a.pdf").read_bytes() == b"report"
