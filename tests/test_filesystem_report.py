@@ -446,3 +446,14 @@ def test_report_publish_rejects_directory_source(tmp_path) -> None:
 
     assert source.is_dir()
     assert not (root / "job-a.pdf").exists()
+
+
+def test_report_publish_rejects_missing_source(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must be a regular file"):
+        store.publish("job-a", root / ".missing.tmp")
+
+    assert not (root / "job-a.pdf").exists()
