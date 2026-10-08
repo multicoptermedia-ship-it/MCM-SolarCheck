@@ -292,3 +292,15 @@ def test_upload_rejects_dangling_relative_destination_symlink(tmp_path) -> None:
     with pytest.raises(ValueError, match="dangling symlink"):
         store.store(upload())
     assert not (directory / "missing.jpg").exists()
+
+
+def test_upload_dangling_symlink_rejection_preserves_other_files(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    existing = directory / "existing.jpg"
+    existing.write_bytes(b"preserved")
+    (directory / "thermal.jpg").symlink_to("missing.jpg")
+    with pytest.raises(ValueError, match="dangling symlink"):
+        store.store(upload())
+    assert existing.read_bytes() == b"preserved"
