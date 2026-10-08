@@ -110,13 +110,16 @@ class FileSystemReportArtifactStore:
             descriptor = os.open(resolved_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         except FileNotFoundError:
             raise FileNotFoundError(resolved_path) from None
-        with os.fdopen(descriptor, "rb") as report_file:
-            details = os.fstat(report_file.fileno())
+        try:
+            details = os.fstat(descriptor)
             if not stat.S_ISREG(details.st_mode):
                 raise ValueError("report artifact must be a regular file")
-            if details.st_nlink != 1:
+            if details.st_nlink > 1:
                 raise ValueError("report artifact must not be hard-linked")
-            content = report_file.read()
+            with os.fdopen(descriptor, "rb", closefd=False) as report_file:
+                content = report_file.read()
+        finally:
+            os.close(descriptor)
         if not content:
             raise ValueError("report artifact must not be empty")
         return ReportArtifact(
