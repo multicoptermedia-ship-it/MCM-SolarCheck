@@ -77,6 +77,8 @@ class FileSystemReportArtifactStore:
             ) from exc
         if source.is_symlink():
             raise ValueError("report temporary source must not be a symlink")
+        if not source.is_file():
+            raise ValueError("report temporary source must be a regular file")
         source.replace(destination)
         return destination
 
