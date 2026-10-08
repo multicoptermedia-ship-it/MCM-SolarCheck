@@ -1036,3 +1036,20 @@ def test_report_publish_rejects_dangling_destination_symlink(tmp_path) -> None:
 
     assert destination.is_symlink()
     assert source.read_bytes() == b"new"
+
+
+def test_report_publish_symlink_rejection_preserves_existing_private_target(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    target = root / "other.pdf"
+    target.write_bytes(b"other report")
+    (root / "job-a.pdf").symlink_to(target)
+    source = root / ".job-a-temp.pdf"
+    source.write_bytes(b"replacement")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="destination must not be a symlink"):
+        store.publish("job-a", source)
+
+    assert target.read_bytes() == b"other report"
+    assert source.exists()
