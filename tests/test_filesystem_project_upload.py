@@ -378,3 +378,10 @@ def test_upload_store_rejects_absolute_filename(tmp_path) -> None:
     with pytest.raises(ValueError, match="filename is invalid"):
         store.store(upload(filename=str(external)))
     assert not external.exists()
+
+
+@pytest.mark.parametrize("filename", ["nested/file.jpg", r"nested\\file.jpg", "bad\\x00name.jpg", ".", ".."])
+def test_upload_store_rejects_unsafe_filename_segments(tmp_path, filename) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    with pytest.raises(ValueError, match="filename is invalid"):
+        store.store(upload(filename=filename))
