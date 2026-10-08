@@ -1,0 +1,276 @@
+"""Application boundary between stored customer uploads and project import."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Callable, Protocol
+
+from mcm_solarcheck.importers.project import ProjectImportResult
+from mcm_solarcheck.services.compute_jobs import ComputeJobLease, ComputeJobStatus
+
+
+class ProjectProcessingStateRecorder(Protocol):
+    """Record lifecycle state and optionally renew long-running work."""
+
+    def __call__(
+        self,
+        customer_id: str,
+        project_id: str,
+        state: "ProjectProcessingState",
+    ) -> None: ...
+
+    def heartbeat(self) -> None: ...
+
+
+ProjectProcessingStateCallback = Callable[[str, str, "ProjectProcessingState"], None]
+ProjectProcessingStateSink = ProjectProcessingStateRecorder | ProjectProcessingStateCallback
+
+
+class _CallableStateRecorder:
+    """Adapt legacy state callbacks to the recorder contract."""
+
+    def __init__(
+        self,
+        callback: ProjectProcessingStateCallback,
+    ) -> None:
+        self._callback = callback
+
+    def __call__(
+        self,
+        customer_id: str,
+        project_id: str,
+        state: "ProjectProcessingState",
+    ) -> None:
+        self._callback(customer_id, project_id, state)
+
+    def heartbeat(self) -> None:
+        return None
+
+
+def _state_recorder(state_sink: ProjectProcessingStateSink) -> ProjectProcessingStateRecorder:
+    """Return a heartbeat-capable recorder for either supported state sink."""
+    if callable(getattr(state_sink, "heartbeat", None)):
+        return state_sink  # type: ignore[return-value]
+    return _CallableStateRecorder(state_sink)
+
+
+class ProjectProcessingConflict(RuntimeError):
+    """The requested project processing is already owned by another worker."""
+
+
+class ProjectProcessingState(str, Enum):
+    READY = "ready"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class ProjectProcessingRequest:
+    customer_id: str
+    project_id: str
+    job_id: str | None = None
+
+
+@dataclass(frozen=True)
+class ProjectProcessingResult:
+    customer_id: str
+    project_id: str
+    state: ProjectProcessingState
+    imported_thermal_frames: int
+    paired_frames: int
+    import_failures: int
+
+
+class ComputeJobProcessingStateRecorder:
+    """Bind one project-processing lifecycle to one authoritative compute job."""
+
+    def __init__(
+        self,
+        jobs,
+        *,
+        job_id: str,
+        customer_id: str,
+        project_id: str,
+        worker_id: str | None = None,
+        lease: ComputeJobLease | None = None,
+        now: Callable[[], datetime] | None = None,
+        renew_lease: Callable[[], ComputeJobLease] | None = None,
+    ) -> None:
+        self._jobs = jobs
+        self._job_id = job_id.strip()
+        self._customer_id = customer_id.strip()
+        self._project_id = project_id.strip()
+        self._worker_id = worker_id.strip() if worker_id is not None else None
+        self._lease = lease
+        self._now = now
+        self._renew_lease = renew_lease
+        if renew_lease is not None and (self._worker_id is None or lease is None):
+            raise ValueError("lease renewal requires worker_id and initial lease")
+        if worker_id is not None and not self._worker_id:
+            raise ValueError("worker_id must be a non-empty string")
+        if not self._job_id or not self._customer_id or not self._project_id:
+            raise ValueError("job, customer and project are required")
+
+    def heartbeat(self) -> None:
+        """Renew the active processing lease for this worker when configured."""
+        if self._worker_id is None or self._renew_lease is None:
+            return
+        try:
+            self._jobs.get(
+                self._job_id,
+                user_id=self._customer_id,
+                project_id=self._project_id,
+            )
+        except KeyError as exc:
+            raise PermissionError("processing job is not available") from exc
+        self._jobs.renew_claim(
+            self._job_id,
+            worker_id=self._worker_id,
+            lease=self._renew_lease(),
+        )
+
+    def __call__(
+        self,
+        customer_id: str,
+        project_id: str,
+        state: ProjectProcessingState,
+    ) -> None:
+        if customer_id != self._customer_id or project_id != self._project_id:
+            raise PermissionError("processing job identity mismatch")
+        if state is ProjectProcessingState.RUNNING:
+            try:
+                job = self._jobs.get(
+                    self._job_id,
+                    user_id=self._customer_id,
+                    project_id=self._project_id,
+                )
+            except KeyError as exc:
+                raise PermissionError("processing job is not available") from exc
+            if job.status is not ComputeJobStatus.RUNNING:
+                raise ValueError("compute job must be running before project processing")
+            if self._worker_id is not None:
+                try:
+                    self._jobs.claim(
+                        self._job_id,
+                        worker_id=self._worker_id,
+                        lease=self._lease,
+                    )
+                except RuntimeError as exc:
+                    if "already claimed by another worker" in str(exc):
+                        raise ProjectProcessingConflict(
+                            "project processing is already running"
+                        ) from exc
+                    raise
+            return
+        if state in (ProjectProcessingState.COMPLETED, ProjectProcessingState.FAILED):
+            if self._worker_id is not None:
+                try:
+                    self._jobs.get(
+                        self._job_id,
+                        user_id=self._customer_id,
+                        project_id=self._project_id,
+                    )
+                except KeyError as exc:
+                    raise PermissionError("processing job is not available") from exc
+                self._jobs.finish_claimed(
+                    self._job_id,
+                    worker_id=self._worker_id,
+                    succeeded=state is ProjectProcessingState.COMPLETED,
+                    now=self._now() if self._lease is not None and self._now is not None else None,
+                )
+                return
+            self._jobs.transition(
+                self._job_id,
+                (
+                    ComputeJobStatus.COMPLETED
+                    if state is ProjectProcessingState.COMPLETED
+                    else ComputeJobStatus.FAILED
+                ),
+                user_id=self._customer_id,
+                project_id=self._project_id,
+            )
+            return
+        raise ValueError("unsupported project processing state")
+
+
+class ProjectProcessingService:
+    def __init__(
+        self,
+        project_belongs_to_customer: Callable[[str, str], bool],
+        upload_directory_for_project: Callable[[str, str], str | Path],
+        import_project: Callable[[str | Path], ProjectImportResult],
+        record_state: ProjectProcessingStateSink | None = None,
+        persist_import: Callable[[str, str, ProjectImportResult], None] | None = None,
+        record_state_for_request: Callable[[ProjectProcessingRequest], ProjectProcessingStateSink] | None = None,
+        import_project_with_heartbeat: Callable[[str | Path, Callable[[], None]], ProjectImportResult] | None = None,
+        persist_import_with_heartbeat: Callable[[str, str, ProjectImportResult, Callable[[], None]], None] | None = None,
+    ) -> None:
+        self._project_belongs_to_customer = project_belongs_to_customer
+        self._upload_directory_for_project = upload_directory_for_project
+        self._import_project = import_project
+        self._record_state = (
+            _state_recorder(record_state) if record_state is not None else None
+        )
+        self._persist_import = persist_import or (lambda customer_id, project_id, imported: None)
+        self._record_state_for_request = record_state_for_request
+        self._import_project_with_heartbeat = import_project_with_heartbeat
+        self._persist_import_with_heartbeat = persist_import_with_heartbeat
+
+    def process(self, request: ProjectProcessingRequest) -> ProjectProcessingResult:
+        customer_id = request.customer_id.strip()
+        project_id = request.project_id.strip()
+        if not customer_id or not project_id:
+            raise ValueError("customer and project are required")
+        if not self._project_belongs_to_customer(customer_id, project_id):
+            raise PermissionError("project is not available to customer")
+
+        record_state = (
+            self._record_state_for_request(request)
+            if self._record_state_for_request is not None
+            else self._record_state
+        )
+        if record_state is not None:
+            record_state = _state_recorder(record_state)
+        if record_state is None:
+            raise RuntimeError("project processing state recorder is not configured")
+        directory = Path(self._upload_directory_for_project(customer_id, project_id))
+        if not directory.is_dir():
+            raise ValueError("project upload directory is not available")
+        record_state(customer_id, project_id, ProjectProcessingState.RUNNING)
+        try:
+            heartbeat = record_state.heartbeat
+            if self._import_project_with_heartbeat is not None:
+                imported = self._import_project_with_heartbeat(directory, heartbeat)
+            else:
+                imported = self._import_project(directory)
+            if self._persist_import_with_heartbeat is not None:
+                self._persist_import_with_heartbeat(customer_id, project_id, imported, heartbeat)
+            else:
+                self._persist_import(customer_id, project_id, imported)
+        except Exception as processing_error:
+            try:
+                record_state(customer_id, project_id, ProjectProcessingState.FAILED)
+            except Exception as state_error:
+                raise processing_error from state_error
+            raise
+
+        try:
+            record_state(customer_id, project_id, ProjectProcessingState.COMPLETED)
+        except Exception as completion_error:
+            try:
+                record_state(customer_id, project_id, ProjectProcessingState.FAILED)
+            except Exception as state_error:
+                raise completion_error from state_error
+            raise
+        return ProjectProcessingResult(
+            customer_id=customer_id,
+            project_id=project_id,
+            state=ProjectProcessingState.COMPLETED,
+            imported_thermal_frames=len(imported.thermal_batch.results),
+            paired_frames=len(imported.pairs),
+            import_failures=len(imported.thermal_batch.failures),
+        )

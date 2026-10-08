@@ -1,0 +1,175 @@
+"""Filesystem-backed report artifacts for private SFTP-managed storage."""
+
+from __future__ import annotations
+
+import os
+import stat
+import tempfile
+from pathlib import Path
+
+from mcm_solarcheck.services.report_delivery import ReportArtifact
+
+
+_MEDIA_TYPES = {
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".odt": "application/vnd.oasis.opendocument.text",
+}
+
+
+class FileSystemReportArtifactStore:
+    """Read report artifacts only from a configured private reports directory."""
+
+    def __init__(self, root: str | Path, *, suffix: str = ".pdf") -> None:
+        self.root = Path(root)
+        self._resolved_root = self.root.expanduser().resolve()
+        normalized = suffix.lower()
+        if normalized not in _MEDIA_TYPES:
+            raise ValueError("unsupported report artifact suffix")
+        self.suffix = normalized
+
+    @staticmethod
+    def _safe_job_id(job_id: str) -> str:
+        if not isinstance(job_id, str) or not job_id.strip():
+            raise ValueError("job_id must be non-empty")
+        value = job_id.strip()
+        if value in {".", ".."} or "/" in value or "\\" in value:
+            raise ValueError("job_id contains unsafe path characters")
+        return value
+
+    def path_for(self, job_id: str) -> Path:
+        safe = self._safe_job_id(job_id)
+        path = self.root / f"{safe}{self.suffix}"
+        try:
+            path.resolve().relative_to(self._resolved_root)
+        except ValueError as exc:
+            raise ValueError(
+                "report artifact resolves outside configured report directory"
+            ) from exc
+        return path
+
+    def create_temporary(self, job_id: str) -> Path:
+        destination = self.path_for(job_id)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            destination.parent.resolve().relative_to(self._resolved_root)
+        except ValueError as exc:
+            raise ValueError(
+                "report artifact resolves outside configured report directory"
+            ) from exc
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{destination.stem}-",
+            suffix=self.suffix,
+            dir=destination.parent,
+        )
+        os.close(descriptor)
+        return Path(temporary_name)
+
+    def publish(self, job_id: str, temporary: str | Path) -> Path:
+        destination = self.path_for(job_id)
+        source = Path(temporary)
+        try:
+            source.resolve().relative_to(self._resolved_root)
+            destination.parent.resolve().relative_to(self._resolved_root)
+            destination.resolve().relative_to(self._resolved_root)
+        except ValueError as exc:
+            raise ValueError(
+                "report artifact resolves outside configured report directory"
+            ) from exc
+        if source.parent.resolve() != destination.parent.resolve():
+            raise ValueError("report temporary source must share destination directory")
+        if source.is_symlink():
+            raise ValueError("report temporary source must not be a symlink")
+        if not source.is_file():
+            raise ValueError("report temporary source must be a regular file")
+        if source.resolve() == destination.resolve():
+            raise ValueError("report temporary source must differ from destination")
+        if source.stat().st_nlink != 1:
+            raise ValueError("report temporary source must not be hard-linked")
+        if source.stat().st_size == 0:
+            raise ValueError("report temporary source must not be empty")
+        if source.suffix.lower() in _MEDIA_TYPES and source.suffix.lower() != self.suffix:
+            raise ValueError("report temporary source suffix does not match report format")
+        if not source.name.startswith((f".{destination.stem}-", f".{destination.stem}.")):
+            raise ValueError("report temporary source does not match destination job")
+        if destination.is_symlink():
+            raise ValueError("report destination must not be a symlink")
+        if destination.exists() and not destination.is_file():
+            raise ValueError("report destination must be a regular file")
+        descriptor = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            details = os.fstat(descriptor)
+            if not stat.S_ISREG(details.st_mode):
+                raise ValueError("report temporary source must be a regular file")
+            if details.st_nlink != 1:
+                raise ValueError("report temporary source must not be hard-linked")
+            if details.st_size == 0:
+                raise ValueError("report temporary source must not be empty")
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        current_source = source.lstat()
+        if not stat.S_ISREG(current_source.st_mode) or (
+            current_source.st_dev, current_source.st_ino
+        ) != (details.st_dev, details.st_ino):
+            raise ValueError("report temporary source changed during publication")
+        if current_source.st_nlink != 1:
+            raise ValueError("report temporary source must not be hard-linked")
+        if current_source.st_size == 0:
+            raise ValueError("report temporary source must not be empty")
+        source.replace(destination)
+        directory_descriptor = os.open(destination.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+        return destination
+
+    def get(self, job_id: str) -> ReportArtifact:
+        path = self.path_for(job_id)
+        resolved_path = path.resolve()
+        try:
+            resolved_path.relative_to(self._resolved_root)
+        except ValueError as exc:
+            raise ValueError("report artifact resolves outside configured report directory") from exc
+        try:
+            descriptor = os.open(resolved_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+        except FileNotFoundError:
+            raise FileNotFoundError(resolved_path) from None
+        try:
+            details = os.fstat(descriptor)
+            if not stat.S_ISREG(details.st_mode):
+                raise ValueError("report artifact must be a regular file")
+            if details.st_nlink > 1:
+                raise ValueError("report artifact must not be hard-linked")
+            with os.fdopen(descriptor, "rb", closefd=False) as report_file:
+                content = report_file.read()
+            after_read = os.fstat(descriptor)
+            try:
+                current_path = resolved_path.stat()
+            except FileNotFoundError as exc:
+                raise ValueError("report artifact path changed during retrieval") from exc
+            if (current_path.st_dev, current_path.st_ino) != (details.st_dev, details.st_ino):
+                raise ValueError("report artifact path changed during retrieval")
+            if len(content) != details.st_size:
+                raise ValueError("report artifact read was incomplete")
+            if after_read.st_nlink > 1:
+                raise ValueError("report artifact must not be hard-linked")
+            if (
+                after_read.st_dev != details.st_dev
+                or after_read.st_ino != details.st_ino
+                or after_read.st_size != details.st_size
+                or after_read.st_mtime_ns != details.st_mtime_ns
+                or after_read.st_ctime_ns != details.st_ctime_ns
+            ):
+                raise ValueError("report artifact changed during retrieval")
+        finally:
+            os.close(descriptor)
+        if not content:
+            raise ValueError("report artifact must not be empty")
+        return ReportArtifact(
+            self._safe_job_id(job_id),
+            content,
+            _MEDIA_TYPES[self.suffix],
+            path.name,
+        )

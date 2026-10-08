@@ -1,0 +1,94 @@
+"""Vendor-neutral report model independent from DOCX/PDF rendering."""
+from __future__ import annotations
+from dataclasses import dataclass
+from math import isfinite
+from .data import InspectionReportData
+from mcm_solarcheck.domain.models import Finding
+from mcm_solarcheck.review.prioritization import prioritize_finding
+
+@dataclass(frozen=True)
+class ReportEvidence:
+    finding_id:str
+    classification:str
+    module_id:str|None
+    thermal_frame_id:str
+    rgb_frame_id:str|None
+    raw_value:int|None
+    raw_delta_from_median:float|None
+    temperature_c:float|None
+    latitude:float|None
+    longitude:float|None
+    reviewer:str|None
+    review_note:str|None
+    priority_level:str='unrated'
+    priority_score:float|None=None
+    priority_reason:str='calibrated_temperature_required'
+    service_location_status:str='module_unresolved'
+
+    def __post_init__(self)->None:
+        expected='module_resolved' if self.module_id is not None and self.module_id.strip() else 'module_unresolved'
+        object.__setattr__(self,'service_location_status',expected)
+
+@dataclass(frozen=True)
+class InspectionReportModel:
+    project_id:str
+    title:str
+    project_name:str
+    inspection_status:str
+    temperature_statement:str
+    evidence:tuple[ReportEvidence,...]
+    warnings:tuple[str,...]
+
+def build_report_model(data:InspectionReportData)->InspectionReportModel:
+    """Translate persisted evidence into a renderer-independent report contract."""
+    def valid_gps(latitude,longitude):
+        return latitude is not None and longitude is not None and isfinite(float(latitude)) and isfinite(float(longitude)) and -90<=latitude<=90 and -180<=longitude<=180
+    def to_evidence(item):
+        record=item.finding
+        finding=Finding(
+            finding_id=record.finding_id,
+            thermal_frame_id=record.thermal_frame_id,
+            pixel_x=record.pixel_x,
+            pixel_y=record.pixel_y,
+            finding_type=record.finding_type,
+            confidence=record.confidence,
+            raw_value=record.raw_value,
+            raw_delta_from_median=record.raw_delta_from_median,
+            temperature_c=record.temperature_c,
+            module_id=record.module_id,
+            metadata={
+                'temperature_status': record.temperature_status or '',
+                'temperature_provider': record.temperature_provider or '',
+            },
+        )
+        priority=prioritize_finding(finding)
+        return ReportEvidence(
+        finding_id=item.finding.finding_id,
+        classification=item.finding.finding_type,
+        module_id=item.finding.module_id,
+        thermal_frame_id=item.finding.thermal_frame_id,
+        rgb_frame_id=item.rgb_frame_id,
+        raw_value=item.finding.raw_value,
+        raw_delta_from_median=item.finding.raw_delta_from_median,
+        temperature_c=item.finding.temperature_c,
+        latitude=item.finding.latitude if valid_gps(item.finding.latitude,item.finding.longitude) else None,
+        longitude=item.finding.longitude if valid_gps(item.finding.latitude,item.finding.longitude) else None,
+        reviewer=item.reviewer,
+        review_note=item.review_note,
+        priority_level=priority.level,
+        priority_score=priority.score,
+        priority_reason=priority.reason,
+    )
+    evidence=tuple(to_evidence(item) for item in data.confirmed_findings)
+    evidence=tuple(sorted(evidence,key=lambda item:(item.priority_level!='review',-(item.priority_score if item.priority_score is not None else -1.0),item.module_id is None,item.module_id or '',item.finding_id)))
+    unresolved=sum(1 for item in evidence if item.module_id is None or not item.module_id.strip())
+    warnings=[]
+    if not data.temperature_evidence_validated:
+        warnings.append('Radiometric Celsius conversion has not been validated for all confirmed findings; raw sensor values must not be presented as degrees Celsius.')
+    if unresolved:
+        warnings.append(f'{unresolved} confirmed finding(s) have no resolved physical module and require manual localization.')
+    if data.summary.unreviewed_findings:
+        warnings.append(f'{data.summary.unreviewed_findings} finding(s) remain unreviewed and are excluded from confirmed evidence.')
+    status='review_complete' if data.summary.unreviewed_findings==0 else 'review_incomplete'
+    temperature_statement=('Validated Celsius evidence is available for every confirmed finding.' if data.temperature_evidence_validated else 'Celsius evidence is incomplete or unvalidated; no temperature claim may be inferred from raw values.')
+    return InspectionReportModel(data.project_id,'PV Thermal Inspection Report',data.project_name,status,temperature_statement,evidence,tuple(warnings))

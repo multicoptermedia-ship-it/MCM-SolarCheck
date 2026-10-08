@@ -1,0 +1,322 @@
+from decimal import Decimal
+
+import pytest
+
+from mcm_solarcheck.domain.pricing import PriceTier, PricingRule
+
+
+def rule() -> PricingRule:
+    return PricingRule(
+        version="2026-10-test",
+        tiers=(
+            PriceTier(Decimal("30"), Decimal("300")),
+            PriceTier(Decimal("100"), Decimal("500")),
+            PriceTier(None, Decimal("900")),
+        ),
+        planner_discount_rate=Decimal("0.10"),
+        repeat_discount_rate=Decimal("0.05"),
+        maximum_discount_rate=Decimal("0.12"),
+        vat_rate=Decimal("0.19"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("capacity", "expected"),
+    [
+        ("30", "300.00"),
+        ("30.01", "500.00"),
+        ("100", "500.00"),
+        ("100.01", "900.00"),
+    ],
+)
+def test_pricing_tier_boundaries_are_deterministic(capacity: str, expected: str) -> None:
+    assert rule().price(Decimal(capacity)).net_total == Decimal(expected)
+
+
+def test_verified_discounts_are_explicit_and_capped() -> None:
+    snapshot = rule().price(
+        Decimal("50"),
+        planner_verified=True,
+        repeat_verified=True,
+    )
+
+    assert snapshot.discount_rate == Decimal("0.12")
+    assert snapshot.discount_amount == Decimal("60.00")
+    assert snapshot.net_total == Decimal("440.00")
+
+
+def test_unverified_discount_claims_do_not_change_price() -> None:
+    snapshot = rule().price(Decimal("50"))
+
+    assert snapshot.discount_rate == Decimal("0")
+    assert snapshot.net_total == Decimal("500.00")
+
+
+def test_snapshot_preserves_rule_version() -> None:
+    snapshot = rule().price(Decimal("10"))
+
+    assert snapshot.rule_version == "2026-10-test"
+    assert snapshot.capacity_kwp == Decimal("10")
+
+
+@pytest.mark.parametrize("capacity", ["0", "-1"])
+def test_non_positive_capacity_is_rejected(capacity: str) -> None:
+    with pytest.raises(ValueError):
+        rule().price(Decimal(capacity))
+
+
+def test_tax_is_separate_from_discounted_net_total() -> None:
+    snapshot = rule().price(Decimal("50"), planner_verified=True)
+
+    assert snapshot.net_total == Decimal("450.00")
+    assert snapshot.vat_rate == Decimal("0.19")
+    assert snapshot.vat_amount == Decimal("85.50")
+    assert snapshot.gross_total == Decimal("535.50")
+
+
+def test_snapshot_contains_complete_pricing_rule() -> None:
+    pricing = rule()
+    snapshot = pricing.price(Decimal("10"))
+
+    assert snapshot.rule_tiers == pricing.tiers
+    assert snapshot.planner_discount_rate == Decimal("0.10")
+    assert snapshot.repeat_discount_rate == Decimal("0.05")
+    assert snapshot.maximum_discount_rate == Decimal("0.12")
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"version": ""},
+        {"tiers": ()},
+        {"planner_discount_rate": Decimal("-0.01")},
+        {"repeat_discount_rate": Decimal("-0.01")},
+        {"planner_discount_rate": Decimal("1.01")},
+        {"repeat_discount_rate": Decimal("1.01")},
+        {"maximum_discount_rate": Decimal("1.01")},
+        {"vat_rate": Decimal("1.01")},
+    ],
+)
+def test_invalid_pricing_rule_configuration_is_rejected(kwargs) -> None:
+    values = {
+        "version": "2026-10-test",
+        "tiers": (PriceTier(None, Decimal("300")),),
+        "planner_discount_rate": Decimal("0"),
+        "repeat_discount_rate": Decimal("0"),
+        "maximum_discount_rate": Decimal("0"),
+        "vat_rate": Decimal("0.19"),
+    }
+    values.update(kwargs)
+
+    with pytest.raises(ValueError):
+        PricingRule(**values)
+
+
+def test_tier_limits_must_be_strictly_increasing() -> None:
+    with pytest.raises(ValueError):
+        PricingRule(
+            version="2026-10-test",
+            tiers=(
+                PriceTier(Decimal("100"), Decimal("500")),
+                PriceTier(Decimal("30"), Decimal("300")),
+            ),
+        )
+
+
+def test_open_ended_tier_must_be_last() -> None:
+    with pytest.raises(ValueError):
+        PricingRule(
+            version="2026-10-test",
+            tiers=(
+                PriceTier(None, Decimal("300")),
+                PriceTier(Decimal("100"), Decimal("500")),
+            ),
+        )
+
+
+def test_negative_tier_price_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        PricingRule(
+            version="2026-10-test",
+            tiers=(PriceTier(None, Decimal("-0.01")),),
+        )
+
+
+def test_configured_discount_requires_positive_cap() -> None:
+    with pytest.raises(ValueError, match="positive maximum discount"):
+        PricingRule(
+            version="2026-10-test",
+            tiers=(PriceTier(None, Decimal("300")),),
+            planner_discount_rate=Decimal("0.10"),
+        )
+
+
+def test_zero_discount_cap_is_valid_without_configured_discounts() -> None:
+    pricing = PricingRule(
+        version="2026-10-test",
+        tiers=(PriceTier(None, Decimal("300")),),
+    )
+
+    assert pricing.price(Decimal("10")).net_total == Decimal("300.00")
+
+
+def test_planner_discount_is_ten_percent_when_verified() -> None:
+    snapshot = rule().price(Decimal("50"), planner_verified=True)
+
+    assert snapshot.planner_discount_rate == Decimal("0.10")
+    assert snapshot.discount_rate == Decimal("0.10")
+    assert snapshot.discount_amount == Decimal("50.00")
+
+
+def test_repeat_discount_is_five_percent_when_verified() -> None:
+    snapshot = rule().price(Decimal("50"), repeat_verified=True)
+
+    assert snapshot.repeat_discount_rate == Decimal("0.05")
+    assert snapshot.discount_rate == Decimal("0.05")
+    assert snapshot.discount_amount == Decimal("25.00")
+
+
+def test_combined_verified_discounts_use_configured_twelve_percent_cap() -> None:
+    snapshot = rule().price(
+        Decimal("50"),
+        planner_verified=True,
+        repeat_verified=True,
+    )
+
+    assert snapshot.planner_discount_rate + snapshot.repeat_discount_rate == Decimal("0.15")
+    assert snapshot.maximum_discount_rate == Decimal("0.12")
+    assert snapshot.discount_rate == Decimal("0.12")
+
+@pytest.mark.parametrize("invalid", ["NaN", "Infinity", "-Infinity"])
+@pytest.mark.parametrize("field", ["planner_discount_rate", "repeat_discount_rate", "maximum_discount_rate", "vat_rate"])
+def test_non_finite_pricing_rates_are_rejected(field: str, invalid: str) -> None:
+    with pytest.raises(ValueError, match="finite"):
+        PricingRule(
+            version="finite-rates-test",
+            tiers=(PriceTier(None, Decimal("300")),),
+            **{field: Decimal(invalid)},
+        )
+
+@pytest.mark.parametrize("invalid", ["NaN", "Infinity", "-Infinity"])
+def test_non_finite_capacity_is_rejected(invalid: str) -> None:
+    with pytest.raises(ValueError, match="capacity_kwp must be finite"):
+        rule().price(Decimal(invalid))
+
+
+@pytest.mark.parametrize("invalid", ["NaN", "Infinity", "-Infinity"])
+@pytest.mark.parametrize("field", ["net_price", "up_to_kwp"])
+def test_non_finite_tier_values_are_rejected(field: str, invalid: str) -> None:
+    tier = {"net_price": Decimal("300"), "up_to_kwp": Decimal("30")}
+    tier[field] = Decimal(invalid)
+    with pytest.raises(ValueError, match="tier values must be finite"):
+        PricingRule(version="finite-tiers-test", tiers=(PriceTier(**tier),))
+
+
+def test_tier_price_rounds_half_up_to_cents() -> None:
+    pricing = PricingRule(version="rounding", tiers=(PriceTier(None, Decimal("10.005")),))
+    snapshot = pricing.price(Decimal("1"))
+
+    assert snapshot.net_before_discount == Decimal("10.01")
+    assert snapshot.net_total == Decimal("10.01")
+
+
+def test_discount_and_vat_are_rounded_independently() -> None:
+    pricing = PricingRule(
+        version="rounding",
+        tiers=(PriceTier(None, Decimal("10.05")),),
+        planner_discount_rate=Decimal("0.10"),
+        maximum_discount_rate=Decimal("0.10"),
+        vat_rate=Decimal("0.19"),
+    )
+    snapshot = pricing.price(Decimal("1"), planner_verified=True)
+
+    assert snapshot.discount_amount == Decimal("1.01")
+    assert snapshot.net_total == Decimal("9.04")
+    assert snapshot.vat_amount == Decimal("1.72")
+    assert snapshot.gross_total == Decimal("10.76")
+
+
+def test_capacity_above_last_finite_tier_is_rejected() -> None:
+    pricing = PricingRule(
+        version="finite-tiers",
+        tiers=(PriceTier(Decimal("30"), Decimal("300")),),
+    )
+    assert pricing.price(Decimal("30")).net_total == Decimal("300.00")
+    with pytest.raises(ValueError, match="does not cover capacity"):
+        pricing.price(Decimal("30.01"))
+
+
+def test_zero_price_tier_produces_zero_totals() -> None:
+    pricing = PricingRule(
+        version="zero-price",
+        tiers=(PriceTier(None, Decimal("0")),),
+        vat_rate=Decimal("0.19"),
+    )
+    snapshot = pricing.price(Decimal("1"))
+
+    assert snapshot.net_before_discount == Decimal("0.00")
+    assert snapshot.discount_amount == Decimal("0.00")
+    assert snapshot.net_total == Decimal("0.00")
+    assert snapshot.vat_amount == Decimal("0.00")
+    assert snapshot.gross_total == Decimal("0.00")
+
+
+def test_price_snapshot_cannot_be_mutated() -> None:
+    from dataclasses import FrozenInstanceError
+
+    snapshot = rule().price(Decimal("10"))
+    with pytest.raises(FrozenInstanceError):
+        snapshot.net_total = Decimal("0")
+
+
+def test_discount_cap_can_be_lower_than_planner_rate() -> None:
+    pricing = PricingRule(
+        version="low-cap",
+        tiers=(PriceTier(None, Decimal("500")),),
+        planner_discount_rate=Decimal("0.10"),
+        maximum_discount_rate=Decimal("0.07"),
+    )
+    snapshot = pricing.price(Decimal("10"), planner_verified=True)
+    assert snapshot.discount_rate == Decimal("0.07")
+    assert snapshot.discount_amount == Decimal("35.00")
+    assert snapshot.net_total == Decimal("465.00")
+
+
+def test_combined_discounts_equal_to_cap_are_not_reduced() -> None:
+    pricing = PricingRule(
+        version="exact-cap",
+        tiers=(PriceTier(None, Decimal("500")),),
+        planner_discount_rate=Decimal("0.10"),
+        repeat_discount_rate=Decimal("0.05"),
+        maximum_discount_rate=Decimal("0.15"),
+    )
+    snapshot = pricing.price(Decimal("10"), planner_verified=True, repeat_verified=True)
+    assert snapshot.discount_rate == Decimal("0.15")
+    assert snapshot.discount_amount == Decimal("75.00")
+    assert snapshot.net_total == Decimal("425.00")
+
+
+def test_vat_without_discount_uses_full_net_price() -> None:
+    snapshot = rule().price(Decimal("50"))
+    assert snapshot.discount_amount == Decimal("0.00")
+    assert snapshot.net_total == Decimal("500.00")
+    assert snapshot.vat_amount == Decimal("95.00")
+    assert snapshot.gross_total == Decimal("595.00")
+
+
+def test_fractional_capacity_selects_correct_tier() -> None:
+    pricing = rule()
+    assert pricing.price(Decimal("29.999")).net_before_discount == Decimal("300.00")
+    assert pricing.price(Decimal("30.000")).net_before_discount == Decimal("300.00")
+    assert pricing.price(Decimal("30.001")).net_before_discount == Decimal("500.00")
+
+
+def test_pricing_snapshots_remain_independent_between_quotes() -> None:
+    pricing = rule()
+    standard = pricing.price(Decimal("50"))
+    discounted = pricing.price(Decimal("50"), planner_verified=True)
+    assert standard.net_total == Decimal("500.00")
+    assert standard.discount_rate == Decimal("0")
+    assert discounted.net_total == Decimal("450.00")
+    assert discounted.discount_rate == Decimal("0.10")
+    assert standard.rule_version == discounted.rule_version == pricing.version

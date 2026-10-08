@@ -1,0 +1,95 @@
+"""Import workspace presentation for SolarCheck."""
+
+from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
+
+
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None):
+    page = QWidget(parent)
+    page.setObjectName("import_page")
+    layout = QVBoxLayout(page)
+
+    heading = QLabel("Bilddaten importieren", page)
+    heading.setObjectName("page_heading")
+    layout.addWidget(heading)
+
+    project = QLabel(
+        f"Aktives Projekt: {current_project_id}"
+        if current_project_id
+        else "Kein aktives Projekt ausgewählt.",
+        page,
+    )
+    project.setObjectName("import_project_context")
+    layout.addWidget(project)
+
+    if import_summary is not None:
+        summary_heading = QLabel("Persistierter Importstand", page)
+        summary_heading.setObjectName("import_summary_heading")
+        layout.addWidget(summary_heading)
+
+        summary = QLabel(
+            f"{import_summary.rgb_frames} RGB · "
+            f"{import_summary.thermal_frames} Thermal · "
+            f"{import_summary.image_pairs} Paare",
+            page,
+        )
+        summary.setObjectName("import_summary")
+        summary.setAccessibleDescription(
+            "Persistierte Bild- und Paarzahlen des aktiven Projekts."
+        )
+        layout.addWidget(summary)
+
+    if import_verification is not None:
+        verification_heading = QLabel("Importprüfung", page)
+        verification_heading.setObjectName("import_verification_heading")
+        layout.addWidget(verification_heading)
+
+        verification = QLabel(
+            f"Qualität: {import_verification.quality_pass} OK · "
+            f"{import_verification.quality_review} prüfen · "
+            f"{import_verification.quality_reject} verworfen\n"
+            f"Fehlende Metadaten: {import_verification.missing_timestamp} Zeit · "
+            f"{import_verification.missing_position} Position · "
+            f"{import_verification.missing_camera_identity} Kamera",
+            page,
+        )
+        verification.setObjectName("import_verification")
+        verification.setAccessibleDescription(
+            "Persistierte Qualitäts- und Metadatenprüfung des aktiven Projekts."
+        )
+        layout.addWidget(verification)
+
+    if import_attempt is not None:
+        if import_attempt.succeeded:
+            status_text = "Letzter Import erfolgreich abgeschlossen."
+        else:
+            status_text = f"Import fehlgeschlagen: {import_attempt.error}"
+        status = QLabel(status_text, page)
+        status.setObjectName("import_attempt_status")
+        status.setProperty("outcome", "success" if import_attempt.succeeded else "error")
+        status.setAccessibleDescription(
+            "Ergebnis des letzten Importversuchs laut Anwendungsservice."
+        )
+        layout.addWidget(status)
+
+    import_images = QPushButton("Bilddaten auswählen", page)
+    import_images.setObjectName("import_images_button")
+    if current_project_id is not None and on_import_images is not None:
+        def request_import():
+            chooser = choose_directory or (
+                lambda: QFileDialog.getExistingDirectory(
+                    page, "Bildverzeichnis auswählen"
+                )
+            )
+            source_directory = chooser()
+            if source_directory:
+                on_import_images(source_directory)
+
+        import_images.clicked.connect(request_import)
+    else:
+        import_images.setEnabled(False)
+        import_images.setAccessibleDescription(
+            "Nicht verfügbar, solange kein aktives Projekt und Import-Service angebunden sind."
+        )
+    layout.addWidget(import_images)
+    layout.addStretch(1)
+    return page

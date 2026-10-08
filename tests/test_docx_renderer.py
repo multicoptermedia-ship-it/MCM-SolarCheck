@@ -1,0 +1,75 @@
+from datetime import datetime, timezone
+from docx import Document
+from mcm_solarcheck.reporting.docx_renderer import REPORT_STANDARD_WORDING, render_docx
+from mcm_solarcheck.reporting.report_model import InspectionReport, IrradianceSummary, OperatorSnapshot, ModuleReportDetail, ReportImage
+
+
+def test_docx_renderer_keeps_customer_report_semantics(tmp_path):
+    report=InspectionReport("REP-9","P1","Customer GmbH","Solarpark",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",850,12,5,site_address="Solarweg 1, 12345 Ort",irradiance=IrradianceSummary(750,"on-site sensor",700,810),release_status="reviewed")
+    target=render_docx(report,tmp_path/"report.docx")
+    assert target.is_file()
+    doc=Document(target)
+    text="\n".join(p.text for p in doc.paragraphs)+"\n"+"\n".join(cell.text for table in doc.tables for row in table.rows for cell in row.cells)
+    assert REPORT_STANDARD_WORDING in text
+    assert "Customer GmbH" in text and "Solarpark" in text
+    assert "850" in text and "12" in text and "5" in text
+    assert "Quelle: on-site sensor" in text
+    assert "vollständig normkonform" not in text.lower()
+
+
+def test_docx_renderer_does_not_invent_irradiance(tmp_path):
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0)
+    target=render_docx(report,tmp_path/"report.docx")
+    text="\n".join(p.text for p in Document(target).paragraphs)
+    assert "Einstrahlung: nicht dokumentiert." in text
+
+
+def test_docx_cover_uses_operator_snapshot(tmp_path):
+    op=OperatorSnapshot("Operator GmbH","Werkstr. 1, 12345 Ort","office@example.invalid",phone="+49 123",website="https://example.invalid")
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0,operator=op)
+    text="\n".join(p.text for p in Document(render_docx(report,tmp_path/"operator.docx")).paragraphs)
+    assert "Operator GmbH" in text and "Werkstr. 1, 12345 Ort" in text
+    assert "office@example.invalid" in text and "+49 123" in text
+
+
+def test_docx_detail_marks_missing_images_explicitly(tmp_path):
+    detail=ModuleReportDetail("M1","hotspot","confirmed",thermal_image=ReportImage("T1",str(tmp_path/"missing.png"),"thermal"))
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,1,0,details=(detail,))
+    doc=Document(render_docx(report,tmp_path/"missing-image.docx"))
+    text="\n".join(p.text for p in doc.paragraphs)+"\n"+"\n".join(cell.text for table in doc.tables for row in table.rows for cell in row.cells)
+    assert text.count("Bild nicht verfügbar")>=2
+
+
+def test_docx_renderer_preserves_customer_and_order_references(tmp_path):
+    report=InspectionReport("R","P","Customer GmbH","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,0,customer_contact="Max Muster",customer_address="Kundenweg 2",customer_email="kunde@example.invalid",customer_phone="+49 555",customer_reference="K-17",order_reference="A-42")
+    doc=Document(render_docx(report,tmp_path/"references.docx"))
+    text="\n".join(cell.text for table in doc.tables for row in table.rows for cell in row.cells)
+    for value in ("Max Muster","Kundenweg 2","kunde@example.invalid","+49 555","K-17","A-42"):
+        assert value in text
+
+
+def test_docx_detail_preserves_geometry_context(tmp_path):
+    detail=ModuleReportDetail("M1","hotspot","confirmed",rgb_image=ReportImage("R1",str(tmp_path/"missing-rgb.png"),"rgb","validated_cross_sensor:homography"),thermal_image=ReportImage("T1",str(tmp_path/"missing-thermal.png"),"thermal","persisted_module_polygon"))
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,1,0,details=(detail,))
+    doc=Document(render_docx(report,tmp_path/"geometry.docx"))
+    text="\n".join(cell.text for table in doc.tables for row in table.rows for cell in row.cells)
+    assert "Lokalisierter Ausschnitt – validierte Sensorzuordnung" in text
+    assert "Modulausschnitt – persistierte Modulgeometrie" in text
+
+
+def test_docx_manual_review_detail_keeps_finding_and_instruction_separate(tmp_path):
+    detail=ModuleReportDetail("M9",None,"unclear",manual_inspection_required=True)
+    report=InspectionReport("R","P","Customer","Site",datetime(2026,9,24,12,tzinfo=timezone.utc),"Inspector",10,0,1,details=(detail,))
+    doc=Document(render_docx(report,tmp_path/"manual.docx"))
+    text="\n".join(p.text for p in doc.paragraphs)+"\n"+"\n".join(cell.text for table in doc.tables for row in table.rows for cell in row.cells)
+    assert "Befund: Kein bestätigter Befund | Review: unclear" in text
+    assert "Manuelle Prüfung erforderlich." in text
+
+
+def test_docx_released_clean_result_is_rendered_and_draft_is_not(tmp_path):
+    clean=InspectionReport("C","P","Customer","Site",datetime(2026,9,26,12,tzinfo=timezone.utc),"Inspector",10,0,0,release_status="released")
+    clean_text="\n".join(p.text for p in Document(render_docx(clean,tmp_path/"clean.docx")).paragraphs)
+    assert "Keine defekten Module festgestellt." in clean_text
+    draft=InspectionReport("D","P","Customer","Site",datetime(2026,9,26,12,tzinfo=timezone.utc),"Inspector",10,0,0)
+    draft_text="\n".join(p.text for p in Document(render_docx(draft,tmp_path/"draft.docx")).paragraphs)
+    assert "Keine defekten Module festgestellt." not in draft_text

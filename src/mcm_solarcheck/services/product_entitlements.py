@@ -1,0 +1,176 @@
+"""Backend-authoritative product capabilities for SolarCheck application shells.
+
+These profiles describe product entitlement only. They never replace workflow,
+review, provenance, report-release, or export validation.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+
+
+class ProductProfileId(str, Enum):
+    PROMOTIONAL_TRIAL = "promotional_trial"
+    FULL_ONLINE = "full_online"
+    INTERNAL_ONLINE = "internal_online"
+    OFFLINE_DESKTOP = "offline_desktop"
+
+
+@dataclass(frozen=True)
+class ProductCapabilities:
+    profile_id: ProductProfileId
+    max_plant_power_kwp: float | None
+    report_download_allowed: bool
+    export_allowed: bool
+    customer_payment_required: bool
+
+    def __post_init__(self) -> None:
+        if self.max_plant_power_kwp is not None and self.max_plant_power_kwp <= 0:
+            raise ValueError("max_plant_power_kwp must be positive when configured")
+
+    def accepts_plant_power(self, plant_power_kwp: float) -> bool:
+        if plant_power_kwp < 0:
+            raise ValueError("plant_power_kwp must not be negative")
+        return (
+            self.max_plant_power_kwp is None
+            or plant_power_kwp <= self.max_plant_power_kwp
+        )
+
+    def require_plant_power(self, plant_power_kwp: float) -> None:
+        if not self.accepts_plant_power(plant_power_kwp):
+            raise ProductEntitlementError(
+                f"{self.profile_id.value} permits at most "
+                f"{self.max_plant_power_kwp:g} kWp"
+            )
+
+    def require_report_download(self) -> None:
+        if not self.report_download_allowed:
+            raise ProductEntitlementError(
+                f"{self.profile_id.value} does not permit report download"
+            )
+
+    def require_export(self) -> None:
+        if not self.export_allowed:
+            raise ProductEntitlementError(
+                f"{self.profile_id.value} does not permit export"
+            )
+
+
+class ProductEntitlementError(PermissionError):
+    """Raised when a product profile does not permit an application operation."""
+
+
+PROMOTIONAL_TRIAL = ProductCapabilities(
+    profile_id=ProductProfileId.PROMOTIONAL_TRIAL,
+    max_plant_power_kwp=20.0,
+    report_download_allowed=False,
+    export_allowed=False,
+    customer_payment_required=False,
+)
+
+FULL_ONLINE = ProductCapabilities(
+    profile_id=ProductProfileId.FULL_ONLINE,
+    max_plant_power_kwp=None,
+    report_download_allowed=True,
+    export_allowed=True,
+    customer_payment_required=True,
+)
+
+INTERNAL_ONLINE = ProductCapabilities(
+    profile_id=ProductProfileId.INTERNAL_ONLINE,
+    max_plant_power_kwp=None,
+    report_download_allowed=True,
+    export_allowed=True,
+    customer_payment_required=False,
+)
+
+OFFLINE_DESKTOP = ProductCapabilities(
+    profile_id=ProductProfileId.OFFLINE_DESKTOP,
+    max_plant_power_kwp=None,
+    report_download_allowed=True,
+    export_allowed=True,
+    customer_payment_required=False,
+)
+
+
+def product_capabilities(profile_id: ProductProfileId) -> ProductCapabilities:
+    if profile_id is ProductProfileId.PROMOTIONAL_TRIAL:
+        return PROMOTIONAL_TRIAL
+    if profile_id is ProductProfileId.FULL_ONLINE:
+        return FULL_ONLINE
+    if profile_id is ProductProfileId.INTERNAL_ONLINE:
+        return INTERNAL_ONLINE
+    if profile_id is ProductProfileId.OFFLINE_DESKTOP:
+        return OFFLINE_DESKTOP
+    raise ValueError(f"unsupported product profile: {profile_id!r}")
+
+
+class ProductOperation(str, Enum):
+    REPORT_DOWNLOAD = "report_download"
+    EXPORT = "export"
+
+
+def require_product_operation(
+    capabilities: ProductCapabilities, operation: ProductOperation
+) -> None:
+    """Fail closed for output operations restricted by the product profile."""
+    if not isinstance(capabilities, ProductCapabilities):
+        raise ValueError("capabilities must be ProductCapabilities")
+    if not isinstance(operation, ProductOperation):
+        raise ValueError("operation must be a ProductOperation")
+    if operation is ProductOperation.REPORT_DOWNLOAD:
+        capabilities.require_report_download()
+        return
+    if operation is ProductOperation.EXPORT:
+        capabilities.require_export()
+        return
+    raise ValueError(f"unsupported product operation: {operation!r}")
+
+
+@dataclass(frozen=True)
+class ProductActionAvailability:
+    operation: ProductOperation
+    allowed: bool
+    blockers: tuple[str, ...] = ()
+
+
+def product_action_availability(
+    capabilities: ProductCapabilities, operation: ProductOperation
+) -> ProductActionAvailability:
+    """Return GUI-safe availability while keeping authorization backend-owned."""
+    try:
+        require_product_operation(capabilities, operation)
+    except ProductEntitlementError as error:
+        return ProductActionAvailability(operation, False, (str(error),))
+    return ProductActionAvailability(operation, True)
+
+
+@dataclass(frozen=True)
+class EffectiveActionAvailability:
+    operation: ProductOperation
+    allowed: bool
+    blockers: tuple[str, ...] = ()
+
+
+def effective_output_availability(
+    capabilities: ProductCapabilities,
+    operation: ProductOperation,
+    *,
+    workflow_allowed: bool,
+    workflow_blockers: tuple[str, ...] = (),
+) -> EffectiveActionAvailability:
+    """Combine entitlement and workflow gates without weakening either one."""
+    if type(workflow_allowed) is not bool:
+        raise ValueError("workflow_allowed must be bool")
+    workflow_blockers = tuple(workflow_blockers)
+    if any(not isinstance(item, str) or not item.strip() for item in workflow_blockers):
+        raise ValueError("workflow_blockers must contain non-empty strings")
+    if workflow_allowed and workflow_blockers:
+        raise ValueError("allowed workflow state must not have blockers")
+    if not workflow_allowed and not workflow_blockers:
+        raise ValueError("blocked workflow state requires at least one blocker")
+
+    product = product_action_availability(capabilities, operation)
+    blockers = product.blockers + (() if workflow_allowed else workflow_blockers)
+    return EffectiveActionAvailability(operation, not blockers, blockers)
