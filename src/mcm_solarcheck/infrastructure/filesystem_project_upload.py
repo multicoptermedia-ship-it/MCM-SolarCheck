@@ -37,13 +37,13 @@ class FileSystemProjectUploadStore:
 
     def store(self, upload: ValidatedProjectUpload) -> None:
         request = upload.request
+        filename = self._segment(request.filename, "filename")
         directory = self.project_directory(request.customer_id, request.project_id)
         directory.mkdir(parents=True, exist_ok=True)
         try:
             directory.resolve().relative_to(self.root)
         except ValueError as exc:
             raise ValueError("project upload directory resolves outside configured root") from exc
-        filename = self._segment(request.filename, "filename")
         destination = directory / filename
         try:
             destination.resolve().relative_to(self.root)
