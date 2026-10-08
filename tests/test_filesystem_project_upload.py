@@ -385,3 +385,10 @@ def test_upload_store_rejects_unsafe_filename_segments(tmp_path, filename) -> No
     store = FileSystemProjectUploadStore(tmp_path / "uploads")
     with pytest.raises(ValueError, match="filename is invalid"):
         store.store(upload(filename=filename))
+
+
+def test_upload_store_accepts_simple_filename_after_boundary_validation(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    store.store(upload(filename="validated-image.jpg"))
+    destination = store.project_directory("user-1", "P-1") / "validated-image.jpg"
+    assert destination.read_bytes() == b"validated-content"
