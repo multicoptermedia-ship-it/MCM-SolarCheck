@@ -541,3 +541,21 @@ def test_upload_directory_sync_uses_destination_parent(tmp_path, monkeypatch) ->
     assert len(seen) == 1
     if seen[0] != "directory":
         assert seen[0] == str(destination.parent)
+
+
+def test_upload_directory_sync_runs_on_overwrite(tmp_path, monkeypatch) -> None:
+    import os
+    import stat
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    store.store(upload())
+    directory_syncs = []
+    original = os.fsync
+
+    def record(fd):
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            directory_syncs.append(True)
+        return original(fd)
+
+    monkeypatch.setattr(os, "fsync", record)
+    store.store(upload())
+    assert directory_syncs == [True]
