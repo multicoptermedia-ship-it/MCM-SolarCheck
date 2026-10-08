@@ -144,6 +144,15 @@ class FileSystemReportArtifactStore:
                 raise ValueError("report artifact must not be hard-linked")
             with os.fdopen(descriptor, "rb", closefd=False) as report_file:
                 content = report_file.read()
+            after_read = os.fstat(descriptor)
+            if (
+                after_read.st_dev != details.st_dev
+                or after_read.st_ino != details.st_ino
+                or after_read.st_size != details.st_size
+                or after_read.st_mtime_ns != details.st_mtime_ns
+                or after_read.st_ctime_ns != details.st_ctime_ns
+            ):
+                raise ValueError("report artifact changed during retrieval")
         finally:
             os.close(descriptor)
         if not content:
