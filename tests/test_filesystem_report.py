@@ -792,3 +792,12 @@ def test_report_publish_rejects_sibling_private_directory_temporary(tmp_path) ->
 
     assert source.read_bytes() == b"sibling"
     assert not (root / "job-a.pdf").exists()
+
+
+def test_report_get_rejects_directory_named_like_report(tmp_path) -> None:
+    root = tmp_path / "private"
+    (root / "job-a.pdf").mkdir(parents=True)
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must be a regular file"):
+        store.get("job-a")
