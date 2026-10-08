@@ -1287,7 +1287,8 @@ def test_report_publish_syncs_temporary_file_before_replacement(tmp_path, monkey
 
     monkeypatch.setattr(filesystem_report.os, "fsync", record_sync)
     store.publish("job-a", source)
-    assert synced == [len(b"report")]
+    assert synced[0] == len(b"report")
+    assert len(synced) == 2  # Source file, then containing directory.
 
 
 def test_report_publish_sync_failure_preserves_existing_report(tmp_path, monkeypatch) -> None:
