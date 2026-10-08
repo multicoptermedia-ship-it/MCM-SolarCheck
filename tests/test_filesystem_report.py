@@ -473,3 +473,16 @@ def test_report_publish_directory_source_preserves_existing_artifact(tmp_path) -
 
     assert destination.read_bytes() == b"existing"
     assert source.is_dir()
+
+
+def test_report_publish_missing_source_preserves_existing_artifact(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-a.pdf"
+    destination.write_bytes(b"existing")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must be a regular file"):
+        store.publish("job-a", root / ".missing.tmp")
+
+    assert destination.read_bytes() == b"existing"
