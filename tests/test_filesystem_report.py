@@ -337,3 +337,17 @@ def test_report_publish_rejects_source_symlink_escape(tmp_path) -> None:
     assert source.is_symlink()
     assert external.read_bytes() == b"untrusted"
     assert not (root / "job-a.pdf").exists()
+
+
+def test_report_publish_accepts_private_temporary_source(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a.tmp"
+    source.write_bytes(b"complete report")
+    store = FileSystemReportArtifactStore(root)
+
+    destination = store.publish("job-a", source)
+
+    assert destination == root / "job-a.pdf"
+    assert destination.read_bytes() == b"complete report"
+    assert not source.exists()
