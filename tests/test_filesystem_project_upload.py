@@ -353,3 +353,13 @@ def test_upload_rejects_multiple_hardlinks_to_same_destination(tmp_path) -> None
     with pytest.raises(ValueError, match="must not be hard-linked"):
         store.store(upload())
     assert (directory / "alias-2.jpg").read_bytes() == b"preserve"
+
+
+def test_upload_still_overwrites_single_link_file(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    destination.parent.mkdir(parents=True)
+    destination.write_bytes(b"old")
+    assert destination.stat().st_nlink == 1
+    store.store(upload())
+    assert destination.read_bytes() == b"validated-content"
