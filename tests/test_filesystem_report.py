@@ -842,3 +842,14 @@ def test_report_get_rejects_empty_report_artifact(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="must not be empty"):
         store.get("job-a")
+
+
+def test_report_get_rejects_empty_private_symlink_target(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    (root / "stored.pdf").write_bytes(b"")
+    (root / "job-a.pdf").symlink_to(root / "stored.pdf")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must not be empty"):
+        store.get("job-a")
