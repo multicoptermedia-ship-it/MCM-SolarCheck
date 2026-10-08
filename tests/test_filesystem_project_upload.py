@@ -408,3 +408,15 @@ def test_invalid_filename_does_not_create_project_directory(tmp_path) -> None:
     with pytest.raises(ValueError, match="filename is invalid"):
         store.store(upload(filename="/absolute.jpg"))
     assert not (customer / "P-1").exists()
+
+
+def test_invalid_filename_preserves_existing_project_contents(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    existing = directory / "existing.jpg"
+    existing.write_bytes(b"unchanged")
+    with pytest.raises(ValueError, match="filename is invalid"):
+        store.store(upload(filename="nested/thermal.jpg"))
+    assert existing.read_bytes() == b"unchanged"
+    assert sorted(p.name for p in directory.iterdir()) == ["existing.jpg"]
