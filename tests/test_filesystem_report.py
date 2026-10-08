@@ -1351,3 +1351,24 @@ def test_report_publish_rechecks_source_descriptor_after_truncation(tmp_path, mo
     with pytest.raises(ValueError, match="temporary source must not be empty"):
         store.publish("job-a", source)
     assert not (root / "job-a.pdf").exists()
+
+
+def test_report_publish_syncs_directory_after_source_file(tmp_path, monkeypatch) -> None:
+    import os
+    import stat
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"report")
+    observed = []
+    real_fsync = os.fsync
+
+    def record_sync(descriptor):
+        mode = os.fstat(descriptor).st_mode
+        observed.append("directory" if stat.S_ISDIR(mode) else "file")
+        return real_fsync(descriptor)
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", record_sync)
+    store.publish("job-a", source)
+    assert observed == ["file", "directory"]
