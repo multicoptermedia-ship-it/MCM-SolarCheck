@@ -2027,3 +2027,12 @@ def test_report_get_path_identity_check_allows_unchanged_file(tmp_path) -> None:
     temporary.write_bytes(b"original")
     store.publish("job-a", temporary)
     assert store.get("job-a").content == b"original"
+
+
+def test_report_get_path_identity_allows_internal_symlink(tmp_path) -> None:
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    store.root.mkdir(parents=True, exist_ok=True)
+    target = store.root / "stored.pdf"
+    target.write_bytes(b"private report")
+    (store.root / "job-a.pdf").symlink_to(target)
+    assert store.get("job-a").content == b"private report"
