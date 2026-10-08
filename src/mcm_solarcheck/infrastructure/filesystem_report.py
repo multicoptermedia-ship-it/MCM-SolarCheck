@@ -108,8 +108,10 @@ class FileSystemReportArtifactStore:
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
-        current_source = source.stat()
-        if (current_source.st_dev, current_source.st_ino) != (details.st_dev, details.st_ino):
+        current_source = source.lstat()
+        if not stat.S_ISREG(current_source.st_mode) or (
+            current_source.st_dev, current_source.st_ino
+        ) != (details.st_dev, details.st_ino):
             raise ValueError("report temporary source changed during publication")
         source.replace(destination)
         directory_descriptor = os.open(destination.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
