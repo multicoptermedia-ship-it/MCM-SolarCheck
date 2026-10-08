@@ -1842,3 +1842,12 @@ def test_report_retrieval_rejects_multiple_hardlinks_during_read(tmp_path, monke
     monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: LinkingReader(real_fdopen(fd, *a, **kw)))
     with pytest.raises(ValueError, match="must not be hard-linked"):
         store.get("job-a")
+
+
+def test_report_retrieval_accepts_single_link_after_read(tmp_path) -> None:
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"single link report")
+    store.publish("job-a", source)
+    assert (store.root / "job-a.pdf").stat().st_nlink == 1
+    assert store.get("job-a").content == b"single link report"
