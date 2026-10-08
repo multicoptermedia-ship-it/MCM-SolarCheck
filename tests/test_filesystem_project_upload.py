@@ -268,3 +268,16 @@ def test_upload_still_overwrites_existing_regular_file(tmp_path) -> None:
     destination.write_bytes(b"previous")
     store.store(upload())
     assert destination.read_bytes() == b"validated-content"
+
+
+def test_upload_rejects_dangling_internal_destination_symlink(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    target = store.root / "missing.jpg"
+    destination = directory / "thermal.jpg"
+    destination.symlink_to(target)
+    with pytest.raises(ValueError, match="dangling symlink"):
+        store.store(upload())
+    assert not target.exists()
+    assert destination.is_symlink()
