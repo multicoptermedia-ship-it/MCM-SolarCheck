@@ -104,6 +104,8 @@ class FileSystemReportArtifactStore:
         if not resolved_path.is_file():
             raise ValueError("report artifact must be a regular file")
         content = resolved_path.read_bytes()
+        if not content:
+            raise ValueError("report artifact must not be empty")
         return ReportArtifact(
             self._safe_job_id(job_id),
             content,
