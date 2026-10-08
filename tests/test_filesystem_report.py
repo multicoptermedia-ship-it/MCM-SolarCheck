@@ -1187,3 +1187,25 @@ def test_report_get_rejects_directory_at_descriptor_boundary(tmp_path, monkeypat
     monkeypatch.setattr(filesystem_report.os, "open", open_directory_instead)
     with pytest.raises(ValueError, match="artifact must be a regular file"):
         FileSystemReportArtifactStore(root).get("job-a")
+
+
+def test_report_get_uses_original_descriptor_when_path_becomes_symlink(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    root = tmp_path / "private"
+    root.mkdir()
+    artifact = root / "job-a.pdf"
+    artifact.write_bytes(b"original report")
+    alternate = root / "alternate.pdf"
+    alternate.write_bytes(b"other report")
+    real_open = os.open
+
+    def retarget_after_open(path, flags, *args, **kwargs):
+        descriptor = real_open(path, flags, *args, **kwargs)
+        artifact.unlink()
+        artifact.symlink_to(alternate)
+        return descriptor
+
+    monkeypatch.setattr(filesystem_report.os, "open", retarget_after_open)
+    assert FileSystemReportArtifactStore(root).get("job-a").content == b"original report"
