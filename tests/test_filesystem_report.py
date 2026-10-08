@@ -1954,3 +1954,12 @@ def test_report_get_short_read_keeps_published_artifact_unchanged(tmp_path, monk
     with pytest.raises(ValueError, match="read was incomplete"):
         store.get("job-a")
     assert destination.read_bytes() == b"original report"
+
+
+def test_report_get_accepts_complete_read_with_exact_file_size(tmp_path) -> None:
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    temporary = store.create_temporary("job-a")
+    expected = b"fully retrieved report"
+    temporary.write_bytes(expected)
+    store.publish("job-a", temporary)
+    assert store.get("job-a").content == expected
