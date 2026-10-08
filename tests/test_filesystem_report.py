@@ -633,3 +633,17 @@ def test_mismatched_report_format_preserves_existing_artifact(tmp_path) -> None:
 
     assert destination.read_bytes() == b"existing"
     assert source.read_bytes() == b"other format"
+
+
+def test_report_publish_rejects_other_job_temporary(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-b-temp.pdf"
+    source.write_bytes(b"other job")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="does not match destination job"):
+        store.publish("job-a", source)
+
+    assert source.read_bytes() == b"other job"
+    assert not (root / "job-a.pdf").exists()
