@@ -903,7 +903,7 @@ def test_report_publish_rejects_symlink_to_directory_destination(tmp_path) -> No
     source.write_bytes(b"report")
     store = FileSystemReportArtifactStore(root)
 
-    with pytest.raises(ValueError, match="destination must be a regular file"):
+    with pytest.raises(ValueError, match="destination must not be a symlink"):
         store.publish("job-a", source)
 
     assert source.read_bytes() == b"report"
