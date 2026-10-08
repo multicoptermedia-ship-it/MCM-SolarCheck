@@ -1001,3 +1001,22 @@ def test_report_publish_accepts_single_link_temporary(tmp_path) -> None:
     store = FileSystemReportArtifactStore(root)
 
     assert store.publish("job-a", source).read_bytes() == b"report"
+
+
+def test_report_publish_rejects_private_file_symlink_destination(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    target = root / "stored.pdf"
+    target.write_bytes(b"stored")
+    destination = root / "job-a.pdf"
+    destination.symlink_to(target)
+    source = root / ".job-a-temp.pdf"
+    source.write_bytes(b"new")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="destination must not be a symlink"):
+        store.publish("job-a", source)
+
+    assert destination.is_symlink()
+    assert target.read_bytes() == b"stored"
+    assert source.read_bytes() == b"new"
