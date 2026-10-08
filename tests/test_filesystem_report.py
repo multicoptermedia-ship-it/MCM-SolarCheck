@@ -935,3 +935,21 @@ def test_report_publish_can_create_report_when_destination_missing(tmp_path) -> 
 
     assert destination.read_bytes() == b"new"
     assert not source.exists()
+
+
+def test_report_publish_rejects_hardlink_to_external_file(tmp_path) -> None:
+    import os
+
+    root = tmp_path / "private"
+    root.mkdir()
+    external = tmp_path / "external.pdf"
+    external.write_bytes(b"external data")
+    source = root / ".job-a-temp.pdf"
+    os.link(external, source)
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must not be hard-linked"):
+        store.publish("job-a", source)
+
+    assert external.read_bytes() == b"external data"
+    assert not (root / "job-a.pdf").exists()
