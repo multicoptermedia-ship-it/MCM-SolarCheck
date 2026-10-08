@@ -1778,3 +1778,12 @@ def test_report_retrieval_rejects_timestamp_change_during_read(tmp_path, monkeyp
     monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: TimestampReader(real_fdopen(fd, *a, **kw)))
     with pytest.raises(ValueError, match="changed during retrieval"):
         store.get("job-a")
+
+
+def test_report_retrieval_accepts_unchanged_artifact_after_metadata_check(tmp_path) -> None:
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"stable report")
+    store.publish("job-a", source)
+    artifact = store.get("job-a")
+    assert artifact.content == b"stable report"
