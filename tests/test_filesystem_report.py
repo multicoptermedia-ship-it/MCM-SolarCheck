@@ -1669,3 +1669,25 @@ def test_report_publish_hardlink_during_sync_preserves_previous_report(tmp_path,
     with pytest.raises(ValueError, match="must not be hard-linked"):
         store.publish("job-a", source)
     assert destination.read_bytes() == b"previous"
+
+
+def test_report_publish_truncation_during_sync_preserves_previous_report(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"new")
+    destination = store.root / "job-a.pdf"
+    destination.write_bytes(b"previous")
+    real_fsync = os.fsync
+
+    def truncate_on_sync(descriptor):
+        result = real_fsync(descriptor)
+        source.write_bytes(b"")
+        return result
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", truncate_on_sync)
+    with pytest.raises(ValueError, match="must not be empty"):
+        store.publish("job-a", source)
+    assert destination.read_bytes() == b"previous"
