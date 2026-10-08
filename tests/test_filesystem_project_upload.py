@@ -472,3 +472,17 @@ def test_upload_atomic_write_replaces_existing_file_without_temp_remnants(tmp_pa
     store.store(upload())
     assert destination.read_bytes() == b"validated-content"
     assert sorted(p.name for p in destination.parent.iterdir()) == ["thermal.jpg"]
+
+
+def test_upload_atomic_write_keeps_internal_file_symlink(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    target = store.root / "shared.jpg"
+    target.write_bytes(b"previous")
+    link = directory / "thermal.jpg"
+    link.symlink_to(target)
+    store.store(upload())
+    assert link.is_symlink()
+    assert target.read_bytes() == b"validated-content"
+    assert sorted(p.name for p in directory.iterdir()) == ["thermal.jpg"]
