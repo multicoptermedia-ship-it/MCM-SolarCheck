@@ -96,6 +96,18 @@ class FileSystemReportArtifactStore:
             raise ValueError("report destination must not be a symlink")
         if destination.exists() and not destination.is_file():
             raise ValueError("report destination must be a regular file")
+        descriptor = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            details = os.fstat(descriptor)
+            if not stat.S_ISREG(details.st_mode):
+                raise ValueError("report temporary source must be a regular file")
+            if details.st_nlink != 1:
+                raise ValueError("report temporary source must not be hard-linked")
+            if details.st_size == 0:
+                raise ValueError("report temporary source must not be empty")
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
         source.replace(destination)
         return destination
 
