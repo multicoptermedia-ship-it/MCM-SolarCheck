@@ -232,3 +232,17 @@ def test_upload_rejects_directory_at_destination(tmp_path) -> None:
     with pytest.raises(ValueError, match="must be a regular file"):
         store.store(upload())
     assert destination.is_dir()
+
+
+def test_upload_rejects_internal_directory_symlink_as_destination(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    target = store.root / "directory-target"
+    target.mkdir()
+    destination = directory / "thermal.jpg"
+    destination.symlink_to(target, target_is_directory=True)
+    with pytest.raises(ValueError, match="must be a regular file"):
+        store.store(upload())
+    assert destination.is_symlink()
+    assert list(target.iterdir()) == []
