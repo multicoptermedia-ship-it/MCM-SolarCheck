@@ -734,3 +734,18 @@ def test_report_publish_accepts_job_temporary_with_dash_separator(tmp_path) -> N
     store = FileSystemReportArtifactStore(root)
 
     assert store.publish("job-a", source).read_bytes() == b"report"
+
+
+def test_report_publish_rejects_nested_private_temporary(tmp_path) -> None:
+    root = tmp_path / "private"
+    nested = root / "nested"
+    nested.mkdir(parents=True)
+    source = nested / ".job-a-temp.pdf"
+    source.write_bytes(b"nested")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must share destination directory"):
+        store.publish("job-a", source)
+
+    assert source.read_bytes() == b"nested"
+    assert not (root / "job-a.pdf").exists()
