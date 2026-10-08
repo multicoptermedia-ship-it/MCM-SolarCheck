@@ -113,6 +113,10 @@ class FileSystemReportArtifactStore:
             current_source.st_dev, current_source.st_ino
         ) != (details.st_dev, details.st_ino):
             raise ValueError("report temporary source changed during publication")
+        if current_source.st_nlink != 1:
+            raise ValueError("report temporary source must not be hard-linked")
+        if current_source.st_size == 0:
+            raise ValueError("report temporary source must not be empty")
         source.replace(destination)
         directory_descriptor = os.open(destination.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try:
