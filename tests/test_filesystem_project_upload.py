@@ -339,3 +339,17 @@ def test_upload_rejects_hardlink_to_private_sibling_file(tmp_path) -> None:
     with pytest.raises(ValueError, match="must not be hard-linked"):
         store.store(upload())
     assert sibling.read_bytes() == b"preserve sibling"
+
+
+def test_upload_rejects_multiple_hardlinks_to_same_destination(tmp_path) -> None:
+    import os
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    destination = directory / "thermal.jpg"
+    destination.write_bytes(b"preserve")
+    os.link(destination, directory / "alias-1.jpg")
+    os.link(destination, directory / "alias-2.jpg")
+    with pytest.raises(ValueError, match="must not be hard-linked"):
+        store.store(upload())
+    assert (directory / "alias-2.jpg").read_bytes() == b"preserve"
