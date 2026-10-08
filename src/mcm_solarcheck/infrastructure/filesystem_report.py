@@ -107,7 +107,7 @@ class FileSystemReportArtifactStore:
         except ValueError as exc:
             raise ValueError("report artifact resolves outside configured report directory") from exc
         try:
-            descriptor = os.open(resolved_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            descriptor = os.open(resolved_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
         except FileNotFoundError:
             raise FileNotFoundError(resolved_path) from None
         try:
