@@ -223,3 +223,12 @@ def test_upload_rechecks_still_allow_regular_private_write(tmp_path) -> None:
 
     destination = store.root / "user-1" / "P-1" / "race-safe.jpg"
     assert destination.read_bytes() == b"validated-content"
+
+
+def test_upload_rejects_directory_at_destination(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    destination.mkdir(parents=True)
+    with pytest.raises(ValueError, match="must be a regular file"):
+        store.store(upload())
+    assert destination.is_dir()
