@@ -145,6 +145,8 @@ class FileSystemReportArtifactStore:
             with os.fdopen(descriptor, "rb", closefd=False) as report_file:
                 content = report_file.read()
             after_read = os.fstat(descriptor)
+            if after_read.st_nlink > 1:
+                raise ValueError("report artifact must not be hard-linked")
             if (
                 after_read.st_dev != details.st_dev
                 or after_read.st_ino != details.st_ino
