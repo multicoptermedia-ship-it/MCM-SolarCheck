@@ -593,3 +593,17 @@ def test_nonempty_report_temporary_replaces_existing_artifact(tmp_path) -> None:
 
     assert store.publish("job-a", source) == destination
     assert destination.read_bytes() == b"new"
+
+
+def test_report_publish_rejects_mismatched_report_format(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a.docx"
+    source.write_bytes(b"wrong format")
+    store = FileSystemReportArtifactStore(root, suffix=".pdf")
+
+    with pytest.raises(ValueError, match="suffix does not match"):
+        store.publish("job-a", source)
+
+    assert source.read_bytes() == b"wrong format"
+    assert not (root / "job-a.pdf").exists()
