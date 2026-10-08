@@ -1308,3 +1308,25 @@ def test_report_publish_sync_failure_preserves_existing_report(tmp_path, monkeyp
         store.publish("job-a", source)
     assert existing.read_bytes() == b"previous"
     assert source.read_bytes() == b"replacement"
+
+
+def test_report_publish_rechecks_source_descriptor_after_hardlink_race(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    root = tmp_path / "reports"
+    store = FileSystemReportArtifactStore(root)
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"report")
+    real_open = os.open
+    alias = root / "alias.pdf"
+
+    def link_after_open(path, flags, *args, **kwargs):
+        descriptor = real_open(path, flags, *args, **kwargs)
+        os.link(source, alias)
+        return descriptor
+
+    monkeypatch.setattr(filesystem_report.os, "open", link_after_open)
+    with pytest.raises(ValueError, match="temporary source must not be hard-linked"):
+        store.publish("job-a", source)
+    assert not (root / "job-a.pdf").exists()
