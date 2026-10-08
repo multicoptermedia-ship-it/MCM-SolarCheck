@@ -822,3 +822,13 @@ def test_report_get_still_allows_regular_report_artifact(tmp_path) -> None:
     store = FileSystemReportArtifactStore(root)
 
     assert store.get("job-a").content == b"report bytes"
+
+
+def test_report_get_still_allows_regular_private_symlink_target(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    (root / "stored.pdf").write_bytes(b"stored report")
+    (root / "job-a.pdf").symlink_to(root / "stored.pdf")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.get("job-a").content == b"stored report"
