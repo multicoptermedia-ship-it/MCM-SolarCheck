@@ -1146,7 +1146,8 @@ def test_report_get_reads_opened_descriptor_after_path_replacement(tmp_path, mon
 
     monkeypatch.setattr(filesystem_report.os, "open", swap_after_open)
     store = FileSystemReportArtifactStore(root)
-    assert store.get("job-a").content == b"original"
+    with pytest.raises(ValueError, match="path changed during retrieval"):
+        store.get("job-a")
 
 
 def test_report_get_rechecks_opened_descriptor_hardlink_count(tmp_path, monkeypatch) -> None:
@@ -1208,7 +1209,8 @@ def test_report_get_uses_original_descriptor_when_path_becomes_symlink(tmp_path,
         return descriptor
 
     monkeypatch.setattr(filesystem_report.os, "open", retarget_after_open)
-    assert FileSystemReportArtifactStore(root).get("job-a").content == b"original report"
+    with pytest.raises(ValueError, match="path changed during retrieval"):
+        FileSystemReportArtifactStore(root).get("job-a")
 
 
 def test_report_get_rejects_fifo_without_waiting_for_writer(tmp_path) -> None:
