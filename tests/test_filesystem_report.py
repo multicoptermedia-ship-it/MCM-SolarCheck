@@ -553,3 +553,19 @@ def test_report_publish_rejects_empty_temporary(tmp_path) -> None:
 
     assert source.is_file()
     assert not (root / "job-a.pdf").exists()
+
+
+def test_empty_report_temporary_preserves_existing_report(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-a.pdf"
+    destination.write_bytes(b"existing")
+    source = root / ".job-a.tmp"
+    source.touch()
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must not be empty"):
+        store.publish("job-a", source)
+
+    assert destination.read_bytes() == b"existing"
+    assert source.stat().st_size == 0
