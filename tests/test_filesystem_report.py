@@ -539,3 +539,17 @@ def test_report_publish_distinct_temporary_still_replaces_destination(tmp_path) 
     assert store.publish("job-b", source) == destination
     assert store.get("job-b").content == b"updated report"
     assert not source.exists()
+
+
+def test_report_publish_rejects_empty_temporary(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a.tmp"
+    source.touch()
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must not be empty"):
+        store.publish("job-a", source)
+
+    assert source.is_file()
+    assert not (root / "job-a.pdf").exists()
