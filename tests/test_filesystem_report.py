@@ -1235,3 +1235,22 @@ def test_report_get_rejects_private_fifo_symlink_without_waiting(tmp_path) -> No
 
     with pytest.raises(ValueError, match="artifact must be a regular file"):
         store.get("job-a")
+
+
+def test_report_get_opens_file_with_nonblocking_flag(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    root = tmp_path / "private"
+    root.mkdir()
+    (root / "job-a.pdf").write_bytes(b"report")
+    real_open = os.open
+    observed = []
+
+    def inspect_flags(path, flags, *args, **kwargs):
+        observed.append(flags)
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(filesystem_report.os, "open", inspect_flags)
+    assert FileSystemReportArtifactStore(root).get("job-a").content == b"report"
+    assert observed and observed[0] & os.O_NONBLOCK
