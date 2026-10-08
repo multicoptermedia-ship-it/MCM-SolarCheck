@@ -685,3 +685,17 @@ def test_report_publish_rejects_unrelated_private_file(tmp_path) -> None:
         store.publish("job-a", source)
 
     assert source.read_bytes() == b"unrelated"
+
+
+def test_report_publish_rejects_job_identifier_prefix_collision(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-ab-temp.pdf"
+    source.write_bytes(b"other job")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="does not match destination job"):
+        store.publish("job-a", source)
+
+    assert source.read_bytes() == b"other job"
+    assert not (root / "job-a.pdf").exists()
