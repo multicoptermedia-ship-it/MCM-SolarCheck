@@ -521,3 +521,23 @@ def test_upload_directory_sync_failure_keeps_published_file(tmp_path, monkeypatc
     destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
     assert destination.read_bytes() == b"validated-content"
     assert sorted(p.name for p in destination.parent.iterdir()) == ["thermal.jpg"]
+
+
+def test_upload_directory_sync_uses_destination_parent(tmp_path, monkeypatch) -> None:
+    import os
+    import stat
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    seen = []
+    original = os.fsync
+
+    def record(fd):
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            seen.append(os.readlink(f"/proc/self/fd/{fd}") if os.path.exists("/proc/self/fd") else "directory")
+        return original(fd)
+
+    monkeypatch.setattr(os, "fsync", record)
+    store.store(upload())
+    assert len(seen) == 1
+    if seen[0] != "directory":
+        assert seen[0] == str(destination.parent)
