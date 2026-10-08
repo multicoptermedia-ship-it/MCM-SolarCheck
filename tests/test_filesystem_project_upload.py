@@ -559,3 +559,27 @@ def test_upload_directory_sync_runs_on_overwrite(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(os, "fsync", record)
     store.store(upload())
     assert directory_syncs == [True]
+
+
+def test_upload_rejects_destination_retargeted_during_fsync(tmp_path, monkeypatch) -> None:
+    import os
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    directory = store.project_directory("user-1", "P-1")
+    directory.mkdir(parents=True)
+    destination = directory / "thermal.jpg"
+    destination.write_bytes(b"old")
+    other = directory / "other.jpg"
+    other.write_bytes(b"other")
+    original_fsync = os.fsync
+
+    def retarget(fd):
+        if not destination.is_symlink():
+            destination.unlink()
+            destination.symlink_to(other)
+        return original_fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", retarget)
+    with pytest.raises(ValueError, match="destination changed during storage"):
+        store.store(upload())
+    assert other.read_bytes() == b"other"
+    assert sorted(p.name for p in directory.iterdir()) == ["other.jpg", "thermal.jpg"]
