@@ -486,3 +486,19 @@ def test_upload_atomic_write_keeps_internal_file_symlink(tmp_path) -> None:
     assert link.is_symlink()
     assert target.read_bytes() == b"validated-content"
     assert sorted(p.name for p in directory.iterdir()) == ["thermal.jpg"]
+
+
+def test_upload_fsyncs_file_before_directory(tmp_path, monkeypatch) -> None:
+    import os
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    seen = []
+    original = os.fsync
+
+    def record(fd):
+        import stat
+        seen.append("directory" if stat.S_ISDIR(os.fstat(fd).st_mode) else "file")
+        return original(fd)
+
+    monkeypatch.setattr(os, "fsync", record)
+    store.store(upload())
+    assert seen == ["file", "directory"]
