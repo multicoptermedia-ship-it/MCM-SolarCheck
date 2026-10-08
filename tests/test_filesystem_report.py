@@ -714,3 +714,13 @@ def test_report_publish_rejects_prefix_collision_with_existing_report(tmp_path) 
         store.publish("job-a", source)
 
     assert destination.read_bytes() == b"existing"
+
+
+def test_report_publish_accepts_job_temporary_with_dot_separator(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a.tmp"
+    source.write_bytes(b"report")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-a", source).read_bytes() == b"report"
