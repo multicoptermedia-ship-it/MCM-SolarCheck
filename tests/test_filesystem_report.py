@@ -891,3 +891,20 @@ def test_report_publish_rejects_directory_destination(tmp_path) -> None:
 
     assert source.read_bytes() == b"report"
     assert (root / "job-a.pdf").is_dir()
+
+
+def test_report_publish_rejects_symlink_to_directory_destination(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    directory = root / "existing"
+    directory.mkdir()
+    (root / "job-a.pdf").symlink_to(directory, target_is_directory=True)
+    source = root / ".job-a-temp.pdf"
+    source.write_bytes(b"report")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="destination must be a regular file"):
+        store.publish("job-a", source)
+
+    assert source.read_bytes() == b"report"
+    assert (root / "job-a.pdf").is_symlink()
