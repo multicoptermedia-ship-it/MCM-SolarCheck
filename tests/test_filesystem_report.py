@@ -1066,3 +1066,19 @@ def test_report_publish_regular_destination_remains_replaceable_after_symlink_gu
 
     assert store.publish("job-a", source) == destination
     assert destination.read_bytes() == b"new"
+
+
+def test_report_get_rejects_external_hardlinked_artifact(tmp_path) -> None:
+    import os
+
+    root = tmp_path / "private"
+    root.mkdir()
+    external = tmp_path / "external.pdf"
+    external.write_bytes(b"external data")
+    os.link(external, root / "job-a.pdf")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="artifact must not be hard-linked"):
+        store.get("job-a")
+
+    assert external.read_bytes() == b"external data"
