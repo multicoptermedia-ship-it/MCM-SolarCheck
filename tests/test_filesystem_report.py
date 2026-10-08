@@ -1109,3 +1109,19 @@ def test_report_get_accepts_regular_single_link_artifact(tmp_path) -> None:
     store = FileSystemReportArtifactStore(root)
 
     assert store.get("job-a").content == b"report bytes"
+
+
+def test_report_get_rejects_hardlink_even_when_target_is_nonempty(tmp_path) -> None:
+    import os
+
+    root = tmp_path / "private"
+    root.mkdir()
+    original = root / "original.pdf"
+    original.write_bytes(b"valid nonempty report")
+    linked = root / "job-a.pdf"
+    os.link(original, linked)
+    assert linked.stat().st_size > 0
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="artifact must not be hard-linked"):
+        store.get("job-a")
