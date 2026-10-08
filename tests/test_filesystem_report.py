@@ -1482,3 +1482,27 @@ def test_report_publish_rejects_source_unlinked_during_sync(tmp_path, monkeypatc
     with pytest.raises(FileNotFoundError):
         store.publish("job-a", source)
     assert not (store.root / "job-a.pdf").exists()
+
+
+def test_report_publish_preserves_existing_report_on_source_swap(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"original")
+    destination = store.root / "job-a.pdf"
+    destination.write_bytes(b"previous")
+    replacement = store.root / "replacement.pdf"
+    replacement.write_bytes(b"replacement")
+    real_fsync = os.fsync
+
+    def swap_on_sync(descriptor):
+        result = real_fsync(descriptor)
+        replacement.replace(source)
+        return result
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", swap_on_sync)
+    with pytest.raises(ValueError, match="source changed during publication"):
+        store.publish("job-a", source)
+    assert destination.read_bytes() == b"previous"
