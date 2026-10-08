@@ -1393,3 +1393,26 @@ def test_report_publish_directory_sync_failure_reports_error(tmp_path, monkeypat
     with pytest.raises(OSError, match="directory sync failed"):
         store.publish("job-a", source)
     assert (store.root / "job-a.pdf").read_bytes() == b"report"
+
+
+def test_report_publish_directory_sync_uses_destination_parent(tmp_path, monkeypatch) -> None:
+    import os
+    import stat
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    root = tmp_path / "reports"
+    store = FileSystemReportArtifactStore(root)
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"report")
+    real_open = os.open
+    opened_directories = []
+
+    def record_open(path, flags, *args, **kwargs):
+        descriptor = real_open(path, flags, *args, **kwargs)
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            opened_directories.append(os.fspath(path))
+        return descriptor
+
+    monkeypatch.setattr(filesystem_report.os, "open", record_open)
+    store.publish("job-a", source)
+    assert opened_directories == [os.fspath(root)]
