@@ -672,3 +672,16 @@ def test_report_publish_accepts_matching_job_temporary(tmp_path) -> None:
     store = FileSystemReportArtifactStore(root)
 
     assert store.publish("job-a", source).read_bytes() == b"matching job"
+
+
+def test_report_publish_rejects_unrelated_private_file(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / "unrelated.tmp"
+    source.write_bytes(b"unrelated")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="does not match destination job"):
+        store.publish("job-a", source)
+
+    assert source.read_bytes() == b"unrelated"
