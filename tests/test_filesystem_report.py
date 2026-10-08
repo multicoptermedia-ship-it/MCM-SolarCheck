@@ -749,3 +749,19 @@ def test_report_publish_rejects_nested_private_temporary(tmp_path) -> None:
 
     assert source.read_bytes() == b"nested"
     assert not (root / "job-a.pdf").exists()
+
+
+def test_report_publish_nested_temporary_preserves_existing_report(tmp_path) -> None:
+    root = tmp_path / "private"
+    nested = root / "nested"
+    nested.mkdir(parents=True)
+    destination = root / "job-a.pdf"
+    destination.write_bytes(b"existing")
+    source = nested / ".job-a-temp.pdf"
+    source.write_bytes(b"nested")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must share destination directory"):
+        store.publish("job-a", source)
+
+    assert destination.read_bytes() == b"existing"
