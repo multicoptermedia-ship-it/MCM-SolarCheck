@@ -1851,3 +1851,29 @@ def test_report_retrieval_accepts_single_link_after_read(tmp_path) -> None:
     store.publish("job-a", source)
     assert (store.root / "job-a.pdf").stat().st_nlink == 1
     assert store.get("job-a").content == b"single link report"
+
+
+def test_report_retrieval_allows_unlinked_open_descriptor_during_read(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"unlinked report")
+    store.publish("job-a", source)
+    real_fdopen = os.fdopen
+
+    class UnlinkingReader:
+        def __init__(self, stream):
+            self.stream = stream
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+        def read(self):
+            content = self.stream.read()
+            (store.root / "job-a.pdf").unlink()
+            return content
+
+    monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: UnlinkingReader(real_fdopen(fd, *a, **kw)))
+    assert store.get("job-a").content == b"unlinked report"
