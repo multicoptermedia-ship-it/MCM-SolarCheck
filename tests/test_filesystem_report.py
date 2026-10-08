@@ -386,3 +386,17 @@ def test_report_publish_rejects_internal_source_symlink(tmp_path) -> None:
     assert source.is_symlink()
     assert target.read_bytes() == b"other"
     assert not (root / "job-a.pdf").exists()
+
+
+def test_report_publish_rejects_dangling_source_symlink(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a.tmp"
+    source.symlink_to(root / "missing.pdf")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must not be a symlink"):
+        store.publish("job-a", source)
+
+    assert source.is_symlink()
+    assert not (root / "job-a.pdf").exists()
