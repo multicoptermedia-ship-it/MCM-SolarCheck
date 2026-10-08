@@ -462,3 +462,13 @@ def test_upload_atomic_write_preserves_existing_file_on_fsync_failure(tmp_path, 
         store.store(upload())
     assert destination.read_bytes() == b"previous"
     assert sorted(p.name for p in destination.parent.iterdir()) == ["thermal.jpg"]
+
+
+def test_upload_atomic_write_replaces_existing_file_without_temp_remnants(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    destination.parent.mkdir(parents=True)
+    destination.write_bytes(b"old")
+    store.store(upload())
+    assert destination.read_bytes() == b"validated-content"
+    assert sorted(p.name for p in destination.parent.iterdir()) == ["thermal.jpg"]
