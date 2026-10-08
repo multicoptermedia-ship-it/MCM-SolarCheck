@@ -1416,3 +1416,26 @@ def test_report_publish_directory_sync_uses_destination_parent(tmp_path, monkeyp
     monkeypatch.setattr(filesystem_report.os, "open", record_open)
     store.publish("job-a", source)
     assert opened_directories == [os.fspath(root)]
+
+
+def test_report_publish_syncs_directory_when_replacing_existing_report(tmp_path, monkeypatch) -> None:
+    import os
+    import stat
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"new report")
+    (store.root / "job-a.pdf").write_bytes(b"old report")
+    real_fsync = os.fsync
+    directory_syncs = []
+
+    def record_directory_sync(descriptor):
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            directory_syncs.append(True)
+        return real_fsync(descriptor)
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", record_directory_sync)
+    store.publish("job-a", source)
+    assert (store.root / "job-a.pdf").read_bytes() == b"new report"
+    assert directory_syncs == [True]
