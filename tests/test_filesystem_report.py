@@ -351,3 +351,21 @@ def test_report_publish_accepts_private_temporary_source(tmp_path) -> None:
     assert destination == root / "job-a.pdf"
     assert destination.read_bytes() == b"complete report"
     assert not source.exists()
+
+
+def test_report_publish_rejects_retargeted_source_root(tmp_path) -> None:
+    trusted = tmp_path / "trusted"
+    trusted.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    root = tmp_path / "reports"
+    root.symlink_to(trusted, target_is_directory=True)
+    store = FileSystemReportArtifactStore(root)
+    source = external / ".job-a.tmp"
+    source.write_bytes(b"outside")
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.publish("job-a", source)
+
+    assert source.read_bytes() == b"outside"
+    assert not (trusted / "job-a.pdf").exists()
