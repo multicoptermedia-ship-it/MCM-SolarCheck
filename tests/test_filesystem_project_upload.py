@@ -428,3 +428,20 @@ def test_valid_filename_still_creates_customer_and_project_directories(tmp_path)
     destination = store.root / "user-1" / "P-1" / "new-image.jpg"
     assert destination.read_bytes() == b"validated-content"
     assert destination.parent.is_dir()
+
+
+def test_upload_atomic_replace_preserves_previous_file_on_replace_failure(tmp_path, monkeypatch) -> None:
+    import os
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    destination.parent.mkdir(parents=True)
+    destination.write_bytes(b"previous")
+
+    def fail_replace(source, target):
+        raise OSError("simulated replacement failure")
+
+    monkeypatch.setattr(os, "replace", fail_replace)
+    with pytest.raises(OSError, match="simulated replacement failure"):
+        store.store(upload())
+    assert destination.read_bytes() == b"previous"
+    assert sorted(p.name for p in destination.parent.iterdir()) == ["thermal.jpg"]
