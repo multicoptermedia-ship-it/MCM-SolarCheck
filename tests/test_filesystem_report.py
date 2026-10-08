@@ -512,3 +512,16 @@ def test_report_publish_rejects_same_destination_via_dot_path(tmp_path) -> None:
         store.publish("job-a", root / "." / "job-a.pdf")
 
     assert destination.read_bytes() == b"existing"
+
+
+def test_report_publish_same_source_rejection_keeps_existing_content(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-b.pdf"
+    destination.write_bytes(b"important report")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must differ from destination"):
+        store.publish("job-b", destination)
+
+    assert store.get("job-b").content == b"important report"
