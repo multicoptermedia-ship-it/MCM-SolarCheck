@@ -420,3 +420,11 @@ def test_invalid_filename_preserves_existing_project_contents(tmp_path) -> None:
         store.store(upload(filename="nested/thermal.jpg"))
     assert existing.read_bytes() == b"unchanged"
     assert sorted(p.name for p in directory.iterdir()) == ["existing.jpg"]
+
+
+def test_valid_filename_still_creates_customer_and_project_directories(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    store.store(upload(filename="new-image.jpg"))
+    destination = store.root / "user-1" / "P-1" / "new-image.jpg"
+    assert destination.read_bytes() == b"validated-content"
+    assert destination.parent.is_dir()
