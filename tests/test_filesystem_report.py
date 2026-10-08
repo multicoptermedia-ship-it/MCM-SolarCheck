@@ -647,3 +647,18 @@ def test_report_publish_rejects_other_job_temporary(tmp_path) -> None:
 
     assert source.read_bytes() == b"other job"
     assert not (root / "job-a.pdf").exists()
+
+
+def test_report_publish_other_job_temporary_preserves_existing_report(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-a.pdf"
+    destination.write_bytes(b"existing")
+    source = root / ".job-b-temp.pdf"
+    source.write_bytes(b"other job")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="does not match destination job"):
+        store.publish("job-a", source)
+
+    assert destination.read_bytes() == b"existing"
