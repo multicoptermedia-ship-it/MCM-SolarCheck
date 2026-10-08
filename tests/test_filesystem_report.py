@@ -1209,3 +1209,15 @@ def test_report_get_uses_original_descriptor_when_path_becomes_symlink(tmp_path,
 
     monkeypatch.setattr(filesystem_report.os, "open", retarget_after_open)
     assert FileSystemReportArtifactStore(root).get("job-a").content == b"original report"
+
+
+def test_report_get_rejects_fifo_without_waiting_for_writer(tmp_path) -> None:
+    import os
+
+    root = tmp_path / "private"
+    root.mkdir()
+    os.mkfifo(root / "job-a.pdf")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="artifact must be a regular file"):
+        store.get("job-a")
