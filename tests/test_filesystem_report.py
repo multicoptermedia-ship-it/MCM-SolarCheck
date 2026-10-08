@@ -2019,3 +2019,11 @@ def test_report_get_rejects_path_removed_during_read(tmp_path, monkeypatch) -> N
     monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: RemovingReader(original_fdopen(fd, *a, **kw)))
     with pytest.raises(ValueError, match="path changed during retrieval"):
         store.get("job-a")
+
+
+def test_report_get_path_identity_check_allows_unchanged_file(tmp_path) -> None:
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    temporary = store.create_temporary("job-a")
+    temporary.write_bytes(b"original")
+    store.publish("job-a", temporary)
+    assert store.get("job-a").content == b"original"
