@@ -145,6 +145,12 @@ class FileSystemReportArtifactStore:
             with os.fdopen(descriptor, "rb", closefd=False) as report_file:
                 content = report_file.read()
             after_read = os.fstat(descriptor)
+            try:
+                current_path = resolved_path.stat()
+            except FileNotFoundError as exc:
+                raise ValueError("report artifact path changed during retrieval") from exc
+            if (current_path.st_dev, current_path.st_ino) != (details.st_dev, details.st_ino):
+                raise ValueError("report artifact path changed during retrieval")
             if len(content) != details.st_size:
                 raise ValueError("report artifact read was incomplete")
             if after_read.st_nlink > 1:
