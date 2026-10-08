@@ -1330,3 +1330,24 @@ def test_report_publish_rechecks_source_descriptor_after_hardlink_race(tmp_path,
     with pytest.raises(ValueError, match="temporary source must not be hard-linked"):
         store.publish("job-a", source)
     assert not (root / "job-a.pdf").exists()
+
+
+def test_report_publish_rechecks_source_descriptor_after_truncation(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    root = tmp_path / "reports"
+    store = FileSystemReportArtifactStore(root)
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"report")
+    real_open = os.open
+
+    def truncate_after_open(path, flags, *args, **kwargs):
+        descriptor = real_open(path, flags, *args, **kwargs)
+        source.write_bytes(b"")
+        return descriptor
+
+    monkeypatch.setattr(filesystem_report.os, "open", truncate_after_open)
+    with pytest.raises(ValueError, match="temporary source must not be empty"):
+        store.publish("job-a", source)
+    assert not (root / "job-a.pdf").exists()
