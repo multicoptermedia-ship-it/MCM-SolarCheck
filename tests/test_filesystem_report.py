@@ -1560,3 +1560,24 @@ def test_report_publish_rejects_symlink_to_original_inode_during_sync(tmp_path, 
     with pytest.raises(ValueError, match="source changed during publication"):
         store.publish("job-a", source)
     assert not (store.root / "job-a.pdf").exists()
+
+
+def test_report_publish_rejects_directory_substitution_during_sync(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"original")
+    real_fsync = os.fsync
+
+    def replace_with_directory(descriptor):
+        result = real_fsync(descriptor)
+        source.unlink()
+        source.mkdir()
+        return result
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", replace_with_directory)
+    with pytest.raises(ValueError, match="source changed during publication"):
+        store.publish("job-a", source)
+    assert not (store.root / "job-a.pdf").exists()
