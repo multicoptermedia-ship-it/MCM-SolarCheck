@@ -525,3 +525,17 @@ def test_report_publish_same_source_rejection_keeps_existing_content(tmp_path) -
         store.publish("job-b", destination)
 
     assert store.get("job-b").content == b"important report"
+
+
+def test_report_publish_distinct_temporary_still_replaces_destination(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-b.pdf"
+    destination.write_bytes(b"old report")
+    source = root / ".job-b-temp.pdf"
+    source.write_bytes(b"updated report")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-b", source) == destination
+    assert store.get("job-b").content == b"updated report"
+    assert not source.exists()
