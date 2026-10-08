@@ -52,4 +52,6 @@ class FileSystemProjectUploadStore:
             destination.parent.resolve().relative_to(self.root)
         except ValueError as exc:
             raise ValueError("project upload directory resolves outside configured root") from exc
+        if destination.exists() and not destination.is_file():
+            raise ValueError("project upload destination must be a regular file")
         destination.write_bytes(request.content)
