@@ -399,3 +399,12 @@ def test_invalid_filename_does_not_create_customer_directory(tmp_path) -> None:
     with pytest.raises(ValueError, match="filename is invalid"):
         store.store(upload(filename="../escape.jpg"))
     assert not (store.root / "user-1").exists()
+
+
+def test_invalid_filename_does_not_create_project_directory(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    customer = store.root / "user-1"
+    customer.mkdir()
+    with pytest.raises(ValueError, match="filename is invalid"):
+        store.store(upload(filename="/absolute.jpg"))
+    assert not (customer / "P-1").exists()
