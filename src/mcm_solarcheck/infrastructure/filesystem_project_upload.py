@@ -72,6 +72,13 @@ class FileSystemProjectUploadStore:
                 output.write(request.content)
                 output.flush()
                 os.fsync(output.fileno())
+            try:
+                target.relative_to(self.root)
+                destination.resolve().relative_to(self.root)
+            except ValueError as exc:
+                raise ValueError("project upload file resolves outside configured root") from exc
+            if destination.resolve() != target:
+                raise ValueError("project upload destination changed during storage")
             os.replace(temporary, target)
             directory_fd = os.open(target.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
             try:
