@@ -83,6 +83,8 @@ class FileSystemReportArtifactStore:
             raise ValueError("report temporary source must differ from destination")
         if source.stat().st_size == 0:
             raise ValueError("report temporary source must not be empty")
+        if source.suffix.lower() != self.suffix:
+            raise ValueError("report temporary source suffix does not match report format")
         source.replace(destination)
         return destination
 
