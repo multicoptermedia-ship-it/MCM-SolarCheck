@@ -1627,3 +1627,23 @@ def test_report_publish_rejects_hardlink_added_during_sync(tmp_path, monkeypatch
     with pytest.raises(ValueError, match="must not be hard-linked"):
         store.publish("job-a", source)
     assert not (store.root / "job-a.pdf").exists()
+
+
+def test_report_publish_rejects_truncation_during_sync(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"report")
+    real_fsync = os.fsync
+
+    def truncate_on_sync(descriptor):
+        result = real_fsync(descriptor)
+        source.write_bytes(b"")
+        return result
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", truncate_on_sync)
+    with pytest.raises(ValueError, match="must not be empty"):
+        store.publish("job-a", source)
+    assert not (store.root / "job-a.pdf").exists()
