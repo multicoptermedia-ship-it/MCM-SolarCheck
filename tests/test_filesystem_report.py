@@ -862,3 +862,17 @@ def test_report_get_accepts_single_byte_artifact(tmp_path) -> None:
     store = FileSystemReportArtifactStore(root)
 
     assert store.get("job-a").content == b"x"
+
+
+def test_report_get_empty_artifact_does_not_modify_file(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    path = root / "job-a.pdf"
+    path.write_bytes(b"")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="must not be empty"):
+        store.get("job-a")
+
+    assert path.exists()
+    assert path.read_bytes() == b""
