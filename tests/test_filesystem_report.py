@@ -418,3 +418,17 @@ def test_report_publish_preserves_existing_artifact_when_source_is_symlink(tmp_p
 
     assert destination.read_bytes() == b"existing"
     assert target.read_bytes() == b"other"
+
+
+def test_report_publish_regular_source_still_replaces_existing_artifact(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-a.pdf"
+    destination.write_bytes(b"old")
+    source = root / ".job-a.tmp"
+    source.write_bytes(b"new")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-a", source) == destination
+    assert destination.read_bytes() == b"new"
+    assert not source.exists()
