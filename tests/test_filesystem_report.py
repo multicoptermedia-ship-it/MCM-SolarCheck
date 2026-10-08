@@ -1878,3 +1878,28 @@ def test_report_retrieval_allows_unlinked_open_descriptor_during_read(tmp_path, 
     monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: UnlinkingReader(real_fdopen(fd, *a, **kw)))
     with pytest.raises(ValueError, match="changed during retrieval"):
         store.get("job-a")
+
+
+def test_report_get_rejects_short_read_without_file_mutation(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    store = FileSystemReportArtifactStore(tmp_path / "reports")
+    temporary = store.create_temporary("job-a")
+    temporary.write_bytes(b"complete report")
+    store.publish("job-a", temporary)
+    original_fdopen = os.fdopen
+
+    class ShortReader:
+        def __init__(self, stream):
+            self.stream = stream
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+        def read(self):
+            return self.stream.read(4)
+
+    monkeypatch.setattr(filesystem_report.os, "fdopen", lambda fd, *a, **kw: ShortReader(original_fdopen(fd, *a, **kw)))
+    with pytest.raises(ValueError, match="read was incomplete"):
+        store.get("job-a")
