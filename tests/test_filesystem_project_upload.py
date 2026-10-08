@@ -370,3 +370,11 @@ def test_upload_store_rejects_parent_traversal_filename(tmp_path) -> None:
     with pytest.raises(ValueError, match="filename is invalid"):
         store.store(upload(filename="../escape.jpg"))
     assert not (store.root / "user-1" / "escape.jpg").exists()
+
+
+def test_upload_store_rejects_absolute_filename(tmp_path) -> None:
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    external = tmp_path / "external.jpg"
+    with pytest.raises(ValueError, match="filename is invalid"):
+        store.store(upload(filename=str(external)))
+    assert not external.exists()
