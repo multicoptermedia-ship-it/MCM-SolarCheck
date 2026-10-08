@@ -922,3 +922,16 @@ def test_report_publish_can_replace_existing_regular_report(tmp_path) -> None:
     assert store.publish("job-a", source) == destination
     assert destination.read_bytes() == b"new"
     assert not source.exists()
+
+
+def test_report_publish_can_create_report_when_destination_missing(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    source = root / ".job-a-temp.pdf"
+    source.write_bytes(b"new")
+    store = FileSystemReportArtifactStore(root)
+
+    destination = store.publish("job-a", source)
+
+    assert destination.read_bytes() == b"new"
+    assert not source.exists()
