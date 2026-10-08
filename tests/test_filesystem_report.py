@@ -306,3 +306,17 @@ def test_report_temporary_creation_stays_inside_private_root(tmp_path) -> None:
     assert temporary.is_file()
     assert temporary.name.startswith(".job-a-")
     assert temporary.suffix == ".pdf"
+
+
+def test_report_publish_rejects_external_source(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    external = tmp_path / "external.tmp"
+    external.write_bytes(b"untrusted")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="outside configured report directory"):
+        store.publish("job-a", external)
+
+    assert external.read_bytes() == b"untrusted"
+    assert not (root / "job-a.pdf").exists()
