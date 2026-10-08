@@ -617,3 +617,19 @@ def test_report_publish_accepts_generic_temporary_suffix(tmp_path) -> None:
     store = FileSystemReportArtifactStore(root)
 
     assert store.publish("job-a", source).read_bytes() == b"valid report"
+
+
+def test_mismatched_report_format_preserves_existing_artifact(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-a.pdf"
+    destination.write_bytes(b"existing")
+    source = root / ".job-a.odt"
+    source.write_bytes(b"other format")
+    store = FileSystemReportArtifactStore(root)
+
+    with pytest.raises(ValueError, match="suffix does not match"):
+        store.publish("job-a", source)
+
+    assert destination.read_bytes() == b"existing"
+    assert source.read_bytes() == b"other format"
