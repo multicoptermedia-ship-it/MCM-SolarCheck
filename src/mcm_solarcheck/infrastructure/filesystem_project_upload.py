@@ -56,4 +56,6 @@ class FileSystemProjectUploadStore:
             raise ValueError("project upload destination must not be a dangling symlink")
         if destination.exists() and not destination.is_file():
             raise ValueError("project upload destination must be a regular file")
+        if destination.exists() and destination.stat().st_nlink > 1:
+            raise ValueError("project upload destination must not be hard-linked")
         destination.write_bytes(request.content)
