@@ -502,3 +502,22 @@ def test_upload_fsyncs_file_before_directory(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(os, "fsync", record)
     store.store(upload())
     assert seen == ["file", "directory"]
+
+
+def test_upload_directory_sync_failure_keeps_published_file(tmp_path, monkeypatch) -> None:
+    import os
+    import stat
+    store = FileSystemProjectUploadStore(tmp_path / "uploads")
+    original = os.fsync
+
+    def fail_directory_sync(fd):
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            raise OSError("directory sync failed")
+        return original(fd)
+
+    monkeypatch.setattr(os, "fsync", fail_directory_sync)
+    with pytest.raises(OSError, match="directory sync failed"):
+        store.store(upload())
+    destination = store.project_directory("user-1", "P-1") / "thermal.jpg"
+    assert destination.read_bytes() == b"validated-content"
+    assert sorted(p.name for p in destination.parent.iterdir()) == ["thermal.jpg"]
