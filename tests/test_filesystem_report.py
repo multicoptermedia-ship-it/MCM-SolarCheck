@@ -1268,3 +1268,23 @@ def test_report_get_rejects_unix_socket_artifact(tmp_path) -> None:
             FileSystemReportArtifactStore(root).get("job-a")
     finally:
         sock.close()
+
+
+def test_report_publish_syncs_temporary_file_before_replacement(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    root = tmp_path / "reports"
+    store = FileSystemReportArtifactStore(root)
+    source = store.create_temporary("job-a")
+    source.write_bytes(b"report")
+    real_fsync = os.fsync
+    synced = []
+
+    def record_sync(descriptor):
+        synced.append(os.fstat(descriptor).st_size)
+        return real_fsync(descriptor)
+
+    monkeypatch.setattr(filesystem_report.os, "fsync", record_sync)
+    store.publish("job-a", source)
+    assert synced == [len(b"report")]
