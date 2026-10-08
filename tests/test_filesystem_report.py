@@ -908,3 +908,17 @@ def test_report_publish_rejects_symlink_to_directory_destination(tmp_path) -> No
 
     assert source.read_bytes() == b"report"
     assert (root / "job-a.pdf").is_symlink()
+
+
+def test_report_publish_can_replace_existing_regular_report(tmp_path) -> None:
+    root = tmp_path / "private"
+    root.mkdir()
+    destination = root / "job-a.pdf"
+    destination.write_bytes(b"old")
+    source = root / ".job-a-temp.pdf"
+    source.write_bytes(b"new")
+    store = FileSystemReportArtifactStore(root)
+
+    assert store.publish("job-a", source) == destination
+    assert destination.read_bytes() == b"new"
+    assert not source.exists()
