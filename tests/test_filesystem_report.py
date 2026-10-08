@@ -1147,3 +1147,24 @@ def test_report_get_reads_opened_descriptor_after_path_replacement(tmp_path, mon
     monkeypatch.setattr(filesystem_report.os, "open", swap_after_open)
     store = FileSystemReportArtifactStore(root)
     assert store.get("job-a").content == b"original"
+
+
+def test_report_get_rechecks_opened_descriptor_hardlink_count(tmp_path, monkeypatch) -> None:
+    import os
+    from mcm_solarcheck.infrastructure import filesystem_report
+
+    root = tmp_path / "private"
+    root.mkdir()
+    artifact = root / "job-a.pdf"
+    artifact.write_bytes(b"original")
+    alias = root / "alias.pdf"
+    real_open = os.open
+
+    def link_after_open(path, flags, *args, **kwargs):
+        descriptor = real_open(path, flags, *args, **kwargs)
+        os.link(artifact, alias)
+        return descriptor
+
+    monkeypatch.setattr(filesystem_report.os, "open", link_after_open)
+    with pytest.raises(ValueError, match="artifact must not be hard-linked"):
+        FileSystemReportArtifactStore(root).get("job-a")
