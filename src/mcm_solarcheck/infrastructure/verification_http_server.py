@@ -441,14 +441,23 @@ def verification_handler(
                     )
                 try:
                     upload = project_upload_service.upload(
-                    ProjectUploadRequest(
-                        customer_id=user_id,
-                        project_id=project_id,
-                        filename=filename,
-                        content_type=content_type,
-                        content=content,
+                        ProjectUploadRequest(
+                            customer_id=user_id,
+                            project_id=project_id,
+                            filename=filename,
+                            content_type=content_type,
+                            content=content,
+                        )
                     )
-                )
+                except Exception:
+                    if attempt_id is not None:
+                        try:
+                            upload_attempt_store.finish(attempt_id, succeeded=False)
+                        except (OSError, RuntimeError, ValueError):
+                            pass  # Keep pending for reconciliation.
+                    raise
+                if attempt_id is not None:
+                    upload_attempt_store.finish(attempt_id, succeeded=True)
             except PermissionError:
                 self._respond(404, "project is not available")
                 return
