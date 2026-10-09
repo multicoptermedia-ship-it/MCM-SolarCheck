@@ -38,6 +38,7 @@ def verification_handler(
     compute_job_service=None,
     max_parallel_compute_jobs: int = 2,
     training_consent_service=None,
+    upload_attempt_store=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
     from mcm_solarcheck.services.compute_jobs import ComputeCapacity
@@ -763,6 +764,7 @@ def build_verification_server(
     compute_job_service=None,
     max_parallel_compute_jobs: int = 2,
     training_consent_service=None,
+    upload_attempt_store=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -782,5 +784,6 @@ def build_verification_server(
             compute_job_service,
             max_parallel_compute_jobs,
             training_consent_service,
+            upload_attempt_store,
         ),
     )
