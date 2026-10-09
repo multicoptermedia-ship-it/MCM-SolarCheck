@@ -60,4 +60,5 @@ def build_online_verification_server(
         project_creation_service=getattr(product.services, "project_creation", None),
         project_upload_service=getattr(product.services, "project_upload", None),
         project_processing_service=getattr(product.services, "project_processing", None),
+        compute_job_service=getattr(product.services, "compute_jobs", None),
     )
