@@ -25,6 +25,7 @@ from mcm_solarcheck.infrastructure.sqlite_registration import SQLiteOnlineRegist
 from mcm_solarcheck.infrastructure.sqlite_sepa import SQLiteSepaMandateStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_collection import SQLiteSepaCollectionStore
 from mcm_solarcheck.infrastructure.sqlite_sepa_submission import SQLiteSepaSubmissionStore
+from mcm_solarcheck.infrastructure.sqlite_training_consent import SQLiteTrainingConsentStore
 from mcm_solarcheck.infrastructure.sqlite_session import SQLiteSessionStore
 from mcm_solarcheck.infrastructure.sqlite_smtp_admin_audit import SQLiteSMTPAdminAudit
 from mcm_solarcheck.infrastructure.sqlite_solarcheck_tariff import SQLiteSolarCheckTariffStore
@@ -89,6 +90,7 @@ class OnlinePersistence:
     smtp_settings: SMTPSettingsStore
     smtp_secrets: SMTPSecretStore
     smtp_admin_audit: SMTPAdminAudit
+    training_consents: object | None = None
 
 
 def build_online_persistence(
@@ -144,4 +146,5 @@ def build_online_persistence(
         smtp_settings=SQLiteSMTPSettingsStore(database, smtp_default),
         smtp_secrets=smtp_secrets,
         smtp_admin_audit=SQLiteSMTPAdminAudit(database),
+        training_consents=SQLiteTrainingConsentStore(database),
     )
