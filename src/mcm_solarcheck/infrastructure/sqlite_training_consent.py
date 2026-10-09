@@ -15,7 +15,7 @@ class SQLiteTrainingConsentStore:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     customer_id TEXT NOT NULL,
                     project_id TEXT NOT NULL,
-                    event TEXT NOT NULL CHECK(event IN ('granted','withdrawn','pending')),
+                    event TEXT NOT NULL CHECK(event IN ('granted','withdrawn')),
                     notice_version TEXT NOT NULL,
                     occurred_at TEXT NOT NULL
                 )
@@ -29,7 +29,7 @@ class SQLiteTrainingConsentStore:
     def record(self, *, customer_id: str, project_id: str, event: str, notice_version: str) -> None:
         if any(not isinstance(v, str) or not v.strip() for v in (customer_id, project_id, notice_version)):
             raise ValueError("consent identity and notice version are required")
-        if event not in ("granted", "withdrawn", "pending"):
+        if event not in ("granted", "withdrawn"):
             raise ValueError("invalid consent event")
         with sqlite3.connect(self.database) as connection:
             connection.execute(
