@@ -35,6 +35,7 @@ def verification_handler(
     project_creation_service=None,
     project_upload_service=None,
     project_processing_service=None,
+    compute_job_service=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
 
@@ -108,6 +109,9 @@ def verification_handler(
             if parsed.path == "/project-upload" and session_service is not None and customer_entry is not None and project_upload_service is not None:
                 self._handle_project_upload()
                 return
+            if parsed.path == "/api/compute-jobs" and session_service is not None and customer_entry is not None and project_service is not None and compute_job_service is not None:
+                self._handle_create_compute_job()
+                return
             if parsed.path == "/api/project-process" and session_service is not None and customer_entry is not None and project_processing_service is not None:
                 self._handle_project_process(parsed, as_json=True)
                 return
@@ -156,6 +160,52 @@ def verification_handler(
                 self._respond(400, "registration data is invalid")
                 return
             self._respond(202, message)
+
+        def _handle_create_compute_job(self) -> None:
+            from uuid import uuid4
+            from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/x-www-form-urlencoded":
+                self._respond(415, "job content type is not supported")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", ""))
+            except ValueError:
+                self._respond(400, "job data is invalid")
+                return
+            if length <= 0 or length > MAX_REGISTRATION_BODY_BYTES:
+                self._respond(400 if length <= 0 else 413, "job data is invalid")
+                return
+            try:
+                form = parse_qs(self.rfile.read(length).decode("utf-8"), strict_parsing=True)
+                project_ids = form.get("project_id", [])
+                if len(project_ids) != 1 or not project_ids[0].strip():
+                    raise ValueError("project id required")
+                project_id = project_ids[0].strip()
+                if not any(p.project_id == project_id for p in project_service.projects_for_customer(user_id)):
+                    self._respond(404, "project is not available")
+                    return
+                job = compute_job_service.create(job_id=uuid4().hex, user_id=user_id, project_id=project_id)
+                job = compute_job_service.start(job.job_id, user_id=user_id, project_id=project_id, capacity=ComputeCapacity(1))
+            except (UnicodeDecodeError, ValueError):
+                self._respond(400, "job data is invalid")
+                return
+            except PermissionError:
+                self._respond(403, "job creation is not permitted")
+                return
+            except (OSError, RuntimeError, KeyError):
+                self._respond(503, "job service is not available")
+                return
+            self._respond_json(201, {"project_id": project_id, "job_id": job.job_id, "status": job.status.value})
 
         def _handle_project_process(self, parsed, *, as_json: bool = False) -> None:
             try:
@@ -580,6 +630,7 @@ def build_verification_server(
     project_creation_service=None,
     project_upload_service=None,
     project_processing_service=None,
+    compute_job_service=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -596,5 +647,6 @@ def build_verification_server(
             project_creation_service,
             project_upload_service,
             project_processing_service,
+            compute_job_service,
         ),
     )
