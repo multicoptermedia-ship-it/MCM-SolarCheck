@@ -379,7 +379,7 @@ def verification_handler(
             self._respond(200, "Trainingseinwilligung widerrufen", headers={"Cache-Control": "no-store"})
 
         def _handle_project_upload(self) -> None:
-            if not self._same_origin_request():
+            if self.headers.get("Origin") and not self._same_origin_request():
                 self._respond(403, "cross-origin project upload is forbidden")
                 return
             try:
