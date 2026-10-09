@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import sqlite3
 import time
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
 
 class UploadLeaseBusy(RuntimeError):
+    pass
+
+
+class UploadLeaseLost(RuntimeError):
     pass
 
 
@@ -59,7 +64,26 @@ class SQLiteUploadLeases:
     @contextmanager
     def hold(self, customer_id: str, project_id: str, filename: str):
         key, token = self.acquire(customer_id, project_id, filename)
+        stopped = threading.Event()
+        lost = threading.Event()
+
+        def heartbeat():
+            while not stopped.wait(self.lease_seconds / 3):
+                try:
+                    if not self.renew(key, token):
+                        lost.set()
+                        return
+                except sqlite3.Error:
+                    lost.set()
+                    return
+
+        worker = threading.Thread(target=heartbeat, daemon=True)
+        worker.start()
         try:
             yield
+            if lost.is_set() or not self.renew(key, token):
+                raise UploadLeaseLost("upload coordination lease was lost")
         finally:
+            stopped.set()
+            worker.join()
             self.release(key, token)
