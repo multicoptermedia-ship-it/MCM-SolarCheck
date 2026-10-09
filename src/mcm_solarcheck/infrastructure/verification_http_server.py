@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from html import escape
+import json
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable
@@ -48,6 +49,9 @@ def verification_handler(
                 return
             if parsed.path == "/customer-entry" and session_service is not None and customer_entry is not None:
                 self._handle_customer_entry()
+                return
+            if parsed.path == "/api/projects" and session_service is not None and customer_entry is not None and project_service is not None:
+                self._handle_projects_json()
                 return
             if parsed.path == "/projects" and session_service is not None and customer_entry is not None and project_service is not None:
                 self._handle_projects()
@@ -340,6 +344,36 @@ def verification_handler(
                 f"(Preisregel {snapshot.rule_version})"
             )
             self._respond(200, message, headers={"Cache-Control": "no-store"})
+
+        def _handle_projects_json(self) -> None:
+            """JSON projection behind the existing cookie session and customer gate."""
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond_json(401, {"error": "online session is invalid"})
+                return
+            try:
+                from shared_ui.online_access import authorized_online_projects
+                projects = authorized_online_projects(
+                    user_id, customer_entry=customer_entry, project_service=project_service
+                )
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond_json(403, {"error": "online customer entry is not available"})
+                return
+            except (AttributeError, TypeError):
+                self._respond_json(503, {"error": "online projects are not available"})
+                return
+            self._respond_json(200, {"projects": projects})
+
+        def _respond_json(self, status_code: int, value: dict) -> None:
+            body = json.dumps(value, ensure_ascii=False).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
         def _handle_projects(self) -> None:
             try:
