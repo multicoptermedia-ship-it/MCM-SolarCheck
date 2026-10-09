@@ -17,6 +17,10 @@ class TrainingConsentService:
         self._require_owner(customer_id, project_id)
         self._store.record(customer_id=customer_id, project_id=project_id, event="withdrawn", notice_version=NOTICE_VERSION)
 
+    def audit_events(self, *, customer_id: str, project_id: str):
+        self._require_owner(customer_id, project_id)
+        return self._store.events(customer_id=customer_id, project_id=project_id)
+
     def require_granted(self, *, customer_id: str, project_id: str) -> None:
         if not self.is_granted(customer_id=customer_id, project_id=project_id):
             raise PermissionError("training consent is not active")
