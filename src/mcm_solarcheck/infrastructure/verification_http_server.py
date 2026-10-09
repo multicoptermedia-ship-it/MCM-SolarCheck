@@ -434,8 +434,11 @@ def verification_handler(
 
                 attempt_id = None
                 if upload_attempt_store is not None:
+                    from hashlib import sha256
+
                     attempt_id = upload_attempt_store.begin(
-                        customer_id=user_id, project_id=project_id, filename=filename
+                        customer_id=user_id, project_id=project_id, filename=filename,
+                        expected_size=len(content), expected_sha256=sha256(content).hexdigest(),
                     )
                 try:
                     upload = project_upload_service.upload(
