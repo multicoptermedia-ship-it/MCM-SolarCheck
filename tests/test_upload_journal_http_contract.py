@@ -12,4 +12,5 @@ def test_http_records_attempt_before_storage():
 
 def test_online_entrypoint_accepts_upload_journal():
     source = Path("src/mcm_solarcheck/online/http_entrypoint.py").read_text(encoding="utf-8")
-    assert "upload_attempt_store=upload_attempt_store" in source
+    assert "upload_attempt_store=(" in source
+    assert "getattr(product.services, 'upload_attempts', None)" in source
