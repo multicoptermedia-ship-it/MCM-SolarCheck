@@ -90,7 +90,7 @@ class SQLiteUploadAttemptStore:
                        AND other.project_id = upload_attempts.project_id
                        AND other.filename = upload_attempts.filename
                        AND other.attempt_id != upload_attempts.attempt_id
-                       AND other.state = 'pending'
+                       AND other.state IN ('pending', 'completed')
                    )""",
                 (datetime.now(timezone.utc).isoformat(), attempt_id),
             )
