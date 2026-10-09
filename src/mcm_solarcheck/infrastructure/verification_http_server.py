@@ -47,6 +47,34 @@ def verification_handler(
                     "SolarCheck Online – Anmeldung und Registrierung werden hier bereitgestellt.",
                 )
                 return
+            if parsed.path in ("/app", "/api/runtime"):
+                if session_service is None or customer_entry is None or project_service is None:
+                    self._respond(404, "Not Found")
+                    return
+                try:
+                    user_id = self._require_customer_user()
+                except PermissionError:
+                    self._respond(401, "online session is invalid")
+                    return
+                try:
+                    customer_entry(user_id)
+                except (PermissionError, RuntimeError, ValueError):
+                    self._respond(403, "online customer entry is not available")
+                    return
+                if parsed.path == "/api/runtime":
+                    self._respond_json(200, {"mode": "online", "features_ready": False})
+                else:
+                    from shared_ui.server import UI_FILE
+                    body = UI_FILE.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("X-Content-Type-Options", "nosniff")
+                    self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                return
             if parsed.path == "/customer-entry" and session_service is not None and customer_entry is not None:
                 self._handle_customer_entry()
                 return
