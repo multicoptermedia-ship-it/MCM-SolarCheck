@@ -34,8 +34,8 @@ class StagedUploadDelivery:
             raise ValueError("nonempty bytes required")
         staging_key = ".staging/" + uuid4().hex
         expected = sha256(data).hexdigest()
-        self.backend.put_staging(staging_key, data)
         try:
+            self.backend.put_staging(staging_key, data)
             received = self.backend.read_staging(staging_key)
             if len(received) != len(data) or sha256(received).hexdigest() != expected:
                 raise ValueError("staged upload integrity mismatch")
