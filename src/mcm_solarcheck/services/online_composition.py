@@ -111,6 +111,7 @@ class OnlineServices:
     credentials: object
     sessions: object
     training_consent: object | None = None
+    upload_attempts: object | None = None
 
     def require_production_ready(self) -> None:
         """Fail closed before enabling customer-facing commercial operation."""
@@ -387,4 +388,5 @@ def build_online_services(
         credentials=persistence.credentials,
         sessions=persistence.sessions,
         training_consent=(TrainingConsentService(persistence.training_consents, persistence.projects.project_belongs_to_customer) if persistence.training_consents is not None else None),
+        upload_attempts=persistence.upload_attempts,
     )
