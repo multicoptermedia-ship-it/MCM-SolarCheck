@@ -73,3 +73,25 @@ class SQLiteUploadAttemptStore:
             return connection.execute(
                 "SELECT attempt_id, customer_id, project_id, filename, expected_size, expected_sha256 FROM upload_attempts WHERE state = 'pending' ORDER BY created_at, attempt_id"
             ).fetchall()
+
+    def finish_verified_if_unique(self, attempt_id: str) -> bool:
+        """Atomically finalize only a pending attempt without competing pending names."""
+        if not attempt_id:
+            raise ValueError("attempt_id is required")
+        with sqlite3.connect(self.database) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            cursor = connection.execute(
+                """UPDATE upload_attempts SET state = 'completed', updated_at = ?
+                   WHERE attempt_id = ? AND state = 'pending'
+                   AND expected_size IS NOT NULL AND expected_sha256 IS NOT NULL
+                   AND NOT EXISTS (
+                       SELECT 1 FROM upload_attempts AS other
+                       WHERE other.customer_id = upload_attempts.customer_id
+                       AND other.project_id = upload_attempts.project_id
+                       AND other.filename = upload_attempts.filename
+                       AND other.attempt_id != upload_attempts.attempt_id
+                       AND other.state = 'pending'
+                   )""",
+                (datetime.now(timezone.utc).isoformat(), attempt_id),
+            )
+            return cursor.rowcount == 1
