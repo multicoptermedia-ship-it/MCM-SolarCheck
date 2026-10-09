@@ -8,5 +8,7 @@ def test_upload_client_limits_and_no_fake_analysis():
     assert "Upload vom Server bestätigt. Analyse ist noch nicht gestartet." in html
     assert "button.disabled=true" in html
     assert "button.disabled=false" in html
-    assert 'button disabled title="API-Anbindung ausstehend">Analyse starten' in html
+    assert 'id="processing-job"' in html
+    assert "Bitte Projekt und vorhandene Job-ID angeben." in html
+    assert "result.state!=='completed'" in html
     assert 'button disabled title="Berichts-API noch nicht angebunden"' in html
