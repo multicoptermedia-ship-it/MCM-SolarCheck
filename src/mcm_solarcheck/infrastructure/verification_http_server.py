@@ -299,6 +299,8 @@ def verification_handler(
                 result = project_processing_service.process(
                     ProjectProcessingRequest(user_id, project_id, job_id)
                 )
+                if attempt_id is not None:
+                    upload_attempt_store.finish(attempt_id, succeeded=True)
             except PermissionError:
                 self._respond(404, "project is not available")
                 return
@@ -432,6 +434,11 @@ def verification_handler(
 
                 from mcm_solarcheck.services.project_upload import ProjectUploadRequest
 
+                attempt_id = None
+                if upload_attempt_store is not None:
+                    attempt_id = upload_attempt_store.begin(
+                        customer_id=user_id, project_id=project_id, filename=filename
+                    )
                 upload = project_upload_service.upload(
                     ProjectUploadRequest(
                         customer_id=user_id,
