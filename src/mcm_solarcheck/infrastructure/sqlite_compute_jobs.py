@@ -389,6 +389,26 @@ class SQLiteComputeJobStore:
             return None
         return ComputeJob(row[0], row[1], row[2], ComputeJobStatus(row[3]))
 
+    def queued_jobs(self, *, limit: int = 100) -> list[ComputeJob]:
+        """Read durable pending jobs in FIFO order for an explicit dispatcher tick."""
+        if type(limit) is not int or limit <= 0:
+            raise ValueError("limit must be a positive integer")
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT job_id, user_id, project_id, status
+                FROM compute_jobs
+                WHERE status = ?
+                ORDER BY rowid
+                LIMIT ?
+                """,
+                (ComputeJobStatus.QUEUED.value, limit),
+            ).fetchall()
+        return [
+            ComputeJob(job_id, user_id, project_id, ComputeJobStatus(status))
+            for job_id, user_id, project_id, status in rows
+        ]
+
     def running_jobs(self) -> int:
         """Return the authoritative number of jobs occupying worker capacity."""
         with self._connect() as connection:
