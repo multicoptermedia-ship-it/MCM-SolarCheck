@@ -439,7 +439,8 @@ def verification_handler(
                     attempt_id = upload_attempt_store.begin(
                         customer_id=user_id, project_id=project_id, filename=filename
                     )
-                upload = project_upload_service.upload(
+                try:
+                    upload = project_upload_service.upload(
                     ProjectUploadRequest(
                         customer_id=user_id,
                         project_id=project_id,
