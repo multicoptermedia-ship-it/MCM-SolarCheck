@@ -55,6 +55,8 @@ class UploadAttemptRecovery:
         """Verify pending uploads against journaled bytes, without modifying data."""
         from hashlib import sha256
         from pathlib import Path
+        import os
+        import stat
 
         results = []
         for row in self._store.pending_with_integrity():
@@ -73,14 +75,37 @@ class UploadAttemptRecovery:
                     status = "file_absent"
                 elif expected_size is None or expected_hash is None:
                     status = "file_present_unverified"
-                elif path.stat().st_size != expected_size:
-                    status = "size_mismatch"
                 else:
-                    digest = sha256()
-                    with path.open("rb") as source:
-                        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-                            digest.update(chunk)
-                    status = "verified" if digest.hexdigest() == expected_hash else "hash_mismatch"
+                    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                    if not hasattr(os, "O_NOFOLLOW"):
+                        status = "unsafe"
+                    else:
+                        fd = os.open(path, flags)
+                        try:
+                            before = os.fstat(fd)
+                            if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+                                status = "unsafe"
+                            elif before.st_size != expected_size:
+                                status = "size_mismatch"
+                            else:
+                                digest = sha256()
+                                with os.fdopen(os.dup(fd), "rb") as source:
+                                    for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                                        digest.update(chunk)
+                                after = os.fstat(fd)
+                                stable = (
+                                    before.st_dev == after.st_dev
+                                    and before.st_ino == after.st_ino
+                                    and before.st_size == after.st_size
+                                    and before.st_mtime_ns == after.st_mtime_ns
+                                    and before.st_ctime_ns == after.st_ctime_ns
+                                )
+                                if not stable:
+                                    status = "unsafe"
+                                else:
+                                    status = "verified" if digest.hexdigest() == expected_hash else "hash_mismatch"
+                        finally:
+                            os.close(fd)
             except (OSError, ValueError):
                 status = "unsafe"
             results.append((attempt, status))
