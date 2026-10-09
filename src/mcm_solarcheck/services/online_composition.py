@@ -31,6 +31,7 @@ from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
 from mcm_solarcheck.services.project_creation import ProjectCreationService
 from mcm_solarcheck.services.project_pricing import DiscountEligibility, ProjectPricingService
 from mcm_solarcheck.services.project_upload import ProjectUploadService
+from mcm_solarcheck.services.training_consent import TrainingConsentService
 from mcm_solarcheck.services.project_processing import ProjectProcessingService, ComputeJobProcessingStateRecorder
 from mcm_solarcheck.importers.project import import_m3t_project
 from mcm_solarcheck.storage.import_store import store_project_import
@@ -109,6 +110,7 @@ class OnlineServices:
     entitlements: object
     credentials: object
     sessions: object
+    training_consent: object | None = None
 
     def require_production_ready(self) -> None:
         """Fail closed before enabling customer-facing commercial operation."""
@@ -384,4 +386,5 @@ def build_online_services(
         entitlements=persistence.entitlements,
         credentials=persistence.credentials,
         sessions=persistence.sessions,
+        training_consent=(TrainingConsentService(persistence.training_consents, persistence.projects.project_belongs_to_customer) if persistence.training_consents is not None else None),
     )
