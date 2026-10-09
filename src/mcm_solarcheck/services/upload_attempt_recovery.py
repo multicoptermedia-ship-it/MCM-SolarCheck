@@ -35,8 +35,8 @@ class UploadAttemptRecovery:
                     not attempt.filename
                     or attempt.filename in {".", ".."}
                     or "/" in attempt.filename
-                    or "\\\\" in attempt.filename
-                    or "\\x00" in attempt.filename
+                    or chr(92) in attempt.filename
+                    or chr(0) in attempt.filename
                 ):
                     raise ValueError("invalid filename")
                 path = directory / attempt.filename
