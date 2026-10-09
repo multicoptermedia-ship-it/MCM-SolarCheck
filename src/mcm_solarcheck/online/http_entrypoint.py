@@ -23,6 +23,7 @@ def build_online_verification_server(
     secure_cookies: bool = False,
     production: bool = False,
     max_parallel_compute_jobs: int = 2,
+    training_consent_service=None,
 ):
     """Compose the verification HTTP adapter from the authoritative online services."""
     if not isinstance(product, OnlineProduct):
@@ -63,4 +64,5 @@ def build_online_verification_server(
         project_processing_service=getattr(product.services, "project_processing", None),
         compute_job_service=getattr(product.services, "compute_jobs", None),
         max_parallel_compute_jobs=max_parallel_compute_jobs,
+        training_consent_service=training_consent_service,
     )
