@@ -18,4 +18,5 @@ class TrainingConsentService:
         self._store.record(customer_id=customer_id, project_id=project_id, event="withdrawn", notice_version=NOTICE_VERSION)
 
     def _require_owner(self, customer_id: str, project_id: str) -> None:
-        self._projects.get_project_for_customer(customer_id, project_id)
+        if not self._projects(customer_id, project_id):
+            raise PermissionError("project is not available to customer")
