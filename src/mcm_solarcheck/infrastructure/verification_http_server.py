@@ -36,8 +36,11 @@ def verification_handler(
     project_upload_service=None,
     project_processing_service=None,
     compute_job_service=None,
+    max_parallel_compute_jobs: int = 2,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    compute_capacity = ComputeCapacity(max_parallel_compute_jobs)
 
     class VerificationHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -188,7 +191,7 @@ def verification_handler(
             self._respond_json(200, {"project_id": project_id, "job_id": job.job_id, "status": job.status.value})
 
         def _handle_start_compute_job(self, parsed) -> None:
-            from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJobStatus
+            from mcm_solarcheck.services.compute_jobs import ComputeJobStatus
             try:
                 user_id = self._require_customer_user()
             except PermissionError:
@@ -208,7 +211,7 @@ def verification_handler(
             try:
                 current = compute_job_service.get(job_id, user_id=user_id, project_id=project_id)
                 if current.status is ComputeJobStatus.QUEUED:
-                    current = compute_job_service.start(job_id, user_id=user_id, project_id=project_id, capacity=ComputeCapacity(1))
+                    current = compute_job_service.start(job_id, user_id=user_id, project_id=project_id, capacity=compute_capacity)
             except (PermissionError, KeyError):
                 self._respond(404, "job is not available")
                 return
@@ -219,7 +222,6 @@ def verification_handler(
 
         def _handle_create_compute_job(self) -> None:
             from uuid import uuid4
-            from mcm_solarcheck.services.compute_jobs import ComputeCapacity
             try:
                 user_id = self._require_customer_user()
             except PermissionError:
@@ -251,7 +253,7 @@ def verification_handler(
                     self._respond(404, "project is not available")
                     return
                 job = compute_job_service.create(job_id=uuid4().hex, user_id=user_id, project_id=project_id)
-                job = compute_job_service.start(job.job_id, user_id=user_id, project_id=project_id, capacity=ComputeCapacity(1))
+                job = compute_job_service.start(job.job_id, user_id=user_id, project_id=project_id, capacity=compute_capacity)
             except (UnicodeDecodeError, ValueError):
                 self._respond(400, "job data is invalid")
                 return
@@ -687,6 +689,7 @@ def build_verification_server(
     project_upload_service=None,
     project_processing_service=None,
     compute_job_service=None,
+    max_parallel_compute_jobs: int = 2,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -704,5 +707,6 @@ def build_verification_server(
             project_upload_service,
             project_processing_service,
             compute_job_service,
+            max_parallel_compute_jobs,
         ),
     )
