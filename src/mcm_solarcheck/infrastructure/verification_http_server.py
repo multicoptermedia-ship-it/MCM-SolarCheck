@@ -334,7 +334,26 @@ def verification_handler(
                 headers={"Cache-Control": "no-store"},
             )
 
+        def _same_origin_request(self) -> bool:
+            origin = self.headers.get("Origin")
+            if not origin:
+                return False
+            expected_host = self.headers.get("Host", "")
+            parsed_origin = urlparse(origin)
+            return (
+                parsed_origin.scheme in ("http", "https")
+                and parsed_origin.netloc == expected_host
+                and not parsed_origin.username
+                and not parsed_origin.password
+                and not parsed_origin.path
+                and not parsed_origin.query
+                and not parsed_origin.fragment
+            )
+
         def _handle_training_consent_withdraw(self) -> None:
+            if not self._same_origin_request():
+                self._respond(403, "cross-origin consent withdrawal is forbidden")
+                return
             try:
                 user_id = self._require_customer_user()
             except PermissionError:
