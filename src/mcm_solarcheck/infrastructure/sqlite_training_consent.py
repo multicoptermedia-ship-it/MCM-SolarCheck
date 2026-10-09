@@ -21,6 +21,11 @@ class SQLiteTrainingConsentStore:
                 )
             """)
 
+            connection.execute("""
+                CREATE INDEX IF NOT EXISTS idx_training_consent_latest
+                ON training_consent_events (customer_id, project_id, id DESC)
+            """)
+
     def record(self, *, customer_id: str, project_id: str, event: str, notice_version: str) -> None:
         if any(not isinstance(v, str) or not v.strip() for v in (customer_id, project_id, notice_version)):
             raise ValueError("consent identity and notice version are required")
