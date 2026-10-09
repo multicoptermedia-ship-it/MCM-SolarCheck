@@ -108,6 +108,9 @@ def verification_handler(
             if parsed.path == "/project-upload" and session_service is not None and customer_entry is not None and project_upload_service is not None:
                 self._handle_project_upload()
                 return
+            if parsed.path == "/api/project-process" and session_service is not None and customer_entry is not None and project_processing_service is not None:
+                self._handle_project_process(parsed, as_json=True)
+                return
             if parsed.path == "/project-process" and session_service is not None and customer_entry is not None and project_processing_service is not None:
                 self._handle_project_process(parsed)
                 return
@@ -154,7 +157,7 @@ def verification_handler(
                 return
             self._respond(202, message)
 
-        def _handle_project_process(self, parsed) -> None:
+        def _handle_project_process(self, parsed, *, as_json: bool = False) -> None:
             try:
                 user_id = self._require_customer_user()
             except PermissionError:
@@ -197,6 +200,16 @@ def verification_handler(
                 return
             except (OSError, RuntimeError):
                 self._respond(503, "online project processing is not available")
+                return
+            if as_json:
+                self._respond_json(200, {
+                    "project_id": project_id,
+                    "job_id": job_id,
+                    "state": result.state.value,
+                    "imported_thermal_frames": result.imported_thermal_frames,
+                    "paired_frames": result.paired_frames,
+                    "import_failures": result.import_failures,
+                })
                 return
             self._respond(
                 200,
