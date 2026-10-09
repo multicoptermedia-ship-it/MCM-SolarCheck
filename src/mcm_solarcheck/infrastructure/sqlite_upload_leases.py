@@ -19,7 +19,7 @@ class UploadLeaseLost(RuntimeError):
 
 class SQLiteUploadLeases:
     def __init__(self, database: str | Path, *, lease_seconds: float = 60.0):
-        if lease_seconds <= 0:
+        if not isinstance(lease_seconds, (int, float)) or not 0 < lease_seconds < float("inf"):
             raise ValueError("lease_seconds must be positive")
         self.database = str(database)
         self.lease_seconds = lease_seconds
@@ -81,7 +81,11 @@ class SQLiteUploadLeases:
         worker.start()
         try:
             yield
-            if lost.is_set() or not self.renew(key, token):
+            try:
+                owned = self.renew(key, token)
+            except sqlite3.Error as exc:
+                raise UploadLeaseLost("unable to confirm upload lease ownership") from exc
+            if lost.is_set() or not owned:
                 raise UploadLeaseLost("upload coordination lease was lost")
         finally:
             stopped.set()
