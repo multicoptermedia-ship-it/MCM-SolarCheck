@@ -9,3 +9,9 @@ This is **not enabled automatically** in the HTTP server or deployment. The supp
 The SQLite finalization guard also rejects any previous completed attempt for the same customer, project and filename. This avoids claiming an existing file for a newer attempt merely because its digest matches. Integrity inspection opens the file with `O_NOFOLLOW`, rejects hardlinks and non-regular files, and compares file descriptor metadata before and after hashing. Platforms without `O_NOFOLLOW` are classified as unsafe.
 
 These checks do **not** provide a transaction across the filesystem and SQLite, do not lock out non-cooperating writers, and do not protect an untrusted directory resolver or parent-directory symlink replacement. Recovery remains opt-in and must not be scheduled automatically until those risks are addressed.
+
+## Cooperative per-file locks (optional)
+
+`UploadFileLocks(trusted_lock_directory)` uses advisory `flock` locks keyed by customer, project and filename. Pass the **same lock provider** as `file_locks=` to both `FileSystemProjectUploadStore` and `UploadReconciliation`. The upload store holds the lock through its atomic replacement; reconciliation holds it during inspection and journal finalization. Both integrations are opt-in and the HTTP composition has not been switched on.
+
+These are advisory locks for cooperating processes on a trusted local filesystem (Unix `fcntl`); they do not stop non-cooperating writers or secure a remote SFTP store. The lock directory must be private and must not be user-writable. Current reconciliation rescans pending entries under each lock, so performance should be measured before use at scale. Parent-directory replacement, unrelated writers, and storage/journal crash consistency remain open issues. Do not enable automatic recovery in production yet.
