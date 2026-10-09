@@ -5,7 +5,7 @@ Deployment must supply a durable queue and recovery strategy separately.
 from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor
-from threading import Lock
+from threading import RLock
 
 from mcm_solarcheck.services.compute_jobs import ComputeJobStatus
 from mcm_solarcheck.services.project_processing import ProjectProcessingRequest
@@ -20,7 +20,7 @@ class ParallelProjectWorkers:
         self._jobs = jobs
         self._processing = processing
         self._pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="solarcheck-project")
-        self._lock = Lock()
+        self._lock = RLock()
         self._active: dict[str, Future] = {}
         self._max_workers = max_workers
 
