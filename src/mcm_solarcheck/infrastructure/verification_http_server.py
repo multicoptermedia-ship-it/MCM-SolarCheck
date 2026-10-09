@@ -112,6 +112,9 @@ def verification_handler(
             if parsed.path == "/project-upload" and session_service is not None and customer_entry is not None and project_upload_service is not None:
                 self._handle_project_upload()
                 return
+            if parsed.path == "/api/compute-job-start" and session_service is not None and customer_entry is not None and compute_job_service is not None:
+                self._handle_start_compute_job(parsed)
+                return
             if parsed.path == "/api/compute-jobs" and session_service is not None and customer_entry is not None and project_service is not None and compute_job_service is not None:
                 self._handle_create_compute_job()
                 return
@@ -183,6 +186,36 @@ def verification_handler(
                 self._respond(404, "job is not available")
                 return
             self._respond_json(200, {"project_id": project_id, "job_id": job.job_id, "status": job.status.value})
+
+        def _handle_start_compute_job(self, parsed) -> None:
+            from mcm_solarcheck.services.compute_jobs import ComputeCapacity, ComputeJobStatus
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+            query = parse_qs(parsed.query)
+            projects, jobs = query.get("project_id", []), query.get("job_id", [])
+            if len(projects) != 1 or not projects[0].strip() or len(jobs) != 1 or not jobs[0].strip():
+                self._respond(400, "job query is invalid")
+                return
+            project_id, job_id = projects[0].strip(), jobs[0].strip()
+            try:
+                current = compute_job_service.get(job_id, user_id=user_id, project_id=project_id)
+                if current.status is ComputeJobStatus.QUEUED:
+                    current = compute_job_service.start(job_id, user_id=user_id, project_id=project_id, capacity=ComputeCapacity(1))
+            except (PermissionError, KeyError):
+                self._respond(404, "job is not available")
+                return
+            except (OSError, RuntimeError):
+                self._respond(503, "job service is not available")
+                return
+            self._respond_json(200, {"project_id": project_id, "job_id": current.job_id, "status": current.status.value})
 
         def _handle_create_compute_job(self) -> None:
             from uuid import uuid4
