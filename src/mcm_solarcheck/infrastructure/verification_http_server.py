@@ -444,9 +444,12 @@ def verification_handler(
             except (OSError, RuntimeError):
                 self._respond(503, "online upload is not available")
                 return
-            if consent_choice == "granted":
+            if training_consent_service is not None:
                 try:
-                    training_consent_service.grant(customer_id=user_id, project_id=project_id)
+                    if consent_choice == "granted":
+                        training_consent_service.grant(customer_id=user_id, project_id=project_id)
+                    else:
+                        training_consent_service.withdraw(customer_id=user_id, project_id=project_id)
                 except (PermissionError, ValueError, OSError, RuntimeError):
                     self._respond(503, "upload saved but training consent recording failed; do not use images for training")
                     return
