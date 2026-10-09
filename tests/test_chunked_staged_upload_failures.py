@@ -15,7 +15,7 @@ class BrokenBackend:
         self.files[key] = b"".join(chunks)
 
     def read_staging_chunks(self, key, chunk_size):
-        yield b"corrupt"
+        yield b"bad!"
 
     def publish(self, source, destination):
         self.published = True
@@ -43,3 +43,18 @@ def test_sftp_adapter_requires_chunked_transport_capability():
     backend = ChunkedSFTPStagedUploadBackend(NoStreamingTransport(), root="/private")
     with pytest.raises(NotImplementedError):
         ChunkedStagedUploadDelivery(backend).deliver("c/p/rgb.jpg", BytesIO(b"rgb"))
+
+
+class OversizedBackend(BrokenBackend):
+    def read_staging_chunks(self, key, chunk_size):
+        yield b"x" * (chunk_size + 1)
+
+
+def test_oversized_remote_chunk_is_rejected():
+    backend = OversizedBackend()
+    with pytest.raises(ValueError, match="unbounded chunk"):
+        ChunkedStagedUploadDelivery(backend, chunk_size=4).deliver(
+            "c/p/thermal.tiff", BytesIO(b"original")
+        )
+    assert not backend.published
+    assert backend.files == {}
