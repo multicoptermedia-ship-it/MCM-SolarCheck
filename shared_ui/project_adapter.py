@@ -1,23 +1,20 @@
-"""Read-only adapter for existing project application services.
-
-Does not bypass online identity or customer ownership checks. Online must
-supply an authorized, customer-scoped project service.
-"""
+"""Read-only adapter for existing project application services."""
 from __future__ import annotations
 
 from typing import Protocol
 
 
 class ProjectReader(Protocol):
-    def list_projects(self): ...
+    def projects(self): ...
 
 
-def list_project_summaries(reader: ProjectReader) -> list[dict]:
-    """Normalize authorized project objects for the shared UI."""
-    result = []
-    for project in reader.list_projects():
-        result.append({
-            "id": str(project.id),
-            "name": str(project.name),
-        })
-    return result
+def list_project_summaries(reader: ProjectReader) -> list[dict[str, str]]:
+    """Convert persisted ProjectRecord values without inventing project data.
+
+    Do not pass an unrestricted online service: online callers must use a
+    separately authorized, customer-scoped reader.
+    """
+    return [
+        {"id": str(project.project_id), "name": str(project.name)}
+        for project in reader.projects()
+    ]
