@@ -24,6 +24,7 @@ def build_online_verification_server(
     production: bool = False,
     max_parallel_compute_jobs: int = 2,
     training_consent_service=None,
+    upload_attempt_store=None,
 ):
     """Compose the verification HTTP adapter from the authoritative online services."""
     if not isinstance(product, OnlineProduct):
@@ -65,4 +66,5 @@ def build_online_verification_server(
         compute_job_service=getattr(product.services, "compute_jobs", None),
         max_parallel_compute_jobs=max_parallel_compute_jobs,
         training_consent_service=training_consent_service or getattr(product.services, 'training_consent', None),
+        upload_attempt_store=upload_attempt_store,
     )
