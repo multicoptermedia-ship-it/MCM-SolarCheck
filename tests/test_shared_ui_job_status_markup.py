@@ -7,6 +7,7 @@ def test_job_status_ui_contract():
     assert 'id="job-status-button"' in html
     assert "'/api/compute-job?'" in html
     assert "credentials:'same-origin'" in html
-    assert "currentJob={project_id:project,job_id:created.job_id}" in html
+    assert "rememberJob({project_id:project,job_id:created.job_id})" in html
+    assert "sessionStorage.setItem" in html
     assert "result.job_id!==currentJob.job_id" in html
     assert 'button disabled title="Berichts-API noch nicht angebunden"' in html
