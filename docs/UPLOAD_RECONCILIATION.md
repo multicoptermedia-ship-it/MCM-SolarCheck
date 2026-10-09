@@ -1,0 +1,5 @@
+# Conservative upload reconciliation (opt-in)
+
+`UploadReconciliation(store).run_once(project_directory)` examines pending attempts with the stored size and SHA-256. Only verified, uniquely pending entries are finalized using a conditional SQLite update; rerunning skips completed entries. Missing, damaged, unsafe, legacy or competing pending entries stay pending and are returned with a `review_*` outcome. Files are never overwritten, retried, or deleted.
+
+This is **not enabled automatically** in the HTTP server or deployment. The supplied directory resolver must enforce customer/project isolation. Hash verification and journal finalization are not an atomic filesystem operation: a concurrent file replacement can invalidate the check. A production-safe scheduler requires per-file coordination, secure filesystem reads, and real integration tests before automatic execution. A matching hash cannot independently establish which upload attempt wrote the file. No automatic deletion or customer notification is implemented.
