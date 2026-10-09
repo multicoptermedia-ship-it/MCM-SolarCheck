@@ -299,8 +299,6 @@ def verification_handler(
                 result = project_processing_service.process(
                     ProjectProcessingRequest(user_id, project_id, job_id)
                 )
-                if attempt_id is not None:
-                    upload_attempt_store.finish(attempt_id, succeeded=True)
             except PermissionError:
                 self._respond(404, "project is not available")
                 return
