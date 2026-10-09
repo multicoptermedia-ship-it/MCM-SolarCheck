@@ -79,6 +79,9 @@ def verification_handler(
             if parsed.path == "/customer-entry" and session_service is not None and customer_entry is not None:
                 self._handle_customer_entry()
                 return
+            if parsed.path == "/api/compute-job" and session_service is not None and customer_entry is not None and compute_job_service is not None:
+                self._handle_compute_job_status(parsed)
+                return
             if parsed.path == "/api/projects" and session_service is not None and customer_entry is not None and project_service is not None:
                 self._handle_projects_json()
                 return
@@ -160,6 +163,26 @@ def verification_handler(
                 self._respond(400, "registration data is invalid")
                 return
             self._respond(202, message)
+
+        def _handle_compute_job_status(self, parsed) -> None:
+            try:
+                user_id = self._require_customer_user()
+                customer_entry(user_id)
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            query = parse_qs(parsed.query)
+            projects, jobs = query.get("project_id", []), query.get("job_id", [])
+            if len(projects) != 1 or not projects[0].strip() or len(jobs) != 1 or not jobs[0].strip():
+                self._respond(400, "job query is invalid")
+                return
+            project_id, job_id = projects[0].strip(), jobs[0].strip()
+            try:
+                job = compute_job_service.get(job_id, user_id=user_id, project_id=project_id)
+            except (PermissionError, KeyError):
+                self._respond(404, "job is not available")
+                return
+            self._respond_json(200, {"project_id": project_id, "job_id": job.job_id, "status": job.status.value})
 
         def _handle_create_compute_job(self) -> None:
             from uuid import uuid4
