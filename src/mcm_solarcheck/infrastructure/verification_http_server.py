@@ -424,6 +424,11 @@ def verification_handler(
                     self._respond(400, "upload data is incomplete")
                     return
 
+                # Fail closed: invalidate any earlier grant before changing project files.
+                # A failed upload or later audit write cannot leave that grant active.
+                if training_consent_service is not None:
+                    training_consent_service.withdraw(customer_id=user_id, project_id=project_id)
+
                 from mcm_solarcheck.services.project_upload import ProjectUploadRequest
 
                 upload = project_upload_service.upload(
