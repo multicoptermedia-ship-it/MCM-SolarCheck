@@ -64,5 +64,5 @@ def build_online_verification_server(
         project_processing_service=getattr(product.services, "project_processing", None),
         compute_job_service=getattr(product.services, "compute_jobs", None),
         max_parallel_compute_jobs=max_parallel_compute_jobs,
-        training_consent_service=training_consent_service,
+        training_consent_service=training_consent_service or getattr(product.services, 'training_consent', None),
     )
