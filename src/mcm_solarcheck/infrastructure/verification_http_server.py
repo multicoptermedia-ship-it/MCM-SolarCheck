@@ -113,6 +113,9 @@ def verification_handler(
             if parsed.path == "/projects" and session_service is not None and customer_entry is not None and project_creation_service is not None:
                 self._handle_create_project()
                 return
+            if parsed.path == "/api/training-consent-withdraw" and session_service is not None and customer_entry is not None and training_consent_service is not None:
+                self._handle_training_consent_withdraw()
+                return
             if parsed.path == "/project-upload" and session_service is not None and customer_entry is not None and project_upload_service is not None:
                 self._handle_project_upload()
                 return
@@ -330,6 +333,31 @@ def verification_handler(
                 ),
                 headers={"Cache-Control": "no-store"},
             )
+
+        def _handle_training_consent_withdraw(self) -> None:
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+            project_id = self.headers.get("X-SolarCheck-Project-Id", "").strip()
+            if not project_id or self.headers.get("Content-Length", "0") != "0":
+                self._respond(400, "withdrawal request is invalid")
+                return
+            try:
+                training_consent_service.withdraw(customer_id=user_id, project_id=project_id)
+            except PermissionError:
+                self._respond(404, "project is not available")
+                return
+            except (ValueError, OSError, RuntimeError):
+                self._respond(503, "training consent withdrawal is unavailable")
+                return
+            self._respond(200, "Trainingseinwilligung widerrufen", headers={"Cache-Control": "no-store"})
 
         def _handle_project_upload(self) -> None:
             try:
