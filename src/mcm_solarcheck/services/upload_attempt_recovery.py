@@ -50,3 +50,38 @@ class UploadAttemptRecovery:
                 status = "unsafe"
             results.append((attempt, status))
         return results
+
+    def inspect_integrity(self, project_directory):
+        """Verify pending uploads against journaled bytes, without modifying data."""
+        from hashlib import sha256
+        from pathlib import Path
+
+        results = []
+        for row in self._store.pending_with_integrity():
+            attempt = InterruptedUpload(*row[:4])
+            expected_size, expected_hash = row[4:]
+            try:
+                if (not attempt.filename or attempt.filename in {".", ".."}
+                        or "/" in attempt.filename or chr(92) in attempt.filename
+                        or chr(0) in attempt.filename):
+                    raise ValueError("unsafe filename")
+                directory = Path(project_directory(attempt.customer_id, attempt.project_id))
+                path = directory / attempt.filename
+                if path.is_symlink():
+                    status = "unsafe"
+                elif not path.is_file():
+                    status = "file_absent"
+                elif expected_size is None or expected_hash is None:
+                    status = "file_present_unverified"
+                elif path.stat().st_size != expected_size:
+                    status = "size_mismatch"
+                else:
+                    digest = sha256()
+                    with path.open("rb") as source:
+                        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                            digest.update(chunk)
+                    status = "verified" if digest.hexdigest() == expected_hash else "hash_mismatch"
+            except (OSError, ValueError):
+                status = "unsafe"
+            results.append((attempt, status))
+        return results
