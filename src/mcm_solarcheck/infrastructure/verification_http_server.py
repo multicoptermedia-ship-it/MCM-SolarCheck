@@ -37,6 +37,7 @@ def verification_handler(
     project_processing_service=None,
     compute_job_service=None,
     max_parallel_compute_jobs: int = 2,
+    training_consent_service=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
     from mcm_solarcheck.services.compute_jobs import ComputeCapacity
@@ -345,6 +346,13 @@ def verification_handler(
             project_id = self.headers.get("X-SolarCheck-Project-Id", "").strip()
             filename = self.headers.get("X-SolarCheck-Filename", "").strip()
             content_type = self.headers.get("Content-Type", "")
+            consent_choice = self.headers.get("X-SolarCheck-Training-Consent", "declined")
+            if consent_choice not in ("granted", "declined"):
+                self._respond(400, "training consent choice is invalid")
+                return
+            if consent_choice == "granted" and training_consent_service is None:
+                self._respond(503, "training consent recording is unavailable")
+                return
             if not project_id or not filename or not content_type:
                 self._respond(400, "upload metadata is invalid")
                 return
@@ -386,6 +394,12 @@ def verification_handler(
             except (OSError, RuntimeError):
                 self._respond(503, "online upload is not available")
                 return
+            if consent_choice == "granted":
+                try:
+                    training_consent_service.grant(customer_id=user_id, project_id=project_id)
+                except (PermissionError, ValueError, OSError, RuntimeError):
+                    self._respond(503, "upload saved but training consent recording failed; do not use images for training")
+                    return
             self._respond(
                 201,
                 f"Upload gespeichert: {upload.filename} ({upload.size_bytes} Bytes)",
@@ -690,6 +704,7 @@ def build_verification_server(
     project_processing_service=None,
     compute_job_service=None,
     max_parallel_compute_jobs: int = 2,
+    training_consent_service=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -708,5 +723,6 @@ def build_verification_server(
             project_processing_service,
             compute_job_service,
             max_parallel_compute_jobs,
+            training_consent_service,
         ),
     )
