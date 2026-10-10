@@ -20,8 +20,12 @@ def test_descriptor_relative_publish_is_exclusive(tmp_path):
         assert publisher.publish(source, fd, "transfer.bin", expected_size=3,
                                  expected_sha256=sha256(b"abc").hexdigest()) == "transfer.bin"
         assert (project / "transfer.bin").read_bytes() == b"abc"
+        # The original source now has two hard links, so use a fresh source
+        # to exercise the destination collision without weakening source safety.
+        another_source = tmp_path / ".assembly-456"
+        another_source.write_bytes(b"abc")
         with pytest.raises(FileExistsError):
-            publisher.publish(source, fd, "transfer.bin", expected_size=3,
+            publisher.publish(another_source, fd, "transfer.bin", expected_size=3,
                               expected_sha256=sha256(b"abc").hexdigest())
     finally:
         os.close(fd)
