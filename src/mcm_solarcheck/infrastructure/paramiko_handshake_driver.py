@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import socket
 
+from mcm_solarcheck.infrastructure.sftp_connection_errors import SFTPTimeoutError
+
 
 class ParamikoHandshakeDriver:
     def __init__(self, config, *, socket_factory=None, transport_factory=None, credentials=None, timeout=15):
@@ -14,6 +16,8 @@ class ParamikoHandshakeDriver:
         self.socket_factory = socket_factory or socket.create_connection
         self.transport_factory = transport_factory
         self.credentials = credentials
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 0 < timeout <= 120:
+            raise ValueError("timeout must be between 0 and 120 seconds")
         self.timeout = timeout
         self.transport = None
         self.socket = None
@@ -30,8 +34,13 @@ class ParamikoHandshakeDriver:
                 factory = self.transport_factory
             self.transport = factory(self.socket)
             self.transport.start_client(timeout=self.timeout)
-        except BaseException:
-            self.close()
+        except BaseException as exc:
+            try:
+                self.close()
+            except Exception:
+                pass
+            if isinstance(exc, (socket.timeout, TimeoutError)):
+                raise SFTPTimeoutError("SSH handshake timed out") from exc
             raise
 
     def negotiated_host_key_blob(self):
@@ -63,12 +72,14 @@ class ParamikoHandshakeDriver:
         return _ReadOnlySFTPSession(paramiko.SFTPClient.from_transport(self.transport))
 
     def close(self):
+        transport, sock = self.transport, self.socket
+        self.transport, self.socket = None, None
         try:
-            if self.transport is not None:
-                self.transport.close()
+            if transport is not None:
+                transport.close()
         finally:
-            if self.socket is not None:
-                self.socket.close()
+            if sock is not None:
+                sock.close()
 
 
 class _ReadOnlySFTPSession:
