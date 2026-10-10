@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import os
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 
 from mcm_solarcheck.services.project_upload import ValidatedProjectUpload
 
 
 class FileSystemProjectUploadStore:
-    def __init__(self, root: str | Path) -> None:
+    def __init__(self, root: str | Path, *, file_locks=None) -> None:
+        self.file_locks = file_locks
         self.root = Path(root).expanduser().resolve()
         self.root.mkdir(parents=True, exist_ok=True)
 
@@ -38,6 +40,13 @@ class FileSystemProjectUploadStore:
         return directory
 
     def store(self, upload: ValidatedProjectUpload) -> None:
+        request = upload.request
+        lock = (self.file_locks.hold(request.customer_id, request.project_id, request.filename)
+                if self.file_locks is not None else nullcontext())
+        with lock:
+            self._store_locked(upload)
+
+    def _store_locked(self, upload: ValidatedProjectUpload) -> None:
         request = upload.request
         filename = self._segment(request.filename, "filename")
         directory = self.project_directory(request.customer_id, request.project_id)

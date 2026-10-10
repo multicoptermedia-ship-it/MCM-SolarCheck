@@ -1,0 +1,7 @@
+# Exclusive local publication prototype
+
+The private assembly stage creates and validates a complete temporary file. `ExclusiveLocalPublisher` independently streams and verifies its bytes and uses a same-filesystem hard link to create the final name **only if absent**. There is no overwrite or copy fallback. The temporary source is retained for explicit later cleanup. The final name becomes visible atomically on local filesystems supporting hard links; directory fsync is attempted for crash durability.
+
+`AuthorizedLocalPublication` reads the canonical expected size and SHA-256 using transfer/customer/project ownership and permits only pending transfers. It does **not** claim or change durable transfer state. This is an isolated prototype and is not connected to the HTTP upload flow or IONOS SFTP.
+
+**Production blockers:** a trusted private source/destination directory and trusted caller-selected paths are required; hard-link publication is not a remote SFTP atomicity guarantee. A concurrent process with write access to the source can still modify the hard-linked final bytes, so immutability/permissions and post-publication readback are essential. Add durable single-writer claims, idempotent recovery, post-publication verification, audit, cleanup of orphaned private files, quota/disk-pressure controls, and strict mapping from transfer ID to server-chosen final path. Avoid exposing final names until a durable verified/published state is recorded. No real IONOS SFTP or billable operations were performed.

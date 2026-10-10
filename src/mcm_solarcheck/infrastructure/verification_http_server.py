@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from html import escape
+import json
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable
@@ -34,8 +35,14 @@ def verification_handler(
     project_creation_service=None,
     project_upload_service=None,
     project_processing_service=None,
+    compute_job_service=None,
+    max_parallel_compute_jobs: int = 2,
+    training_consent_service=None,
+    upload_attempt_store=None,
 ) -> type[BaseHTTPRequestHandler]:
     """Bind the transport-neutral verification endpoint to HTTP GET requests."""
+    from mcm_solarcheck.services.compute_jobs import ComputeCapacity
+    compute_capacity = ComputeCapacity(max_parallel_compute_jobs)
 
     class VerificationHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -46,8 +53,42 @@ def verification_handler(
                     "SolarCheck Online – Anmeldung und Registrierung werden hier bereitgestellt.",
                 )
                 return
+            if parsed.path in ("/app", "/api/runtime"):
+                if session_service is None or customer_entry is None or project_service is None:
+                    self._respond(404, "Not Found")
+                    return
+                try:
+                    user_id = self._require_customer_user()
+                except PermissionError:
+                    self._respond(401, "online session is invalid")
+                    return
+                try:
+                    customer_entry(user_id)
+                except (PermissionError, RuntimeError, ValueError):
+                    self._respond(403, "online customer entry is not available")
+                    return
+                if parsed.path == "/api/runtime":
+                    self._respond_json(200, {"mode": "online", "features_ready": False})
+                else:
+                    from shared_ui.server import UI_FILE
+                    body = UI_FILE.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("X-Content-Type-Options", "nosniff")
+                    self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                return
             if parsed.path == "/customer-entry" and session_service is not None and customer_entry is not None:
                 self._handle_customer_entry()
+                return
+            if parsed.path == "/api/compute-job" and session_service is not None and customer_entry is not None and compute_job_service is not None:
+                self._handle_compute_job_status(parsed)
+                return
+            if parsed.path == "/api/projects" and session_service is not None and customer_entry is not None and project_service is not None:
+                self._handle_projects_json()
                 return
             if parsed.path == "/projects" and session_service is not None and customer_entry is not None and project_service is not None:
                 self._handle_projects()
@@ -73,8 +114,20 @@ def verification_handler(
             if parsed.path == "/projects" and session_service is not None and customer_entry is not None and project_creation_service is not None:
                 self._handle_create_project()
                 return
+            if parsed.path == "/api/training-consent-withdraw" and session_service is not None and customer_entry is not None and training_consent_service is not None:
+                self._handle_training_consent_withdraw()
+                return
             if parsed.path == "/project-upload" and session_service is not None and customer_entry is not None and project_upload_service is not None:
                 self._handle_project_upload()
+                return
+            if parsed.path == "/api/compute-job-start" and session_service is not None and customer_entry is not None and compute_job_service is not None:
+                self._handle_start_compute_job(parsed)
+                return
+            if parsed.path == "/api/compute-jobs" and session_service is not None and customer_entry is not None and project_service is not None and compute_job_service is not None:
+                self._handle_create_compute_job()
+                return
+            if parsed.path == "/api/project-process" and session_service is not None and customer_entry is not None and project_processing_service is not None:
+                self._handle_project_process(parsed, as_json=True)
                 return
             if parsed.path == "/project-process" and session_service is not None and customer_entry is not None and project_processing_service is not None:
                 self._handle_project_process(parsed)
@@ -122,7 +175,102 @@ def verification_handler(
                 return
             self._respond(202, message)
 
-        def _handle_project_process(self, parsed) -> None:
+        def _handle_compute_job_status(self, parsed) -> None:
+            try:
+                user_id = self._require_customer_user()
+                customer_entry(user_id)
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            query = parse_qs(parsed.query)
+            projects, jobs = query.get("project_id", []), query.get("job_id", [])
+            if len(projects) != 1 or not projects[0].strip() or len(jobs) != 1 or not jobs[0].strip():
+                self._respond(400, "job query is invalid")
+                return
+            project_id, job_id = projects[0].strip(), jobs[0].strip()
+            try:
+                job = compute_job_service.get(job_id, user_id=user_id, project_id=project_id)
+            except (PermissionError, KeyError):
+                self._respond(404, "job is not available")
+                return
+            self._respond_json(200, {"project_id": project_id, "job_id": job.job_id, "status": job.status.value})
+
+        def _handle_start_compute_job(self, parsed) -> None:
+            from mcm_solarcheck.services.compute_jobs import ComputeJobStatus
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+            query = parse_qs(parsed.query)
+            projects, jobs = query.get("project_id", []), query.get("job_id", [])
+            if len(projects) != 1 or not projects[0].strip() or len(jobs) != 1 or not jobs[0].strip():
+                self._respond(400, "job query is invalid")
+                return
+            project_id, job_id = projects[0].strip(), jobs[0].strip()
+            try:
+                current = compute_job_service.get(job_id, user_id=user_id, project_id=project_id)
+                if current.status is ComputeJobStatus.QUEUED:
+                    current = compute_job_service.start(job_id, user_id=user_id, project_id=project_id, capacity=compute_capacity)
+            except (PermissionError, KeyError):
+                self._respond(404, "job is not available")
+                return
+            except (OSError, RuntimeError):
+                self._respond(503, "job service is not available")
+                return
+            self._respond_json(200, {"project_id": project_id, "job_id": current.job_id, "status": current.status.value})
+
+        def _handle_create_compute_job(self) -> None:
+            from uuid import uuid4
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/x-www-form-urlencoded":
+                self._respond(415, "job content type is not supported")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", ""))
+            except ValueError:
+                self._respond(400, "job data is invalid")
+                return
+            if length <= 0 or length > MAX_REGISTRATION_BODY_BYTES:
+                self._respond(400 if length <= 0 else 413, "job data is invalid")
+                return
+            try:
+                form = parse_qs(self.rfile.read(length).decode("utf-8"), strict_parsing=True)
+                project_ids = form.get("project_id", [])
+                if len(project_ids) != 1 or not project_ids[0].strip():
+                    raise ValueError("project id required")
+                project_id = project_ids[0].strip()
+                if not any(p.project_id == project_id for p in project_service.projects_for_customer(user_id)):
+                    self._respond(404, "project is not available")
+                    return
+                job = compute_job_service.create(job_id=uuid4().hex, user_id=user_id, project_id=project_id)
+                job = compute_job_service.start(job.job_id, user_id=user_id, project_id=project_id, capacity=compute_capacity)
+            except (UnicodeDecodeError, ValueError):
+                self._respond(400, "job data is invalid")
+                return
+            except PermissionError:
+                self._respond(403, "job creation is not permitted")
+                return
+            except (OSError, RuntimeError, KeyError):
+                self._respond(503, "job service is not available")
+                return
+            self._respond_json(201, {"project_id": project_id, "job_id": job.job_id, "status": job.status.value})
+
+        def _handle_project_process(self, parsed, *, as_json: bool = False) -> None:
             try:
                 user_id = self._require_customer_user()
             except PermissionError:
@@ -166,6 +314,16 @@ def verification_handler(
             except (OSError, RuntimeError):
                 self._respond(503, "online project processing is not available")
                 return
+            if as_json:
+                self._respond_json(200, {
+                    "project_id": project_id,
+                    "job_id": job_id,
+                    "state": result.state.value,
+                    "imported_thermal_frames": result.imported_thermal_frames,
+                    "paired_frames": result.paired_frames,
+                    "import_failures": result.import_failures,
+                })
+                return
             self._respond(
                 200,
                 (
@@ -177,7 +335,54 @@ def verification_handler(
                 headers={"Cache-Control": "no-store"},
             )
 
+        def _same_origin_request(self) -> bool:
+            origin = self.headers.get("Origin")
+            if not origin:
+                return False
+            expected_host = self.headers.get("Host", "")
+            parsed_origin = urlparse(origin)
+            return (
+                parsed_origin.scheme in ("http", "https")
+                and parsed_origin.netloc == expected_host
+                and not parsed_origin.username
+                and not parsed_origin.password
+                and not parsed_origin.path
+                and not parsed_origin.query
+                and not parsed_origin.fragment
+            )
+
+        def _handle_training_consent_withdraw(self) -> None:
+            if not self._same_origin_request():
+                self._respond(403, "cross-origin consent withdrawal is forbidden")
+                return
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond(401, "online session is invalid")
+                return
+            try:
+                customer_entry(user_id)
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond(403, "online customer entry is not available")
+                return
+            project_id = self.headers.get("X-SolarCheck-Project-Id", "").strip()
+            if not project_id or self.headers.get("Content-Length", "0") != "0":
+                self._respond(400, "withdrawal request is invalid")
+                return
+            try:
+                training_consent_service.withdraw(customer_id=user_id, project_id=project_id)
+            except PermissionError:
+                self._respond(404, "project is not available")
+                return
+            except (ValueError, OSError, RuntimeError):
+                self._respond(503, "training consent withdrawal is unavailable")
+                return
+            self._respond(200, "Trainingseinwilligung widerrufen", headers={"Cache-Control": "no-store"})
+
         def _handle_project_upload(self) -> None:
+            if self.headers.get("Origin") and not self._same_origin_request():
+                self._respond(403, "cross-origin project upload is forbidden")
+                return
             try:
                 user_id = self._require_customer_user()
             except PermissionError:
@@ -192,6 +397,13 @@ def verification_handler(
             project_id = self.headers.get("X-SolarCheck-Project-Id", "").strip()
             filename = self.headers.get("X-SolarCheck-Filename", "").strip()
             content_type = self.headers.get("Content-Type", "")
+            consent_choice = self.headers.get("X-SolarCheck-Training-Consent", "declined")
+            if consent_choice not in ("granted", "declined"):
+                self._respond(400, "training consent choice is invalid")
+                return
+            if consent_choice == "granted" and training_consent_service is None:
+                self._respond(503, "training consent recording is unavailable")
+                return
             if not project_id or not filename or not content_type:
                 self._respond(400, "upload metadata is invalid")
                 return
@@ -213,17 +425,40 @@ def verification_handler(
                     self._respond(400, "upload data is incomplete")
                     return
 
+                # Fail closed: invalidate any earlier grant before changing project files.
+                # A failed upload or later audit write cannot leave that grant active.
+                if training_consent_service is not None:
+                    training_consent_service.withdraw(customer_id=user_id, project_id=project_id)
+
                 from mcm_solarcheck.services.project_upload import ProjectUploadRequest
 
-                upload = project_upload_service.upload(
-                    ProjectUploadRequest(
-                        customer_id=user_id,
-                        project_id=project_id,
-                        filename=filename,
-                        content_type=content_type,
-                        content=content,
+                attempt_id = None
+                if upload_attempt_store is not None:
+                    from hashlib import sha256
+
+                    attempt_id = upload_attempt_store.begin(
+                        customer_id=user_id, project_id=project_id, filename=filename,
+                        expected_size=len(content), expected_sha256=sha256(content).hexdigest(),
                     )
-                )
+                try:
+                    upload = project_upload_service.upload(
+                        ProjectUploadRequest(
+                            customer_id=user_id,
+                            project_id=project_id,
+                            filename=filename,
+                            content_type=content_type,
+                            content=content,
+                        )
+                    )
+                except Exception:
+                    if attempt_id is not None:
+                        try:
+                            upload_attempt_store.finish(attempt_id, succeeded=False)
+                        except (OSError, RuntimeError, ValueError):
+                            pass  # Keep pending for reconciliation.
+                    raise
+                if attempt_id is not None:
+                    upload_attempt_store.finish(attempt_id, succeeded=True)
             except PermissionError:
                 self._respond(404, "project is not available")
                 return
@@ -233,6 +468,15 @@ def verification_handler(
             except (OSError, RuntimeError):
                 self._respond(503, "online upload is not available")
                 return
+            if training_consent_service is not None:
+                try:
+                    if consent_choice == "granted":
+                        training_consent_service.grant(customer_id=user_id, project_id=project_id)
+                    else:
+                        training_consent_service.withdraw(customer_id=user_id, project_id=project_id)
+                except (PermissionError, ValueError, OSError, RuntimeError):
+                    self._respond(503, "upload saved but training consent recording failed; do not use images for training")
+                    return
             self._respond(
                 201,
                 f"Upload gespeichert: {upload.filename} ({upload.size_bytes} Bytes)",
@@ -340,6 +584,36 @@ def verification_handler(
                 f"(Preisregel {snapshot.rule_version})"
             )
             self._respond(200, message, headers={"Cache-Control": "no-store"})
+
+        def _handle_projects_json(self) -> None:
+            """JSON projection behind the existing cookie session and customer gate."""
+            try:
+                user_id = self._require_customer_user()
+            except PermissionError:
+                self._respond_json(401, {"error": "online session is invalid"})
+                return
+            try:
+                from shared_ui.online_access import authorized_online_projects
+                projects = authorized_online_projects(
+                    user_id, customer_entry=customer_entry, project_service=project_service
+                )
+            except (PermissionError, RuntimeError, ValueError):
+                self._respond_json(403, {"error": "online customer entry is not available"})
+                return
+            except (AttributeError, TypeError):
+                self._respond_json(503, {"error": "online projects are not available"})
+                return
+            self._respond_json(200, {"projects": projects})
+
+        def _respond_json(self, status_code: int, value: dict) -> None:
+            body = json.dumps(value, ensure_ascii=False).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
         def _handle_projects(self) -> None:
             try:
@@ -505,6 +779,10 @@ def build_verification_server(
     project_creation_service=None,
     project_upload_service=None,
     project_processing_service=None,
+    compute_job_service=None,
+    max_parallel_compute_jobs: int = 2,
+    training_consent_service=None,
+    upload_attempt_store=None,
 ) -> ThreadingHTTPServer:
     """Build a local/test HTTP server without owning its process lifecycle."""
     return server_factory(
@@ -521,5 +799,9 @@ def build_verification_server(
             project_creation_service,
             project_upload_service,
             project_processing_service,
+            compute_job_service,
+            max_parallel_compute_jobs,
+            training_consent_service,
+            upload_attempt_store,
         ),
     )
