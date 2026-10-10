@@ -9,7 +9,7 @@ import socket
 
 from mcm_solarcheck.infrastructure.sftp_connection_errors import SFTPTimeoutError
 from mcm_solarcheck.infrastructure.ssh_exception_translation import translate_ssh_exception
-from mcm_solarcheck.infrastructure.strict_sftp_directory_inspection import StrictReadOnlySFTPSession
+from mcm_solarcheck.infrastructure.strict_sftp_session_factory import open_strict_sftp_session
 
 
 class ParamikoHandshakeDriver:
@@ -80,7 +80,9 @@ class ParamikoHandshakeDriver:
         if self.transport is None or not self.transport.is_authenticated():
             raise PermissionError("SSH authentication required")
         import paramiko
-        return StrictReadOnlySFTPSession(paramiko.SFTPClient.from_transport(self.transport))
+        return open_strict_sftp_session(
+            self.transport, sftp_client_factory=paramiko.SFTPClient.from_transport
+        )
 
     def close(self):
         transport, sock = self.transport, self.socket
