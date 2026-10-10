@@ -23,12 +23,12 @@ class SQLiteRecoveryAttempts:
         if not all(isinstance(v, str) and 0 < len(v) <= 256 for v in fields):
             raise ValueError("invalid recovery request identity")
         with sqlite3.connect(self.database, timeout=30) as db:
-            db.execute("""INSERT OR IGNORE INTO recovery_attempts
+            inserted = db.execute("""INSERT OR IGNORE INTO recovery_attempts
                 (request_id,transfer_id,customer_id,project_id,operator_id,state,outcome)
                 VALUES (?,?,?,?,?,'pending',NULL)""", fields)
             row = db.execute("""SELECT transfer_id,customer_id,project_id,operator_id,state,outcome
                 FROM recovery_attempts WHERE request_id=?""", (request_id,)).fetchone()
-        if row[:4] != fields[1:]:
+        if inserted.rowcount == 1:\n            return ("new", None)\n        if row[:4] != fields[1:]:
             return ("identity_conflict", None)
         return (row[4], row[5])
 
