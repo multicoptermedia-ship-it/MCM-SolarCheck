@@ -22,7 +22,10 @@ class OrderedSSHClientFactory:
             driver.authenticate()
             return _AuthenticatedClient(driver)
         except BaseException:
-            driver.close()
+            try:
+                driver.close()
+            except Exception:
+                pass
             raise
 
 
