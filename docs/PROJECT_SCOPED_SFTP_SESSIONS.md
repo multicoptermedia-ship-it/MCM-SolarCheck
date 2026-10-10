@@ -1,0 +1,7 @@
+# Projektgebundene SFTP-Sitzungen (Entwurf)
+
+`SFTPProjectSessionManager` verwendet denselben injizierten, bereits host-key-geprüften Read-only-Connector für alle Projekte. Ein prozesslokales `BoundedSemaphore(2)` erlaubt maximal zwei gleichzeitige Sitzungs-Leases. Weitere Aufrufer warten auf einen freien Platz. Nach normalem Abschluss oder einer Ausnahme wird der Platz freigegeben; der Connector-Kontext ist für das Schließen zuständig.
+
+Jeder Lease trägt einen unveränderlichen `SFTPProjectContext(customer_id, project_id)`. Der Read-only-Verzeichnisaufruf verweigert fremde Kontexte und Pfade außerhalb `<root>/<customer_id>/<project_id>`. Diese rein lexikalische Prüfung schützt **nicht** vor serverseitigen Symlinks, Mounts oder einer kompromittierten SFTP-Gegenstelle; sie ersetzt keine serverseitige Rechteprüfung. Der Session-Manager ist noch nicht an Uploads, Downloads, die HTTP-Oberfläche oder produktive Worker angebunden.
+
+**Wichtige Grenzen:** Das Limit gilt pro Python-Prozess, nicht über mehrere Web-/Worker-Instanzen hinweg. Wartende Threads sind keine dauerhafte Job-Warteschlange. Die vorhandene durable Queue und die zwei parallelen Rechenaufträge bleiben separate Verantwortlichkeiten. Vor produktiver Nutzung brauchen wir globale Kapazitätssteuerung, Zeitlimits/Abbruchmöglichkeiten, serverseitige Pfad-Isolation und Tests gegen echte IONOS-Eigenschaften. Es wurden keine Verbindungen aufgebaut, keine Zugangsdaten verwendet und keine kostenpflichtigen Aktionen gestartet.
