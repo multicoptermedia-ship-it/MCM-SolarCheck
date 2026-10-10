@@ -41,8 +41,16 @@ class _VerifiedSession:
         return self.session.directory_exists(path)
 
     def __exit__(self, exc_type, exc, traceback):
+        cleanup_error = None
         try:
             self.session.close()
-        finally:
+        except Exception as error:
+            cleanup_error = error
+        try:
             self.client.close()
+        except Exception as error:
+            if cleanup_error is None:
+                cleanup_error = error
+        if exc_type is None and cleanup_error is not None:
+            raise cleanup_error
         return False
