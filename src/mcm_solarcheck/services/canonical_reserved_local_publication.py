@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from mcm_solarcheck.infrastructure.canonical_descriptor_publisher import CanonicalDescriptorPublisher
+from mcm_solarcheck.services.canonical_publication_reconciler import CanonicalPublicationReconciler
 from mcm_solarcheck.services.canonical_local_destination import canonical_local_destination
 from mcm_solarcheck.services.reserved_local_publication import ReservedLocalPublication
 
@@ -15,6 +16,8 @@ class CanonicalReservedLocalPublication:
             raise ValueError("root must be an existing absolute non-symlink directory")
         if publisher is None:
             publisher = CanonicalDescriptorPublisher(self.root)
+        if reconciler is None:
+            reconciler = CanonicalPublicationReconciler(journal, self.root)
         self.reserved = ReservedLocalPublication(
             transfers, journal, destinations, publisher=publisher, reconciler=reconciler
         )
