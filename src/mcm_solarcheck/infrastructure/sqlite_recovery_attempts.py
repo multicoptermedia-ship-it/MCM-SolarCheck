@@ -28,7 +28,9 @@ class SQLiteRecoveryAttempts:
                 VALUES (?,?,?,?,?,'pending',NULL)""", fields)
             row = db.execute("""SELECT transfer_id,customer_id,project_id,operator_id,state,outcome
                 FROM recovery_attempts WHERE request_id=?""", (request_id,)).fetchone()
-        if inserted.rowcount == 1:\n            return ("new", None)\n        if row[:4] != fields[1:]:
+        if inserted.rowcount == 1:
+            return ("new", None)
+        if row[:4] != fields[1:]:
             return ("identity_conflict", None)
         return (row[4], row[5])
 
