@@ -1,0 +1,7 @@
+# Durable immutable part manifest — prototype
+
+`SQLiteImmutablePartManifest` records each part's transfer ID, customer/project, zero-based index, size, SHA-256 and storage key. Records persist across process restarts. An identical retry is idempotent; conflicting metadata for the same transfer and index is rejected. Owner-scoped reads do not disclose another customer's part list.
+
+`ImmutablePartInventory` checks for consecutive part indices and the expected total size. `complete_metadata` means **only** that the SQLite records are internally consistent; it does not establish that the remote parts exist, are immutable, or match their hashes. It never assembles or publishes files.
+
+**Important blockers:** This is an isolated component, not integrated with the transfer manifest, writer or online route. The caller currently supplies owner and expected counts; production must authorize these against the canonical transfer record. A single transfer ID cannot safely be reassigned to a different customer/project; enforce canonical ownership at transfer creation. Remote write plus SQLite record is not one atomic transaction, so orphaned remote parts and missing records require explicit reconciliation. Before final publication, read and hash all remote parts in order and verify the complete file SHA-256. Add bounded streaming, limits, retention, garbage collection, crash recovery and actual IONOS SFTP behavior tests.
