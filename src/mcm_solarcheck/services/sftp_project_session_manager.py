@@ -40,7 +40,7 @@ class SFTPProjectSessionManager:
         self._slots.acquire()
         try:
             with self._connector.open_verified_read_only(self._config) as session:
-                yield SFTPProjectSession(context=context, session=session)
+                yield SFTPProjectSession(context=context, session=session, root=self._config.root)
         finally:
             self._slots.release()
 
@@ -49,10 +49,13 @@ class SFTPProjectSessionManager:
 class SFTPProjectSession:
     context: SFTPProjectContext
     session: object
+    root: str
 
     def directory_exists(self, context: SFTPProjectContext, path: str) -> bool:
         if context != self.context:
             raise PermissionError("SFTP project context mismatch")
-        if not isinstance(path, str) or not path.startswith("/"):
-            raise ValueError("absolute SFTP directory path required")
-        return self.session.directory_exists(path)
+        from mcm_solarcheck.services.sftp_project_paths import require_project_sftp_path
+        safe_path = require_project_sftp_path(
+            self.root, context.customer_id, context.project_id, path
+        )
+        return self.session.directory_exists(safe_path)
