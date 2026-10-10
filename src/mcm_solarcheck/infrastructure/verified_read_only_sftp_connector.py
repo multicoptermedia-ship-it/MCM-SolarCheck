@@ -22,7 +22,10 @@ class VerifiedReadOnlySFTPConnector:
             session = client.open_read_only_sftp()
             return _VerifiedSession(client, session)
         except BaseException:
-            client.close()
+            try:
+                client.close()
+            except Exception:
+                pass
             raise
 
 
