@@ -1,7 +1,4 @@
-"""Idempotent wrapper: ambiguous pending attempts require manual investigation.
-
-No automatic replay of a request whose journal transition may already have run.
-"""
+"""Idempotent audited recovery with fail-closed ambiguous crash handling."""
 from __future__ import annotations
 
 
@@ -18,8 +15,15 @@ class IdempotentAuditedRecovery:
             return "request_identity_conflict"
         if state == "completed":
             return outcome
-        if state == "pending":
-            # Distinguish newly claimed requests from preexisting pending
-            # records via a separate explicit first-claim API, not by guessing.
+        if state != "new":
+            # Existing pending request may have changed the journal already.
             return "pending_requires_review"
-        return "pending_requires_review"
+        # Failure leaves pending: never blindly replay a potentially applied CAS.
+        result = self.audited_recovery.reconcile_verified(
+            transfer_id, customer_id, project_id, operator_id=operator_id
+        )
+        if not self.attempts.complete(
+            request_id, transfer_id, customer_id, project_id, operator_id, result
+        ):
+            return "completion_requires_review"
+        return result
