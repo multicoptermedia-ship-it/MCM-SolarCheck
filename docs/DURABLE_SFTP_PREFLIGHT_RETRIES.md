@@ -1,0 +1,7 @@
+# Dauerhafte SFTP-Retry-Vormerkung
+
+`SQLiteSFTPPreflightRetries` speichert pro Job-ID, Kunden-ID und Projekt-ID die Anzahl registrierter vorübergehender SFTP-Vorprüfungsfehler, die nächste früheste Zeit und den Status. SQLite `BEGIN IMMEDIATE` serialisiert gleichzeitige Änderungen derselben Datenbank. Für Netzwerk- und Timeout-Fehler gilt derzeit: erster Fehlschlag → 30 Sekunden Wartezeit, zweiter → 60 Sekunden, dritter → `exhausted` und manuelle Prüfung. Das sind **drei registrierte Fehlschläge**, nicht drei zusätzlich automatisch ausgeführte Wiederholungen.
+
+`SFTPPreflightRetryRecorder` speichert nur zulässige Fehlerkategorien. `SFTPPreflightRetryReadiness` bewertet einen vorhandenen Datensatz read-only als `wait`, `eligible` oder `manual_review`. Keine automatische Ausführung, kein Timer, keine Änderung an der Queue und keine echte SFTP-Verbindung. Der neue Speicher ist bewusst noch nicht in den Queue-Pump eingebunden.
+
+**Offene Sicherheitsarbeit:** Vor automatischen Wiederholungen brauchen wir atomare Retry-Claims mit Leases über mehrere Worker, persistente Zuordnung zu autorisierten Jobs, eine eindeutig definierte Zählweise und Behandlung erfolgreicher Vorprüfungen, einen manipulationssicheren Zeitbezug sowie abgestimmte globale Kapazitätsgrenzen. Die aktuelle `eligible`-Auskunft allein ist keine exklusive Ausführungsberechtigung. Keine IONOS-Kosten oder Änderung an `main`.
