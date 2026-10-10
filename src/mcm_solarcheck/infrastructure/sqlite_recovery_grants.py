@@ -1,6 +1,7 @@
-"""Optional owner-scoped operator grants for recovery permissions.
+"""Legacy read-only recovery grant lookup.
 
-Trusted caller must authenticate the operator independently. No self-service grants.
+Unaudited writes have been disabled. Use AuthorizedGrantAdministration with
+SQLiteAuditedRecoveryGrants for all changes.
 """
 from __future__ import annotations
 
@@ -18,15 +19,9 @@ class SQLiteRecoveryGrants:
             )""")
 
     def set_grant(self, operator_id, customer_id, project_id, enabled):
-        fields = (operator_id, customer_id, project_id)
-        if not all(isinstance(v, str) and 0 < len(v) <= 256 for v in fields):
-            raise ValueError("invalid recovery grant identity")
-        if not isinstance(enabled, bool):
-            raise ValueError("enabled must be boolean")
-        with sqlite3.connect(self.database) as db:
-            db.execute("""INSERT INTO recovery_grants(operator_id,customer_id,project_id,enabled)
-                VALUES(?,?,?,?) ON CONFLICT(operator_id,customer_id,project_id)
-                DO UPDATE SET enabled=excluded.enabled""", (*fields, int(enabled)))
+        raise PermissionError(
+            "legacy unaudited grant writes disabled; use AuthorizedGrantAdministration"
+        )
 
     def allowed(self, operator_id, customer_id, project_id):
         with sqlite3.connect(self.database) as db:
