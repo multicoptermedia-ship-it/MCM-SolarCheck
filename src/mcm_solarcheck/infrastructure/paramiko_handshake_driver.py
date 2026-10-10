@@ -8,6 +8,7 @@ from __future__ import annotations
 import socket
 
 from mcm_solarcheck.infrastructure.sftp_connection_errors import SFTPTimeoutError
+from mcm_solarcheck.infrastructure.ssh_exception_translation import translate_ssh_exception
 
 
 class ParamikoHandshakeDriver:
@@ -41,6 +42,9 @@ class ParamikoHandshakeDriver:
                 pass
             if isinstance(exc, (socket.timeout, TimeoutError)):
                 raise SFTPTimeoutError("SSH handshake timed out") from exc
+            translated = translate_ssh_exception(exc) if isinstance(exc, Exception) else exc
+            if translated is not exc:
+                raise translated from exc
             raise
 
     def negotiated_host_key_blob(self):
@@ -61,9 +65,15 @@ class ParamikoHandshakeDriver:
             raise TypeError("credentials provider must return a mapping")
         if set(credentials) != {"password"} or not isinstance(credentials["password"], str):
             raise ValueError("only explicit password authentication is supported")
-        self.transport.auth_password(self.config.username, credentials["password"])
-        if not self.transport.is_authenticated():
-            raise PermissionError("SSH authentication failed")
+        try:
+            self.transport.auth_password(self.config.username, credentials["password"])
+            if not self.transport.is_authenticated():
+                raise PermissionError("SSH authentication failed")
+        except Exception as exc:
+            translated = translate_ssh_exception(exc)
+            if translated is not exc:
+                raise translated from exc
+            raise
 
     def open_read_only_sftp(self):
         if self.transport is None or not self.transport.is_authenticated():
