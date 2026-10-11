@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from mcm_solarcheck.infrastructure.mariadb_staging_schema import MARIADB_STAGING_SCHEMA
+from mcm_solarcheck.infrastructure.mariadb_recovery_audit_sql import RECOVERY_AUDIT_SCHEMA_SQL
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ MIGRATIONS = (
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
         """INSERT IGNORE INTO mcm_processing_slots (slot_id) VALUES (1),(2)""",
     )),
+    MariaDBMigration(3, "recovery_audit", (RECOVERY_AUDIT_SCHEMA_SQL,)),
 )
 
 MIGRATION_TABLE_SQL = """CREATE TABLE IF NOT EXISTS mcm_schema_migrations (
