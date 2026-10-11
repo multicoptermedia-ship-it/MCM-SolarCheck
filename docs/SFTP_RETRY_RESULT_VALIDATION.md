@@ -1,0 +1,5 @@
+# SFTP-Retry-Vorprüfung: Ergebnisprüfung und Statuszusammenfassung
+
+Die opt-in-Vorprüfung `GuardedQueuedSFTPPreflightRetry.inspect` kontrolliert die gültige Job-/Kunden-/Projekt-/Worker-Lease **vor und nach** der injizierten Vorprüfung. Bei einem zwischenzeitlichen Tokenwechsel wird das Ergebnis verworfen und `LostRetryLeaseError` ausgelöst. `summarize_retry_inspection` akzeptiert nur typisierte `QueuedSFTPInspection`-Ergebnisse mit identischer Job-/Kunden-/Projekt-Zuordnung und übersetzt sie in `ready` oder `missing_directory`. Zulässige Nichtausführungsentscheidungen bleiben `wait`, `busy`, `manual_review` oder `unrecorded`.
+
+**Grenzen:** Die Prüfung nach dem Aufruf kann ein externes SFTP-Kommando nicht rückgängig machen oder abbrechen. Das injizierte `now` dient deterministischen Tests; produktive Ausführung muss die tatsächliche Zeit und zuverlässige Lease-Erneuerung berücksichtigen. Der opt-in-Pfad ist noch nicht in den produktiven Queue-Pump eingebaut. Keine automatischen Retries, keine Remote-Fencing-Garantie, keine echte IONOS-Verbindung, keine Kosten und kein Merge nach `main`.
