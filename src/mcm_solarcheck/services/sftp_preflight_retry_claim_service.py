@@ -23,3 +23,9 @@ class SFTPPreflightRetryClaimService:
 
     def release(self, job_id, customer_id, project_id, worker_id, token):
         return self._leases.release(job_id, customer_id, project_id, worker_id, token)
+
+    def renew(self, job_id, customer_id, project_id, worker_id, token, *, now=None, lease_seconds=60):
+        return self._leases.renew(
+            job_id, customer_id, project_id, worker_id, token,
+            now=now, lease_seconds=lease_seconds,
+        )
