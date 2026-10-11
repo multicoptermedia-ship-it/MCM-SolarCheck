@@ -74,6 +74,42 @@ class SQLiteSFTPPreflightRetryLeases:
             )
             return ("claimed", token)
 
+    def renew(self, job_id, customer_id, project_id, worker_id, token, *, now=None, lease_seconds=60):
+        """Extend only a still-live lease owned by the exact token and identity."""
+        _identity(job_id, customer_id, project_id, worker_id, token)
+        if type(lease_seconds) is not int or not 1 <= lease_seconds <= 3600:
+            raise ValueError("lease_seconds must be between 1 and 3600")
+        instant = _utc(now)
+        expiry = (instant + timedelta(seconds=lease_seconds)).isoformat()
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                """SELECT expires_at FROM sftp_preflight_retry_leases
+                WHERE job_id=? AND customer_id=? AND project_id=?
+                AND worker_id=? AND token=?""",
+                (job_id, customer_id, project_id, worker_id, token),
+            ).fetchone()
+            if row is None:
+                return False
+            previous = datetime.fromisoformat(row[0])
+            if previous.tzinfo is None or instant >= previous:
+                return False
+            retry = db.execute(
+                """SELECT customer_id, project_id, attempts, state
+                FROM sftp_preflight_retries WHERE job_id=?""", (job_id,),
+            ).fetchone()
+            if retry is None or retry[:2] != (customer_id, project_id) or retry[2] >= 3 or retry[3] != "waiting":
+                return False
+            # Never shorten a lease when clocks or callers disagree.
+            if datetime.fromisoformat(expiry) <= previous:
+                return True
+            return db.execute(
+                """UPDATE sftp_preflight_retry_leases SET expires_at=?
+                WHERE job_id=? AND customer_id=? AND project_id=?
+                AND worker_id=? AND token=? AND expires_at=?""",
+                (expiry, job_id, customer_id, project_id, worker_id, token, row[0]),
+            ).rowcount == 1
+
     def release(self, job_id, customer_id, project_id, worker_id, token):
         _identity(job_id, customer_id, project_id, worker_id, token)
         with self._connect() as db:
