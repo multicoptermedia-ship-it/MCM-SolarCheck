@@ -20,4 +20,7 @@ class GuardedQueuedSFTPPreflightRetry:
         ):
             raise PermissionError("retry identity does not match queued job")
         self.guard.require_live(identity, now=now)
-        return self.preflight.inspect(job)
+        inspection = self.preflight.inspect(job)
+        # A preflight may outlive its lease. Never accept its result after loss.
+        self.guard.require_live(identity, now=now)
+        return inspection
