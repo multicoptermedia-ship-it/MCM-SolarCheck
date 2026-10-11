@@ -48,11 +48,12 @@ class Connection:
 
 
 def test_migration_plan_is_versioned_and_pure():
-    assert [m.version for m in MIGRATIONS] == [1, 2]
+    assert [m.version for m in MIGRATIONS] == [1, 2, 3]
     assert "mcm_schema_migrations" in MIGRATION_TABLE_SQL
-    assert len(pending_migrations([])) == 2
-    assert [m.version for m in pending_migrations([1])] == [2]
-    assert pending_migrations([1, 2]) == ()
+    assert len(pending_migrations([])) == 3
+    assert [m.version for m in pending_migrations([1])] == [2, 3]
+    assert [m.version for m in pending_migrations([1, 2])] == [3]
+    assert pending_migrations([1, 2, 3]) == ()
     with pytest.raises(ValueError):
         pending_migrations([2])
 
