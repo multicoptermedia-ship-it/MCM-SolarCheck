@@ -32,7 +32,7 @@ def setup(tmp_path, preflight):
 def test_explicit_retry_inspects_once_and_releases(tmp_path):
     preflight = FakePreflight()
     path, ready, runner = setup(tmp_path, preflight)
-    job = PendingProjectJob("job", "customer", "project")
+    job = PendingProjectJob(customer_id="customer", project_id="project", job_id="job")
     result = runner.inspect_once(job, "worker", now=ready)
     assert result.status == "inspected"
     assert result.inspection == "directory_checked"
@@ -45,7 +45,7 @@ def test_explicit_retry_inspects_once_and_releases(tmp_path):
 def test_error_releases_lease_without_automatic_retry(tmp_path):
     preflight = FakePreflight(RuntimeError("read failed"))
     path, ready, runner = setup(tmp_path, preflight)
-    job = PendingProjectJob("job", "customer", "project")
+    job = PendingProjectJob(customer_id="customer", project_id="project", job_id="job")
     with pytest.raises(RuntimeError, match="read failed"):
         runner.inspect_once(job, "worker", now=ready)
     assert preflight.calls == ["job"]
@@ -57,7 +57,7 @@ def test_error_releases_lease_without_automatic_retry(tmp_path):
 def test_waiting_retry_does_not_inspect(tmp_path):
     preflight = FakePreflight()
     _, ready, runner = setup(tmp_path, preflight)
-    job = PendingProjectJob("job", "customer", "project")
+    job = PendingProjectJob(customer_id="customer", project_id="project", job_id="job")
     result = runner.inspect_once(job, "worker", now=ready - timedelta(seconds=1))
     assert result.status == "wait"
     assert preflight.calls == []
@@ -73,7 +73,7 @@ def test_guard_rejects_cross_project_identity(tmp_path):
     )
     with pytest.raises(PermissionError):
         guarded.inspect(
-            PendingProjectJob("job", "customer", "project"),
+            PendingProjectJob(customer_id="customer", project_id="project", job_id="job"),
             RetryWorkIdentity("job", "customer", "other", "worker", "token"),
             now=ready,
         )
