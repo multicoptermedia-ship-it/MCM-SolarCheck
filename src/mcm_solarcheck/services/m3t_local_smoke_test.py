@@ -22,6 +22,9 @@ def run(thermal_zip: str | Path, rgb_zip: str | Path) -> dict[str, int]:
             "unpaired_rgb": imported.unpaired_rgb_count,
             "unpaired_thermal": imported.unpaired_thermal_count,
             "raw_candidate_findings": imported.thermal_batch.summary.finding_count,
+            "quality_pass": imported.thermal_batch.summary.pass_count,
+            "quality_review": imported.thermal_batch.summary.review_count,
+            "quality_reject": imported.thermal_batch.summary.reject_count,
         }
 
 
@@ -33,7 +36,9 @@ def main() -> None:
     result = run(args.thermal_zip, args.rgb_zip)
     for key, value in result.items():
         print(f"{key}: {value}")
-    if result["thermal_failed"] or result["paired"] != 29:
+    if (result["thermal_failed"] or result["paired"] != 29
+            or result["rgb_imported"] != 29 or result["thermal_imported"] != 29
+            or result["unpaired_rgb"] or result["unpaired_thermal"]):
         raise SystemExit("M3T importer needs review; no report authorized")
 
 
