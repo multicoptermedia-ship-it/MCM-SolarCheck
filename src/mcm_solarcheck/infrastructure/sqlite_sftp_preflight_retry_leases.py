@@ -110,6 +110,31 @@ class SQLiteSFTPPreflightRetryLeases:
                 (expiry, job_id, customer_id, project_id, worker_id, token, row[0]),
             ).rowcount == 1
 
+    def owns_live_lease(self, job_id, customer_id, project_id, worker_id, token, *, now=None):
+        """Fail closed unless this exact token still owns a live retryable lease."""
+        _identity(job_id, customer_id, project_id, worker_id, token)
+        instant = _utc(now)
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                """SELECT expires_at FROM sftp_preflight_retry_leases
+                WHERE job_id=? AND customer_id=? AND project_id=? AND worker_id=? AND token=?""",
+                (job_id, customer_id, project_id, worker_id, token),
+            ).fetchone()
+            if row is None:
+                return False
+            expiry = datetime.fromisoformat(row[0])
+            if expiry.tzinfo is None or instant >= expiry:
+                return False
+            retry = db.execute(
+                """SELECT customer_id, project_id, attempts, state
+                FROM sftp_preflight_retries WHERE job_id=?""", (job_id,),
+            ).fetchone()
+            return bool(
+                retry is not None and retry[:2] == (customer_id, project_id)
+                and retry[2] < 3 and retry[3] == "waiting"
+            )
+
     def release(self, job_id, customer_id, project_id, worker_id, token):
         _identity(job_id, customer_id, project_id, worker_id, token)
         with self._connect() as db:
