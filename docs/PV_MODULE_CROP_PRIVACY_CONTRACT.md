@@ -1,0 +1,5 @@
+# Module-only training images: privacy contract
+
+Goal: opt-in, expertly reviewed individual solar-module crops without identifiable surroundings or metadata. Crop coordinates are provided by a reviewer; software cannot prove that a crop is anonymous. Reject automatic classification as 'anonymized'. Preserve original customer images locally and unchanged. Strip EXIF, XMP, GPS, ICC comments and source filename by decoding pixels and writing a fresh PNG, never copying source metadata. Do not feed radiometric DJI M3T JPEGs through this export: embedded APP3 raw thermal data would be lost; a separate calibrated thermal pipeline is needed.
+
+Require affirmative consent evidence and human review of crop and visible identifiers before exporting; keep provenance/withdrawal mapping in a separate protected registry (not in exported file). No uploads, no model training, no automatic deletion of original customer files. Verify privacy and legal basis with counsel. Train/test split grouping remains necessary in protected metadata.
