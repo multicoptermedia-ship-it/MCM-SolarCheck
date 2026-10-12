@@ -5,6 +5,7 @@
 <section class="panel"><h1>PV-Anlagenprüfung</h1><p class="muted">Eine Oberfläche für die Online- und Offline-Anwendung. Analyseergebnisse stammen ausschließlich aus verifizierten Backend-Daten.</p><p id="status" role="status">Verbindung wird geprüft …</p></section>
 <section class="panel"><h2>Gespeicherte Projekte</h2><p id="projects-status" role="status">Projektliste wird geladen …</p><ul id="projects-list"></ul></section>\n<section class="grid"><div class="panel"><h2>Projekt &amp; Import</h2><p>RGB- und Thermaldaten für eine Analyse vorbereiten.</p><div id="upload-controls" class="hide"><label for="upload-project">Projekt</label> <select id="upload-project"></select> <label for="upload-file">RGB-/Thermaldatei</label> <input id="upload-file" type="file" accept=".jpg,.jpeg,.png,.tif,.tiff,.rjpg,.m3t,image/jpeg,image/png,image/tiff"> <label style="display:block;margin:12px 0"><input id="training-consent" type="checkbox"> Ich willige freiwillig ein, dass ausgewählte Projektbilder zum Training und zur Verbesserung der SolarCheck-KI verwendet werden. Die Einwilligung ist nicht für die Analyse erforderlich und kann mit Wirkung für die Zukunft widerrufen werden. Weitere Informationen enthält die Datenschutzerklärung.</label> <button id="consent-withdraw-button" type="button">KI-Trainingseinwilligung widerrufen</button> <button id="upload-button" type="button">Datei hochladen</button><p id="upload-status" role="status"></p></div><p id="upload-unavailable">Upload wird für diesen Modus noch angebunden.</p></div><div class="panel"><h2>Analyse</h2><p>Hotspots, Module und mögliche Fehler in der Anlagenübersicht.</p><div id="processing-controls" class="hide"><button id="processing-button" type="button">Verarbeitung starten</button> <button id="job-status-button" type="button" disabled>Auftragsstatus prüfen</button> <button id="job-retry-button" type="button" disabled>Wartenden Auftrag starten</button><p id="processing-status" role="status"></p></div><p id="processing-unavailable">Verarbeitung benötigt einen zuvor serverseitig angelegten Auftrag.</p></div></section>
 <section class="panel"><h2>Ergebnisübersicht</h2><div class="grid"><div class="metric"><b>—</b>Analysierte Module</div><div class="metric"><b>—</b>Hotspots</div><div class="metric"><b>—</b>Fehlerhinweise</div></div><p class="muted">Noch keine Ergebnisse geladen. Es werden keine Demo-Befunde erfunden.</p></section>
+<section class="panel" id="ortho-preflight"><h2>Orthofoto-Aufnahmeprüfung</h2><p id="ortho-preflight-status" role="status">Bildüberlappung wurde noch nicht geprüft.</p><div id="ortho-angle-panel" hidden><label for="ortho-manual-angle">Bitte Kamerawinkel in Bezug zum Solarmodul eingeben.</label><p class="muted">90° = senkrecht zur Modulfläche. Der Wert ersetzt keine vollständige Kameraorientierung.</p><input id="ortho-manual-angle" type="number" min="0" max="90" step="0.1" placeholder="90" aria-describedby="ortho-angle-feedback"><label for="ortho-angle-scope">Gültig für</label><select id="ortho-angle-scope"><option value="series">Bildserie</option><option value="image">Einzelbild</option></select><p id="ortho-angle-feedback" role="status">Manuelle Angaben werden erst nach Anbindung der Projekt-API gespeichert.</p></div></section>
 <section class="panel" id="orthomosaic-viewer"><h2>RGB-/Thermal-Orthofoto-Vergleich</h2><p class="muted">Beide Orthofotos müssen geometrisch registriert und vom Backend freigegeben sein. Thermalfarben sind keine Temperaturmessung.</p><p id="ortho-status" role="status">Noch keine geprüften Orthofotos für dieses Projekt geladen.</p><div class="ortho-stage" id="ortho-stage" hidden><img id="ortho-rgb" alt="RGB-Orthofoto der PV-Anlage"><img class="ortho-thermal" id="ortho-thermal" alt="Thermal-Orthofoto der PV-Anlage"><div class="ortho-divider" id="ortho-divider" aria-hidden="true"></div></div><div class="ortho-controls"><label for="ortho-reveal">Thermal-Vergleich</label><input type="range" id="ortho-reveal" min="0" max="100" value="50" disabled aria-label="Thermal-Orthofoto sichtbar in Prozent"><output id="ortho-percent" for="ortho-reveal">50 %</output></div><p class="muted">Die interaktive Ansicht wird aktiviert, sobald ein geprüftes RGB-/Thermal-Orthofoto-Paar verfügbar ist. Keine Demo-Bilder.</p></section>
 <section class="panel" id="report"><h2>Prüfbericht und Export</h2><p id="report-message"></p><button disabled title="Berichts-API noch nicht angebunden">Bericht öffnen (in Vorbereitung)</button></section>
 <section class="panel notice"><strong>Fachlicher Hinweis</strong><p>KI-Ergebnisse sind Hinweise und ersetzen keine fachkundige Prüfung. Demo-Nutzer erhalten keine Bericht- oder Exportberechtigung.</p></section>
@@ -62,5 +63,37 @@ document.getElementById('processing-button').addEventListener('click',async()=>{
     reveal();return true;
   };
   reveal();
+})();
+</script><script>
+(function(){
+  const status=document.getElementById('ortho-preflight-status');
+  const anglePanel=document.getElementById('ortho-angle-panel');
+  const angle=document.getElementById('ortho-manual-angle');
+  const feedback=document.getElementById('ortho-angle-feedback');
+  angle.addEventListener('input',()=>{
+    const value=Number(angle.value);
+    feedback.textContent=angle.value!=='' && Number.isFinite(value) && value>=0 && value<=90
+      ? 'Winkel plausibel. Speicherung und Berechnung sind noch nicht angebunden.'
+      : 'Bitte einen Winkel zwischen 0° und 90° eingeben.';
+  });
+  window.solarcheckShowOrthomosaicPreflight=function(result){
+    const overlap=result && result.overlap_state;
+    if(!['unknown','sufficient','insufficient'].includes(overlap))return false;
+    if(overlap==='insufficient'){
+      if(typeof result.overlap_method!=='string'||!result.overlap_method.trim()
+        ||typeof result.overlap_evidence_reference!=='string'||!result.overlap_evidence_reference.trim())return false;
+      status.textContent='Keine Berechnung möglich, da die Bildüberlappung fehlerhaft ist.';
+      anglePanel.hidden=true;
+      return true;
+    }
+    if(overlap==='unknown'){
+      status.textContent='Bildüberlappung wurde noch nicht geprüft.';
+      anglePanel.hidden=true;
+      return true;
+    }
+    status.textContent='Bildüberlappung geprüft.';
+    anglePanel.hidden=result.camera_pose_available===true;
+    return true;
+  };
 })();
 </script></body></html>
