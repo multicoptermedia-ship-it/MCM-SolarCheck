@@ -1,0 +1,3 @@
+# Local training-consent ledger
+
+The inspection/report workflow never depends on training consent. Consent is a separate explicit opt-in, default off. A SQLite ledger records grants and revocations with timestamp and a random reference, bound to a private project key. Only the private ledger contains project linkage; exported training images never contain this key. An active grant must be checked immediately before every new export. Revocation blocks future exports, and previously exported samples must be traced and deleted through a future controlled retention registry; this ledger alone cannot retract samples already used to train a model. Do not present the module crops as automatically anonymous. No customer media leaves the PC.
