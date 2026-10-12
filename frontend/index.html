@@ -20,4 +20,47 @@ document.getElementById('job-status-button').addEventListener('click',async()=>{
 
 document.getElementById('upload-project').addEventListener('change',()=>{currentJob=null;sessionStorage.removeItem('solarcheck-current-job');document.getElementById('job-status-button').disabled=true;document.getElementById('job-retry-button').disabled=true;});
 document.getElementById('processing-button').addEventListener('click',async()=>{const button=document.getElementById('processing-button');const status=document.getElementById('processing-status');const project=document.getElementById('upload-project').value;if(!project){status.textContent='Bitte Projekt auswählen.';return;}button.disabled=true;status.textContent='Verarbeitung läuft; bitte warten …';try{const creation=await fetch('/api/compute-jobs',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({project_id:project})});if(!creation.ok)throw Error('Auftrag HTTP '+creation.status);const created=await creation.json();if(created.project_id!==project||!created.job_id)throw Error('Ungültige Auftragsantwort');rememberJob({project_id:project,job_id:created.job_id});if(created.status==='queued'){status.textContent='Verarbeitungsauftrag '+created.job_id+' wartet auf freie Kapazität. Keine Analyse gestartet.';return;}if(created.status!=='running')throw Error('Auftrag nicht gestartet');const job=created.job_id;const url='/api/project-process?'+new URLSearchParams({project_id:project,job_id:job});const response=await fetch(url,{method:'POST',credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);const result=await response.json();if(result.project_id!==project||result.job_id!==job||result.state!=='completed')throw Error('Verarbeitung nicht abgeschlossen');status.textContent='Verarbeitung abgeschlossen. Thermalbilder: '+Number(result.imported_thermal_frames)+', Bildpaare: '+Number(result.paired_frames)+', Importfehler: '+Number(result.import_failures)+'.';}catch(e){status.textContent='Verarbeitung nicht bestätigt: '+e.message;}finally{button.disabled=false;}});
+</script><script>
+(function(){
+  const slider=document.getElementById('ortho-reveal');
+  const thermal=document.getElementById('ortho-thermal');
+  const rgb=document.getElementById('ortho-rgb');
+  const divider=document.getElementById('ortho-divider');
+  const stage=document.getElementById('ortho-stage');
+  const status=document.getElementById('ortho-status');
+  const percent=document.getElementById('ortho-percent');
+  function reveal(){
+    const value=Math.max(0,Math.min(100,Number(slider.value)));
+    thermal.style.clipPath='inset(0 '+(100-value)+'% 0 0)';
+    divider.style.left=value+'%';
+    percent.textContent=value+' %';
+  }
+  slider.addEventListener('input',reveal);
+  function validUrl(value){
+    return typeof value==='string' && /^\\/(?!\\)/.test(value)
+      && !value.includes('\\\\') && !value.includes('#');
+  }
+  window.solarcheckShowVerifiedOrthomosaics=function(manifest){
+    if(!manifest || manifest.registration_verified!==true
+      || manifest.thermal_is_visualization_only!==true
+      || !Number.isSafeInteger(manifest.width) || manifest.width<1
+      || !Number.isSafeInteger(manifest.height) || manifest.height<1
+      || !validUrl(manifest.rgb_url) || !validUrl(manifest.thermal_url)
+      || typeof manifest.registration_reference!=='string'
+      || !manifest.registration_reference.trim()){
+      stage.hidden=true;slider.disabled=true;
+      status.textContent='Orthofotos nicht freigegeben oder Registrierung unvollständig.';
+      return false;
+    }
+    rgb.src=manifest.rgb_url;thermal.src=manifest.thermal_url;
+    rgb.onerror=thermal.onerror=function(){
+      stage.hidden=true;slider.disabled=true;
+      status.textContent='Orthofoto konnte nicht geladen werden.';
+    };
+    stage.hidden=false;slider.disabled=false;
+    status.textContent='Registrierte Orthofotos bereit. Thermalfarben sind nur eine Visualisierung.';
+    reveal();return true;
+  };
+  reveal();
+})();
 </script></body></html>
