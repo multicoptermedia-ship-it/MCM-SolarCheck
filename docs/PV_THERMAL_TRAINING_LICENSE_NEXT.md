@@ -1,0 +1,5 @@
+# Thermal training next steps
+
+Milestone 21 records public thermal candidates and introduces explicit model-code and weight-license gates. The default requirements file still lists Ultralytics; **do not run it in a proprietary training or deployment workflow until the licensing decision is resolved**. RT-DETR Apache-2.0 is a candidate, not an integrated or approved model; verify checkpoint and dependency licenses separately.
+
+Next: separate optional AGPL training dependencies from core requirements, verify original Solar Hotspot image rights, validate independently sourced PV negatives, secure dataset/site provenance, add a reviewed detector backend abstraction, and integrate consent with audit and revocation for future customer-derived data. Consent must be unchecked, granular and optional, and must not affect the customer's inspection or report. Confirm data controller obligations and deletion rules with legal counsel. No actual training, model download, customer image transfer or IONOS action.
