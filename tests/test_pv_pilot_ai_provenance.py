@@ -25,7 +25,7 @@ def test_metadata_requires_source_and_valid_decision():
     )[2]
 
 
-def test_pdf_includes_auditable_provenance(tmp_path):
+def test_customer_pdf_excludes_internal_provenance(tmp_path):
     pypdf = pytest.importorskip("pypdf")
     provenance = PilotAIProvenance("fictional-detector", "0.0-test", "synthetic-frame",
                                    0.82, "corrected")
@@ -39,7 +39,9 @@ def test_pdf_includes_auditable_provenance(tmp_path):
     export_pilot_pdf(report, destination)
     pages = pypdf.PdfReader(str(destination)).pages
     text = "\n".join(page.extract_text() for page in pages[3:])
-    assert "fictional-detector" in text
-    assert "synthetic-frame" in text
-    assert "82.0 %" in text
-    assert "korrigiert" in text
+    assert "fictional-detector" not in text
+    assert "0.0-test" not in text
+    assert "synthetic-frame" not in text
+    assert "82.0 %" not in text
+    assert "korrigiert" not in text
+    assert "Weitere Prüfung erforderlich." in text
