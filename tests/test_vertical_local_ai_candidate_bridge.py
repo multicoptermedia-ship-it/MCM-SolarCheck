@@ -84,3 +84,19 @@ def test_batch_validation_is_atomic():
     with pytest.raises(ValueError, match="duplicate"):
         stage_local_ai_candidates(analysis, (_candidate(), _candidate()))
     assert len(analysis.candidates) == 1
+
+
+def test_unknown_module_is_rejected():
+    unknown = LocalAIResult(
+        "unknown-module", "unassigned", "local-model", "v1", "thermal-1"
+    )
+    with pytest.raises(ValueError, match="known imported module evidence"):
+        stage_local_ai_candidates(_analysis(), (_candidate(result=unknown),))
+
+
+def test_module_must_have_imported_evidence():
+    missing = ImportedCandidateAnalysis(1, 1, (
+        Finding("imported-1", "thermal-1", 10, 11),
+    ))
+    with pytest.raises(ValueError, match="known imported module evidence"):
+        stage_local_ai_candidates(missing, (_candidate(),))
