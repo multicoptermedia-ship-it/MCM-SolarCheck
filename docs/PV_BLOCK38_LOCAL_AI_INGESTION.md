@@ -45,3 +45,17 @@ model provenance storage, and an explicit expert correction mechanism.
 
 New regression tests cover the report gate and unknown module IDs. Run the
 full Python 3.11 and 3.12 CI before treating this round as verified.
+
+## Block 38.4 – explicit expert correction
+
+LocalReviewDraft.correct_ai_finding allows an expert to replace the internal
+unverified AI candidate label with a nonempty expert-entered label. The method
+only operates on an existing unverified AI candidate and resets that finding's
+prior accept/reject decision. The existing report gate still refuses unchanged
+unverified labels. LocalReviewedReportController now also compares the reviewed
+analysis with its approval snapshot and blocks export after subsequent changes.
+No automated model conclusion is promoted to a verified diagnosis.
+
+Limitations: this in-memory workflow is not a durable signed audit trail; user
+identity, verified evidence, image geometry and UI integration still require
+production implementation. Run Python 3.11/3.12 CI before declaring success.
