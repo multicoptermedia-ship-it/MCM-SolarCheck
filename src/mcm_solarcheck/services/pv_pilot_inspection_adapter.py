@@ -34,4 +34,9 @@ def from_reviewed_inspection(report: InspectionReport, *, limitations: str) -> P
         conditions=conditions,
         limitations=limitations,
         findings=findings,
+        site_address=report.site_address,
+        total_modules=report.total_modules,
+        conspicuous_modules=report.conspicuous_modules,
+        irradiance_w_m2=report.irradiance.mean_w_m2 if report.irradiance is not None else None,
+        irradiance_source=report.irradiance.source if report.irradiance is not None else None,
     )
