@@ -1,5 +1,6 @@
 """Block 38.4: explicit expert correction must precede AI report release."""
 from datetime import datetime, timezone
+from dataclasses import replace
 
 import pytest
 
@@ -61,8 +62,8 @@ def test_post_approval_correction_invalidates_export(tmp_path):
     draft.correct_ai_finding('ai-1', 'Hotspot')
     draft.decide('ai-1', 'accept')
     controller.approve(reviewer_id='expert', evidence_reference='signed')
-    draft.correct_ai_finding('ai-1', 'Thermische Auffaelligkeit')
-    draft.decide('ai-1', 'accept')
+    changed = replace(draft.analysis.candidates[0], finding_type='Thermische Auffaelligkeit')
+    draft.analysis = replace(draft.analysis, candidates=(changed,))
     with pytest.raises(PermissionError, match='review changed'):
         controller.export(tmp_path / 'stale.pdf', authorize_export=lambda _: True)
     assert not (tmp_path / 'stale.pdf').exists()
