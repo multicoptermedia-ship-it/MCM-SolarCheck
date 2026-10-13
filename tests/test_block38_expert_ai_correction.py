@@ -84,3 +84,19 @@ def test_correction_record_change_invalidates_approved_export(tmp_path):
     draft.corrections['ai-1'] = 'Changed'
     with pytest.raises(PermissionError, match='review changed'):
         controller.export(tmp_path / 'report.pdf', authorize_export=lambda _: True)
+
+
+def test_rejected_ai_finding_stays_out_of_customer_report():
+    draft, controller = _setup()
+    draft.decide('ai-1', 'reject')
+    report = controller.approve(reviewer_id='expert', evidence_reference='signed')
+    assert report.conspicuous_modules == 0
+    assert report.details == ()
+
+
+def test_no_implicit_acceptance_after_correction():
+    draft, _ = _setup()
+    draft.correct_ai_finding('ai-1', 'Hotspot')
+    assert draft.remaining == 1
+    with pytest.raises(ValueError, match='explicit decision'):
+        draft.finalize(reviewer_id='expert', evidence_reference='signed', approve_report=True)
