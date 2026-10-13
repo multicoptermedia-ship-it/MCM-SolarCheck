@@ -35,7 +35,7 @@ def stage_local_ai_candidates(
         raise ValueError("duplicate existing finding IDs")
     if analysis.paired_frames < 1 or analysis.imported_thermal_frames < 1:
         raise ValueError("paired RGB and thermal evidence required")
-    findings = list(analysis.candidates)
+    known_thermal_frames = {f.thermal_frame_id for f in analysis.candidates}\n    findings = list(analysis.candidates)
     for candidate in detections:
         if not isinstance(candidate, LocalAICandidate):
             raise TypeError("LocalAICandidate required")
@@ -49,7 +49,7 @@ def stage_local_ai_candidates(
             value = getattr(candidate, name)
             if type(value) is not int or value < 0:
                 raise ValueError(f"{name} must be a non-negative integer")
-        staged = stage_local_ai_result(candidate.result)
+        staged = stage_local_ai_result(candidate.result)\n        if candidate.thermal_frame_id not in known_thermal_frames:\n            raise ValueError("AI source must reference known imported thermal evidence")\n        if staged.provenance.input_reference != candidate.thermal_frame_id:\n            raise ValueError("AI input reference must match thermal frame")
         existing.add(candidate.finding_id)
         findings.append(Finding(
             finding_id=candidate.finding_id,
