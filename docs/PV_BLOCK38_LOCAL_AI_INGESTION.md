@@ -28,3 +28,20 @@ Safety boundaries:
 Quality gate: run all targeted tests and full Python 3.11/3.12 CI. This round
 is not considered verified until those checks are green. Keep the common
 core reusable by online adapters; finish the offline vertical workflow first.
+
+## Block 38.3 – report release and module evidence gate
+
+The shared report adapter now refuses to publish a candidate retaining the
+internal `local_ai_suggestion_unverified` label, even after expert acceptance.
+A separate expert-confirmed, customer-safe finding label must be supplied
+through the existing review/report workflow; a decision alone does not rename
+a candidate. No automatic label transformation is introduced.
+
+The offline-first candidate bridge now also requires the AI module identifier
+to be present in imported module evidence. This is a conservative interim
+check, **not** a geometric or frame-specific verification. A production
+adapter still needs authoritative per-frame module mapping, image bounds,
+model provenance storage, and an explicit expert correction mechanism.
+
+New regression tests cover the report gate and unknown module IDs. Run the
+full Python 3.11 and 3.12 CI before treating this round as verified.
