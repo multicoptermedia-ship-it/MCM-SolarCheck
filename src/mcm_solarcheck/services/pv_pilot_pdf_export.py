@@ -5,12 +5,14 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Image, KeepTogether
 
 from mcm_solarcheck.services.pv_report_pilot_contract import PilotReport, report_sections
 from mcm_solarcheck.services.pv_pilot_pdf_evidence import PilotEvidence
+from mcm_solarcheck.services.pv_pilot_pdf_layout import (
+    pilot_styles, evidence_pair_table, page_decoration, caption,
+)
 
 
 def _evidence_image(path: Path):
@@ -22,8 +24,20 @@ def _evidence_image(path: Path):
         if width <= 0 or height <= 0 or width * height > 40_000_000:
             raise ValueError("invalid or oversized evidence")
         source.verify()
-    scale = min(76 * mm / width, 55 * mm / height)
+    scale = min(76 * mm / width, 50 * mm / height)
     return Image(str(path), width=width * scale, height=height * scale)
+
+
+def _evidence_column(label, path, frame, geometry, styles):
+    result = [caption(label, styles)]
+    if path is None:
+        result.append(Paragraph("Kein Bildnachweis vorhanden", styles["PilotSmall"]))
+    else:
+        result.append(_evidence_image(path))
+    result.append(Paragraph(escape(
+        f"Quelle: {frame or 'nicht erfasst'}; Geometrie: {geometry or 'nicht erfasst'}"
+    ), styles["PilotSmall"]))
+    return result
 
 
 def export_pilot_pdf(
@@ -45,7 +59,7 @@ def export_pilot_pdf(
         raise ValueError("duplicate evidence module")
     if any(item.module not in modules for item in evidence):
         raise ValueError("evidence module not present in reviewed findings")
-    styles = getSampleStyleSheet()
+    styles = pilot_styles()
     story = []
     for index, (heading, value) in enumerate(report_sections(report)):
         story.append(Paragraph(escape(heading), styles["Title"] if index == 0 else styles["Heading2"]))
@@ -54,21 +68,18 @@ def export_pilot_pdf(
         story.append(Spacer(1, 4 * mm))
     if evidence:
         story.append(Paragraph("Bildnachweise (lokale Quelldateien)", styles["Heading1"]))
+    findings = {finding.module: finding.observation for finding in report.findings}
     for item in evidence:
-        section = [Paragraph(escape("Modul " + item.module), styles["Heading2"])]
-        for label, path, frame, geometry in (
-            ("RGB", item.rgb_path, item.rgb_frame, item.rgb_geometry),
-            ("Thermal", item.thermal_path, item.thermal_frame, item.thermal_geometry),
-        ):
-            section.append(Paragraph(escape(
-                f"{label}: Quelle {frame or 'nicht erfasst'}; Geometrie {geometry or 'nicht erfasst'}"
-            ), styles["BodyText"]))
-            if path is None:
-                section.append(Paragraph("Kein Bildnachweis vorhanden", styles["BodyText"]))
-            else:
-                section.append(_evidence_image(path))
-        story.append(KeepTogether(section))
+        heading = Paragraph(escape("Modul " + item.module), styles["Heading2"])
+        observation = Paragraph(escape("Beobachtung: " + findings[item.module]), styles["BodyText"])
+        pair = evidence_pair_table(
+            _evidence_column("RGB", item.rgb_path, item.rgb_frame, item.rgb_geometry, styles),
+            _evidence_column("Thermal", item.thermal_path, item.thermal_frame, item.thermal_geometry, styles),
+        )
+        story.append(KeepTogether([heading, observation, pair]))
         story.append(Spacer(1, 5 * mm))
-    SimpleDocTemplate(str(destination), pagesize=A4, leftMargin=18 * mm,
-                      rightMargin=18 * mm).build(story)
+    SimpleDocTemplate(
+        str(destination), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
+        topMargin=20 * mm, bottomMargin=21 * mm,
+    ).build(story, onFirstPage=page_decoration, onLaterPages=page_decoration)
     return destination
