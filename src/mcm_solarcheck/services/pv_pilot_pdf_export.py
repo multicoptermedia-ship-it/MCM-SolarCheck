@@ -6,10 +6,11 @@ from xml.sax.saxutils import escape
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Image, KeepTogether
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Image, KeepTogether, PageBreak
 
 from mcm_solarcheck.services.pv_report_pilot_contract import PilotReport, report_sections
 from mcm_solarcheck.services.pv_pilot_pdf_evidence import PilotEvidence
+from mcm_solarcheck.services.pv_pilot_flight_overview import PilotFlightOverview, flight_overview_label
 from mcm_solarcheck.services.pv_pilot_pdf_layout import (
     pilot_styles, evidence_pair_table, page_decoration, caption,
 )
@@ -43,6 +44,7 @@ def _evidence_column(label, path, frame, geometry, styles):
 def export_pilot_pdf(
     report: PilotReport, destination: str | Path, *,
     evidence: tuple[PilotEvidence, ...] = (),
+    flight_overview: PilotFlightOverview | None = None,
 ) -> Path:
     """Render reviewed local pilot PDF; never upload or transmit images."""
     if not isinstance(report, PilotReport):
@@ -61,11 +63,40 @@ def export_pilot_pdf(
         raise ValueError("evidence module not present in reviewed findings")
     styles = pilot_styles()
     story = []
-    for index, (heading, value) in enumerate(report_sections(report)):
-        story.append(Paragraph(escape(heading), styles["Title"] if index == 0 else styles["Heading2"]))
-        for line in value.splitlines():
-            story.append(Paragraph(escape(line), styles["BodyText"]))
-        story.append(Spacer(1, 4 * mm))
+    sections = report_sections(report)
+    overview_fields = {"Titel", "Projekt", "Prüfdatum", "Prüfer", "Anlage", "Anlagenadresse",
+                       "Geprüfte Module", "Auffällige Module", "Einstrahlungsstärke zum Messzeitpunkt"}
+    for index, (heading, value) in enumerate(sections):
+        if heading in overview_fields:
+            story.append(Paragraph(escape(heading), styles["Title"] if index == 0 else styles["Heading2"]))
+            story.append(Paragraph(escape(value), styles["BodyText"]))
+            story.append(Spacer(1, 3 * mm))
+    story.append(PageBreak())
+    story.append(Paragraph("Prüfgrundlagen und Erläuterungen", styles["Title"]))
+    for heading, value in sections:
+        if heading not in overview_fields and heading != "Feststellungen":
+            story.append(Paragraph(escape(heading), styles["Heading2"]))
+            story.append(Paragraph(escape(value), styles["BodyText"]))
+            story.append(Spacer(1, 5 * mm))
+    story.append(PageBreak())
+    story.append(Paragraph("Flugdokumentation - Übersicht des Inspektionsflugs", styles["Title"]))
+    story.append(Paragraph(escape(flight_overview_label(flight_overview)), styles["BodyText"]))
+    if flight_overview is not None and flight_overview.image_path is not None:
+        from PIL import Image as PILImage
+        with PILImage.open(flight_overview.image_path) as img:
+            if img.format not in {"PNG", "JPEG"} or img.width * img.height > 40_000_000:
+                raise ValueError("invalid flight overview image")
+            w, h = img.size
+            img.verify()
+        factor = min(168 * mm / w, 175 * mm / h)
+        story.append(Image(str(flight_overview.image_path), width=w * factor, height=h * factor))
+        story.append(Paragraph(escape("Quelle: " + flight_overview.source_note), styles["PilotSmall"]))
+    else:
+        story.append(Paragraph("RGB-Orthofoto und Flugpfad nicht erfasst.", styles["PilotSmall"]))
+    story.append(PageBreak())
+    story.append(Paragraph("Modulanalyse und Bildnachweise", styles["Title"]))
+    for finding in report.findings:
+        story.append(Paragraph(escape(finding.module + ": " + finding.observation), styles["BodyText"]))
     if evidence:
         story.append(Paragraph("Bildnachweise (lokale Quelldateien)", styles["Heading1"]))
     findings = {finding.module: finding.observation for finding in report.findings}
