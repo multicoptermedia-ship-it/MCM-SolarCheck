@@ -2,12 +2,19 @@
 from dataclasses import dataclass
 from math import isfinite
 
+from mcm_solarcheck.services.pv_pilot_ai_assessment import PilotAIAssessment
+
 
 @dataclass(frozen=True)
 class PilotFinding:
     module: str
     observation: str
     reviewed: bool = False
+    ai_assessment: PilotAIAssessment | None = None
+
+    def __post_init__(self):
+        if self.ai_assessment is not None and not isinstance(self.ai_assessment, PilotAIAssessment):
+            raise TypeError("PilotAIAssessment required")
 
 
 @dataclass(frozen=True)
