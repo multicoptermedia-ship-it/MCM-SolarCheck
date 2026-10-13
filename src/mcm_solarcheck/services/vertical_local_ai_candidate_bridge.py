@@ -36,6 +36,7 @@ def stage_local_ai_candidates(
     if analysis.paired_frames < 1 or analysis.imported_thermal_frames < 1:
         raise ValueError("paired RGB and thermal evidence required")
     known_thermal_frames = {f.thermal_frame_id for f in analysis.candidates}
+    known_modules = {f.module_id for f in analysis.candidates if f.module_id}
     findings = list(analysis.candidates)
     for candidate in detections:
         if not isinstance(candidate, LocalAICandidate):
@@ -55,6 +56,8 @@ def stage_local_ai_candidates(
             raise ValueError("AI source must reference known imported thermal evidence")
         if staged.provenance.input_reference != candidate.thermal_frame_id:
             raise ValueError("AI input reference must match thermal frame")
+        if candidate.result.module not in known_modules:
+            raise ValueError("AI module must match known imported module evidence")
         existing.add(candidate.finding_id)
         findings.append(Finding(
             finding_id=candidate.finding_id,
