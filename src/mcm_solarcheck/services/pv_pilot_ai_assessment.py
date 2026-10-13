@@ -1,14 +1,19 @@
 """Conservative AI classification contract; never equate model output with diagnosis."""
 from dataclasses import dataclass
 
+from mcm_solarcheck.services.pv_pilot_ai_provenance import PilotAIProvenance
+
 
 @dataclass(frozen=True)
 class PilotAIAssessment:
     status: str  # classified_suspicion, unassigned, no_anomaly
     suggested_cause: str | None = None
     expert_assessment: str | None = None
+    provenance: PilotAIProvenance | None = None
 
     def __post_init__(self):
+        if self.provenance is not None and not isinstance(self.provenance, PilotAIProvenance):
+            raise TypeError("PilotAIProvenance required")
         if self.status not in {"classified_suspicion", "unassigned", "no_anomaly"}:
             raise ValueError("unsupported AI assessment status")
         if self.status == "classified_suspicion" and (
