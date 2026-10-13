@@ -11,6 +11,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Image, Keep
 from mcm_solarcheck.services.pv_report_pilot_contract import PilotReport, report_sections
 from mcm_solarcheck.services.pv_pilot_pdf_evidence import PilotEvidence
 from mcm_solarcheck.services.pv_pilot_flight_overview import PilotFlightOverview, flight_overview_label
+from mcm_solarcheck.services.pv_pilot_module_layout import module_analysis_flowables
 from mcm_solarcheck.services.pv_pilot_pdf_layout import (
     pilot_styles, evidence_pair_table, page_decoration, caption,
 )
@@ -95,20 +96,14 @@ def export_pilot_pdf(
         story.append(Paragraph("RGB-Orthofoto und Flugpfad nicht erfasst.", styles["PilotSmall"]))
     story.append(PageBreak())
     story.append(Paragraph("Modulanalyse und Bildnachweise", styles["Title"]))
-    for finding in report.findings:
-        story.append(Paragraph(escape(finding.module + ": " + finding.observation), styles["BodyText"]))
-    if evidence:
-        story.append(Paragraph("Bildnachweise (lokale Quelldateien)", styles["Heading1"]))
-    findings = {finding.module: finding.observation for finding in report.findings}
-    for item in evidence:
-        heading = Paragraph(escape("Modul " + item.module), styles["Heading2"])
-        observation = Paragraph(escape("Beobachtung: " + findings[item.module]), styles["BodyText"])
-        pair = evidence_pair_table(
-            _evidence_column("RGB", item.rgb_path, item.rgb_frame, item.rgb_geometry, styles),
-            _evidence_column("Thermal", item.thermal_path, item.thermal_frame, item.thermal_geometry, styles),
-        )
-        story.append(KeepTogether([heading, observation, pair]))
-        story.append(Spacer(1, 5 * mm))
+    evidence_by_module = {item.module: item for item in evidence}
+    if not report.findings:
+        story.append(Paragraph("Keine fachlich bestätigten Auffälligkeiten dokumentiert.",
+                               styles["BodyText"]))
+    for number, finding in enumerate(report.findings, start=1):
+        story.extend(module_analysis_flowables(
+            number, finding, evidence_by_module.get(finding.module), styles, _evidence_column,
+        ))
     SimpleDocTemplate(
         str(destination), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
         topMargin=20 * mm, bottomMargin=21 * mm,
