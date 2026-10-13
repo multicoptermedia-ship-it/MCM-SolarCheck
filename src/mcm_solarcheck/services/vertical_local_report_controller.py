@@ -18,6 +18,7 @@ class LocalReviewedReportController:
         self._context = context
         self._report = None
         self._approved_decisions = None
+        self._approved_analysis = None
 
     def approve(self, *, reviewer_id: str, evidence_reference: str):
         record = self._draft.finalize(
@@ -26,11 +27,13 @@ class LocalReviewedReportController:
         snapshot = snapshot_expert_review(self._draft.analysis, record)
         self._report = build_reviewed_inspection_report(self._draft.analysis, snapshot, self._context)
         self._approved_decisions = dict(self._draft.decisions)
+        self._approved_analysis = self._draft.analysis
         return self._report
 
     def export(self, destination: str | Path, *, authorize_export: Callable[[str], bool]):
         if self._report is None:
             raise PermissionError("report has not been approved")
-        if self._draft.remaining or self._draft.decisions != self._approved_decisions:
+        if (self._draft.remaining or self._draft.decisions != self._approved_decisions
+                or self._draft.analysis != self._approved_analysis):
             raise PermissionError("review changed after approval; new approval required")
         return export_reviewed_inspection(self._report, destination, authorize_export=authorize_export)
