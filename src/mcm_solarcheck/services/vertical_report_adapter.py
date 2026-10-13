@@ -45,6 +45,8 @@ def build_reviewed_inspection_report(
         raise ValueError("multiple candidates per module require explicit aggregation")
     if len(module_ids) > context.total_modules:
         raise ValueError("accepted modules exceed measured module count")
+    if any(f.finding_type == "local_ai_suggestion_unverified" for f in accepted):
+        raise ValueError("expert-verified finding label required for AI suggestions")
     details = tuple(
         ModuleReportDetail(
             module_id=f.module_id,
