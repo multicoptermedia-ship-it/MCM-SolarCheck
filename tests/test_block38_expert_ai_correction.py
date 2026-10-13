@@ -67,3 +67,20 @@ def test_post_approval_correction_invalidates_export(tmp_path):
     with pytest.raises(PermissionError, match='review changed'):
         controller.export(tmp_path / 'stale.pdf', authorize_export=lambda _: True)
     assert not (tmp_path / 'stale.pdf').exists()
+
+
+def test_expert_correction_is_recorded_separately():
+    draft, _ = _setup()
+    draft.correct_ai_finding('ai-1', 'Hotspot')
+    assert draft.corrections == {'ai-1': 'Hotspot'}
+    assert draft.decisions == {}
+
+
+def test_correction_record_change_invalidates_approved_export(tmp_path):
+    draft, controller = _setup()
+    draft.correct_ai_finding('ai-1', 'Hotspot')
+    draft.decide('ai-1', 'accept')
+    controller.approve(reviewer_id='expert', evidence_reference='signed')
+    draft.corrections['ai-1'] = 'Changed'
+    with pytest.raises(PermissionError, match='review changed'):
+        controller.export(tmp_path / 'report.pdf', authorize_export=lambda _: True)
