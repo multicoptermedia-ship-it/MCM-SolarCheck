@@ -44,9 +44,9 @@ def page_decoration(canvas, doc):
     canvas.line(18 * mm, height - 12 * mm, width - 18 * mm, height - 12 * mm)
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(colors.HexColor("#3c5367"))
-    canvas.drawString(18 * mm, height - 10 * mm, "MCM-SolarCheck | Prüfbericht – Kundenmuster")
+    canvas.drawString(18 * mm, height - 10 * mm, "MCM-SolarCheck | Pruefbericht - Kundenmuster")
     canvas.line(18 * mm, 14 * mm, width - 18 * mm, 14 * mm)
-    canvas.drawString(18 * mm, 10 * mm, "In Anlehnung an DIN IEC/TS 62446-3 – kein Normkonformitätsnachweis")
+    canvas.drawString(18 * mm, 10 * mm, "DIN IEC/TS 62446-3: angelehnt, nicht normkonform")
     canvas.drawRightString(width - 18 * mm, 10 * mm, f"Seite {doc.page}")
     canvas.restoreState()
 
