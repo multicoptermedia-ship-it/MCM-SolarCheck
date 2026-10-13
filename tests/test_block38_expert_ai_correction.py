@@ -54,3 +54,15 @@ def test_unknown_candidate_cannot_be_corrected():
     draft, _ = _setup()
     with pytest.raises(KeyError):
         draft.correct_ai_finding("unknown", "Hotspot")
+
+
+def test_post_approval_correction_invalidates_export(tmp_path):
+    draft, controller = _setup()
+    draft.correct_ai_finding('ai-1', 'Hotspot')
+    draft.decide('ai-1', 'accept')
+    controller.approve(reviewer_id='expert', evidence_reference='signed')
+    draft.correct_ai_finding('ai-1', 'Thermische Auffaelligkeit')
+    draft.decide('ai-1', 'accept')
+    with pytest.raises(PermissionError, match='review changed'):
+        controller.export(tmp_path / 'stale.pdf', authorize_export=lambda _: True)
+    assert not (tmp_path / 'stale.pdf').exists()
