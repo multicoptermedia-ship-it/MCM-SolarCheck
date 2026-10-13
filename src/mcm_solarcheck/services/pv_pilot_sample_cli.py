@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from mcm_solarcheck.services.pv_pilot_report_sample import fictional_pilot_report
 from mcm_solarcheck.services.pv_pilot_synthetic_evidence import synthetic_evidence
 from mcm_solarcheck.services.pv_pilot_pdf_export import export_pilot_pdf
+from mcm_solarcheck.services.pv_pilot_synthetic_flight import fictional_flight_overview
 
 
 def main(argv: list[str] | None = None) -> Path:
@@ -18,6 +19,7 @@ def main(argv: list[str] | None = None) -> Path:
         result = export_pilot_pdf(
             fictional_pilot_report(), args.destination,
             evidence=synthetic_evidence(Path(folder)),
+            flight_overview=fictional_flight_overview(Path(folder)),
         )
     return result
 
