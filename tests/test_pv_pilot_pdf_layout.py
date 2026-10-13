@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
-from pathlib import Path
 
+import pytest
+from reportlab.lib.units import mm
 from PIL import Image as PILImage
 
 from mcm_solarcheck.services.pv_pilot_pdf_layout import evidence_pair_table, pilot_styles
@@ -11,7 +11,7 @@ from mcm_solarcheck.services.pv_pilot_report_sample import fictional_pilot_repor
 
 def test_two_column_layout_fits_a4_content_width():
     table = evidence_pair_table([], [])
-    assert sum(table._colWidths) == 168 * 72 / 25.4
+    assert sum(table._colWidths) == pytest.approx(168 * mm, abs=1e-8)
     assert "PilotSmall" in pilot_styles()
 
 
