@@ -59,3 +59,18 @@ No automated model conclusion is promoted to a verified diagnosis.
 Limitations: this in-memory workflow is not a durable signed audit trail; user
 identity, verified evidence, image geometry and UI integration still require
 production implementation. Run Python 3.11/3.12 CI before declaring success.
+
+## Block 38.5 – local correction record and export binding
+
+The offline review draft now keeps expert-entered AI label corrections in a
+separate in-memory mapping keyed by finding ID. Corrections do not constitute
+acceptance: the expert must still make an explicit accept/reject decision.
+The report controller snapshots this correction mapping on approval and
+refuses export if it changes afterwards. Rejected AI findings are not included
+in customer report details. Tests cover these boundaries.
+
+This mapping is **not** a persistent audit log, digital signature or verified
+identity record. It must not be presented as tamper-proof provenance. Future
+work must persist append-only expert events and bind identity and evidence,
+without leaking internal AI metadata into customer PDFs. Offline behavior
+remains independent of network services.
