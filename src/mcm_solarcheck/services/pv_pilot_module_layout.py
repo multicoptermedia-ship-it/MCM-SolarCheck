@@ -34,4 +34,4 @@ def module_analysis_flowables(number, finding, evidence, styles, evidence_column
         evidence_column("RGB", evidence.rgb_path, evidence.rgb_frame, evidence.rgb_geometry, styles),
         evidence_column("Thermal", evidence.thermal_path, evidence.thermal_frame, evidence.thermal_geometry, styles),
     )
-    return [KeepTogether([heading, observation, classification, assessment, *provenance, pair, warning]), Spacer(1, 5 * mm)]
+    return [KeepTogether([heading, observation, *customer_lines, pair, warning]), Spacer(1, 5 * mm)]
