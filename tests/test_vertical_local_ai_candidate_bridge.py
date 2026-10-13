@@ -58,3 +58,29 @@ def test_invalid_ai_payload_is_rejected():
     bad = LocalAIResult("module-1", "approved", "model", "v1", "thermal-1")
     with pytest.raises(ValueError):
         stage_local_ai_candidates(_analysis(), (_candidate(result=bad),))
+
+
+def test_unknown_thermal_frame_is_rejected():
+    with pytest.raises(ValueError, match="known imported thermal evidence"):
+        stage_local_ai_candidates(_analysis(), (_candidate(thermal_frame_id="unknown"),))
+
+
+def test_model_input_must_match_thermal_frame():
+    mismatch = LocalAIResult(
+        "module-1", "unassigned", "local-model", "v1", "other-frame"
+    )
+    with pytest.raises(ValueError, match="input reference must match"):
+        stage_local_ai_candidates(_analysis(), (_candidate(result=mismatch),))
+
+
+def test_unpaired_analysis_is_rejected():
+    analysis = ImportedCandidateAnalysis(0, 1, _analysis().candidates)
+    with pytest.raises(ValueError, match="paired RGB and thermal"):
+        stage_local_ai_candidates(analysis, (_candidate(),))
+
+
+def test_batch_validation_is_atomic():
+    analysis = _analysis()
+    with pytest.raises(ValueError, match="duplicate"):
+        stage_local_ai_candidates(analysis, (_candidate(), _candidate()))
+    assert len(analysis.candidates) == 1
