@@ -1,0 +1,5 @@
+# Local YOLO import: remaining production gates
+
+This milestone adds a local read-only label/image-pair inspector and a modality-safe mapping to observable PV classes. It does NOT decode images, validate image bytes or dimensions, import nested YOLO layouts, verify image/annotation coordinate alignment, perform full split audits, train weights, run inference, or authorize use of any public dataset. The training_allowed flag is only a preliminary license/mapping indicator, **not** production training readiness.
+
+Next steps: stream image headers with size and format caps; enforce strict image/label stem correspondence in both directions; bound directory scanning and total bytes; handle nested train/val/test paths safely; verify site/flight split provenance; require dataset integrity hashes and legal review; support manual class mapping approval; build isolated offline training/evaluation workflow. Thermal-to-RGB annotation transfer must wait for verified registration and expert confirmation. EL stays v2.

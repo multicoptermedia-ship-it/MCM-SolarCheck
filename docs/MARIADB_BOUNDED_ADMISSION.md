@@ -1,0 +1,7 @@
+# MariaDB-Staging: Migrationen und zwei Verarbeitungsplätze
+
+Der opt-in-Migrationsplan `MIGRATIONS` enthält die Versionen 1 (Projekte, Aufträge, Dateireferenzen) und 2 (zwei feste InnoDB-Slots). Die Planung führt **keine** SQL-Anweisungen aus. Ein späterer Migrations-Runner muss Versionen, DDL-Teilerfolge und gleichzeitige Deployments sicher behandeln; MariaDB-DDL ist nicht durchgängig transaktional.
+
+`MariaDBBoundedJobAdmission.claim` sperrt beide Slot-Zeilen mit `SELECT ... FOR UPDATE`, reserviert einen freien Slot und setzt den Job in derselben Transaktion auf `running`. Nur wenn beide UPDATEs exakt eine Zeile ändern, wird committet; sonst erfolgt Rollback. Der Aufrufer muss eine echte InnoDB-Verbindung mit deaktiviertem Autocommit bereitstellen. Für verteilte Worker ist dies die Grundlage einer maximalen Kapazität von zwei belegten Slots.
+
+**Offen:** Abschluss, Verlängerung und Wiederfreigabe müssen Slot und Job ebenfalls gemeinsam atomar behandeln. Abgelaufene Slots werden ausdrücklich **nicht** automatisch wiederverwendet, um keine fremden laufenden Arbeiten zu überholen. Der ältere alleinstehende `MariaDBJobLeaseAdapter` darf nicht parallel als produktiver Zulassungsweg verwendet werden, weil er die Slots nicht reserviert. Migrationen sind nicht angewendet; keine produktive Queue-Integration, kein Live-Zugriff auf IONOS, keine Zugangsdaten, keine Kosten und kein Merge nach `main`.

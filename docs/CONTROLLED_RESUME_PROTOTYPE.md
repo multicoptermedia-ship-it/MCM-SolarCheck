@@ -1,0 +1,7 @@
+# Controlled staged upload resume (prototype)
+
+`ResumeTransferCoordinator` is an **opt-in** service, not connected to the HTTP upload route or IONOS. It requires a caller-provided exclusive lock covering the entire transfer, verifies the complete local source and the remote prefix, then calls a transport-provided `append_chunks_if_size(staging_key, expected_offset, chunks)` operation. This transport operation **must** atomically reject any remote size other than the expected offset. After append, the coordinator reads back and checks the entire staged file against the manifest SHA-256 and size. Only then does it mark the manifest `verified`. It does **not** publish the file.
+
+A regular SFTP append or rename does not automatically provide these guarantees. No real SFTP transport currently implements `append_chunks_if_size`; the tests use fake transports. A process-local lock is insufficient for multiple hosts. Production requires cross-worker fencing, a trusted atomic conditional-append mechanism or an alternative immutable multipart protocol, and a crash-safe publication/commit reconciliation mechanism. Also required: timeouts, retries, quotas, cancellation, expiry and stale staging cleanup.
+
+A remote modification after final readback remains a risk until immutable staging or equivalent fenced publication is implemented. Source mutation during preflight and append must also be prevented by snapshotting or locking the source. Do not deploy this prototype with real customer files before these guarantees are met and staging has been tested explicitly.

@@ -1,0 +1,5 @@
+# Canonical reserved POSIX publication integration
+
+The local prototype now uses `CanonicalDescriptorPublisher` by default when `CanonicalReservedLocalPublication` is constructed without a custom publisher. This connects canonical server-generated paths, owner-scoped transfer checks, destination reservation, publication journal transitions, and descriptor-relative exclusive hard-link publication. Tests cover a successful flow, repeat request, wrong owner, destination outside root and intermediate symlink.
+
+**Not production-ready:** The reconciler still uses a pathname and can race with directory replacement; it is not descriptor-relative. The root's ancestors and source file are not fully pinned, and a hard-linked source inode remains writable to authorized processes. Journal/reservation/file publication are not atomic together, and a previously published journal state is not fresh proof of bytes. No remote SFTP exclusivity or fencing is implied. No online HTTP route, paid worker or IONOS deployment is activated. A later change must harden readback, source immutability, and recovery before production use.

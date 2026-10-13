@@ -1,0 +1,5 @@
+# Gemeinsame Browseroberfläche am authentifizierten Online-Server
+
+Die bereits bestehende Online-HTTP-Komposition liefert nun `GET /app` und `GET /api/runtime` nur nach Prüfung des vorhandenen Session-Cookies und der Kundenberechtigung aus. `/app` lädt **dieselbe** Datei `frontend/index.html` wie die Offline-Vorschau. Die Oberfläche liest die Projektliste in beiden Modi von `GET /api/projects`; im Online-Modus erzwingt diese Route erneut Session und kundengebundenen Projektzugriff. Die ursprüngliche Startseite `/` sowie die Registrierungs- und Verifizierungsrouten bleiben bestehen.
+
+Die Online-Vorschau (`python -m online.preview`) bleibt eine **nicht authentifizierte, funktionsarme Vorschau** und liefert keine Projektdaten. Für echte Online-Projekte muss der bestehende Online-HTTP-Server mit seinen Diensten verwendet werden. Die Oberfläche zeigt keine erfundenen Analysebefunde; Upload, Analyse und Bericht sind weiterhin nicht integriert. Es wurden keine Zahlungs- oder Demo-Berechtigungen verändert.
