@@ -46,8 +46,8 @@ def page_decoration(canvas, doc):
     canvas.setFillColor(colors.HexColor("#3c5367"))
     canvas.drawString(18 * mm, height - 10 * mm, "MCM-SolarCheck | Pruefbericht - Kundenmuster")
     canvas.line(18 * mm, 14 * mm, width - 18 * mm, 14 * mm)
-    canvas.drawString(18 * mm, 10 * mm, "DIN IEC/TS 62446-3: angelehnt, nicht normkonform")
-    canvas.drawRightString(width - 18 * mm, 10 * mm, f"Seite {doc.page}")
+    canvas.drawCentredString(width / 2, 10 * mm, "MCM-Solarcheck powered by MCM Dronetech GmbH")
+    canvas.drawRightString(width - 18 * mm, 10 * mm, str(doc.page))
     canvas.restoreState()
 
 
