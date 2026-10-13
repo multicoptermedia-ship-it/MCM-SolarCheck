@@ -1,7 +1,7 @@
 """In-memory local expert review draft; no implicit decisions or network writes."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from mcm_solarcheck.services.vertical_expert_review import ExpertReviewRecord
 from mcm_solarcheck.services.vertical_m3t_candidate_analysis import ImportedCandidateAnalysis
@@ -24,6 +24,25 @@ class LocalReviewDraft:
         if status not in ("accept", "reject"):
             raise ValueError("status must be accept or reject")
         self.decisions[finding_id] = status
+
+    def correct_ai_finding(self, finding_id: str, verified_label: str) -> None:
+        """Expert-supplied label; invalidate any prior decision on this finding."""
+        if finding_id not in self._ids:
+            raise KeyError("candidate does not belong to this analysis")
+        if not isinstance(verified_label, str) or not verified_label.strip():
+            raise ValueError("non-empty expert-verified label required")
+        if verified_label.strip() == "local_ai_suggestion_unverified":
+            raise ValueError("unverified AI label cannot be confirmed")
+        target = next(f for f in self.analysis.candidates if f.finding_id == finding_id)
+        if target.finding_type != "local_ai_suggestion_unverified":
+            raise ValueError("only unverified AI suggestions can be corrected")
+        updated = tuple(
+            replace(f, finding_type=verified_label.strip(), reviewer_status="unreviewed")
+            if f.finding_id == finding_id else f
+            for f in self.analysis.candidates
+        )
+        self.analysis = replace(self.analysis, candidates=updated)
+        self.decisions.pop(finding_id, None)
 
     @property
     def remaining(self) -> int:
