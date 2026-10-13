@@ -12,11 +12,12 @@ from mcm_solarcheck.services.vertical_review_view import candidate_review_rows
 class LocalReviewDraft:
     analysis: ImportedCandidateAnalysis
     decisions: dict[str, str] = field(default_factory=dict)
+    corrections: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         self._ids = frozenset(row.finding_id for row in candidate_review_rows(self.analysis))
-        if self.decisions:
-            raise ValueError("review draft must start without decisions")
+        if self.decisions or self.corrections:
+            raise ValueError("review draft must start without decisions or corrections")
 
     def decide(self, finding_id: str, status: str) -> None:
         if finding_id not in self._ids:
@@ -42,6 +43,7 @@ class LocalReviewDraft:
             for f in self.analysis.candidates
         )
         self.analysis = replace(self.analysis, candidates=updated)
+        self.corrections[finding_id] = verified_label.strip()
         self.decisions.pop(finding_id, None)
 
     @property
