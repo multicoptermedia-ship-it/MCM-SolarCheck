@@ -7,10 +7,11 @@ from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS project_geotiffs(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,source_path TEXT NOT NULL,source_kind TEXT NOT NULL,content_sha256 TEXT NOT NULL,crs TEXT NOT NULL,transform_json TEXT NOT NULL,width INTEGER NOT NULL,height INTEGER NOT NULL,nodata REAL,inspection_status TEXT NOT NULL DEFAULT 'metadata_only' CHECK(inspection_status = 'metadata_only'),created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(project_id,source_path));
 CREATE TABLE IF NOT EXISTS projects(project_id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS project_owners(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,customer_id TEXT NOT NULL,capacity_kwp TEXT NOT NULL);\nCREATE INDEX IF NOT EXISTS idx_project_owners_customer ON project_owners(customer_id,project_id);\nCREATE TABLE IF NOT EXISTS project_profiles(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,customer_name TEXT NOT NULL,site_name TEXT NOT NULL,site_street TEXT NOT NULL,site_postal_code TEXT NOT NULL,site_city TEXT NOT NULL,inspector TEXT NOT NULL,customer_contact TEXT,customer_street TEXT,customer_postal_code TEXT,customer_city TEXT,customer_email TEXT,customer_phone TEXT,customer_reference TEXT,order_reference TEXT,site_timezone TEXT);
 CREATE TABLE IF NOT EXISTS image_frames(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,frame_id TEXT NOT NULL,source_file TEXT NOT NULL,timestamp_utc TEXT,camera_make TEXT,camera_model TEXT,width INTEGER,height INTEGER,latitude REAL,longitude REAL,altitude_m REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,frame_id));
 CREATE TABLE IF NOT EXISTS thermal_frames(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,frame_id TEXT NOT NULL,source_file TEXT NOT NULL,timestamp_utc TEXT,camera_make TEXT,camera_model TEXT,width INTEGER,height INTEGER,latitude REAL,longitude REAL,altitude_m REAL,rtk_status TEXT,rtk_std_lat_m REAL,rtk_std_lon_m REAL,rtk_std_height_m REAL,rtk_correction_age_s REAL,rtk_altitude_type TEXT,thermal_source TEXT NOT NULL,quality_grade TEXT,raw_min INTEGER,raw_max INTEGER,raw_mean REAL,raw_median REAL,raw_p95 REAL,raw_p99 REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,frame_id));
@@ -111,6 +112,20 @@ def _migrate_13_to_14(db:sqlite3.Connection)->None:
     db.execute("UPDATE schema_info SET version=14")
 
 
+def _migrate_16_to_17(db:sqlite3.Connection)->None:
+    """Add unapproved, project-scoped GIS artifact provenance."""
+    db.execute("""CREATE TABLE project_geotiffs(
+        project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+        source_path TEXT NOT NULL,source_kind TEXT NOT NULL,content_sha256 TEXT NOT NULL,
+        crs TEXT NOT NULL,transform_json TEXT NOT NULL,width INTEGER NOT NULL,
+        height INTEGER NOT NULL,nodata REAL,
+        inspection_status TEXT NOT NULL DEFAULT 'metadata_only' CHECK(inspection_status = 'metadata_only'),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(project_id,source_path)
+    )""")
+    db.execute("UPDATE schema_info SET version=17")
+
+
 class ProjectDatabase:
     def __init__(self,path:str|Path)->None:self.path=Path(path)
     @contextmanager
@@ -144,6 +159,9 @@ class ProjectDatabase:
                 if version == 15:
                     _migrate_15_to_16(db)
                     version=16
+                if version == 16:
+                    _migrate_16_to_17(db)
+                    version=17
                 if version != SCHEMA_VERSION:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
