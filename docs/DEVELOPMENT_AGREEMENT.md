@@ -58,3 +58,11 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - Aktuelle Runde: CI Python 3.11/3.12 noch **nicht bestätigt**. Bei Fehlern zuerst Workflow-Logs prüfen und gezielt korrigieren; keine stillschweigende Freigabe.
 - Nächster Fünferblock nach grüner CI: synthetische Translationen mit echten gemeinsamen Bildmerkmalen, Residualmetadaten/Transform-Provenienz, Driftbegrenzung ohne wiederholtes Resampling, persistente Projektartefakte und sichere Offline-Desktop-Einbindung.
 - Vorhandene Import-, KI-`pending`-, Expertenreview- und Bericht-/Exportgates bleiben unverändert. Kein Kundenbild wird an externe Dienste übertragen.
+
+## Übergabe 15. Oktober 2026 – RGB-Registrierungsprovenienz, Fünferblock
+- Branch: `feature/block38-offline-ai-ingestion-tests`; `main` und PRs unverändert. Voriger Qualitätsblock bis `df023ca` ist durch GitHub Actions Run 38765459779 grün bestätigt.
+- Fünf Schritte dieser Runde: `5e04f87` (medianer Inlier-Reprojektionsfehler im Ergebnis), `b57004f` (synthetischer Test mit tatsächlich versetzten Ausschnitten), `c96aeca` (lokales JSON-Provenienzmanifest), `e3d7c81` (Manifest-/Pfadschutztests), dieser Dokumentationscommit.
+- Ergebnisstatus bleibt ausdrücklich `unverified_preview` und `verified_orthomosaic=False`. Die gemessene Canvas-Abdeckung ist keine Fluggebiets-/Modulabdeckung. Das Residuum beschreibt nur den letzten verarbeiteten Bildpaar-Schritt, nicht eine globale Genauigkeitsprüfung.
+- CI für **diese Runde noch nicht bestätigt**. Insbesondere den neuen Test mit verschobenen Ausschnitten unter Python 3.11 und 3.12 prüfen. Bei Rot zuerst Logs auswerten und Fehler beheben, nicht Gates abschwächen.
+- Offene Kernaufgaben: Transformationen und per-frame Masken über alle Bilder aufbewahren; mehrfache Resampling-Schritte vermeiden; globale Drift prüfen; Metadaten und Vorschau als Projektartefakt in den echten Offline-Desktop-Workflow integrieren; Modulflächenentzerrung und georeferenzierte Orthofotoprüfung erst nach belastbaren Daten.
+- Kundenbilder bleiben lokal; keine automatische Expertenfreigabe, keine ungesicherten Temperatur- oder Normkonformitätsbehauptungen.
