@@ -115,3 +115,50 @@ def test_geotiff_registration_button_invokes_explicit_user_selection(qapp):
     assert button is not None and button.isEnabled()
     button.click()
     assert selected == ["/local/example.tif"]
+
+
+def test_registered_geotiff_is_visible_after_desktop_reopen(tmp_path, qapp):
+    import numpy as np
+    from PySide6.QtWidgets import QLabel
+    from mcm_solarcheck.offline.composition import build_offline_services
+    from mcm_solarcheck.gui.shell import SolarCheckMainWindow
+    from mcm_solarcheck.services.deployment import DeploymentMode
+    from mcm_solarcheck.services.shell_navigation import ShellRoute
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import (
+        GeoTIFFSpatialReference, write_georeferenced_rgb_geotiff,
+    )
+
+    db_path = tmp_path / "desktop.sqlite"
+    service = build_offline_services(db_path).projects
+    service.create_project("P1", "Erstes Projekt")
+    service.create_project("P2", "Zweites Projekt")
+    reference = GeoTIFFSpatialReference(
+        "EPSG:25832", (0.1, 0, 350000, 0, -0.1, 5650000), 2, 3
+    )
+    source = write_georeferenced_rgb_geotiff(
+        np.zeros((3, 2, 3), dtype=np.uint8),
+        tmp_path / "ortho.tif", reference, georeferencing_verified=True,
+    )
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP, project_service=service)
+    window._open_project("P1")
+    before = service.state("P1")
+    window._register_project_geotiff(str(source))
+    label = window._pages[ShellRoute.IMPORT].findChild(QLabel, "registered_geotiff_artifacts")
+    assert "ortho.tif" in label.text()
+    assert "nicht fachlich" in label.text()
+    assert service.state("P1") == before
+
+    reopened = SolarCheckMainWindow(
+        DeploymentMode.OFFLINE_DESKTOP,
+        project_service=build_offline_services(db_path).projects,
+    )
+    reopened._open_project("P1")
+    persisted = reopened._pages[ShellRoute.IMPORT].findChild(
+        QLabel, "registered_geotiff_artifacts"
+    )
+    assert "ortho.tif" in persisted.text()
+    reopened._open_project("P2")
+    isolated = reopened._pages[ShellRoute.IMPORT].findChild(
+        QLabel, "registered_geotiff_artifacts"
+    )
+    assert "ortho.tif" not in isolated.text()
