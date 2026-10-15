@@ -139,3 +139,9 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - Bestehende Datenbanken v16 werden migriert. Tests prüfen echten Offline-SQLite-Neustart und dass P2 keine Artefakte von P1 sieht.
 - **Noch offen:** Desktop-Schaltfläche für explizite Registrierung (bisher nur Inspektion in GUI), Provenienzansicht, Abgleich gespeicherter Hashes bei erneutem Öffnen, atomare Datei-/Metadatenbindung, Lösch-/Umzugsfälle, große Dateien und Windows-Pfade. Es werden Referenzen auf externe Dateien gespeichert, keine Bilddateien kopiert.
 - CI für diesen Block noch nicht bestätigt. Nach CI-Überprüfung Fehler korrigieren. Nächster Fünferblock: Registrierung mit ausdrücklicher Nutzeraktion in der Desktop-Importseite und persistierte Projekt-Artefaktliste anzeigen; niemals stillschweigend fachlich freigeben.
+
+## CI-Nachbesserung – SQLite v17
+- Der Fünferblock bis `86e4bb1` war **rot**: 6 Fehler bei 2868 bestandenen Tests (Python 3.11). Vier ältere Migrationstests erwarteten weiterhin Version 16, zwei synthetische Rückmigrationstests hatten `project_geotiffs` bereits angelegt.
+- Korrekturcommits: `87f7783` (idempotentes `CREATE TABLE IF NOT EXISTS` in v16→17), `d746d3c`, `93bdba3`, `7abe67d` (Erwartung Schema v17 in den älteren Migrationstests), dieser Dokumentationscommit.
+- **CI noch ausstehend**: neueste GitHub-Actions-Läufe prüfen. Falls weiterhin rot, Logs auswerten, keine neuen Features vor grünem Stand.
+- Die v17-Migration bewahrt bestehende Tabellen und setzt nur das Schema-Flag fort. Keine fachliche GeoTIFF-Freigabe.
