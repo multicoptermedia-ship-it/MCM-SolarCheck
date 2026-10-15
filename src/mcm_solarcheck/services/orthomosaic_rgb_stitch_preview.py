@@ -227,6 +227,11 @@ def save_rgb_preview_artifacts(
         raise ValueError("source_names must be safe basenames")
     if not math.isfinite(preview.covered_fraction) or not 0 <= preview.covered_fraction <= 1:
         raise ValueError("invalid canvas coverage")
+    if preview.median_reprojection_error_px is not None and (
+        not math.isfinite(preview.median_reprojection_error_px)
+        or preview.median_reprojection_error_px < 0
+    ):
+        raise ValueError("invalid reprojection error")
     if preview.verified_orthomosaic:
         raise ValueError("verified orthomosaics require separate export")
     saved_image = save_rgb_stitch_preview(preview, image_path)
