@@ -102,3 +102,42 @@ def save_rgb_stitch_preview(preview: RGBStitchPreview, output_path: str | Path) 
     if not cv2.imwrite(str(path), preview.image):
         raise OSError("could not write RGB preview")
     return path
+
+
+def stitch_rgb_series_preview(
+    image_paths: tuple[str | Path, ...],
+    *,
+    max_frames: int = 8,
+    max_side: int = 1400,
+    max_canvas_pixels: int = 12_000_000,
+    minimum_inliers: int = 20,
+) -> RGBStitchPreview:
+    """Sequentially stitch a small local series; diagnostic preview only.
+
+    This intentionally does not claim flight-wide coverage or georectification.
+    Every adjacent composition must pass the existing pixel-overlap gate.
+    """
+    from tempfile import TemporaryDirectory
+
+    if not 2 <= max_frames <= 32:
+        raise ValueError("max_frames must be between 2 and 32")
+    if not 2 <= len(image_paths) <= max_frames:
+        raise ValueError("RGB series frame count outside configured limit")
+    paths = tuple(Path(path) for path in image_paths)
+    if len(set(paths)) != len(paths):
+        raise ValueError("RGB series must contain distinct input paths")
+    with TemporaryDirectory(prefix="mcm-rgb-preview-") as directory:
+        result = stitch_rgb_preview(
+            paths[0], paths[1], max_side=max_side,
+            max_canvas_pixels=max_canvas_pixels, minimum_inliers=minimum_inliers,
+        )
+        min_pair_inliers = result.inliers
+        for index, path in enumerate(paths[2:], start=2):
+            previous = Path(directory) / f"stage-{index}.png"
+            save_rgb_stitch_preview(result, previous)
+            result = stitch_rgb_preview(
+                previous, path, max_side=max_side,
+                max_canvas_pixels=max_canvas_pixels, minimum_inliers=minimum_inliers,
+            )
+            min_pair_inliers = min(min_pair_inliers, result.inliers)
+    return RGBStitchPreview(result.image, min_pair_inliers)
