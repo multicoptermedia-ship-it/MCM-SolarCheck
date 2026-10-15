@@ -21,3 +21,23 @@ def test_imported_pose_does_not_imply_roof_slope_or_approval():
     )
     assert complete.metadata_complete
     assert not complete.ready_for_reconstruction
+
+
+def test_imported_frame_batch_preserves_order_and_rejects_missing_pose():
+    from types import SimpleNamespace
+    import pytest
+    from mcm_solarcheck.services.module_plane_pose_adapter import (
+        assess_imported_frames_for_module,
+    )
+    frames = (
+        SimpleNamespace(camera_pose=Pose(yaw_deg=30, pitch_deg=-80, roll_deg=0)),
+        SimpleNamespace(camera_pose=Pose(yaw_deg=30, pitch_deg=None, roll_deg=0)),
+    )
+    plane = ModulePlane(25, 180, "survey", "measured")
+    results = assess_imported_frames_for_module(frames, plane)
+    assert len(results) == 2
+    assert results[0].metadata_complete
+    assert not results[1].metadata_complete
+    assert not any(result.ready_for_reconstruction for result in results)
+    with pytest.raises(TypeError, match="camera_pose"):
+        assess_imported_frames_for_module((SimpleNamespace(),), plane)
