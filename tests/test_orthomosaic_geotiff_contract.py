@@ -52,3 +52,35 @@ def test_rotated_geotiff_footprint_is_not_assumed_axis_aligned():
     corners = geotiff_world_corners(reference(width=2, height=3,
         transform=(2., 1., 100., -1., -4., 200.)))
     assert corners == ((100., 200.), (104., 198.), (107., 186.), (103., 188.))
+
+
+def test_geotiff_writer_requires_explicit_verified_georeferencing(tmp_path):
+    import numpy as np
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import (
+        write_georeferenced_rgb_geotiff,
+    )
+    rgb = np.zeros((3, 2, 3), dtype=np.uint8)
+    ref = reference(width=2, height=3)
+    with pytest.raises(ValueError, match="verified georeferencing"):
+        write_georeferenced_rgb_geotiff(rgb, tmp_path / "unsafe.tif", ref)
+    assert not (tmp_path / "unsafe.tif").exists()
+
+
+def test_geotiff_writer_roundtrips_in_rasterio(tmp_path):
+    import numpy as np
+    import rasterio
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import (
+        write_georeferenced_rgb_geotiff,
+    )
+    rgb = np.zeros((3, 2, 3), dtype=np.uint8)
+    rgb[1, 0] = [25, 100, 200]
+    ref = reference(width=2, height=3)
+    target = write_georeferenced_rgb_geotiff(
+        rgb, tmp_path / "verified.tif", ref, georeferencing_verified=True,
+    )
+    with rasterio.open(target) as dataset:
+        assert dataset.driver == "GTiff"
+        assert dataset.crs.to_epsg() == 25832
+        assert tuple(dataset.transform)[:6] == ref.transform
+        assert (dataset.width, dataset.height, dataset.count) == (2, 3, 3)
+        assert [dataset.read(i)[1, 0] for i in (1, 2, 3)] == [25, 100, 200]
