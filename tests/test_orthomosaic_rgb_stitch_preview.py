@@ -122,7 +122,7 @@ def test_manifest_contains_explicit_unverified_provenance(tmp_path):
     assert data["canvas_covered_fraction"] == 0.85
     assert data["last_pair_median_reprojection_error_px"] == 0.7
     with pytest.raises(ValueError, match="safe basenames"):
-        save_rgb_preview_manifest(preview, tmp_path / "bad.json", source_names=("../private.png",))
+        save_rgb_preview_manifest(preview, tmp_path / "bad.json", source_names=("../private.png", "b.png"))
 
 
 def test_paired_artifacts_written_locally_and_not_overwritten(tmp_path):
