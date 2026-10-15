@@ -123,3 +123,40 @@ def test_manifest_contains_explicit_unverified_provenance(tmp_path):
     assert data["last_pair_median_reprojection_error_px"] == 0.7
     with pytest.raises(ValueError, match="safe basenames"):
         save_rgb_preview_manifest(preview, tmp_path / "bad.json", source_names=("../private.png",))
+
+
+def test_paired_artifacts_written_locally_and_not_overwritten(tmp_path):
+    import json
+    from mcm_solarcheck.services.orthomosaic_rgb_stitch_preview import (
+        RGBStitchPreview, save_rgb_preview_artifacts,
+    )
+    preview = RGBStitchPreview(
+        np.zeros((48, 64, 3), dtype=np.uint8), 24,
+        covered_fraction=1.0, median_reprojection_error_px=0.2,
+    )
+    image, manifest = save_rgb_preview_artifacts(
+        preview, tmp_path, source_names=("frame-1.png", "frame-2.png"),
+    )
+    assert image.is_file() and manifest.is_file()
+    assert cv2.imread(str(image)).shape == (48, 64, 3)
+    assert json.loads(manifest.read_text(encoding="utf-8"))["verified_orthomosaic"] is False
+    with pytest.raises(FileExistsError):
+        save_rgb_preview_artifacts(preview, tmp_path, source_names=("frame-1.png",))
+
+
+def test_manifest_rejects_nan_and_infinite_diagnostics(tmp_path):
+    from mcm_solarcheck.services.orthomosaic_rgb_stitch_preview import (
+        RGBStitchPreview, save_rgb_preview_manifest,
+    )
+    for value in (float("nan"), float("inf"), -0.1):
+        preview = RGBStitchPreview(np.zeros((16, 16, 3), dtype=np.uint8), 20,
+                                   covered_fraction=value)
+        with pytest.raises(ValueError, match="coverage"):
+            save_rgb_preview_manifest(preview, tmp_path / "invalid.json",
+                                      source_names=("frame.png",))
+    preview = RGBStitchPreview(np.zeros((16, 16, 3), dtype=np.uint8), 20,
+                               covered_fraction=1.0,
+                               median_reprojection_error_px=float("nan"))
+    with pytest.raises(ValueError, match="reprojection"):
+        save_rgb_preview_manifest(preview, tmp_path / "invalid.json",
+                                  source_names=("frame.png",))
