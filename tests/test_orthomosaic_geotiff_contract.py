@@ -38,3 +38,17 @@ def test_target_must_be_tiff_and_must_not_overwrite(tmp_path):
     existing.write_bytes(b"not a geotiff")
     with pytest.raises(FileExistsError):
         require_geotiff_export_target(existing, reference())
+
+
+def test_world_corners_follow_declared_affine_reference():
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import geotiff_world_corners
+    corners = geotiff_world_corners(reference(width=2, height=3,
+        transform=(2., 0., 100., 0., -4., 200.)))
+    assert corners == ((100., 200.), (104., 200.), (104., 188.), (100., 188.))
+
+
+def test_rotated_geotiff_footprint_is_not_assumed_axis_aligned():
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import geotiff_world_corners
+    corners = geotiff_world_corners(reference(width=2, height=3,
+        transform=(2., 1., 100., -1., -4., 200.)))
+    assert corners == ((100., 200.), (104., 198.), (107., 186.), (103., 188.))
