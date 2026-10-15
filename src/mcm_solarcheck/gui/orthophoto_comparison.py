@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QLabel, QSlider, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QPushButton, QScrollArea, QSlider, QHBoxLayout, QVBoxLayout, QWidget
 
 
 def _pixmap_from_rgb(rgb: np.ndarray) -> QPixmap:
@@ -30,6 +30,7 @@ class OrthophotoComparisonWidget(QWidget):
             raise ValueError("Thermal layer must match aligned RGB grid")
         self._rgb = rgb.copy()
         self._thermal = thermal.astype(np.float32, copy=True)
+        self._zoom = 1.0
         self._label = QLabel(self)
         self._label.setObjectName("orthophoto_comparison_image")
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -39,9 +40,28 @@ class OrthophotoComparisonWidget(QWidget):
         self._slider.setValue(50)
         self._slider.valueChanged.connect(self._update_image)
         layout = QVBoxLayout(self)
-        layout.addWidget(self._label)
+        self._scroll = QScrollArea(self)
+        self._scroll.setObjectName('orthophoto_comparison_scroll_area')
+        self._scroll.setWidgetResizable(False)
+        self._scroll.setWidget(self._label)
+        layout.addWidget(self._scroll)
+        controls = QHBoxLayout()
+        for title, factor, name in (('−', 0.8, 'orthophoto_zoom_out'), ('+', 1.25, 'orthophoto_zoom_in')):
+            button = QPushButton(title, self)
+            button.setObjectName(name)
+            button.clicked.connect(lambda checked=False, f=factor: self._set_zoom(self._zoom * f))
+            controls.addWidget(button)
+        reset = QPushButton('100 %', self)
+        reset.setObjectName('orthophoto_zoom_reset')
+        reset.clicked.connect(lambda: self._set_zoom(1.0))
+        controls.addWidget(reset)
+        layout.addLayout(controls)
         layout.addWidget(QLabel("RGB ← Ebenenüberblendung → Thermal", self))
         layout.addWidget(self._slider)
+        self._update_image()
+
+    def _set_zoom(self, value: float):
+        self._zoom = max(0.25, min(4.0, value))
         self._update_image()
 
     def _update_image(self, *_args):
@@ -63,4 +83,7 @@ class OrthophotoComparisonWidget(QWidget):
             + thermal_rgb.astype(np.float32) * weights,
             0, 255,
         ).astype(np.uint8)
-        self._label.setPixmap(_pixmap_from_rgb(composed))
+        pixmap = _pixmap_from_rgb(composed)
+        size = pixmap.size() * self._zoom
+        self._label.setPixmap(pixmap.scaled(size, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        self._label.resize(size)
