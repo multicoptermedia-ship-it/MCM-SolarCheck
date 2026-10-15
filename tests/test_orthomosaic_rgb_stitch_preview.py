@@ -102,3 +102,24 @@ def test_shifted_rgb_crops_with_real_shared_pixels(tmp_path):
     assert result.median_reprojection_error_px is not None
     assert result.median_reprojection_error_px <= 3.0
     assert result.verified_orthomosaic is False
+
+
+def test_manifest_contains_explicit_unverified_provenance(tmp_path):
+    import json
+    from mcm_solarcheck.services.orthomosaic_rgb_stitch_preview import (
+        RGBStitchPreview, save_rgb_preview_manifest,
+    )
+    preview = RGBStitchPreview(
+        np.zeros((32, 48, 3), dtype=np.uint8), 31,
+        covered_fraction=0.85, median_reprojection_error_px=0.7,
+    )
+    manifest = save_rgb_preview_manifest(
+        preview, tmp_path / "preview.json", source_names=("a.png", "b.png"),
+    )
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    assert data["verified_orthomosaic"] is False
+    assert data["status"] == "unverified_preview"
+    assert data["canvas_covered_fraction"] == 0.85
+    assert data["last_pair_median_reprojection_error_px"] == 0.7
+    with pytest.raises(ValueError, match="safe basenames"):
+        save_rgb_preview_manifest(preview, tmp_path / "bad.json", source_names=("../private.png",))
