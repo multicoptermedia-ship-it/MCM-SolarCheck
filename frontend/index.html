@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MCM SolarCheck</title><style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#172b43;background:#f5f8fc}*{box-sizing:border-box}body{margin:0}header{background:#102c4a;color:white;padding:22px max(24px,calc((100vw - 1100px)/2))}header strong{font-size:24px}main{max-width:1100px;margin:32px auto;padding:0 24px}.panel{background:white;border:1px solid #d9e3ef;border-radius:14px;padding:24px;margin-bottom:18px}.muted{color:#576c80}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.metric{background:#f2f6fb;padding:18px;border-radius:10px}.metric b{display:block;font-size:25px}button{border:0;border-radius:8px;padding:12px 18px;background:#175e95;color:white;cursor:pointer}button:disabled{background:#9aa9b7;cursor:not-allowed}.tag{background:#e9f0f7;color:#214e73;border-radius:99px;padding:5px 10px;font-size:12px}.notice{border-left:4px solid #e7a33d;padding-left:14px}.hide{display:none}
-.ortho-stage{position:relative;width:100%;max-width:900px;aspect-ratio:4/3;overflow:hidden;background:#e8edf3;border:1px solid #bdcddd;border-radius:10px;touch-action:pan-y}.ortho-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.ortho-thermal{clip-path:inset(0 50% 0 0)}.ortho-divider{position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;box-shadow:0 0 0 1px #263c50;pointer-events:none}.ortho-controls{display:flex;align-items:center;gap:12px;margin-top:12px}.ortho-controls input{flex:1}.ortho-stage[hidden]{display:none}</style></head><body><header><strong>MCM SolarCheck</strong> <span class="tag" id="mode">Modus wird geladen</span></header><main>
+.ortho-stage{position:relative;width:100%;max-width:900px;aspect-ratio:4/3;overflow:hidden;background:#e8edf3;border:1px solid #bdcddd;border-radius:10px;touch-action:pan-y}.ortho-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.ortho-thermal{clip-path:inset(0 50% 0 0)}.ortho-divider{position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;box-shadow:0 0 0 1px #263c50;pointer-events:none}.ortho-controls{display:flex;align-items:center;gap:12px;margin-top:12px}.ortho-controls input{flex:1}.ortho-stage[hidden]{display:none}.ortho-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none}.ortho-layer img{transform-origin:center center;will-change:transform}.ortho-thermal-layer{clip-path:inset(0 50% 0 0)}.ortho-stage{touch-action:none;cursor:grab}.ortho-stage.is-dragging{cursor:grabbing}.ortho-controls button:disabled{opacity:.55;cursor:not-allowed}</style></head><body><header><strong>MCM SolarCheck</strong> <span class="tag" id="mode">Modus wird geladen</span></header><main>
 <section class="panel"><h1>PV-Anlagenprüfung</h1><p class="muted">Eine Oberfläche für die Online- und Offline-Anwendung. Analyseergebnisse stammen ausschließlich aus verifizierten Backend-Daten.</p><p id="status" role="status">Verbindung wird geprüft …</p></section>
 <section class="panel"><h2>Gespeicherte Projekte</h2><p id="projects-status" role="status">Projektliste wird geladen …</p><ul id="projects-list"></ul></section>\n<section class="grid"><div class="panel"><h2>Projekt &amp; Import</h2><p>RGB- und Thermaldaten für eine Analyse vorbereiten.</p><div id="upload-controls" class="hide"><label for="upload-project">Projekt</label> <select id="upload-project"></select> <label for="upload-file">RGB-/Thermaldatei</label> <input id="upload-file" type="file" accept=".jpg,.jpeg,.png,.tif,.tiff,.rjpg,.m3t,image/jpeg,image/png,image/tiff"> <label style="display:block;margin:12px 0"><input id="training-consent" type="checkbox"> Ich willige freiwillig ein, dass ausgewählte Projektbilder zum Training und zur Verbesserung der SolarCheck-KI verwendet werden. Die Einwilligung ist nicht für die Analyse erforderlich und kann mit Wirkung für die Zukunft widerrufen werden. Weitere Informationen enthält die Datenschutzerklärung.</label> <button id="consent-withdraw-button" type="button">KI-Trainingseinwilligung widerrufen</button> <button id="upload-button" type="button">Datei hochladen</button><p id="upload-status" role="status"></p></div><p id="upload-unavailable">Upload wird für diesen Modus noch angebunden.</p></div><div class="panel"><h2>Analyse</h2><p>Hotspots, Module und mögliche Fehler in der Anlagenübersicht.</p><div id="processing-controls" class="hide"><button id="processing-button" type="button">Verarbeitung starten</button> <button id="job-status-button" type="button" disabled>Auftragsstatus prüfen</button> <button id="job-retry-button" type="button" disabled>Wartenden Auftrag starten</button><p id="processing-status" role="status"></p></div><p id="processing-unavailable">Verarbeitung benötigt einen zuvor serverseitig angelegten Auftrag.</p></div></section>
 <section class="panel"><h2>Ergebnisübersicht</h2><div class="grid"><div class="metric"><b>—</b>Analysierte Module</div><div class="metric"><b>—</b>Hotspots</div><div class="metric"><b>—</b>Fehlerhinweise</div></div><p class="muted">Noch keine Ergebnisse geladen. Es werden keine Demo-Befunde erfunden.</p></section>
 <section class="panel" id="ortho-preflight"><h2>Orthofoto-Aufnahmeprüfung</h2><p id="ortho-preflight-status" role="status">Bildüberlappung wurde noch nicht geprüft.</p><div id="ortho-angle-panel" hidden><label for="ortho-manual-angle">Bitte Kamerawinkel in Bezug zum Solarmodul eingeben.</label><p class="muted">90° = senkrecht zur Modulfläche. Der Wert ersetzt keine vollständige Kameraorientierung.</p><input id="ortho-manual-angle" type="number" min="0" max="90" step="0.1" placeholder="90" aria-describedby="ortho-angle-feedback"><label for="ortho-angle-scope">Gültig für</label><select id="ortho-angle-scope"><option value="series">Bildserie</option><option value="image">Einzelbild</option></select><p id="ortho-angle-feedback" role="status">Manuelle Angaben werden erst nach Anbindung der Projekt-API gespeichert.</p></div></section>
-<section class="panel" id="orthomosaic-viewer"><h2>RGB-/Thermal-Orthofoto-Vergleich</h2><p class="muted">Beide Orthofotos müssen geometrisch registriert und vom Backend freigegeben sein. Thermalfarben sind keine Temperaturmessung.</p><p id="ortho-status" role="status">Noch keine geprüften Orthofotos für dieses Projekt geladen.</p><div class="ortho-stage" id="ortho-stage" hidden><img id="ortho-rgb" alt="RGB-Orthofoto der PV-Anlage"><img class="ortho-thermal" id="ortho-thermal" alt="Thermal-Orthofoto der PV-Anlage"><div class="ortho-divider" id="ortho-divider" aria-hidden="true"></div></div><div class="ortho-controls"><label for="ortho-reveal">Thermal-Vergleich</label><input type="range" id="ortho-reveal" min="0" max="100" value="50" disabled aria-label="Thermal-Orthofoto sichtbar in Prozent"><output id="ortho-percent" for="ortho-reveal">50 %</output></div><p class="muted">Die interaktive Ansicht wird aktiviert, sobald ein geprüftes RGB-/Thermal-Orthofoto-Paar verfügbar ist. Keine Demo-Bilder.</p></section>
+<section class="panel" id="orthomosaic-viewer"><h2>RGB-/Thermal-Orthofoto-Vergleich</h2><p class="muted">Beide Orthofotos müssen geometrisch registriert und vom Backend freigegeben sein. Thermalfarben sind keine Temperaturmessung.</p><p id="ortho-status" role="status">Noch keine geprüften Orthofotos für dieses Projekt geladen.</p><div class="ortho-stage" id="ortho-stage" hidden aria-label="Synchronisierter RGB-/Thermal-Orthofoto-Vergleich"><div class="ortho-layer"><img id="ortho-rgb" alt="RGB-Orthofoto der PV-Anlage" draggable="false"></div><div class="ortho-layer ortho-thermal-layer" id="ortho-thermal-layer"><img id="ortho-thermal" alt="Thermal-Orthofoto der PV-Anlage" draggable="false"></div><div class="ortho-divider" id="ortho-divider" aria-hidden="true"></div></div><div class="ortho-controls"><label for="ortho-reveal">Thermal-Vergleich</label><input type="range" id="ortho-reveal" min="0" max="100" value="50" disabled aria-label="Thermal-Orthofoto sichtbar in Prozent"><output id="ortho-percent" for="ortho-reveal">50 %</output><button type="button" id="ortho-zoom-out" disabled aria-label="Orthofoto verkleinern">−</button><output id="ortho-zoom-level" aria-live="polite">100 %</output><button type="button" id="ortho-zoom-in" disabled aria-label="Orthofoto vergrößern">+</button><button type="button" id="ortho-zoom-reset" disabled>Ansicht zurücksetzen</button></div><p class="muted">Die interaktive Ansicht wird aktiviert, sobald ein geprüftes RGB-/Thermal-Orthofoto-Paar verfügbar ist. Keine Demo-Bilder.</p></section>
 <section class="panel" id="report"><h2>Prüfbericht und Export</h2><p id="report-message"></p><button disabled title="Berichts-API noch nicht angebunden">Bericht öffnen (in Vorbereitung)</button></section>
 <section class="panel notice"><strong>Fachlicher Hinweis</strong><p>KI-Ergebnisse sind Hinweise und ersetzen keine fachkundige Prüfung. Demo-Nutzer erhalten keine Bericht- oder Exportberechtigung.</p></section>
 </main><script>
@@ -30,9 +30,36 @@ document.getElementById('processing-button').addEventListener('click',async()=>{
   const stage=document.getElementById('ortho-stage');
   const status=document.getElementById('ortho-status');
   const percent=document.getElementById('ortho-percent');
+  const thermalLayer=document.getElementById('ortho-thermal-layer');
+  const zoomIn=document.getElementById('ortho-zoom-in');
+  const zoomOut=document.getElementById('ortho-zoom-out');
+  const zoomReset=document.getElementById('ortho-zoom-reset');
+  const zoomLevel=document.getElementById('ortho-zoom-level');
+  let scale=1, offsetX=0, offsetY=0, dragging=null;
+  function renderTransform(){
+    const transform='translate('+offsetX+'px,'+offsetY+'px) scale('+scale+')';
+    rgb.style.transform=transform;thermal.style.transform=transform;
+    zoomLevel.textContent=Math.round(scale*100)+' %';
+    zoomOut.disabled=stage.hidden||scale<=1;
+    zoomIn.disabled=stage.hidden||scale>=8;
+    zoomReset.disabled=stage.hidden||(scale===1&&offsetX===0&&offsetY===0);
+  }
+  function zoomTo(next){
+    scale=Math.max(1,Math.min(8,Math.round(next*100)/100));
+    if(scale===1){offsetX=0;offsetY=0;}
+    renderTransform();
+  }
+  zoomIn.addEventListener('click',()=>zoomTo(scale*1.25));
+  zoomOut.addEventListener('click',()=>zoomTo(scale/1.25));
+  zoomReset.addEventListener('click',()=>{offsetX=0;offsetY=0;zoomTo(1);});
+  stage.addEventListener('wheel',event=>{if(stage.hidden)return;event.preventDefault();zoomTo(scale*(event.deltaY<0?1.15:1/1.15));},{passive:false});
+  stage.addEventListener('pointerdown',event=>{if(stage.hidden||scale<=1)return;dragging={id:event.pointerId,x:event.clientX,y:event.clientY};stage.setPointerCapture(event.pointerId);stage.classList.add('is-dragging');});
+  stage.addEventListener('pointermove',event=>{if(!dragging||dragging.id!==event.pointerId)return;offsetX+=event.clientX-dragging.x;offsetY+=event.clientY-dragging.y;dragging.x=event.clientX;dragging.y=event.clientY;renderTransform();});
+  function stopDrag(event){if(dragging&&dragging.id===event.pointerId){dragging=null;stage.classList.remove('is-dragging');}}
+  stage.addEventListener('pointerup',stopDrag);stage.addEventListener('pointercancel',stopDrag);
   function reveal(){
     const value=Math.max(0,Math.min(100,Number(slider.value)));
-    thermal.style.clipPath='inset(0 '+(100-value)+'% 0 0)';
+    thermalLayer.style.clipPath='inset(0 '+(100-value)+'% 0 0)';
     divider.style.left=value+'%';
     percent.textContent=value+' %';
   }
@@ -49,16 +76,16 @@ document.getElementById('processing-button').addEventListener('click',async()=>{
       || !validUrl(manifest.rgb_url) || !validUrl(manifest.thermal_url)
       || typeof manifest.registration_reference!=='string'
       || !manifest.registration_reference.trim()){
-      stage.hidden=true;slider.disabled=true;
+      stage.hidden=true;slider.disabled=true;renderTransform();
       status.textContent='Orthofotos nicht freigegeben oder Registrierung unvollständig.';
       return false;
     }
     rgb.src=manifest.rgb_url;thermal.src=manifest.thermal_url;
     rgb.onerror=thermal.onerror=function(){
-      stage.hidden=true;slider.disabled=true;
+      stage.hidden=true;slider.disabled=true;renderTransform();
       status.textContent='Orthofoto konnte nicht geladen werden.';
     };
-    stage.hidden=false;slider.disabled=false;
+    stage.hidden=false;slider.disabled=false;offsetX=0;offsetY=0;zoomTo(1);
     status.textContent='Registrierte Orthofotos bereit. Thermalfarben sind nur eine Visualisierung.';
     reveal();return true;
   };
