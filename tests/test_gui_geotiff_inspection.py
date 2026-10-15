@@ -73,3 +73,24 @@ def test_real_offline_project_geotiff_inspection_through_desktop(tmp_path, qapp)
     assert "EPSG:25832" in label.text()
     assert "nicht fachlich verifiziert" in label.text()
     assert service.state("GIS-01") == before
+
+
+def test_desktop_geotiff_failure_does_not_change_project_workflow(tmp_path, qapp):
+    from PySide6.QtWidgets import QLabel
+    from mcm_solarcheck.offline.composition import build_offline_services
+    from mcm_solarcheck.gui.shell import SolarCheckMainWindow
+    from mcm_solarcheck.services.deployment import DeploymentMode
+    from mcm_solarcheck.services.shell_navigation import ShellRoute
+
+    service = build_offline_services(tmp_path / "failure.sqlite").projects
+    service.create_project("GIS-ERR", "GIS Fehlerfall")
+    broken = tmp_path / "broken.tif"
+    broken.write_bytes(b"invalid")
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP, project_service=service)
+    window._open_project("GIS-ERR")
+    before = service.state("GIS-ERR")
+    window._inspect_project_geotiff(str(broken))
+    label = window._pages[ShellRoute.IMPORT].findChild(QLabel, "geotiff_inspection_result")
+    assert label is not None
+    assert "fehlgeschlagen" in label.text()
+    assert service.state("GIS-ERR") == before
