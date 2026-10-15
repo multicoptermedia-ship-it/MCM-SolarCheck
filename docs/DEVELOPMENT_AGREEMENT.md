@@ -91,3 +91,11 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - Zielarchitektur: separater validierter GeoTIFF-Exportpfad für tatsächlich georeferenzierte Orthofotos; geeignete TIFF-/GeoTIFF-Metadaten und GIS-Interoperabilität automatisiert prüfen (z. B. lesbar in QGIS/GDAL), möglichst ohne verpflichtende Internetdienste. Gegebenenfalls WebODM-Exportformat und Metadaten bei der Implementierung vergleichen.
 - Für geneigte PV-Modulflächen zusätzlich Ebenenentzerrung, geometrische Qualitätskontrollen und korrekte Zuordnung zum Weltkoordinatensystem beachten. GeoTIFF allein beweist weder Orthorektifizierung noch fachliche Genauigkeit.
 - Vorhandene Expertenreview-, KI-`pending`-, Berichtsfreigabe- und Datenschutzregeln bleiben uneingeschränkt gültig.
+
+## Übergabe 15. Oktober 2026 – GeoTIFF-Referenzvertrag, Fünferblock
+- Branch: `feature/block38-offline-ai-ingestion-tests`. Vorheriger Fehler im Test der RGB-Herkunft wurde in `9a0e294` behoben; GitHub Actions danach grün. `main` und PRs unverändert.
+- Fünf Commits: `fe8f7c0` (GeoTIFF-Referenzvertrag mit CRS, Affintransformation, Rasterdimensionen, NoData und sicherem Ausgabeziel), `32abbab` (Gültigkeits-/Fehlertests), `0be4856` (Welteckpunkte aus affiner Transformation), `88cde76` (Tests für normale und rotierte Raster), dieser Dokumentationscommit.
+- Die GeoTIFF-Prüfung validiert nur **bereitgestellte** Geometriedaten. Sie beweist weder deren Wahrheit noch Orthorektifizierung. Noch **kein GeoTIFF-Schreiber**, kein WebODM-Adapter, keine QGIS/GDAL-Leseprobe, keine Verbindung zur Desktop-Oberfläche.
+- Verbindliches Ziel bleibt ein tatsächlich georeferenziertes GeoTIFF für GIS-Anwendungen. RGB-PNG/JSON bleibt ausdrücklich `unverified_preview`, ohne erfundene CRS oder Georeferenzierung.
+- CI für den aktuellen Block noch **nicht bestätigt**; Python 3.11 und 3.12 prüfen. Bei Rot Logs analysieren und Fehler gezielt beheben.
+- Nächster Fünferblock: echte Offline-Projektmedienpfade und Desktop-Aktionen ermitteln, vorhandene Raster-/GIS-Bibliotheken prüfen, tatsächlichen GeoTIFF-Export mit überprüfbarer CRS/Transform-Metadatenintegration erst auf Grundlage verifizierter Georeferenzdaten entwickeln; Regressionstests und Übergabe.
