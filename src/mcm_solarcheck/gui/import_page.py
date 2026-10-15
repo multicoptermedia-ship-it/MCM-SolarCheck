@@ -3,7 +3,7 @@
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=()):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -110,5 +110,32 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
         result.setObjectName("geotiff_inspection_result")
         result.setWordWrap(True)
         layout.addWidget(result)
+
+    register_button = QPushButton("GeoTIFF dauerhaft im Projekt registrieren", page)
+    register_button.setObjectName("register_geotiff_button")
+    if current_project_id is not None and on_register_geotiff is not None:
+        def request_geotiff_registration():
+            chooser = choose_register_geotiff or (lambda: QFileDialog.getOpenFileName(
+                page, "GeoTIFF zur Registrierung auswählen", "", "GeoTIFF (*.tif *.tiff)"
+            )[0])
+            selected = chooser()
+            if selected:
+                on_register_geotiff(selected)
+        register_button.clicked.connect(request_geotiff_registration)
+    else:
+        register_button.setEnabled(False)
+    layout.addWidget(register_button)
+    artifact_lines = [
+        f"{item['source_path']} · {item['source_kind']} · CRS {item['crs']} · SHA-256 {item['content_sha256']}"
+        for item in geotiff_artifacts
+    ]
+    artifacts = QLabel(
+        "Registrierte GeoTIFF-Dateien (nur Metadaten, keine fachliche Freigabe):\n"
+        + ("\n".join(artifact_lines) if artifact_lines else "Keine GeoTIFF-Dateien registriert."),
+        page,
+    )
+    artifacts.setObjectName("registered_geotiff_artifacts")
+    artifacts.setWordWrap(True)
+    layout.addWidget(artifacts)
     layout.addStretch(1)
     return page
