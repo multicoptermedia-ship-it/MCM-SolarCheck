@@ -94,3 +94,24 @@ def test_desktop_geotiff_failure_does_not_change_project_workflow(tmp_path, qapp
     assert label is not None
     assert "fehlgeschlagen" in label.text()
     assert service.state("GIS-ERR") == before
+
+
+def test_geotiff_registration_button_requires_project_and_callback(qapp):
+    from PySide6.QtWidgets import QPushButton
+    page = make_import_page()
+    button = page.findChild(QPushButton, "register_geotiff_button")
+    assert button is not None and not button.isEnabled()
+
+
+def test_geotiff_registration_button_invokes_explicit_user_selection(qapp):
+    from PySide6.QtWidgets import QPushButton
+    selected = []
+    page = make_import_page(
+        current_project_id="P1",
+        on_register_geotiff=selected.append,
+        choose_register_geotiff=lambda: "/local/example.tif",
+    )
+    button = page.findChild(QPushButton, "register_geotiff_button")
+    assert button is not None and button.isEnabled()
+    button.click()
+    assert selected == ["/local/example.tif"]
