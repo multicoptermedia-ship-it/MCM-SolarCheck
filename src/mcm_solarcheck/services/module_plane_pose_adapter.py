@@ -27,3 +27,19 @@ def assess_imported_pose_for_module(
     return assess_module_plane_geometry(
         camera_orientation_from_imported_pose(pose), plane
     )
+
+
+def assess_imported_frames_for_module(
+    frames: tuple[object, ...], plane: ModulePlane
+) -> tuple[GeometryReadiness, ...]:
+    """Evaluate each imported frame's camera_pose, preserving input order.
+
+    Each frame must expose the existing domain camera_pose attribute.
+    """
+    results = []
+    for frame in frames:
+        pose = getattr(frame, "camera_pose", None)
+        if not isinstance(pose, Pose):
+            raise TypeError("each imported frame must carry a domain camera_pose")
+        results.append(assess_imported_pose_for_module(pose, plane))
+    return tuple(results)
