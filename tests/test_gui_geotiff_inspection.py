@@ -42,3 +42,34 @@ def test_project_service_rejects_unknown_project_before_inspection():
         assert "Unknown project" in str(error)
     else:
         raise AssertionError("Unknown project must be rejected")
+
+
+def test_real_offline_project_geotiff_inspection_through_desktop(tmp_path, qapp):
+    import numpy as np
+    from PySide6.QtWidgets import QLabel
+    from mcm_solarcheck.offline.composition import build_offline_services
+    from mcm_solarcheck.gui.shell import SolarCheckMainWindow
+    from mcm_solarcheck.services.deployment import DeploymentMode
+    from mcm_solarcheck.services.shell_navigation import ShellRoute
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import (
+        GeoTIFFSpatialReference, write_georeferenced_rgb_geotiff,
+    )
+
+    service = build_offline_services(tmp_path / "inspection.sqlite").projects
+    service.create_project("GIS-01", "Lokales GIS-Projekt")
+    ref = GeoTIFFSpatialReference(
+        "EPSG:25832", (0.1, 0, 350000, 0, -0.1, 5650000), 2, 3
+    )
+    tif = write_georeferenced_rgb_geotiff(
+        np.zeros((3, 2, 3), dtype=np.uint8),
+        tmp_path / "webodm-result.tif", ref, georeferencing_verified=True,
+    )
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP, project_service=service)
+    window._open_project("GIS-01")
+    before = service.state("GIS-01")
+    window._inspect_project_geotiff(str(tif))
+    label = window._pages[ShellRoute.IMPORT].findChild(QLabel, "geotiff_inspection_result")
+    assert label is not None
+    assert "EPSG:25832" in label.text()
+    assert "nicht fachlich verifiziert" in label.text()
+    assert service.state("GIS-01") == before
