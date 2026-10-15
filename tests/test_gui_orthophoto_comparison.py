@@ -110,3 +110,21 @@ def test_desktop_comparison_shows_slider_and_resets_on_project_change(tmp_path, 
     window._compare_project_orthophotos(str(rgb), str(rgb))
     error = window._pages[ShellRoute.IMPORT].findChild(QLabel, "orthophoto_comparison_error")
     assert error is not None and "fehlgeschlagen" in error.text()
+
+
+def test_zoom_buttons_scale_both_layers_in_one_viewport(qapp):
+    from PySide6.QtWidgets import QPushButton, QScrollArea
+    widget = OrthophotoComparisonWidget(
+        np.zeros((40, 60, 3), dtype=np.uint8),
+        np.ones((40, 60), dtype=np.float32),
+    )
+    label = widget.findChild(QLabel, 'orthophoto_comparison_image')
+    viewport = widget.findChild(QScrollArea, 'orthophoto_comparison_scroll_area')
+    assert viewport.widget() is label
+    original = label.pixmap().size()
+    widget.findChild(QPushButton, 'orthophoto_zoom_in').click()
+    assert label.pixmap().width() > original.width()
+    widget.findChild(QSlider, 'orthophoto_thermal_opacity_slider').setValue(100)
+    assert label.pixmap().width() > original.width()
+    widget.findChild(QPushButton, 'orthophoto_zoom_reset').click()
+    assert label.pixmap().size() == original
