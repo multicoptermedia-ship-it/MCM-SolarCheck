@@ -226,6 +226,8 @@ def save_rgb_preview_artifacts(
         raise FileExistsError("preview artifacts already exist")
     # Validate metadata before writing either artifact.
     import math
+    if len(source_names) != preview.frame_count:
+        raise ValueError("source_names must match frame count")
     if not source_names or len(source_names) > 32 or any(
         not name or Path(name).name != name for name in source_names
     ):
