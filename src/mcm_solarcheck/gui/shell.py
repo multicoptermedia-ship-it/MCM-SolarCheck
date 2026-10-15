@@ -50,6 +50,8 @@ class SolarCheckMainWindow(QMainWindow):
         self._verified_user_id = None
         self._last_import_attempt = None
         self._geotiff_result = None
+        self._orthophoto_comparison = None
+        self._orthophoto_comparison_error = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -190,6 +192,8 @@ class SolarCheckMainWindow(QMainWindow):
         if project_id != self._current_project_id:
             self._last_import_attempt = None
             self._geotiff_result = None
+            self._orthophoto_comparison = None
+            self._orthophoto_comparison_error = None
         self._current_project_id = project_id
         self._refresh_import_page()
         self.apply_workflow_state(state)
@@ -236,6 +240,9 @@ class SolarCheckMainWindow(QMainWindow):
             on_inspect_geotiff=(self._inspect_project_geotiff if self._project_service is not None else None),
             geotiff_result=self._geotiff_result,
             geotiff_artifacts=geotiff_artifacts,
+            on_compare_orthophotos=(self._compare_project_orthophotos if self._project_service is not None else None),
+            orthophoto_comparison=self._orthophoto_comparison,
+            orthophoto_comparison_error=self._orthophoto_comparison_error,
             on_register_geotiff=(self._register_project_geotiff if callable(getattr(self._project_service, 'register_project_geotiff', None)) else None),
         )
         self._pages[ShellRoute.IMPORT] = new_page
@@ -274,6 +281,26 @@ class SolarCheckMainWindow(QMainWindow):
             self._geotiff_result = "GeoTIFF-Metadaten registriert (nicht fachlich verifiziert)."
         except (ValueError, OSError, KeyError) as error:
             self._geotiff_result = f"GeoTIFF-Registrierung fehlgeschlagen: {error}"
+        self._refresh_import_page()
+
+    def _compare_project_orthophotos(self, rgb_path: str, thermal_path: str) -> None:
+        """Show GIS-aligned local raster previews; never alter project approval."""
+        if self._project_service is None or self._current_project_id is None:
+            return
+        from mcm_solarcheck.services.orthophoto_layer_alignment import (
+            aligned_preview_arrays, inspect_orthophoto_layer_pair,
+        )
+        try:
+            pair = inspect_orthophoto_layer_pair(rgb_path, thermal_path)
+            preview = aligned_preview_arrays(pair)
+            import numpy as np
+            if not np.isfinite(preview[1]).any():
+                raise ValueError("RGB- und Thermal-Orthofotos haben keine gemeinsame Rasterabdeckung")
+            self._orthophoto_comparison = preview
+            self._orthophoto_comparison_error = None
+        except (ValueError, OSError, KeyError, RuntimeError) as error:
+            self._orthophoto_comparison = None
+            self._orthophoto_comparison_error = f"Orthofoto-Vergleich fehlgeschlagen: {error}"
         self._refresh_import_page()
 
     def _request_image_import(self, source_directory: str) -> None:
