@@ -22,6 +22,8 @@ def build_planar_orthophoto(
     """
     if not frames or len(frames) > 1000:
         raise ValueError("one to 1000 surveyed photographs are required")
+    if type(max_pixels) is not int or max_pixels < 1:
+        raise ValueError('max_pixels must be a positive integer')
     if reference.width * reference.height > max_pixels:
         raise ValueError("orthophoto output exceeds configured pixel limit")
     output = None
@@ -39,6 +41,8 @@ def build_planar_orthophoto(
             output = np.zeros_like(image)
         if image.shape != output.shape or image.dtype != output.dtype:
             raise ValueError("orthophoto frame formats differ")
+        if image.dtype.kind == 'f' and not np.isfinite(image[mask]).all():
+            raise ValueError('nonfinite thermal pixels')
         new = mask & ~covered
         output[new] = image[new]
         covered |= mask
