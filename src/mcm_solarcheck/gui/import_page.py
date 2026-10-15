@@ -3,7 +3,7 @@
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=()):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -137,5 +137,34 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     artifacts.setObjectName("registered_geotiff_artifacts")
     artifacts.setWordWrap(True)
     layout.addWidget(artifacts)
+    compare_button = QPushButton("RGB- und Thermal-Orthofotos vergleichen", page)
+    compare_button.setObjectName("compare_orthophotos_button")
+    if current_project_id is not None and on_compare_orthophotos is not None:
+        def request_comparison():
+            if choose_orthophoto_pair is not None:
+                paths = choose_orthophoto_pair()
+            else:
+                rgb = QFileDialog.getOpenFileName(
+                    page, "RGB-Orthofoto auswählen", "", "GeoTIFF (*.tif *.tiff)"
+                )[0]
+                thermal = QFileDialog.getOpenFileName(
+                    page, "Thermal-Orthofoto auswählen", "", "GeoTIFF (*.tif *.tiff)"
+                )[0] if rgb else ""
+                paths = (rgb, thermal)
+            if paths and len(paths) == 2 and all(paths):
+                on_compare_orthophotos(*paths)
+        compare_button.clicked.connect(request_comparison)
+    else:
+        compare_button.setEnabled(False)
+    layout.addWidget(compare_button)
+    if orthophoto_comparison_error is not None:
+        error_label = QLabel(orthophoto_comparison_error, page)
+        error_label.setObjectName("orthophoto_comparison_error")
+        error_label.setWordWrap(True)
+        layout.addWidget(error_label)
+    if orthophoto_comparison is not None:
+        from mcm_solarcheck.gui.orthophoto_comparison import OrthophotoComparisonWidget
+        rgb_pixels, thermal_pixels = orthophoto_comparison
+        layout.addWidget(OrthophotoComparisonWidget(rgb_pixels, thermal_pixels, page))
     layout.addStretch(1)
     return page
