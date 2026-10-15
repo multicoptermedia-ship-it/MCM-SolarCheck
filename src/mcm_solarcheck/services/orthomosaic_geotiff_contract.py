@@ -129,7 +129,11 @@ def inspect_existing_geotiff(path: str | Path) -> GeoTIFFSpatialReference:
     source = Path(path)
     if source.suffix.lower() not in (".tif", ".tiff"):
         raise ValueError("Expected a GeoTIFF file")
-    with rasterio.open(source) as dataset:
+    try:
+        dataset_context = rasterio.open(source)
+    except rasterio.errors.RasterioIOError as error:
+        raise ValueError("GeoTIFF could not be opened as a GIS raster") from error
+    with dataset_context as dataset:
         if dataset.driver != "GTiff" or dataset.crs is None:
             raise ValueError("GeoTIFF must contain a valid CRS")
         reference = GeoTIFFSpatialReference(
