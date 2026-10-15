@@ -19,6 +19,7 @@ class RGBStitchPreview:
     image: np.ndarray
     inliers: int
     verified_orthomosaic: bool = False
+    covered_fraction: float = 0.0
 
 
 def stitch_rgb_preview(
@@ -82,10 +83,15 @@ def stitch_rgb_preview(
         raise ValueError("stitching canvas exceeds resource limits")
     translate = np.array([[1., 0., -float(low[0])], [0., 1., -float(low[1])], [0., 0., 1.]])
     canvas = cv2.warpPerspective(right, translate @ matrix, (width, height))
+    right_mask = cv2.warpPerspective(np.ones((h2, w2), dtype=np.uint8),
+                                     translate @ matrix, (width, height),
+                                     flags=cv2.INTER_NEAREST)
     x, y = map(int, -low)
     # Deterministic priority to the reference photograph in overlapping regions.
     canvas[y:y+h1, x:x+w1] = left
-    return RGBStitchPreview(canvas, int(np.count_nonzero(mask)))
+    right_mask[y:y+h1, x:x+w1] = 1
+    coverage = float(np.count_nonzero(right_mask)) / (width * height)
+    return RGBStitchPreview(canvas, int(np.count_nonzero(mask)), covered_fraction=coverage)
 
 
 def save_rgb_stitch_preview(preview: RGBStitchPreview, output_path: str | Path) -> Path:
@@ -140,4 +146,5 @@ def stitch_rgb_series_preview(
                 max_canvas_pixels=max_canvas_pixels, minimum_inliers=minimum_inliers,
             )
             min_pair_inliers = min(min_pair_inliers, result.inliers)
-    return RGBStitchPreview(result.image, min_pair_inliers)
+    return RGBStitchPreview(result.image, min_pair_inliers,
+                            covered_fraction=result.covered_fraction)
