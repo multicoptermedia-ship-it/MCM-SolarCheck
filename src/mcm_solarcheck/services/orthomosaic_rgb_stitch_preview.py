@@ -250,3 +250,27 @@ def save_rgb_preview_artifacts(
         saved_image.unlink(missing_ok=True)
         raise
     return saved_image, saved_manifest
+
+
+def create_local_rgb_preview_artifacts(
+    image_paths: tuple[str | Path, ...],
+    output_directory: str | Path,
+    *,
+    max_frames: int = 8,
+    max_side: int = 1400,
+    max_canvas_pixels: int = 12_000_000,
+    minimum_inliers: int = 20,
+) -> tuple[Path, Path]:
+    """Offline application entry point: process local RGB frames and save diagnostics.
+
+    Caller supplies an existing project-owned directory; this function does not
+    register evidence, approve findings, or modify customer reports.
+    """
+    paths = tuple(Path(path) for path in image_paths)
+    result = stitch_rgb_series_preview(
+        paths, max_frames=max_frames, max_side=max_side,
+        max_canvas_pixels=max_canvas_pixels, minimum_inliers=minimum_inliers,
+    )
+    return save_rgb_preview_artifacts(
+        result, output_directory, source_names=tuple(path.name for path in paths),
+    )
