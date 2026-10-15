@@ -49,6 +49,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._current_project_id = None
         self._verified_user_id = None
         self._last_import_attempt = None
+        self._geotiff_result = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -188,6 +189,7 @@ class SolarCheckMainWindow(QMainWindow):
         state = self._project_service.open_project(project_id)
         if project_id != self._current_project_id:
             self._last_import_attempt = None
+            self._geotiff_result = None
         self._current_project_id = project_id
         self._refresh_import_page()
         self.apply_workflow_state(state)
@@ -225,6 +227,8 @@ class SolarCheckMainWindow(QMainWindow):
             import_summary=import_summary,
             import_verification=import_verification,
             import_attempt=self._last_import_attempt,
+            on_inspect_geotiff=(self._inspect_project_geotiff if self._project_service is not None else None),
+            geotiff_result=self._geotiff_result,
         )
         self._pages[ShellRoute.IMPORT] = new_page
         index = self._stack.indexOf(old_page)
@@ -233,6 +237,23 @@ class SolarCheckMainWindow(QMainWindow):
             self._stack.setCurrentWidget(new_page)
         self._stack.removeWidget(old_page)
         old_page.deleteLater()
+
+    def _inspect_project_geotiff(self, source_path: str) -> None:
+        """Display unapproved local GIS metadata without changing project workflow."""
+        if self._project_service is None or self._current_project_id is None:
+            return
+        try:
+            reference = self._project_service.inspect_project_geotiff(
+                self._current_project_id, source_path
+            )
+            self._geotiff_result = (
+                f"GIS-Metadaten vorhanden (nicht fachlich verifiziert): "
+                f"CRS {reference.crs}; {reference.width} × {reference.height} Pixel; "
+                f"Affine Transformation {reference.transform}; NoData {reference.nodata}"
+            )
+        except (ValueError, OSError, KeyError) as error:
+            self._geotiff_result = f"GeoTIFF-Prüfung fehlgeschlagen: {error}"
+        self._refresh_import_page()
 
     def _request_image_import(self, source_directory: str) -> None:
         """Route a selected directory through the guarded application import boundary."""
