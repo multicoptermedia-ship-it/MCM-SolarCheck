@@ -86,3 +86,19 @@ def stitch_rgb_preview(
     # Deterministic priority to the reference photograph in overlapping regions.
     canvas[y:y+h1, x:x+w1] = left
     return RGBStitchPreview(canvas, int(np.count_nonzero(mask)))
+
+
+def save_rgb_stitch_preview(preview: RGBStitchPreview, output_path: str | Path) -> Path:
+    """Write a diagnostic PNG locally; never mark it as a verified orthomosaic."""
+    path = Path(output_path)
+    if path.suffix.lower() != ".png":
+        raise ValueError("preview output must be PNG")
+    if preview.verified_orthomosaic:
+        raise ValueError("verified orthomosaics require a separate export path")
+    if preview.image.ndim != 3 or preview.image.shape[2] != 3 or preview.image.dtype != np.uint8:
+        raise ValueError("preview must be an 8-bit BGR image")
+    if not path.parent.is_dir():
+        raise ValueError("output directory does not exist")
+    if not cv2.imwrite(str(path), preview.image):
+        raise OSError("could not write RGB preview")
+    return path
