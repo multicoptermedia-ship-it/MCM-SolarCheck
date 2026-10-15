@@ -153,10 +153,21 @@ def test_manifest_rejects_nan_and_infinite_diagnostics(tmp_path):
                                    covered_fraction=value)
         with pytest.raises(ValueError, match="coverage"):
             save_rgb_preview_manifest(preview, tmp_path / "invalid.json",
-                                      source_names=("frame.png",))
+                                      source_names=("frame-1.png", "frame-2.png"))
     preview = RGBStitchPreview(np.zeros((16, 16, 3), dtype=np.uint8), 20,
                                covered_fraction=1.0,
                                median_reprojection_error_px=float("nan"))
     with pytest.raises(ValueError, match="reprojection"):
         save_rgb_preview_manifest(preview, tmp_path / "invalid.json",
-                                  source_names=("frame.png",))
+                                  source_names=("frame-1.png", "frame-2.png"))
+
+
+def test_manifest_requires_all_source_frames(tmp_path):
+    from mcm_solarcheck.services.orthomosaic_rgb_stitch_preview import (
+        RGBStitchPreview, save_rgb_preview_manifest,
+    )
+    preview = RGBStitchPreview(np.zeros((16, 16, 3), dtype=np.uint8), 20,
+                               frame_count=3)
+    with pytest.raises(ValueError, match="frame count"):
+        save_rgb_preview_manifest(preview, tmp_path / "missing.json",
+                                  source_names=("a.png", "b.png"))
