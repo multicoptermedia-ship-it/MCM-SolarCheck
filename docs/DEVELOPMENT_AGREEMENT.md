@@ -158,3 +158,8 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - Registrierte Einträge werden projektbezogen beim Öffnen geladen und mit Pfad, Herkunft, CRS und SHA-256 angezeigt. Der Test prüft Persistenz über Neustart, keine Fremdprojektanzeige und unveränderten Workflow.
 - **Noch offen:** Herkunft im UI ausdrücklich erfassen (WebODM/externe GIS/unklar), Dateiverfügbarkeit und Hash-Abgleich bei erneutem Öffnen, Umgang mit Verschiebungen/Änderungen, doppelte Registrierung mit hilfreichem Hinweis, große Raster und Windows-Pfadtests, Sicherheitsgrenzen bei externen Dateireferenzen, fachliche GIS-Qualitätsprüfung.
 - CI dieses Blocks noch nicht bestätigt. Bei roten Läufen zuerst Logs auswerten und Fehler beheben, keine neuen Features vor grünem Stand.
+
+## CI-Nachbesserung – Desktop-GeoTIFF-Registrierung
+- Die letzten beiden Commits des GUI-Fünferblocks (`c55d7d9`, `d072282`) waren rot; die ersten drei grün. CI-Lauf `38779772564`: 2876 bestanden, 1 fehlgeschlagen, 8 übersprungen.
+- Ursache ausschließlich Textassertion im neuen Neustarttest: erwartete `nicht fachlich`, die GUI zeigt ausdrücklich `keine fachliche Freigabe`. Commit `654e2ae` passt den Test an die tatsächliche, fachlich richtige GUI-Aussage an. Keine Anwendungslogik geändert.
+- **CI nach Fix noch nicht bestätigt.** GitHub Actions des letzten Commits prüfen, erst bei grünem Stand weitere Features entwickeln.
