@@ -38,3 +38,33 @@ def test_widget_rejects_unaligned_layers(qapp):
             np.zeros((3, 4, 3), dtype=np.uint8),
             np.zeros((4, 3), dtype=np.float32),
         )
+
+
+def test_import_comparison_requires_project_and_two_files(qapp):
+    from PySide6.QtWidgets import QPushButton
+    from mcm_solarcheck.gui.import_page import make_import_page
+
+    disabled = make_import_page()
+    assert not disabled.findChild(QPushButton, "compare_orthophotos_button").isEnabled()
+    calls = []
+    page = make_import_page(
+        current_project_id="P1",
+        on_compare_orthophotos=lambda rgb, thermal: calls.append((rgb, thermal)),
+        choose_orthophoto_pair=lambda: ("/data/rgb.tif", "/data/thermal.tif"),
+    )
+    page.findChild(QPushButton, "compare_orthophotos_button").click()
+    assert calls == [("/data/rgb.tif", "/data/thermal.tif")]
+
+
+def test_import_comparison_cancel_does_not_invoke_callback(qapp):
+    from PySide6.QtWidgets import QPushButton
+    from mcm_solarcheck.gui.import_page import make_import_page
+
+    calls = []
+    page = make_import_page(
+        current_project_id="P1",
+        on_compare_orthophotos=lambda *paths: calls.append(paths),
+        choose_orthophoto_pair=lambda: ("/data/rgb.tif", ""),
+    )
+    page.findChild(QPushButton, "compare_orthophotos_button").click()
+    assert calls == []
