@@ -81,6 +81,10 @@ def stitch_rgb_preview(
     all_points = np.vstack((transformed, [[0, 0], [w1, 0], [w1, h1], [0, h1]]))
     if not np.isfinite(all_points).all():
         raise ValueError("nonfinite image transformation")
+    transformed_area = float(cv2.contourArea(transformed.astype(np.float32)))
+    source_area = float(w2 * h2)
+    if not 0.25 * source_area <= transformed_area <= 4.0 * source_area:
+        raise ValueError("implausible RGB transform scale")
     low = np.floor(all_points.min(axis=0)).astype(np.int64)
     high = np.ceil(all_points.max(axis=0)).astype(np.int64)
     width, height = map(int, high - low)
