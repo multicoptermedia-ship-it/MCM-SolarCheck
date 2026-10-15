@@ -150,3 +150,11 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - CI-Lauf `38778810206` nach vorherigem Korrekturblock: 2872 bestanden, 2 fehlgeschlagen, 8 übersprungen. Nur noch `tests/test_sqlite_storage.py::test_schema_14_migration_does_not_invent_project_owners` und `::test_schema_15_migration_preserves_owner_without_inventing_capacity`; beide erwarteten Schema 16 statt 17.
 - Commit `635bcccd` aktualisiert beide Versionsassertionen auf 17. Keine fachliche Logik verändert.
 - Neueste GitHub Actions für diesen Commit prüfen, **noch nicht als grün bestätigt**. Bei Erfolg kann Desktop-GIS-Registrierung als nächster Fünferblock folgen.
+
+## Übergabe 15. Oktober 2026 – Desktop-GeoTIFF-Registrierung
+- Vorherige Korrekturcommits `635bcccd` und `ad148e7` laut GitHub Actions grün. Arbeitsbranch weiterhin `feature/block38-offline-ai-ingestion-tests`; kein Merge.
+- Fünf Commits dieses Blocks: `a01a774` (Importseite: explizite Registrierung und persistierte Liste), `57992a3` (Desktop-Shell verbindet Service und SQLite), `f2457d8` (Button-Tests), `c55d7d9` (echte SQLite-Desktop-Neustart-/Projektisolationsprüfung), dieser Übergabecommit.
+- Die GUI unterscheidet reine GeoTIFF-Metadatenprüfung von ausdrücklich gewählter dauerhafter Registrierung. Registrierung speichert vorerst `source_kind='unknown'`, weil WebODM-Herkunft nicht ohne Beleg behauptet werden darf. Einträge bleiben `metadata_only`; keine automatische Expertenfreigabe.
+- Registrierte Einträge werden projektbezogen beim Öffnen geladen und mit Pfad, Herkunft, CRS und SHA-256 angezeigt. Der Test prüft Persistenz über Neustart, keine Fremdprojektanzeige und unveränderten Workflow.
+- **Noch offen:** Herkunft im UI ausdrücklich erfassen (WebODM/externe GIS/unklar), Dateiverfügbarkeit und Hash-Abgleich bei erneutem Öffnen, Umgang mit Verschiebungen/Änderungen, doppelte Registrierung mit hilfreichem Hinweis, große Raster und Windows-Pfadtests, Sicherheitsgrenzen bei externen Dateireferenzen, fachliche GIS-Qualitätsprüfung.
+- CI dieses Blocks noch nicht bestätigt. Bei roten Läufen zuerst Logs auswerten und Fehler beheben, keine neuen Features vor grünem Stand.
