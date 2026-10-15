@@ -91,7 +91,7 @@ def test_schema_14_migration_does_not_invent_project_owners(tmp_path):
     db.initialize()
 
     with db.connect() as connection:
-        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == 16
+        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == 17
         assert connection.execute("SELECT COUNT(*) FROM project_owners").fetchone()[0] == 0
 
 
@@ -112,7 +112,7 @@ def test_schema_15_migration_preserves_owner_without_inventing_capacity(tmp_path
     db.initialize()
 
     with db.connect() as connection:
-        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == 16
+        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == 17
         row = connection.execute(
             "SELECT customer_id,capacity_kwp FROM project_owners WHERE project_id=?",
             ("P-legacy",),
