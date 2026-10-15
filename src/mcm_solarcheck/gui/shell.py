@@ -217,6 +217,12 @@ class SolarCheckMainWindow(QMainWindow):
             if callable(verification_provider) and self._current_project_id is not None
             else None
         )
+        artifacts_provider = getattr(self._project_service, 'project_geotiff_inspections', None)
+        geotiff_artifacts = (
+            artifacts_provider(self._current_project_id)
+            if callable(artifacts_provider) and self._current_project_id is not None
+            else ()
+        )
         new_page = make_import_page(
             current_project_id=self._current_project_id,
             on_import_images=(
@@ -229,6 +235,8 @@ class SolarCheckMainWindow(QMainWindow):
             import_attempt=self._last_import_attempt,
             on_inspect_geotiff=(self._inspect_project_geotiff if self._project_service is not None else None),
             geotiff_result=self._geotiff_result,
+            geotiff_artifacts=geotiff_artifacts,
+            on_register_geotiff=(self._register_project_geotiff if callable(getattr(self._project_service, 'register_project_geotiff', None)) else None),
         )
         self._pages[ShellRoute.IMPORT] = new_page
         index = self._stack.indexOf(old_page)
@@ -253,6 +261,19 @@ class SolarCheckMainWindow(QMainWindow):
             )
         except (ValueError, OSError, KeyError) as error:
             self._geotiff_result = f"GeoTIFF-Prüfung fehlgeschlagen: {error}"
+        self._refresh_import_page()
+
+    def _register_project_geotiff(self, source_path: str) -> None:
+        """Explicitly register local GIS provenance, without approving the orthophoto."""
+        if self._project_service is None or self._current_project_id is None:
+            return
+        try:
+            self._project_service.register_project_geotiff(
+                self._current_project_id, source_path, source_kind="unknown"
+            )
+            self._geotiff_result = "GeoTIFF-Metadaten registriert (nicht fachlich verifiziert)."
+        except (ValueError, OSError, KeyError) as error:
+            self._geotiff_result = f"GeoTIFF-Registrierung fehlgeschlagen: {error}"
         self._refresh_import_page()
 
     def _request_image_import(self, source_directory: str) -> None:
