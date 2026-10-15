@@ -84,3 +84,22 @@ def test_geotiff_writer_roundtrips_in_rasterio(tmp_path):
         assert tuple(dataset.transform)[:6] == ref.transform
         assert (dataset.width, dataset.height, dataset.count) == (2, 3, 3)
         assert [dataset.read(i)[1, 0] for i in (1, 2, 3)] == [25, 100, 200]
+
+
+def test_geotiff_writer_rejects_bad_raster_before_creating_file(tmp_path):
+    import numpy as np
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import (
+        write_georeferenced_rgb_geotiff,
+    )
+    ref = reference(width=2, height=3)
+    target = tmp_path / "bad.tif"
+    for image in (
+        np.zeros((2, 3, 3), dtype=np.uint8),
+        np.zeros((3, 2, 3), dtype=np.float32),
+        np.zeros((3, 2), dtype=np.uint8),
+    ):
+        with pytest.raises(ValueError, match="raster"):
+            write_georeferenced_rgb_geotiff(
+                image, target, ref, georeferencing_verified=True,
+            )
+        assert not target.exists()
