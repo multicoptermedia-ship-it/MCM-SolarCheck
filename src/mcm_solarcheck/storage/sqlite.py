@@ -114,7 +114,7 @@ def _migrate_13_to_14(db:sqlite3.Connection)->None:
 
 def _migrate_16_to_17(db:sqlite3.Connection)->None:
     """Add unapproved, project-scoped GIS artifact provenance."""
-    db.execute("""CREATE TABLE project_geotiffs(
+    db.execute("""CREATE TABLE IF NOT EXISTS project_geotiffs(
         project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
         source_path TEXT NOT NULL,source_kind TEXT NOT NULL,content_sha256 TEXT NOT NULL,
         crs TEXT NOT NULL,transform_json TEXT NOT NULL,width INTEGER NOT NULL,
