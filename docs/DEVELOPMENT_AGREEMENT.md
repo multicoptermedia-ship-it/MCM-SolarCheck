@@ -48,3 +48,13 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - Qualitätsrisiken: sequenzielles Stitching kann Drift erzeugen; Referenzbilder überdecken Überlappungsbereiche ohne Blending; kein Bundle Adjustment, keine Modulflächenentzerrung, keine unabhängige Coverage-Prüfung, keine RGB-/Thermal-Registrierung, keine radiometrische Temperaturfreigabe. PNG ist nur Vorschau, kein Berichtsnachweis einer Orthofotogenauigkeit.
 - Die CI-Ergebnisse für diesen neuen Fünferblock sind noch **nicht bestätigt**. Python 3.11 und 3.12 prüfen, bevor der Block als grün gilt.
 - Nächster Schwerpunkt nach grüner CI: realistische versetzte Bildausschnitte als Tests, geometrische Residuen und Coverage-Gates, robuste Multi-Frame-Registrierung und Desktop-Anbindung; bestehende Expertenfreigaben und Reportgates nicht umgehen.
+
+## Übergabe 15. Oktober 2026 – geometrische Qualitätsgates, Fünferblock
+- Voriger Fünferblock `bab6c3e` bis `b9b312c` wurde mit GitHub Actions Run 38764504820 grün bestätigt.
+- Arbeitsbranch: `feature/block38-offline-ai-ingestion-tests`. Keine Merges nach `main` oder in Integrations-PRs.
+- Fünf persistente Schritte: `8c8dcec` (pixelbasierte Canvas-Abdeckung, Schwarz zählt als gültiges Pixel), `1486780` (RANSAC-Inlier-Reprojektionsfehler als zusätzliches Fail-Closed-Gate), `d8077af` (Grenzen für transformierte Bildfläche), `a109cc8` (Negativ- und Coverage-Regressionstests), dieser Übergabecommit.
+- Die Abdeckungskennzahl ist ausschließlich die Abdeckung der **Vorschau-Canvas**, nicht die Abdeckung einer PV-Anlage oder eines Fluggebiets. `verified_orthomosaic` bleibt immer `False`.
+- Neue Gates sind heuristische Sicherheitsgrenzen, **kein** Nachweis photogrammetrischer Genauigkeit. Tests für tatsächlich versetzte Aufnahmen, Mehrbild-Drift und geometrische Referenzdaten stehen weiterhin aus.
+- Aktuelle Runde: CI Python 3.11/3.12 noch **nicht bestätigt**. Bei Fehlern zuerst Workflow-Logs prüfen und gezielt korrigieren; keine stillschweigende Freigabe.
+- Nächster Fünferblock nach grüner CI: synthetische Translationen mit echten gemeinsamen Bildmerkmalen, Residualmetadaten/Transform-Provenienz, Driftbegrenzung ohne wiederholtes Resampling, persistente Projektartefakte und sichere Offline-Desktop-Einbindung.
+- Vorhandene Import-, KI-`pending`-, Expertenreview- und Bericht-/Exportgates bleiben unverändert. Kein Kundenbild wird an externe Dienste übertragen.
