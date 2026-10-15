@@ -46,3 +46,17 @@ def require_geotiff_export_target(path: str | Path, reference: GeoTIFFSpatialRef
     if target.exists():
         raise FileExistsError("GeoTIFF export target already exists")
     return target
+
+
+def geotiff_world_corners(
+    reference: GeoTIFFSpatialReference,
+) -> tuple[tuple[float, float], ...]:
+    """Return outer raster corners in the declared CRS, including rotation/shear."""
+    validate_geotiff_reference(reference)
+    a, b, c, d, e, f = reference.transform
+    pixels = ((0, 0), (reference.width, 0),
+              (reference.width, reference.height), (0, reference.height))
+    corners = tuple((a * x + b * y + c, d * x + e * y + f) for x, y in pixels)
+    if not all(isfinite(value) for corner in corners for value in corner):
+        raise ValueError("GeoTIFF world coordinates must be finite")
+    return corners
