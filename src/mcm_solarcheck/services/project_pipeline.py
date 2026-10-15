@@ -155,6 +155,13 @@ class ProjectApplicationService:
             return record_attempt(action, error), None, self.state(project_id)
         return record_attempt(action), result, self.state(project_id)
 
+    def inspect_project_geotiff(self, project_id: str, source_path: str | Path):
+        """Inspect a local GIS file in an existing project without importing or approving it."""
+        if not any(project.project_id == project_id for project in self.projects()):
+            raise KeyError(f"Unknown project: {project_id}")
+        from mcm_solarcheck.services.orthomosaic_geotiff_contract import inspect_existing_geotiff
+        return inspect_existing_geotiff(source_path)
+
     def import_summary(self, project_id: str):
         """Expose persisted import counts through the application boundary."""
         if not any(project.project_id == project_id for project in self.projects()):
