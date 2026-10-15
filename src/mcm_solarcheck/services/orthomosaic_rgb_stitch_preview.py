@@ -160,3 +160,38 @@ def stitch_rgb_series_preview(
     return RGBStitchPreview(result.image, min_pair_inliers,
                             covered_fraction=result.covered_fraction,
                             median_reprojection_error_px=result.median_reprojection_error_px)
+
+
+def save_rgb_preview_manifest(
+    preview: RGBStitchPreview,
+    output_path: str | Path,
+    *,
+    source_names: tuple[str, ...],
+) -> Path:
+    """Persist non-sensitive diagnostic metadata beside a local preview."""
+    import json
+
+    path = Path(output_path)
+    if path.suffix.lower() != ".json" or not path.parent.is_dir():
+        raise ValueError("manifest requires an existing directory and JSON extension")
+    if not source_names or len(source_names) > 32 or any(
+        not name or Path(name).name != name for name in source_names
+    ):
+        raise ValueError("source_names must be safe basenames")
+    if preview.verified_orthomosaic:
+        raise ValueError("unverified preview manifest only")
+    if not 0.0 <= preview.covered_fraction <= 1.0:
+        raise ValueError("invalid canvas coverage")
+    payload = {
+        "schema": "mcm.rgb_preview.v1",
+        "status": "unverified_preview",
+        "verified_orthomosaic": False,
+        "source_names": list(source_names),
+        "minimum_pair_inliers": preview.inliers,
+        "canvas_covered_fraction": preview.covered_fraction,
+        "last_pair_median_reprojection_error_px": preview.median_reprojection_error_px,
+        "image_width": int(preview.image.shape[1]),
+        "image_height": int(preview.image.shape[0]),
+    }
+    path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\\n", encoding="utf-8")
+    return path
