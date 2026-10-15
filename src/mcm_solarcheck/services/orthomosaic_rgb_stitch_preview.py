@@ -69,6 +69,11 @@ def stitch_rgb_preview(
     matrix, mask = cv2.findHomography(src, dst, cv2.RANSAC, 3.0)
     if matrix is None or mask is None or int(np.count_nonzero(mask)) < minimum_inliers:
         raise ValueError("RGB alignment could not be verified")
+    projected = cv2.perspectiveTransform(src, matrix).reshape(-1, 2)
+    errors = np.linalg.norm(projected - dst.reshape(-1, 2), axis=1)
+    inlier_errors = errors[mask.ravel().astype(bool)]
+    if not np.isfinite(inlier_errors).all() or float(np.median(inlier_errors)) > 3.0:
+        raise ValueError("RGB alignment residual exceeds tolerance")
     h1, w1 = left.shape[:2]
     h2, w2 = right.shape[:2]
     corners = np.float32([[0, 0], [w2, 0], [w2, h2], [0, h2]]).reshape(-1, 1, 2)
