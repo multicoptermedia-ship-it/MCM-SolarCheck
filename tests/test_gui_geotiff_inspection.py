@@ -1,5 +1,12 @@
 """Read-only GeoTIFF desktop integration tests."""
-from types import SimpleNamespace
+import os
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+import pytest
+from PySide6.QtWidgets import QApplication
+
+@pytest.fixture(scope="module")
+def qapp():
+    return QApplication.instance() or QApplication([])
 
 from mcm_solarcheck.gui.import_page import make_import_page
 from mcm_solarcheck.services.orthomosaic_geotiff_contract import GeoTIFFSpatialReference
