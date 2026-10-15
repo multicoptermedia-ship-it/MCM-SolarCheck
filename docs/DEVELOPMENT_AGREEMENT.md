@@ -145,3 +145,8 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - Korrekturcommits: `87f7783` (idempotentes `CREATE TABLE IF NOT EXISTS` in v16→17), `d746d3c`, `93bdba3`, `7abe67d` (Erwartung Schema v17 in den älteren Migrationstests), dieser Dokumentationscommit.
 - **CI noch ausstehend**: neueste GitHub-Actions-Läufe prüfen. Falls weiterhin rot, Logs auswerten, keine neuen Features vor grünem Stand.
 - Die v17-Migration bewahrt bestehende Tabellen und setzt nur das Schema-Flag fort. Keine fachliche GeoTIFF-Freigabe.
+
+## CI-Nachbesserung 2 – letzte zwei Migrationstests
+- CI-Lauf `38778810206` nach vorherigem Korrekturblock: 2872 bestanden, 2 fehlgeschlagen, 8 übersprungen. Nur noch `tests/test_sqlite_storage.py::test_schema_14_migration_does_not_invent_project_owners` und `::test_schema_15_migration_preserves_owner_without_inventing_capacity`; beide erwarteten Schema 16 statt 17.
+- Commit `635bcccd` aktualisiert beide Versionsassertionen auf 17. Keine fachliche Logik verändert.
+- Neueste GitHub Actions für diesen Commit prüfen, **noch nicht als grün bestätigt**. Bei Erfolg kann Desktop-GIS-Registrierung als nächster Fünferblock folgen.
