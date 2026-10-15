@@ -3,7 +3,7 @@
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -91,5 +91,24 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
             "Nicht verfügbar, solange kein aktives Projekt und Import-Service angebunden sind."
         )
     layout.addWidget(import_images)
+    inspect_button = QPushButton("GeoTIFF / GIS-Metadaten prüfen", page)
+    inspect_button.setObjectName("inspect_geotiff_button")
+    if current_project_id is not None and on_inspect_geotiff is not None:
+        def request_geotiff_inspection():
+            chooser = choose_geotiff or (lambda: QFileDialog.getOpenFileName(
+                page, "GeoTIFF auswählen", "", "GeoTIFF (*.tif *.tiff)"
+            )[0])
+            selected = chooser()
+            if selected:
+                on_inspect_geotiff(selected)
+        inspect_button.clicked.connect(request_geotiff_inspection)
+    else:
+        inspect_button.setEnabled(False)
+    layout.addWidget(inspect_button)
+    if geotiff_result is not None:
+        result = QLabel(geotiff_result, page)
+        result.setObjectName("geotiff_inspection_result")
+        result.setWordWrap(True)
+        layout.addWidget(result)
     layout.addStretch(1)
     return page
