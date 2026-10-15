@@ -120,3 +120,24 @@ def write_georeferenced_rgb_geotiff(
     finally:
         temporary.unlink(missing_ok=True)
     return target
+
+
+def inspect_existing_geotiff(path: str | Path) -> GeoTIFFSpatialReference:
+    """Read spatial metadata from an existing local GeoTIFF; never infer missing CRS."""
+    import rasterio
+
+    source = Path(path)
+    if source.suffix.lower() not in (".tif", ".tiff"):
+        raise ValueError("Expected a GeoTIFF file")
+    with rasterio.open(source) as dataset:
+        if dataset.driver != "GTiff" or dataset.crs is None:
+            raise ValueError("GeoTIFF must contain a valid CRS")
+        reference = GeoTIFFSpatialReference(
+            crs=dataset.crs.to_string(),
+            transform=tuple(dataset.transform)[:6],
+            width=dataset.width,
+            height=dataset.height,
+            nodata=dataset.nodata,
+        )
+    validate_geotiff_reference(reference)
+    return reference
