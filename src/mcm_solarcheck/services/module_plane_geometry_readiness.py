@@ -26,6 +26,7 @@ class ModulePlane:
 
 @dataclass(frozen=True)
 class GeometryReadiness:
+    metadata_complete: bool
     ready_for_reconstruction: bool
     diagnostics: tuple[str, ...]
 
@@ -46,6 +47,7 @@ def assess_module_plane_geometry(
         errors.append("module plane: valid independently established azimuth required")
     if not plane.provenance.strip() or not plane.confidence.strip():
         errors.append("module plane: provenance and confidence required")
-    if not errors:
+    metadata_complete = not errors
+    if metadata_complete:
         errors.append("camera calibration, reference frames, overlap and surveyed controls still require separate verification")
-    return GeometryReadiness(False, tuple(errors))
+    return GeometryReadiness(metadata_complete, False, tuple(errors))
