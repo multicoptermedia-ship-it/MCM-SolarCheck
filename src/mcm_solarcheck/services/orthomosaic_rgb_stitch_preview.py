@@ -21,6 +21,7 @@ class RGBStitchPreview:
     verified_orthomosaic: bool = False
     covered_fraction: float = 0.0
     median_reprojection_error_px: float | None = None
+    frame_count: int = 2
 
 
 def stitch_rgb_preview(
@@ -159,7 +160,8 @@ def stitch_rgb_series_preview(
             min_pair_inliers = min(min_pair_inliers, result.inliers)
     return RGBStitchPreview(result.image, min_pair_inliers,
                             covered_fraction=result.covered_fraction,
-                            median_reprojection_error_px=result.median_reprojection_error_px)
+                            median_reprojection_error_px=result.median_reprojection_error_px,
+                            frame_count=len(paths))
 
 
 def save_rgb_preview_manifest(
@@ -174,6 +176,8 @@ def save_rgb_preview_manifest(
     path = Path(output_path)
     if path.suffix.lower() != ".json" or not path.parent.is_dir():
         raise ValueError("manifest requires an existing directory and JSON extension")
+    if len(source_names) != preview.frame_count:
+        raise ValueError("source_names must match frame count")
     if not source_names or len(source_names) > 32 or any(
         not name or Path(name).name != name for name in source_names
     ):
@@ -192,6 +196,7 @@ def save_rgb_preview_manifest(
         "status": "unverified_preview",
         "verified_orthomosaic": False,
         "source_names": list(source_names),
+        "frame_count": preview.frame_count,
         "minimum_pair_inliers": preview.inliers,
         "canvas_covered_fraction": preview.covered_fraction,
         "last_pair_median_reprojection_error_px": preview.median_reprojection_error_px,
