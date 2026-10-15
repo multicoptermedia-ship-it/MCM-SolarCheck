@@ -20,6 +20,7 @@ class RGBStitchPreview:
     inliers: int
     verified_orthomosaic: bool = False
     covered_fraction: float = 0.0
+    median_reprojection_error_px: float | None = None
 
 
 def stitch_rgb_preview(
@@ -100,7 +101,8 @@ def stitch_rgb_preview(
     canvas[y:y+h1, x:x+w1] = left
     right_mask[y:y+h1, x:x+w1] = 1
     coverage = float(np.count_nonzero(right_mask)) / (width * height)
-    return RGBStitchPreview(canvas, int(np.count_nonzero(mask)), covered_fraction=coverage)
+    return RGBStitchPreview(canvas, int(np.count_nonzero(mask)), covered_fraction=coverage,
+                            median_reprojection_error_px=float(np.median(inlier_errors)))
 
 
 def save_rgb_stitch_preview(preview: RGBStitchPreview, output_path: str | Path) -> Path:
@@ -156,4 +158,5 @@ def stitch_rgb_series_preview(
             )
             min_pair_inliers = min(min_pair_inliers, result.inliers)
     return RGBStitchPreview(result.image, min_pair_inliers,
-                            covered_fraction=result.covered_fraction)
+                            covered_fraction=result.covered_fraction,
+                            median_reprojection_error_px=result.median_reprojection_error_px)
