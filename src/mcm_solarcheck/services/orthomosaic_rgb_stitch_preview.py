@@ -180,8 +180,13 @@ def save_rgb_preview_manifest(
         raise ValueError("source_names must be safe basenames")
     if preview.verified_orthomosaic:
         raise ValueError("unverified preview manifest only")
-    if not 0.0 <= preview.covered_fraction <= 1.0:
+    if not np.isfinite(preview.covered_fraction) or not 0.0 <= preview.covered_fraction <= 1.0:
         raise ValueError("invalid canvas coverage")
+    if preview.median_reprojection_error_px is not None and (
+        not np.isfinite(preview.median_reprojection_error_px)
+        or preview.median_reprojection_error_px < 0
+    ):
+        raise ValueError("invalid reprojection error")
     payload = {
         "schema": "mcm.rgb_preview.v1",
         "status": "unverified_preview",
