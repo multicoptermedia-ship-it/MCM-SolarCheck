@@ -61,3 +61,21 @@ def test_rejects_unverified_controls_or_surface_and_never_overwrites(tmp_path):
         export_planar_orthophoto(
             (_frame(tmp_path),), destination, _reference(), planar_surface_verified=True,
         )
+
+
+def test_reject_collinear_control_points(tmp_path):
+    from mcm_solarcheck.services.orthophoto_planar_rectification import rectify_planar_frame
+    frame = _frame(tmp_path)
+    line = ((0., 0.), (2., 0.), (4., 0.), (7., 0.))
+    invalid = SurveyedFrame(frame.image_path, line, line, controls_surveyed=True)
+    with pytest.raises(ValueError, match='non-collinear'):
+        rectify_planar_frame(invalid, _reference())
+
+
+def test_reject_invalid_mosaic_pixel_limit(tmp_path):
+    from mcm_solarcheck.services.orthophoto_planar_mosaic import build_planar_orthophoto
+    frame = _frame(tmp_path)
+    with pytest.raises(ValueError, match='max_pixels'):
+        build_planar_orthophoto((frame,), _reference(), max_pixels=0)
+    with pytest.raises(ValueError, match='pixel limit'):
+        build_planar_orthophoto((frame,), _reference(), max_pixels=63)
