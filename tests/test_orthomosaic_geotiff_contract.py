@@ -147,3 +147,11 @@ def test_inspect_rejects_unreferenced_tiff(tmp_path):
         ds.write(np.zeros((3, 2), dtype=np.uint8), 1)
     with pytest.raises(ValueError, match="valid CRS"):
         inspect_existing_geotiff(target)
+
+
+def test_inspect_rejects_corrupt_geotiff_with_actionable_error(tmp_path):
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import inspect_existing_geotiff
+    source = tmp_path / "corrupt.tif"
+    source.write_bytes(b"not a valid geotiff")
+    with pytest.raises(ValueError, match="could not be opened"):
+        inspect_existing_geotiff(source)
