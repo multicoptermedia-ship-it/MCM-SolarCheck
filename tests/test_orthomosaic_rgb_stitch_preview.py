@@ -20,6 +20,7 @@ def test_overlapping_rgb_images_produce_unverified_preview(tmp_path):
     assert result.image.shape[1] >= 560
     assert result.inliers >= 20
     assert result.verified_orthomosaic is False
+    assert 0.0 < result.covered_fraction <= 1.0
 
 
 def test_stitch_preview_rejects_invalid_limits(tmp_path):
@@ -66,3 +67,24 @@ def test_png_export_rejects_unsupported_extension(tmp_path):
 def test_invalid_minimum_inliers_rejected_early(tmp_path):
     with pytest.raises(ValueError, match="minimum_inliers"):
         stitch_rgb_preview(tmp_path / "a", tmp_path / "b", minimum_inliers=3)
+
+
+def test_black_pixels_count_as_covered_image_area(tmp_path):
+    rng = np.random.default_rng(99)
+    base = rng.integers(0, 256, (480, 560, 3), dtype=np.uint8)
+    base[100:220, 100:220] = 0
+    first, second = tmp_path / "a.png", tmp_path / "b.png"
+    assert cv2.imwrite(str(first), base)
+    assert cv2.imwrite(str(second), base)
+    result = stitch_rgb_preview(first, second)
+    assert result.covered_fraction > 0.95
+    assert result.verified_orthomosaic is False
+
+
+def test_unrelated_rgb_images_rejected(tmp_path):
+    rng = np.random.default_rng(1337)
+    first, second = tmp_path / "a.png", tmp_path / "b.png"
+    assert cv2.imwrite(str(first), rng.integers(0, 256, (480, 560, 3), dtype=np.uint8))
+    assert cv2.imwrite(str(second), rng.integers(0, 256, (480, 560, 3), dtype=np.uint8))
+    with pytest.raises(ValueError):
+        stitch_rgb_preview(first, second)
