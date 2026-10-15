@@ -88,3 +88,17 @@ def test_unrelated_rgb_images_rejected(tmp_path):
     assert cv2.imwrite(str(second), rng.integers(0, 256, (480, 560, 3), dtype=np.uint8))
     with pytest.raises(ValueError):
         stitch_rgb_preview(first, second)
+
+
+def test_shifted_rgb_crops_with_real_shared_pixels(tmp_path):
+    rng = np.random.default_rng(20261015)
+    scene = rng.integers(0, 256, (480, 760, 3), dtype=np.uint8)
+    left, right = tmp_path / "left.png", tmp_path / "right.png"
+    assert cv2.imwrite(str(left), scene[:, :560])
+    assert cv2.imwrite(str(right), scene[:, 80:640])
+    result = stitch_rgb_preview(left, right)
+    assert result.image.shape[1] >= 560
+    assert result.inliers >= 20
+    assert result.median_reprojection_error_px is not None
+    assert result.median_reprojection_error_px <= 3.0
+    assert result.verified_orthomosaic is False
