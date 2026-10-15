@@ -162,6 +162,27 @@ class ProjectApplicationService:
         from mcm_solarcheck.services.orthomosaic_geotiff_contract import inspect_existing_geotiff
         return inspect_existing_geotiff(source_path)
 
+    def register_project_geotiff(self, project_id: str, source_path: str | Path, *, source_kind: str):
+        """Persist observed GIS provenance; never approve an orthophoto."""
+        import hashlib
+        if source_kind not in ("webodm", "external_gis", "unknown"):
+            raise ValueError("GeoTIFF source_kind must be webodm, external_gis or unknown")
+        reference = self.inspect_project_geotiff(project_id, source_path)
+        source = Path(source_path).resolve(strict=True)
+        digest = hashlib.sha256()
+        with source.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        self.database.save_geotiff_inspection(
+            project_id, source, source_kind, digest.hexdigest(), reference
+        )
+        return reference
+
+    def project_geotiff_inspections(self, project_id: str):
+        if not any(project.project_id == project_id for project in self.projects()):
+            raise KeyError(f"Unknown project: {project_id}")
+        return self.database.geotiff_inspections(project_id)
+
     def import_summary(self, project_id: str):
         """Expose persisted import counts through the application boundary."""
         if not any(project.project_id == project_id for project in self.projects()):
