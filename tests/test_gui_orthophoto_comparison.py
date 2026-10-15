@@ -68,3 +68,45 @@ def test_import_comparison_cancel_does_not_invoke_callback(qapp):
     )
     page.findChild(QPushButton, "compare_orthophotos_button").click()
     assert calls == []
+
+
+def test_desktop_comparison_shows_slider_and_resets_on_project_change(tmp_path, qapp):
+    import rasterio
+    from rasterio.transform import from_origin
+    from PySide6.QtWidgets import QSlider, QLabel
+    from mcm_solarcheck.offline.composition import build_offline_services
+    from mcm_solarcheck.gui.shell import SolarCheckMainWindow
+    from mcm_solarcheck.services.deployment import DeploymentMode
+    from mcm_solarcheck.services.shell_navigation import ShellRoute
+
+    service = build_offline_services(tmp_path / "projects.sqlite").projects
+    service.create_project("P1", "First")
+    service.create_project("P2", "Second")
+    rgb = tmp_path / "rgb.tif"
+    thermal = tmp_path / "thermal.tif"
+    for path, values in (
+        (rgb, np.zeros((3, 4, 4), dtype=np.uint8)),
+        (thermal, np.full((1, 4, 4), 42, dtype=np.float32)),
+    ):
+        with rasterio.open(
+            path, "w", driver="GTiff", width=4, height=4,
+            count=values.shape[0], dtype=values.dtype, crs="EPSG:25832",
+            transform=from_origin(350000, 5650000, 1, 1),
+        ) as dataset:
+            dataset.write(values)
+    window = SolarCheckMainWindow(DeploymentMode.OFFLINE_DESKTOP, project_service=service)
+    window._open_project("P1")
+    before = service.state("P1")
+    window._compare_project_orthophotos(str(rgb), str(thermal))
+    page = window._pages[ShellRoute.IMPORT]
+    slider = page.findChild(QSlider, "orthophoto_thermal_opacity_slider")
+    assert slider is not None and slider.value() == 50
+    slider.setValue(90)
+    assert service.state("P1") == before
+    window._open_project("P2")
+    assert window._pages[ShellRoute.IMPORT].findChild(
+        QSlider, "orthophoto_thermal_opacity_slider"
+    ) is None
+    window._compare_project_orthophotos(str(rgb), str(rgb))
+    error = window._pages[ShellRoute.IMPORT].findChild(QLabel, "orthophoto_comparison_error")
+    assert error is not None and "fehlgeschlagen" in error.text()
