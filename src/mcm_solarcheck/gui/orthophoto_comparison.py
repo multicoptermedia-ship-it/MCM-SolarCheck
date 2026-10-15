@@ -84,6 +84,7 @@ class OrthophotoComparisonWidget(QWidget):
             0, 255,
         ).astype(np.uint8)
         pixmap = _pixmap_from_rgb(composed)
-        size = pixmap.size() * self._zoom
+        from PySide6.QtCore import QSize
+        size = QSize(max(1, round(pixmap.width() * self._zoom)), max(1, round(pixmap.height() * self._zoom)))
         self._label.setPixmap(pixmap.scaled(size, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation))
         self._label.resize(size)
