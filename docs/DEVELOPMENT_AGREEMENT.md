@@ -66,3 +66,12 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - CI für **diese Runde noch nicht bestätigt**. Insbesondere den neuen Test mit verschobenen Ausschnitten unter Python 3.11 und 3.12 prüfen. Bei Rot zuerst Logs auswerten und Fehler beheben, nicht Gates abschwächen.
 - Offene Kernaufgaben: Transformationen und per-frame Masken über alle Bilder aufbewahren; mehrfache Resampling-Schritte vermeiden; globale Drift prüfen; Metadaten und Vorschau als Projektartefakt in den echten Offline-Desktop-Workflow integrieren; Modulflächenentzerrung und georeferenzierte Orthofotoprüfung erst nach belastbaren Daten.
 - Kundenbilder bleiben lokal; keine automatische Expertenfreigabe, keine ungesicherten Temperatur- oder Normkonformitätsbehauptungen.
+
+## Übergabe 15. Oktober 2026 – lokale RGB-Vorschauartefakte, Fünferblock
+- Arbeitsbranch: `feature/block38-offline-ai-ingestion-tests`; keine PR-Merges oder Änderungen an `main`.
+- Voriger Block: JSON-Zeilenumbruchfehler behoben in `95b1552`; GitHub Actions Run 38766855323 erfolgreich.
+- Fünf Schritte: `eac60d2` (nichtfinite Diagnostikwerte ablehnen), `7baa8b8` (lokales PNG+JSON-Artefaktpaar), `c996891` (Regressionstests für Artefaktpaar und ungültige Werte), `6d97629` (Validierung vor Dateioperationen), dieser Dokumentationscommit.
+- Artefakte werden ausschließlich in einem bereits existierenden lokalen Verzeichnis geschrieben; vorhandene gleichnamige Dateien werden nicht überschrieben. Keine Online-Übertragung und keine automatische Expertenfreigabe. Fehler beim JSON-Schreiben führen zum Entfernen der zuvor geschriebenen PNG-Datei.
+- Grenzen: noch keine Integration in die tatsächliche Desktop-Projektoberfläche, kein atomarer Zwei-Dateien-Commit, kein globaler Transformationsgraph, keine Driftkorrektur, keine Modulflächenentzerrung, keine georeferenzierte Orthofotoprüfung. Status bleibt `unverified_preview`.
+- CI dieses neuen Fünferblocks noch nicht bestätigt; Python 3.11 und 3.12 abwarten, Fehler ggf. anhand der Logs beheben.
+- Nächster Block nach grüner CI: bestehende Desktop-Projekt- und Import-APIs gezielt untersuchen, sicheren lokalen Aufrufpfad integrieren, danach per-frame Transformationsdaten/Masken und globale Driftprüfungen entwickeln. Bei jeder Runde wieder fünf Commits mit dauerhafter Übergabe.
