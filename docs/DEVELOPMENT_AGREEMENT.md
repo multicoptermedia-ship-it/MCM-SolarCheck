@@ -108,3 +108,12 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - Noch keine GUI-Integration, keine automatisch ermittelten Referenzdaten, keine geprüfte WebODM-Anbindung, keine belastbare Modulflächenentzerrung, keine globalen Genauigkeitsnachweise. Race-freies exklusives Erstellen und atomarer Export bleiben offen.
 - CI für diesen neuen Block noch nicht bestätigt; Python 3.11/3.12 prüfen und bei Rot anhand der Logs korrigieren.
 - Nächster Block: echte verifizierte Georeferenzierungsquelle und Offline-Projektanbindung identifizieren, GIS-Metadaten und NoData/Alpha-Interoperabilität ausbauen, robustes atomisches Schreiben und unabhängige Tests, danach Desktop-Integration mit Workflow-Gates.
+
+## Übergabe 15. Oktober 2026 – GeoTIFF-Dateisicherheit und GIS-Importinspektion
+- Branch `feature/block38-offline-ai-ingestion-tests`; letzter Block bis `754e96f` erfolgreich in GitHub Actions. Keine Änderungen an `main`, kein PR.
+- Fünf Commits: `3f017fd` (lokal temporär schreiben und durch exklusiven Hardlink ohne Überschreiben veröffentlichen), `3ebda36` (Test zum Schutz bestehender Artefakte), `78f373a` (bestehendes GeoTIFF öffnen und CRS/Transform/Abmessungen lesen), `7ac0e26` (Roundtrip und fehlendes CRS testen), dieser Dokumentationscommit.
+- **Wichtig:** `inspect_existing_geotiff` liest GIS-Metadaten, **genehmigt** keine Orthofotoqualität. Es gibt weiterhin keinen geprüften WebODM-Workflow, keinen echten photogrammetrischen Nachweis und keine automatische Georeferenzierung aus RGB-Stitch-Vorschauen.
+- Writer nutzt `rasterio` und `os.link` zur exklusiven Veröffentlichung; Plattform-/Dateisystemverträglichkeit (Windows, Netzlaufwerke) und Crash-Dauerhaftigkeit müssen zusätzlich geprüft werden. Kein Überschreiben bestehender Kundendateien.
+- Die Desktop-Projekt-/Medienpfad-Integration ist **noch offen**; diesen Punkt im nächsten Block priorisieren. Projektbezogene GIS-Importoberfläche darf nur inspizierte Metadaten anzeigen, nicht automatisch `georeferencing_verified=True` setzen.
+- CI für diesen Block noch nicht bestätigt; Python 3.11/3.12 kontrollieren, Fehler korrigieren.
+- Nächster Block: Offline-Projekt- und GUI-Einstiegspunkte konkret anbinden, separate Inspektionsaktion für bestehende GeoTIFFs anbieten, Windows-Pfade/Dateisysteme testen, Datenherkunft dokumentieren und echte GIS-Qualitätssicherung planen.
