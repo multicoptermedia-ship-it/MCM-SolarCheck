@@ -103,3 +103,19 @@ def test_geotiff_writer_rejects_bad_raster_before_creating_file(tmp_path):
                 image, target, ref, georeferencing_verified=True,
             )
         assert not target.exists()
+
+
+def test_geotiff_writer_never_replaces_existing_file(tmp_path):
+    import numpy as np
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import (
+        write_georeferenced_rgb_geotiff,
+    )
+    target = tmp_path / "existing.tif"
+    target.write_bytes(b"original evidence")
+    with pytest.raises(FileExistsError):
+        write_georeferenced_rgb_geotiff(
+            np.zeros((3, 2, 3), dtype=np.uint8), target,
+            reference(width=2, height=3), georeferencing_verified=True,
+        )
+    assert target.read_bytes() == b"original evidence"
+    assert not list(tmp_path.glob(".mcm-geotiff-*"))
