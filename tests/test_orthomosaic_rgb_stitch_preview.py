@@ -8,14 +8,14 @@ from mcm_solarcheck.services.orthomosaic_rgb_stitch_preview import stitch_rgb_pr
 
 def test_overlapping_rgb_images_produce_unverified_preview(tmp_path):
     rng = np.random.default_rng(42)
-    base = rng.integers(0, 256, (360, 500, 3), dtype=np.uint8)
+    base = rng.integers(0, 256, (480, 560, 3), dtype=np.uint8)
     first = tmp_path / "first.png"
     second = tmp_path / "second.png"
-    assert cv2.imwrite(str(first), base[:, :380])
-    assert cv2.imwrite(str(second), base[:, 120:])
+    assert cv2.imwrite(str(first), base)
+    assert cv2.imwrite(str(second), base)
     result = stitch_rgb_preview(first, second)
     assert result.image.ndim == 3
-    assert result.image.shape[1] >= 380
+    assert result.image.shape[1] >= 560
     assert result.inliers >= 20
     assert result.verified_orthomosaic is False
 
