@@ -94,12 +94,18 @@ def write_georeferenced_rgb_geotiff(
     if crs is None:
         raise ValueError("GeoTIFF CRS cannot be parsed")
     transform = Affine(*reference.transform)
-    # Validate before opening; remove a partial output if the writer fails.
+    # Write to a private temporary file, then publish without overwriting.
+    import os
+    import tempfile
+
+    fd, temporary_name = tempfile.mkstemp(suffix=".tif", prefix=".mcm-geotiff-", dir=target.parent)
+    os.close(fd)
+    temporary = Path(temporary_name)
     try:
         dataset_context = rasterio.open(
-        target, "w", driver="GTiff", height=reference.height,
-        width=reference.width, count=3, dtype="uint8",
-        crs=crs, transform=transform, nodata=reference.nodata,
+            temporary, "w", driver="GTiff", height=reference.height,
+            width=reference.width, count=3, dtype="uint8",
+            crs=crs, transform=transform, nodata=reference.nodata,
         )
         with dataset_context as dataset:
             for channel in range(3):
@@ -109,7 +115,8 @@ def write_georeferenced_rgb_geotiff(
                 rasterio.enums.ColorInterp.green,
                 rasterio.enums.ColorInterp.blue,
             )
-    except Exception:
-        target.unlink(missing_ok=True)
-        raise
+        # Exclusive hard link avoids overwriting a concurrent export.
+        os.link(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
     return target
