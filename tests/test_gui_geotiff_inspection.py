@@ -145,7 +145,7 @@ def test_registered_geotiff_is_visible_after_desktop_reopen(tmp_path, qapp):
     window._register_project_geotiff(str(source))
     label = window._pages[ShellRoute.IMPORT].findChild(QLabel, "registered_geotiff_artifacts")
     assert "ortho.tif" in label.text()
-    assert "nicht fachlich" in label.text()
+    assert "keine fachliche Freigabe" in label.text()
     assert service.state("P1") == before
 
     reopened = SolarCheckMainWindow(
