@@ -193,5 +193,5 @@ def save_rgb_preview_manifest(
         "image_width": int(preview.image.shape[1]),
         "image_height": int(preview.image.shape[0]),
     }
-    path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\\n", encoding="utf-8")
+    path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     return path
