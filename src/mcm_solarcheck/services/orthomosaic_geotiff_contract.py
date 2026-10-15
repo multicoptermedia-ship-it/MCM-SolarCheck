@@ -60,3 +60,51 @@ def geotiff_world_corners(
     if not all(isfinite(value) for corner in corners for value in corner):
         raise ValueError("GeoTIFF world coordinates must be finite")
     return corners
+
+
+def write_georeferenced_rgb_geotiff(
+    rgb: "np.ndarray",
+    output_path: str | Path,
+    reference: GeoTIFFSpatialReference,
+    *,
+    georeferencing_verified: bool = False,
+) -> Path:
+    """Write an RGB GeoTIFF only after upstream georeferencing was verified.
+
+    No preview may be promoted to a georeferenced orthophoto by this writer.
+    """
+    import numpy as np
+    import rasterio
+    from rasterio.crs import CRS
+    from rasterio.transform import Affine
+
+    if georeferencing_verified is not True:
+        raise ValueError("verified georeferencing is required for GeoTIFF export")
+    target = require_geotiff_export_target(output_path, reference)
+    if not isinstance(rgb, np.ndarray) or rgb.dtype != np.uint8 or rgb.ndim != 3:
+        raise ValueError("GeoTIFF RGB raster must be uint8 HxWx3")
+    if rgb.shape != (reference.height, reference.width, 3):
+        raise ValueError("GeoTIFF RGB raster dimensions do not match reference")
+    if reference.nodata is not None and not 0 <= reference.nodata <= 255:
+        raise ValueError("uint8 RGB NoData must be between 0 and 255")
+    try:
+        crs = CRS.from_user_input(reference.crs)
+    except Exception as error:
+        raise ValueError("GeoTIFF CRS cannot be parsed") from error
+    if crs is None:
+        raise ValueError("GeoTIFF CRS cannot be parsed")
+    transform = Affine(*reference.transform)
+    # Exclusive creation avoids overwriting existing customer artifacts.
+    with rasterio.open(
+        target, "w", driver="GTiff", height=reference.height,
+        width=reference.width, count=3, dtype="uint8",
+        crs=crs, transform=transform, nodata=reference.nodata,
+    ) as dataset:
+        for channel in range(3):
+            dataset.write(rgb[:, :, channel], channel + 1)
+        dataset.colorinterp = (
+            rasterio.enums.ColorInterp.red,
+            rasterio.enums.ColorInterp.green,
+            rasterio.enums.ColorInterp.blue,
+        )
+    return target
