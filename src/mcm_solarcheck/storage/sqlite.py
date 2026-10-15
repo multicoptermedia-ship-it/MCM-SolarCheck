@@ -166,6 +166,26 @@ class ProjectDatabase:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
             db.executescript(_SCHEMA);db.execute('INSERT INTO schema_info(version) VALUES (?)',(SCHEMA_VERSION,))
+    def save_geotiff_inspection(self, project_id, source_path, source_kind, content_sha256, reference):
+        """Record only observed metadata, never an orthophoto approval."""
+        with self.connect() as db:
+            db.execute(
+                """INSERT INTO project_geotiffs
+                (project_id,source_path,source_kind,content_sha256,crs,transform_json,width,height,nodata)
+                VALUES (?,?,?,?,?,?,?,?,?)""",
+                (project_id, str(source_path), source_kind, content_sha256,
+                 reference.crs, json.dumps(reference.transform), reference.width,
+                 reference.height, reference.nodata),
+            )
+
+    def geotiff_inspections(self, project_id):
+        """Return project-scoped GIS provenance records without cross-project leakage."""
+        with self.connect() as db:
+            return tuple(dict(row) for row in db.execute(
+                "SELECT * FROM project_geotiffs WHERE project_id=? ORDER BY created_at,source_path",
+                (project_id,),
+            ))
+
     def create_project(self,project_id:str,name:str)->None:
         with self.connect() as db:db.execute("INSERT INTO projects(project_id,name) VALUES (?,?) ON CONFLICT(project_id) DO UPDATE SET name=excluded.name",(project_id,name))
     def create_customer_project(self,customer_id:str,project_id:str,name:str,capacity_kwp=None)->None:
