@@ -119,3 +119,31 @@ def test_geotiff_writer_never_replaces_existing_file(tmp_path):
         )
     assert target.read_bytes() == b"original evidence"
     assert not list(tmp_path.glob(".mcm-geotiff-*"))
+
+
+def test_inspect_existing_geotiff_reads_reference_without_approval(tmp_path):
+    import numpy as np
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import (
+        inspect_existing_geotiff, write_georeferenced_rgb_geotiff,
+    )
+    expected = reference(width=2, height=3)
+    target = write_georeferenced_rgb_geotiff(
+        np.zeros((3, 2, 3), dtype=np.uint8), tmp_path / "source.tif",
+        expected, georeferencing_verified=True,
+    )
+    found = inspect_existing_geotiff(target)
+    assert found.crs == expected.crs
+    assert found.transform == expected.transform
+    assert (found.width, found.height) == (2, 3)
+
+
+def test_inspect_rejects_unreferenced_tiff(tmp_path):
+    import numpy as np
+    import rasterio
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import inspect_existing_geotiff
+    target = tmp_path / "no-crs.tif"
+    with rasterio.open(target, "w", driver="GTiff", width=2, height=3,
+                       count=1, dtype="uint8") as ds:
+        ds.write(np.zeros((3, 2), dtype=np.uint8), 1)
+    with pytest.raises(ValueError, match="valid CRS"):
+        inspect_existing_geotiff(target)
