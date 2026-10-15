@@ -128,3 +128,20 @@ def test_zoom_buttons_scale_both_layers_in_one_viewport(qapp):
     assert label.pixmap().width() > original.width()
     widget.findChild(QPushButton, 'orthophoto_zoom_reset').click()
     assert label.pixmap().size() == original
+
+
+def test_zoom_clamps_and_keeps_input_arrays_unchanged(qapp):
+    from PySide6.QtWidgets import QPushButton
+    rgb = np.full((12, 16, 3), 25, dtype=np.uint8)
+    thermal = np.full((12, 16), 15, dtype=np.float32)
+    widget = OrthophotoComparisonWidget(rgb, thermal)
+    zoom_out = widget.findChild(QPushButton, 'orthophoto_zoom_out')
+    zoom_in = widget.findChild(QPushButton, 'orthophoto_zoom_in')
+    for _ in range(30):
+        zoom_out.click()
+    label = widget.findChild(QLabel, 'orthophoto_comparison_image')
+    assert label.pixmap().width() == 4
+    for _ in range(40):
+        zoom_in.click()
+    assert label.pixmap().width() == 64
+    assert np.all(rgb == 25) and np.all(thermal == 15)
