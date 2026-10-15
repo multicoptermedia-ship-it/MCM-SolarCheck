@@ -39,3 +39,12 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 
 ## Startanweisung für einen neuen Chat
 `Bitte lies im Repository multicoptermedia-ship-it/MCM-SolarCheck die Datei docs/DEVELOPMENT_AGREEMENT.md auf dem aktuellen Entwicklungsbranch, prüfe Branches, PRs und letzte Commits und setze die Offline-first-Entwicklung in fünf getesteten Schritten fort. Alle bisherigen Vorgaben beibehalten.`
+
+## Übergabe 15. Oktober 2026 – RGB-Stitch-Vorschau, Fünferblock
+- Branch: `feature/block38-offline-ai-ingestion-tests`; `main` und offene PRs bleiben unangetastet.
+- Vorheriger grüner CI-Lauf: `d24dc3e`, GitHub Actions Run 38763579957.
+- Fünf Schritte dieser Runde: `bab6c3e` (Parametergrenzen), `1563f0b` (lokaler PNG-Export), `4450735` (sequenzielle RGB-Mehrbild-Vorschau), `1b60329` (Funktions-/Negativtests), dieser Dokumentationscommit.
+- Die Mehrbildfunktion verwendet die bereits vorhandene ORB/RANSAC-Paarprüfung und begrenzt die Eingabe standardmäßig auf acht Bilder. Sie erzeugt ausschließlich eine **unverifizierte** lokale Vorschau, keine geometrisch geprüfte Orthofoto-Datei.
+- Qualitätsrisiken: sequenzielles Stitching kann Drift erzeugen; Referenzbilder überdecken Überlappungsbereiche ohne Blending; kein Bundle Adjustment, keine Modulflächenentzerrung, keine unabhängige Coverage-Prüfung, keine RGB-/Thermal-Registrierung, keine radiometrische Temperaturfreigabe. PNG ist nur Vorschau, kein Berichtsnachweis einer Orthofotogenauigkeit.
+- Die CI-Ergebnisse für diesen neuen Fünferblock sind noch **nicht bestätigt**. Python 3.11 und 3.12 prüfen, bevor der Block als grün gilt.
+- Nächster Schwerpunkt nach grüner CI: realistische versetzte Bildausschnitte als Tests, geometrische Residuen und Coverage-Gates, robuste Multi-Frame-Registrierung und Desktop-Anbindung; bestehende Expertenfreigaben und Reportgates nicht umgehen.
