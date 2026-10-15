@@ -200,3 +200,41 @@ def save_rgb_preview_manifest(
     }
     path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def save_rgb_preview_artifacts(
+    preview: RGBStitchPreview,
+    output_directory: str | Path,
+    *,
+    source_names: tuple[str, ...],
+) -> tuple[Path, Path]:
+    """Save the local diagnostic PNG and manifest as a paired artifact set.
+
+    The caller owns the output directory; this function never publishes or approves it.
+    """
+    directory = Path(output_directory)
+    if not directory.is_dir():
+        raise ValueError("artifact directory does not exist")
+    image_path = directory / "rgb-stitch-preview.png"
+    manifest_path = directory / "rgb-stitch-preview.json"
+    if image_path.exists() or manifest_path.exists():
+        raise FileExistsError("preview artifacts already exist")
+    # Validate metadata before writing either artifact.
+    import math
+    if not source_names or len(source_names) > 32 or any(
+        not name or Path(name).name != name for name in source_names
+    ):
+        raise ValueError("source_names must be safe basenames")
+    if not math.isfinite(preview.covered_fraction) or not 0 <= preview.covered_fraction <= 1:
+        raise ValueError("invalid canvas coverage")
+    if preview.verified_orthomosaic:
+        raise ValueError("verified orthomosaics require separate export")
+    saved_image = save_rgb_stitch_preview(preview, image_path)
+    try:
+        saved_manifest = save_rgb_preview_manifest(
+            preview, manifest_path, source_names=source_names,
+        )
+    except Exception:
+        saved_image.unlink(missing_ok=True)
+        raise
+    return saved_image, saved_manifest
