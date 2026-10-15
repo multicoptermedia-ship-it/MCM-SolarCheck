@@ -41,11 +41,16 @@ def rectify_planar_frame(frame: SurveyedFrame, reference: GeoTIFFSpatialReferenc
         raise ValueError("control coordinates must be finite 2D points")
     if len(np.unique(pixels, axis=0)) < 4 or len(np.unique(world, axis=0)) < 4:
         raise ValueError("control points must be distinct")
+    for points in (pixels, world):
+        centered = points - points.mean(axis=0)
+        singular = np.linalg.svd(centered, compute_uv=False)
+        if singular[0] <= 0 or singular[1] / singular[0] < 1e-6:
+            raise ValueError("control points must span a non-collinear surface")
     a, b, c, d, e, f = reference.transform
     inverse = np.linalg.inv(np.array([[a, b], [d, e]], dtype=np.float64))
     target_pixels = (world - np.array([c, f])) @ inverse.T
     matrix, mask = cv2.findHomography(pixels, target_pixels, cv2.RANSAC, 2.0)
-    if matrix is None or mask is None or int(mask.sum()) < 4:
+    if matrix is None or mask is None or int(mask.sum()) < 4 or not np.isfinite(matrix).all():
         raise ValueError("control geometry cannot be rectified")
     predicted = cv2.perspectiveTransform(pixels.reshape(-1, 1, 2), matrix).reshape(-1, 2)
     residual = np.linalg.norm(predicted - target_pixels, axis=1)
