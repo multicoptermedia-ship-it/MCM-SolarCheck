@@ -32,6 +32,8 @@ def stitch_rgb_preview(
     """Create a memory-bounded diagnostic mosaic from two real RGB photographs."""
     if not 128 <= max_side <= 4096 or max_canvas_pixels < 100_000:
         raise ValueError("invalid preview resource limits")
+    if minimum_inliers < 4:
+        raise ValueError("minimum_inliers must be at least four")
     first_path, second_path = Path(first_path), Path(second_path)
     preliminary = match_rgb_feature_pair(
         "first", first_path, "second", second_path,
