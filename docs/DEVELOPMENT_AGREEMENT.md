@@ -99,3 +99,12 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - Verbindliches Ziel bleibt ein tatsächlich georeferenziertes GeoTIFF für GIS-Anwendungen. RGB-PNG/JSON bleibt ausdrücklich `unverified_preview`, ohne erfundene CRS oder Georeferenzierung.
 - CI für den aktuellen Block noch **nicht bestätigt**; Python 3.11 und 3.12 prüfen. Bei Rot Logs analysieren und Fehler gezielt beheben.
 - Nächster Fünferblock: echte Offline-Projektmedienpfade und Desktop-Aktionen ermitteln, vorhandene Raster-/GIS-Bibliotheken prüfen, tatsächlichen GeoTIFF-Export mit überprüfbarer CRS/Transform-Metadatenintegration erst auf Grundlage verifizierter Georeferenzdaten entwickeln; Regressionstests und Übergabe.
+
+## Übergabe 15. Oktober 2026 – lokaler GeoTIFF-Schreiber, Fünferblock
+- Branch: `feature/block38-offline-ai-ingestion-tests`; `main` und PRs nicht geändert. Voriger GeoTIFF-Vertragsblock bis `f18ce9a` mit GitHub Actions erfolgreich bestätigt.
+- Fünf Commits: `69d3fe2` (lokaler GeoTIFF-RGB-Schreiber mit Rasterio, expliziter Freigabeparameter), `aa4d419` (GeoTIFF-Roundtrip für CRS, Affintransformation und RGB-Kanäle), `4e31e9a` (Teil-Dateien bei Schreibfehlern entfernen), `85df3c6` (Negativtests für Rasterform und Datentyp), dieser Übergabecommit.
+- `requirements.txt` enthält bereits `rasterio>=1.4,<2` und `pyproj>=3.7,<4`; keine neue Cloud- oder Laufzeitabhängigkeit erforderlich.
+- **Sicherheitsgrenze:** `write_georeferenced_rgb_geotiff` akzeptiert ausschließlich RGB uint8 HxWx3, validiertes CRS/Transform und `georeferencing_verified=True`. Dieser Parameter ist derzeit nur eine explizite Zusicherung des Aufrufers, **kein** kryptografischer oder photogrammetrischer Nachweis. Nicht mit den unverifizierten Stitch-PNGs verbinden. Der Export erzeugt eine GIS-georeferenzierte RGB-Rasterdatei, aber ohne echte Orthorektifizierung noch **kein fachlich bestätigtes Orthofoto**.
+- Noch keine GUI-Integration, keine automatisch ermittelten Referenzdaten, keine geprüfte WebODM-Anbindung, keine belastbare Modulflächenentzerrung, keine globalen Genauigkeitsnachweise. Race-freies exklusives Erstellen und atomarer Export bleiben offen.
+- CI für diesen neuen Block noch nicht bestätigt; Python 3.11/3.12 prüfen und bei Rot anhand der Logs korrigieren.
+- Nächster Block: echte verifizierte Georeferenzierungsquelle und Offline-Projektanbindung identifizieren, GIS-Metadaten und NoData/Alpha-Interoperabilität ausbauen, robustes atomisches Schreiben und unabhängige Tests, danach Desktop-Integration mit Workflow-Gates.
