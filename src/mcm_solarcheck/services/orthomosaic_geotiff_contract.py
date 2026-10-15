@@ -94,17 +94,22 @@ def write_georeferenced_rgb_geotiff(
     if crs is None:
         raise ValueError("GeoTIFF CRS cannot be parsed")
     transform = Affine(*reference.transform)
-    # Exclusive creation avoids overwriting existing customer artifacts.
-    with rasterio.open(
+    # Validate before opening; remove a partial output if the writer fails.
+    try:
+        dataset_context = rasterio.open(
         target, "w", driver="GTiff", height=reference.height,
         width=reference.width, count=3, dtype="uint8",
         crs=crs, transform=transform, nodata=reference.nodata,
-    ) as dataset:
-        for channel in range(3):
-            dataset.write(rgb[:, :, channel], channel + 1)
-        dataset.colorinterp = (
-            rasterio.enums.ColorInterp.red,
-            rasterio.enums.ColorInterp.green,
-            rasterio.enums.ColorInterp.blue,
         )
+        with dataset_context as dataset:
+            for channel in range(3):
+                dataset.write(rgb[:, :, channel], channel + 1)
+            dataset.colorinterp = (
+                rasterio.enums.ColorInterp.red,
+                rasterio.enums.ColorInterp.green,
+                rasterio.enums.ColorInterp.blue,
+            )
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
     return target
