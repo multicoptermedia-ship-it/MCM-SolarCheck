@@ -56,7 +56,9 @@ def audit_surface_gis_controls(
     a, d = coefficients[0]
     b, e = coefficients[1]
     c, f = coefficients[2]
-    if not np.isfinite(a * e - b * d) or abs(a * e - b * d) <= 1e-12:
+    linear = np.array([[a, b], [d, e]], dtype=np.float64)
+    scales = np.linalg.svd(linear, compute_uv=False)
+    if not np.isfinite(scales).all() or scales[0] <= 0 or scales[1] / scales[0] < 1e-10:
         raise ValueError("singular GIS affine transform")
     return (float(a), float(b), float(c), float(d), float(e), float(f)), SurfaceGISControlAudit(
         rms, maximum, float(tolerance_m), len(uv), maximum <= tolerance_m
