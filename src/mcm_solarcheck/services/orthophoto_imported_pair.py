@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from mcm_solarcheck.domain.models import ImageFrame, ThermalFrame
-from mcm_solarcheck.services.orthomosaic_geotiff_contract import GeoTIFFSpatialReference
+from mcm_solarcheck.services.orthomosaic_geotiff_contract import GeoTIFFSpatialReference, require_geotiff_export_target
 from mcm_solarcheck.services.orthophoto_imported_frames import ImportedSurveyedControl, surveyed_frames_from_import
 from mcm_solarcheck.services.orthophoto_planar_export import export_planar_orthophoto
 
@@ -40,6 +40,8 @@ def generate_imported_planar_orthophoto_pair(
         raise ValueError("RGB and thermal exports require distinct destinations")
     if rgb_target.exists() or thermal_target.exists():
         raise FileExistsError("orthophoto export destination already exists")
+    require_geotiff_export_target(rgb_target, rgb_reference)
+    require_geotiff_export_target(thermal_target, thermal_reference)
     rgb_inputs = surveyed_frames_from_import(rgb_frames, rgb_controls)
     thermal_inputs = surveyed_frames_from_import(thermal_frames, thermal_controls, thermal=True)
     rgb_output = export_planar_orthophoto(
