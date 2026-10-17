@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 
 from mcm_solarcheck.services.visual_frame_registration import estimate_visual_link
+from mcm_solarcheck.services.visual_loop_consistency import require_visual_loop
 
 
 @dataclass(frozen=True)
@@ -20,7 +21,7 @@ class AnchoredVisualPreview:
     metric_orthophoto_verified: bool = False
 
 
-def compose_anchored_visual_preview(frames, *, max_pixels=12_000_000):
+def compose_anchored_visual_preview(frames, *, max_pixels=12_000_000, verify_loops=False, max_loop_error_px=12.0):
     frames = tuple(frames)
     if not 2 <= len(frames) <= 4:
         raise ValueError("expected 2-4 RGB frames")
@@ -39,6 +40,15 @@ def compose_anchored_visual_preview(frames, *, max_pixels=12_000_000):
             raise ValueError("nonfinite chained transform")
         transforms.append(current)
         inliers.append(count)
+    if verify_loops:
+        for index in range(2, len(frames)):
+            try:
+                direct, _ = estimate_visual_link(frames[index - 2], frames[index])
+            except ValueError as exc:
+                raise ValueError('cannot verify visual loop closure') from exc
+            # Both transforms map frame index-2 into frame index coordinates.
+            chained = np.linalg.inv(transforms[index]) @ transforms[index - 2]
+            require_visual_loop(chained, direct, frames[index - 2].shape[1], frames[index - 2].shape[0], max_error_px=max_loop_error_px)
     all_corners = []
     for frame, h in zip(frames, transforms):
         height, width = frame.shape[:2]
