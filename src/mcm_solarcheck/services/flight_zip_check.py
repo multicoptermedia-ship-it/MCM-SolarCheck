@@ -53,8 +53,8 @@ def main(argv=None):
         except (ValueError, OSError) as error:
             parser.exit(2, f"Overlap audit failed: {error}\\n")
         for label, transitions in (("RGB", overlap.rgb), ("Thermal", overlap.thermal)):
-            weak = [(t.first_id, t.second_id, t.inliers) for t in transitions if t.inliers < 10]
-            print(f"{label} adjacent transitions: {len(transitions)}; weak transitions (<10 inliers): {weak}")
+            weak = [(t.first_id, t.second_id, t.inliers, t.occupied_inlier_cells) for t in transitions if t.inliers < 10 or t.occupied_inlier_cells < 4]
+            print(f"{label} adjacent transitions: {len(transitions)}; weak/clustered transitions (IDs, inliers, occupied 4x4 cells): {weak}")
         for note in overlap.diagnostics:
             print(f"NOTE: {note}")
     return 0 if result.paired_count and not result.unpaired_ids and not result.mismatched_timestamps else 1
