@@ -54,6 +54,14 @@ def surveyed_frames_from_import(
             raise ValueError("imported source image must be an existing local file")
         if type(frame.width) is not int or type(frame.height) is not int or frame.width <= 0 or frame.height <= 0:
             raise ValueError("imported image dimensions required")
+        import cv2
+        image = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+        if image is None or image.shape[:2] != (frame.height, frame.width):
+            raise ValueError('decoded source dimensions differ from imported metadata')
+        if thermal and (image.ndim != 2 or image.dtype not in (np.dtype('uint8'), np.dtype('uint16'))):
+            raise ValueError('thermal source must be a single-band raw raster, not a palette')
+        if not thermal and (image.ndim != 3 or image.shape[2] != 3 or image.dtype != np.dtype('uint8')):
+            raise ValueError('RGB source must be a three-channel uint8 raster')
         control = by_id[frame.frame_id]
         pixel = np.asarray(control.pixel_points, dtype=np.float64)
         world = np.asarray(control.world_points, dtype=np.float64)
