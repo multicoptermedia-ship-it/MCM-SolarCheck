@@ -20,6 +20,7 @@ class ImageTransition:
     matches: int
     inliers: int
     inlier_ratio: float
+    occupied_inlier_cells: int = 0
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ def audit_flight_overlap(path, *, max_image_bytes=80_000_000, max_frames=200, ma
         orb = cv2.ORB_create(nfeatures=1400)
         matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
         results = {}
+        from mcm_solarcheck.services.flight_inlier_distribution import assess_inlier_distribution
         for mode in ("V", "T"):
             frames = []
             for stamp, number, member in sorted(entries[mode], key=lambda item: (item[0], item[1])):
@@ -73,25 +75,29 @@ def audit_flight_overlap(path, *, max_image_bytes=80_000_000, max_frames=200, ma
                 if scale < 1:
                     array = cv2.resize(array, (max(1, round(w * scale)), max(1, round(h * scale))))
                 points, descriptors = orb.detectAndCompute(array, None)
-                frames.append((number, points, descriptors))
+                frames.append((number, points, descriptors, array.shape[1], array.shape[0]))
             transitions = []
-            for (a_id, a_points, a_desc), (b_id, b_points, b_desc) in zip(frames, frames[1:]):
+            for (a_id, a_points, a_desc, width, height), (b_id, b_points, b_desc, _, _) in zip(frames, frames[1:]):
                 good = []
                 if a_desc is not None and b_desc is not None and len(a_desc) >= 2 and len(b_desc) >= 2:
                     for pair in matcher.knnMatch(a_desc, b_desc, k=2):
                         if len(pair) == 2 and pair[0].distance < 0.75 * pair[1].distance:
                             good.append(pair[0])
                 inliers = 0
+                occupied = 0
                 if len(good) >= 4:
                     src = np.float32([a_points[m.queryIdx].pt for m in good])
                     dst = np.float32([b_points[m.trainIdx].pt for m in good])
                     _, mask = cv2.findHomography(src, dst, cv2.RANSAC, 4.0)
                     if mask is not None:
-                        inliers = int(mask.sum())
-                transitions.append(ImageTransition(a_id, b_id, len(good), inliers, inliers / len(good) if good else 0.0))
+                        accepted = mask.ravel().astype(bool)
+                        inliers = int(accepted.sum())
+                        occupied = assess_inlier_distribution(src[accepted], width, height).occupied_cells
+                transitions.append(ImageTransition(a_id, b_id, len(good), inliers, inliers / len(good) if good else 0.0, occupied))
             results[mode] = tuple(transitions)
     notes = ["adjacent image matches do not prove full roof coverage or metric accuracy"]
     if any(t.inliers < 10 for t in results["V"] + results["T"]):
         notes.append("weak image transition: fewer than 10 RANSAC inliers")
+    notes.append("grid cell fraction is not roof area coverage")
     notes.append("independent camera calibration, surveyed roof plane and verified common reference required")
     return FlightOverlapAudit(results["V"], results["T"], tuple(notes))
