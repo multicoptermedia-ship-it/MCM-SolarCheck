@@ -13,6 +13,7 @@ from mcm_solarcheck.services.flight_zip_preflight import inspect_dji_flight_zip
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Offline DJI RGB/thermal flight ZIP preflight")
     parser.add_argument("archive", help="local DJI inspection ZIP")
+    parser.add_argument("--audit-overlap", action="store_true", help="local ORB/RANSAC adjacent-frame diagnostic")
     parser.add_argument("--audit-geometry", action="store_true", help="inspect DJI XMP references locally; never approve geometry")
     parser.add_argument("--inspect-images", action="store_true", help="read JPEG headers locally; no geometry approval")
     args = parser.parse_args(argv)
@@ -44,6 +45,17 @@ def main(argv=None):
         print(f"RGB sources: {audit.rgb_sources}; thermal sources: {audit.thermal_sources}")
         print(f"RGB GPS statuses: {audit.rgb_gps_statuses}; thermal GPS statuses: {audit.thermal_gps_statuses}")
         for note in audit.diagnostics:
+            print(f"NOTE: {note}")
+    if args.audit_overlap:
+        from mcm_solarcheck.services.flight_overlap_audit import audit_flight_overlap
+        try:
+            overlap = audit_flight_overlap(args.archive)
+        except (ValueError, OSError) as error:
+            parser.exit(2, f"Overlap audit failed: {error}\\n")
+        for label, transitions in (("RGB", overlap.rgb), ("Thermal", overlap.thermal)):
+            weak = [(t.first_id, t.second_id, t.inliers) for t in transitions if t.inliers < 10]
+            print(f"{label} adjacent transitions: {len(transitions)}; weak transitions (<10 inliers): {weak}")
+        for note in overlap.diagnostics:
             print(f"NOTE: {note}")
     return 0 if result.paired_count and not result.unpaired_ids and not result.mismatched_timestamps else 1
 
