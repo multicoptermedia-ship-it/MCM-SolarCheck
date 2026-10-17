@@ -36,6 +36,11 @@ def build_metric_module_surface(
         raise ValueError("at least one calibrated frame required")
     if any(not isinstance(item, CalibratedSurfaceInput) for item in frames):
         raise TypeError("all frames require explicit calibrated surface inputs")
+    identifiers = [item.frame.frame_id for item in frames if isinstance(item.frame, ImageFrame)]
+    if len(identifiers) != len(frames) or any(not isinstance(value, str) or not value.strip() for value in identifiers):
+        raise ValueError("each surface input needs an imported frame with nonempty ID")
+    if len(set(identifiers)) != len(identifiers):
+        raise ValueError("duplicate frame IDs in module surface inputs")
     grid = plan_surveyed_module_grid(
         surveyed_corners_enu_m, plane,
         metres_per_pixel=metres_per_pixel, max_pixels=max_pixels,
