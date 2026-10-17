@@ -37,3 +37,18 @@ def test_reject_collinear_controls():
     surveyed = project_pixels_to_surveyed_plane(pixels, K, CAMERA, PLANE)
     with pytest.raises(ValueError, match="two surface directions"):
         audit_surveyed_plane_controls(pixels, surveyed, K, CAMERA, PLANE, tolerance_m=0.01)
+
+
+@pytest.mark.parametrize("bad_pixels", [
+    np.array([[0., 0.], [0., 0.], [10., 10.], [0., 10.]]),
+    np.array([[0., 0.], [float("nan"), 0.], [10., 10.], [0., 10.]]),
+])
+def test_reject_duplicate_or_nonfinite_observed_pixels(bad_pixels):
+    with pytest.raises(ValueError, match="distinct"):
+        audit_surveyed_plane_controls(bad_pixels, SURVEY, K, CAMERA, PLANE, tolerance_m=0.01)
+
+
+def test_reject_nonpositive_or_non_numeric_tolerance():
+    for tolerance in (0, -1, float("nan"), "0.01"):
+        with pytest.raises(ValueError, match="tolerance"):
+            audit_surveyed_plane_controls(PIXELS, SURVEY, K, CAMERA, PLANE, tolerance_m=tolerance)
