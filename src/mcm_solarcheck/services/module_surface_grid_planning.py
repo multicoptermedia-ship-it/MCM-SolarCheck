@@ -29,7 +29,9 @@ def plan_surveyed_module_grid(
     if corners.ndim != 2 or corners.shape[1] != 3 or len(corners) < 3 or not np.isfinite(corners).all():
         raise ValueError("at least three finite surveyed ENU corners required")
     uv = plane_coordinates(corners, basis_from_surveyed_plane(plane), tolerance_m=plane_tolerance_m)
-    if len(np.unique(uv, axis=0)) < 3 or np.linalg.matrix_rank(uv - uv.mean(axis=0)) < 2:
+    centered = uv - uv.mean(axis=0)
+    singular = np.linalg.svd(centered, compute_uv=False)
+    if len(np.unique(uv, axis=0)) < 3 or singular[0] <= 0 or singular[1] / singular[0] < 1e-6:
         raise ValueError("surveyed corners must span a nondegenerate module area")
     lower = uv.min(axis=0)
     upper = uv.max(axis=0)
