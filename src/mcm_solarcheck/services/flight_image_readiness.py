@@ -40,7 +40,7 @@ def inspect_flight_image_readiness(path, *, max_image_bytes=80_000_000):
                 continue
             name = PurePosixPath(member.filename).name
             import re
-            match = re.fullmatch(r"DJI_\\d{14}_\\d{4}_([TV])\\.JPG", name, re.IGNORECASE)
+            match = re.fullmatch(r"DJI_\d{14}_\d{4}_([TV])\.JPG", name, re.IGNORECASE)
             if match is None:
                 continue
             mode = match.group(1).upper()
