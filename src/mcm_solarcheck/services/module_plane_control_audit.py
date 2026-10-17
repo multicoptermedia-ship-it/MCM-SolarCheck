@@ -44,8 +44,10 @@ def audit_surveyed_plane_controls(
         raise ValueError("at least four surveyed 3D controls required")
     if pixels.shape != (len(surveyed), 2) or not np.isfinite(surveyed).all():
         raise ValueError("matched finite surveyed 3D controls required")
-    if not np.isfinite(tolerance_m) or tolerance_m <= 0:
+    if not isinstance(tolerance_m, (int, float)) or not np.isfinite(tolerance_m) or tolerance_m <= 0:
         raise ValueError("finite positive metric tolerance required")
+    if not np.isfinite(pixels).all() or len(np.unique(pixels, axis=0)) < 4 or len(np.unique(surveyed, axis=0)) < 4:
+        raise ValueError("finite distinct image and surveyed controls required")
     centered = surveyed - surveyed.mean(axis=0)
     singular = np.linalg.svd(centered, compute_uv=False)
     if singular[0] <= 0 or singular[1] / singular[0] < 1e-6:
