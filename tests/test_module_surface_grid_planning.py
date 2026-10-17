@@ -34,3 +34,16 @@ def test_reject_off_plane_corners_and_unbounded_grid():
         plan_surveyed_module_grid(corners + [0, 0, 0.1], PLANE, metres_per_pixel=0.1)
     with pytest.raises(ValueError, match="budget"):
         plan_surveyed_module_grid(corners, PLANE, metres_per_pixel=0.001, max_pixels=100)
+
+
+def test_reject_nearly_collinear_surveyed_module_outline():
+    corners = np.array([[0., 0., 0.], [1., 1e-9, 0.], [2., 0., 0.]])
+    with pytest.raises(ValueError, match="nondegenerate"):
+        plan_surveyed_module_grid(corners, PLANE, metres_per_pixel=0.1)
+
+
+@pytest.mark.parametrize("resolution", [0, -0.1, float("nan"), True])
+def test_reject_invalid_surface_resolution(resolution):
+    corners = np.array([[0, 0, 0], [2, 0, 0], [0, 1, 0]])
+    with pytest.raises(ValueError, match="resolution"):
+        plan_surveyed_module_grid(corners, PLANE, metres_per_pixel=resolution)
