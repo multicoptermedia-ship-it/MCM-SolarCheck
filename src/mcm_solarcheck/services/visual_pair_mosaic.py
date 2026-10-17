@@ -17,7 +17,7 @@ class VisualPairMosaic:
         return False
 
 
-def compose_visual_pair(first: np.ndarray, second: np.ndarray, *, max_pixels=12_000_000, minimum_inliers=12) -> VisualPairMosaic:
+def compose_visual_pair(first: np.ndarray, second: np.ndarray, *, max_pixels=12_000_000, minimum_inliers=12, minimum_inlier_ratio=0.3) -> VisualPairMosaic:
     """Estimate first-to-second image homography and blend overlapping RGB pixels.
 
     Output is a non-metric, unreferenced visual preview; no roof-area or temperature claims.
@@ -28,7 +28,7 @@ def compose_visual_pair(first: np.ndarray, second: np.ndarray, *, max_pixels=12_
         raise ValueError("two uint8 RGB images of at least 128x128 required")
     if type(max_pixels) is not int or max_pixels < 1 or type(minimum_inliers) is not int or minimum_inliers < 4:
         raise ValueError("invalid mosaic limits")
-    orb = cv2.ORB_create(nfeatures=2000)
+    if not isinstance(minimum_inlier_ratio, (float, int)) or not 0 < minimum_inlier_ratio <= 1:\n        raise ValueError("invalid inlier ratio threshold")\n    orb = cv2.ORB_create(nfeatures=2000)
     gray_a = cv2.cvtColor(first, cv2.COLOR_RGB2GRAY)
     gray_b = cv2.cvtColor(second, cv2.COLOR_RGB2GRAY)
     pts_a, desc_a = orb.detectAndCompute(gray_a, None)
@@ -49,7 +49,7 @@ def compose_visual_pair(first: np.ndarray, second: np.ndarray, *, max_pixels=12_
         raise ValueError("unreliable pair alignment")
     from mcm_solarcheck.services.visual_homography_gate import validate_visual_homography
     validate_visual_homography(matrix, first.shape[1], first.shape[0])
-    def corners(a):
+    if int(mask.sum()) / len(matches) < minimum_inlier_ratio:\n        raise ValueError("insufficient geometric inlier ratio")\n    def corners(a):
         h, w = a.shape[:2]
         return np.float32([[0, 0], [w, 0], [w, h], [0, h]]).reshape(-1, 1, 2)
     projected = cv2.perspectiveTransform(corners(first), matrix).reshape(-1, 2)
