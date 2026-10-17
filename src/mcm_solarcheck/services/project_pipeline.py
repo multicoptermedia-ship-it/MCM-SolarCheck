@@ -198,6 +198,24 @@ class ProjectApplicationService:
             planar_surface_verified=planar_surface_verified,
         )
 
+    def imported_orthophoto_sources(self, project_id: str):
+        """Expose persisted original RGB and thermal frames without inventing controls."""
+        from mcm_solarcheck.services.orthophoto_project_sources import project_imported_frames
+        return project_imported_frames(self.database, project_id)
+
+    def generate_imported_project_orthophotos(
+        self, project_id, rgb_controls, thermal_controls,
+        rgb_reference, thermal_reference, rgb_destination, thermal_destination,
+        *, planar_surface_verified=False,
+    ):
+        """Generate separate orthophotos using original frames stored in this project."""
+        rgb_frames, thermal_frames = self.imported_orthophoto_sources(project_id)
+        return self.generate_project_planar_orthophotos(
+            project_id, rgb_frames, thermal_frames, rgb_controls, thermal_controls,
+            rgb_reference, thermal_reference, rgb_destination, thermal_destination,
+            planar_surface_verified=planar_surface_verified,
+        )
+
     def project_geotiff_inspections(self, project_id: str):
         if not any(project.project_id == project_id for project in self.projects()):
             raise KeyError(f"Unknown project: {project_id}")
