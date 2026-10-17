@@ -37,3 +37,16 @@ def test_unverified_or_mismatched_calibration_is_rejected(geometry):
 def test_missing_imported_gimbal_pose_is_rejected():
     with pytest.raises(ValueError, match="pose"):
         require_verified_camera_geometry(replace(FRAME, camera_pose=Pose()), GEOMETRY)
+
+
+def test_boolean_angles_and_focal_lengths_are_not_calibration():
+    with pytest.raises(ValueError, match="pose"):
+        require_verified_camera_geometry(replace(FRAME, camera_pose=Pose(yaw_deg=True, pitch_deg=-65, roll_deg=2)), GEOMETRY)
+    with pytest.raises(ValueError, match="intrinsics"):
+        require_verified_camera_geometry(FRAME, replace(GEOMETRY, intrinsics=PinholeIntrinsics(True, 2000, 2000, 1500)))
+
+
+def test_nonrotation_is_rejected():
+    bad = replace(GEOMETRY, extrinsics=CameraExtrinsicsENU((0, 0, 10), ((2., 0., 0.), (0., -1., 0.), (0., 0., -1.))))
+    with pytest.raises(ValueError, match="rotation"):
+        require_verified_camera_geometry(FRAME, bad)
