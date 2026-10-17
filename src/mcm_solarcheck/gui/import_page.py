@@ -3,7 +3,7 @@
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -137,6 +137,14 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     artifacts.setObjectName("registered_geotiff_artifacts")
     artifacts.setWordWrap(True)
     layout.addWidget(artifacts)
+    generate_button = QPushButton('RGB- und Thermal-Orthofotos erzeugen (vermessene Fläche)', page)
+    generate_button.setObjectName('generate_orthophotos_button')
+    if current_project_id is not None and on_generate_orthophotos is not None:
+        generate_button.clicked.connect(on_generate_orthophotos)
+    else:
+        generate_button.setEnabled(False)
+        generate_button.setToolTip('Benötigt geprüfte Vermessung, importierte Originalbilder und einen angebundenen Erzeugungsablauf.')
+    layout.addWidget(generate_button)
     compare_button = QPushButton("RGB- und Thermal-Orthofotos vergleichen", page)
     compare_button.setObjectName("compare_orthophotos_button")
     if current_project_id is not None and on_compare_orthophotos is not None:
