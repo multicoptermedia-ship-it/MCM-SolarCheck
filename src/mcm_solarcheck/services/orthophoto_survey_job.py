@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from mcm_solarcheck.services.orthomosaic_geotiff_contract import (
@@ -36,6 +37,7 @@ def load_surveyed_orthophoto_job(path: str | Path):
             destination = source.parent / destination
         require_geotiff_export_target(destination, reference)
         controls = []
+        seen_ids = set()
         if not isinstance(item["controls"], list) or not item["controls"]:
             raise ValueError("at least one surveyed frame control required")
         for entry in item["controls"]:
@@ -43,6 +45,16 @@ def load_surveyed_orthophoto_job(path: str | Path):
                 raise ValueError("explicit paired control points required")
             if entry["independently_surveyed"] is not True:
                 raise ValueError("independently surveyed controls required")
+            if not isinstance(entry["frame_id"], str) or not entry["frame_id"].strip() or entry["frame_id"] in seen_ids:
+                raise ValueError("unique nonempty frame_id required")
+            seen_ids.add(entry["frame_id"])
+            pixel_points = entry["pixel_points"]
+            world_points = entry["world_points"]
+            if not isinstance(pixel_points, list) or not isinstance(world_points, list) or len(pixel_points) < 4 or len(pixel_points) != len(world_points):
+                raise ValueError("at least four paired survey controls required")
+            for point in pixel_points + world_points:
+                if not isinstance(point, list) or len(point) != 2 or any(type(value) not in (int, float) or not math.isfinite(value) for value in point):
+                    raise ValueError("survey coordinates must be finite numeric pairs")
             controls.append(ImportedSurveyedControl(
                 entry["frame_id"],
                 tuple(tuple(pair) for pair in entry["pixel_points"]),
