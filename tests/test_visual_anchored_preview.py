@@ -30,3 +30,28 @@ def test_invalid_frame_is_rejected():
     rgb = np.zeros((256, 320, 3), dtype=np.uint8)
     with pytest.raises(ValueError, match="invalid RGB"):
         compose_anchored_visual_preview([rgb, rgb[:, :, 0]])
+
+
+def test_optional_loop_verification_accepts_identical_three_frames():
+    rgb = np.random.default_rng(46).integers(0, 256, (256, 320, 3), dtype=np.uint8)
+    result = compose_anchored_visual_preview([rgb, rgb.copy(), rgb.copy()], verify_loops=True)
+    assert len(result.pair_inliers) == 2
+
+
+def test_optional_loop_verification_detects_conflicting_direct_alignment(monkeypatch):
+    from mcm_solarcheck.services import visual_anchored_preview as module
+    rgb = np.random.default_rng(46).integers(0, 256, (256, 320, 3), dtype=np.uint8)
+    original = module.estimate_visual_link
+    calls = [0]
+
+    def conflicting_link(first, second):
+        calls[0] += 1
+        if calls[0] == 3:
+            shifted = np.eye(3)
+            shifted[0, 2] = 30.
+            return shifted, 50
+        return original(first, second)
+
+    monkeypatch.setattr(module, "estimate_visual_link", conflicting_link)
+    with pytest.raises(ValueError, match="inconsistent"):
+        compose_anchored_visual_preview([rgb, rgb.copy(), rgb.copy()], verify_loops=True)
