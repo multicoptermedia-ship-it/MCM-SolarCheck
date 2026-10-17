@@ -1,16 +1,19 @@
-"""Visual registration of adjacent original RGB frames (non-metric)."""
+"""Shared visual registration for original RGB and thermal-display frames (non-metric)."""
 from __future__ import annotations
 
 import cv2
 import numpy as np
 
 from mcm_solarcheck.services.visual_homography_gate import validate_visual_homography
+from mcm_solarcheck.services.registration_image import registration_gray
 
 
 def estimate_visual_link(first, second, *, minimum_inliers=12, minimum_ratio=0.3):
+    gray_first = registration_gray(first)
+    gray_second = registration_gray(second)
     orb = cv2.ORB_create(nfeatures=2000)
-    a, da = orb.detectAndCompute(cv2.cvtColor(first, cv2.COLOR_RGB2GRAY), None)
-    b, db = orb.detectAndCompute(cv2.cvtColor(second, cv2.COLOR_RGB2GRAY), None)
+    a, da = orb.detectAndCompute(gray_first, None)
+    b, db = orb.detectAndCompute(gray_second, None)
     if da is None or db is None or len(da) < 2 or len(db) < 2:
         raise ValueError('insufficient visual features')
     pairs = cv2.BFMatcher(cv2.NORM_HAMMING).knnMatch(da, db, k=2)
