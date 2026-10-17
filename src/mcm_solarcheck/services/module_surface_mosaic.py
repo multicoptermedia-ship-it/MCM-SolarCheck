@@ -37,6 +37,10 @@ def mosaic_rectified_surfaces(
     if not isinstance(first, RectifiedModuleSurface):
         raise TypeError("rectified surface required")
     grid = first.grid
+    if not isinstance(grid, ModuleSurfaceGrid) or any(type(v) is not int or v <= 0 for v in (grid.width, grid.height)):
+        raise ValueError("positive module surface grid dimensions required")
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) and np.isfinite(v) for v in (grid.u_min_m, grid.v_min_m, grid.metres_per_pixel)) or grid.metres_per_pixel <= 0:
+        raise ValueError("finite positive metric grid resolution required")
     if type(max_pixels) is not int or max_pixels <= 0 or grid.width * grid.height > max_pixels:
         raise ValueError("mosaic exceeds bounded pixel budget")
     image = np.asarray(first.image)
@@ -45,6 +49,8 @@ def mosaic_rectified_surfaces(
     if not np.isfinite(image).all():
         raise ValueError("nonfinite mosaic raster")
     shape = image.shape
+    if shape[:2] != (grid.height, grid.width) or (image.ndim == 3 and image.shape[2] not in (3, 4)):
+        raise ValueError("mosaic raster dimensions do not match grid")
     count = np.zeros((grid.height, grid.width), dtype=np.uint16)
     output = np.zeros_like(image)
     occupied = np.zeros((grid.height, grid.width), dtype=bool)
