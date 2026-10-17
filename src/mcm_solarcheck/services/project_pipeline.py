@@ -209,7 +209,11 @@ class ProjectApplicationService:
         *, planar_surface_verified=False,
     ):
         """Generate separate orthophotos using original frames stored in this project."""
+        if planar_surface_verified is not True:
+            raise ValueError("verified planar surface model required")
         rgb_frames, thermal_frames = self.imported_orthophoto_sources(project_id)
+        if not rgb_frames or not thermal_frames:
+            raise ValueError("project requires imported RGB and thermal originals")
         return self.generate_project_planar_orthophotos(
             project_id, rgb_frames, thermal_frames, rgb_controls, thermal_controls,
             rgb_reference, thermal_reference, rgb_destination, thermal_destination,
