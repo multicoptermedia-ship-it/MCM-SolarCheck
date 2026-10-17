@@ -36,7 +36,7 @@ def inspect_dji_flight_zip(path, *, max_entries=10000, max_uncompressed_bytes=10
                 if item.is_dir():
                     continue
                 name = PurePosixPath(item.filename)
-                if name.is_absolute() or ".." in name.parts or "\\\\" in item.filename:
+                if name.is_absolute() or ".." in name.parts or chr(92) in item.filename or re.match(r"^[A-Za-z]:", item.filename):
                     raise ValueError("unsafe archive member path")
                 match = _NAME.fullmatch(name.name)
                 if not match:
