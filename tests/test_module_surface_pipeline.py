@@ -47,3 +47,15 @@ def test_pipeline_rejects_unbounded_raster():
             (CalibratedSurfaceInput(FRAME, np.zeros((11, 11), dtype=np.uint8), GEOMETRY),),
             CORNERS, PLANE, metres_per_pixel=0.001, max_pixels=100,
         )
+
+
+def test_pipeline_rejects_duplicate_frame_ids():
+    first = CalibratedSurfaceInput(FRAME, np.zeros((11, 11), dtype=np.uint8), GEOMETRY)
+    with pytest.raises(ValueError, match="duplicate frame IDs"):
+        build_metric_module_surface((first, first), CORNERS, PLANE, metres_per_pixel=0.5)
+
+
+def test_pipeline_rejects_empty_frame_id():
+    empty = CalibratedSurfaceInput(replace(FRAME, frame_id=" "), np.zeros((11, 11), dtype=np.uint8), GEOMETRY)
+    with pytest.raises(ValueError, match="nonempty ID"):
+        build_metric_module_surface((empty,), CORNERS, PLANE, metres_per_pixel=0.5)
