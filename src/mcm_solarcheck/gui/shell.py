@@ -243,6 +243,7 @@ class SolarCheckMainWindow(QMainWindow):
             on_compare_orthophotos=(self._compare_project_orthophotos if self._project_service is not None else None),
             orthophoto_comparison=self._orthophoto_comparison,
             orthophoto_comparison_error=self._orthophoto_comparison_error,
+            on_generate_orthophotos=(self._generate_project_orthophotos if callable(getattr(self._project_service, 'generate_imported_project_orthophotos', None)) else None),
             on_register_geotiff=(self._register_project_geotiff if callable(getattr(self._project_service, 'register_project_geotiff', None)) else None),
         )
         self._pages[ShellRoute.IMPORT] = new_page
@@ -281,6 +282,26 @@ class SolarCheckMainWindow(QMainWindow):
             self._geotiff_result = "GeoTIFF-Metadaten registriert (nicht fachlich verifiziert)."
         except (ValueError, OSError, KeyError) as error:
             self._geotiff_result = f"GeoTIFF-Registrierung fehlgeschlagen: {error}"
+        self._refresh_import_page()
+
+    def _generate_project_orthophotos(self, job_path: str) -> None:
+        """Run only an explicit local surveyed job; display result without approval."""
+        if self._project_service is None or self._current_project_id is None:
+            return
+        from mcm_solarcheck.services.orthophoto_survey_job import load_surveyed_orthophoto_job
+        try:
+            arguments = load_surveyed_orthophoto_job(job_path)
+            pair = self._project_service.generate_imported_project_orthophotos(
+                self._current_project_id, *arguments, planar_surface_verified=True,
+            )
+            self._geotiff_result = (
+                f"Native Orthofotos erzeugt: RGB {pair.rgb_geotiff}; "
+                f"Thermal {pair.thermal_geotiff} (keine Temperaturkalibrierung bestätigt)."
+            )
+            self._compare_project_orthophotos(str(pair.rgb_geotiff), str(pair.thermal_geotiff))
+            return
+        except (ValueError, TypeError, OSError, KeyError, RuntimeError) as error:
+            self._geotiff_result = f"Orthofoto-Erzeugung fehlgeschlagen: {error}"
         self._refresh_import_page()
 
     def _compare_project_orthophotos(self, rgb_path: str, thermal_path: str) -> None:
