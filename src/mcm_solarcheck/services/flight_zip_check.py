@@ -55,6 +55,11 @@ def main(argv=None):
         for label, transitions in (("RGB", overlap.rgb), ("Thermal", overlap.thermal)):
             weak = [(t.first_id, t.second_id, t.inliers, t.occupied_inlier_cells) for t in transitions if t.inliers < 10 or t.occupied_inlier_cells < 4]
             print(f"{label} adjacent transitions: {len(transitions)}; weak/clustered transitions (IDs, inliers, occupied 4x4 cells): {weak}")
+        from mcm_solarcheck.services.flight_overlap_triage import triage_flight_overlap
+        triage = triage_flight_overlap(overlap)
+        for concern in triage.concerns:
+            print("REVIEW {} {}->{}: {}".format(concern.modality, concern.first_id, concern.second_id, ", ".join(concern.reasons)))
+        print("Metric orthophoto approved: NO (independent surveyed geometry required)")
         for note in overlap.diagnostics:
             print(f"NOTE: {note}")
     return 0 if result.paired_count and not result.unpaired_ids and not result.mismatched_timestamps else 1
