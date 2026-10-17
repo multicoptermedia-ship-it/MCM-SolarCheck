@@ -84,6 +84,8 @@ def rectify_module_surface(
     valid = front & (px >= 0) & (py >= 0) & (px < image.shape[1] - 1) & (py < image.shape[0] - 1)
     if not np.isfinite(px).all() or not np.isfinite(py).all():
         raise ValueError("nonfinite projection to camera raster")
+    if np.any(valid & ((np.abs(px) > np.finfo(np.float32).max) | (np.abs(py) > np.finfo(np.float32).max))):
+        raise ValueError("projection outside representable camera coordinates")
     if not np.any(valid):
         raise ValueError("surface grid has no visible image coverage")
     map_x = np.where(valid, px, -1).astype(np.float32)
