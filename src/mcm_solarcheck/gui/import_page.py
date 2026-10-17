@@ -140,7 +140,13 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     generate_button = QPushButton('RGB- und Thermal-Orthofotos erzeugen (vermessene Fläche)', page)
     generate_button.setObjectName('generate_orthophotos_button')
     if current_project_id is not None and on_generate_orthophotos is not None:
-        generate_button.clicked.connect(on_generate_orthophotos)
+        def request_native_generation():
+            job_path = QFileDialog.getOpenFileName(
+                page, "Vermessungsauftrag auswählen", "", "JSON (*.json)"
+            )[0]
+            if job_path:
+                on_generate_orthophotos(job_path)
+        generate_button.clicked.connect(request_native_generation)
     else:
         generate_button.setEnabled(False)
         generate_button.setToolTip('Benötigt geprüfte Vermessung, importierte Originalbilder und einen angebundenen Erzeugungsablauf.')
