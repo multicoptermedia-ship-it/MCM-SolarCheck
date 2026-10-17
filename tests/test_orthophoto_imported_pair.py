@@ -34,3 +34,27 @@ def test_imported_rgb_and_thermal_generate_distinct_geotiffs(tmp_path):
         assert thermal.dtypes == ("uint16",)
         assert int(thermal.read(1)[4, 4]) == 2048
         assert thermal.tags()["MCM_THERMAL_CALIBRATION"] == "unverified"
+
+
+def test_reject_same_output_path_before_any_export(tmp_path):
+    import pytest
+    reference = GeoTIFFSpatialReference("EPSG:25832", (1., 0., 0., 0., 1., 0.), 8, 8)
+    destination = tmp_path / "same.tif"
+    with pytest.raises(ValueError, match="distinct"):
+        generate_imported_planar_orthophoto_pair(
+            (), (), (), (), reference, reference, destination, destination,
+            planar_surface_verified=True,
+        )
+    assert not destination.exists()
+
+
+def test_invalid_second_target_does_not_create_first_output(tmp_path):
+    import pytest
+    reference = GeoTIFFSpatialReference("EPSG:25832", (1., 0., 0., 0., 1., 0.), 8, 8)
+    first = tmp_path / "rgb.tif"
+    with pytest.raises(ValueError, match="GeoTIFF"):
+        generate_imported_planar_orthophoto_pair(
+            (), (), (), (), reference, reference, first, tmp_path / "thermal.png",
+            planar_surface_verified=True,
+        )
+    assert not first.exists()
