@@ -23,7 +23,7 @@ def test_tilted_plane_changes_pixel_to_world_mapping():
     plane = SurveyedPlane3D((0, 0, 0), tuple(normal))
     xyz = project_pixels_to_surveyed_plane(np.array([[0., 0.], [10., 0.]]), K, DOWN, plane)
     np.testing.assert_allclose(xyz[0], [0, 0, 0], atol=1e-10)
-    assert xyz[1, 0] > 1.0
+    assert 0.0 < xyz[1, 0] < 1.0
     np.testing.assert_allclose(xyz[:, 2], xyz[:, 0], atol=1e-10)
 
 
