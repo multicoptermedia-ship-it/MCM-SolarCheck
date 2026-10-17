@@ -32,7 +32,7 @@ def require_verified_camera_geometry(frame: ImageFrame, geometry: VerifiedCamera
     if not isinstance(frame, ImageFrame) or not isinstance(frame.camera_pose, Pose):
         raise TypeError("existing imported ImageFrame with camera_pose required")
     angles = (frame.camera_pose.pitch_deg, frame.camera_pose.roll_deg, frame.camera_pose.yaw_deg)
-    if any(v is None or not isinstance(v, (int, float)) or not math.isfinite(v) for v in angles):
+    if any(v is None or isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in angles):
         raise ValueError("complete finite imported DJI camera pose required")
     if not isinstance(geometry, VerifiedCameraGeometry):
         raise TypeError("explicit verified camera geometry required")
@@ -49,7 +49,7 @@ def require_verified_camera_geometry(frame: ImageFrame, geometry: VerifiedCamera
     ):
         raise ValueError("camera calibration dimensions mismatch imported frame")
     k = geometry.intrinsics
-    if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in (k.fx, k.fy, k.cx, k.cy)):
+    if not all(not isinstance(v, bool) and isinstance(v, (int, float)) and math.isfinite(v) for v in (k.fx, k.fy, k.cx, k.cy)):
         raise ValueError("finite calibrated intrinsics required")
     if k.fx <= 0 or k.fy <= 0 or not (0 <= k.cx < geometry.image_width and 0 <= k.cy < geometry.image_height):
         raise ValueError("calibrated intrinsics outside image bounds")
