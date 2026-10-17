@@ -6,7 +6,7 @@ from pathlib import PurePosixPath
 import re
 from zipfile import ZipFile, BadZipFile
 
-_NAME = re.compile(r"DJI_(\\d{14})_(\\d{4})_([TV])\\.JPG", re.IGNORECASE)
+_NAME = re.compile(r"DJI_(\d{14})_(\d{4})_([TV])\.JPG", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
