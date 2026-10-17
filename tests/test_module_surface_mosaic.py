@@ -47,3 +47,23 @@ def test_reject_different_surface_grids_and_pixel_budget():
         mosaic_rectified_surfaces((a, b))
     with pytest.raises(ValueError, match="budget"):
         mosaic_rectified_surfaces((a,), max_pixels=3)
+
+
+def test_reject_malformed_grid_before_mosaic_allocation():
+    invalid = surface(10, [[True, True], [True, True]], grid=ModuleSurfaceGrid(0, 0, 0.1, -1, 2))
+    with pytest.raises(ValueError, match="dimensions"):
+        mosaic_rectified_surfaces((invalid,))
+
+
+def test_reject_source_raster_shape_mismatch():
+    invalid = RectifiedModuleSurface(np.zeros((3, 2), dtype=np.uint8),
+                                     np.ones((2, 2), dtype=bool), GRID)
+    with pytest.raises(ValueError, match="dimensions"):
+        mosaic_rectified_surfaces((invalid,))
+
+
+def test_reject_unsupported_claim_of_verified_georeferencing():
+    from dataclasses import replace
+    a = surface(10, [[True, True], [True, True]])
+    with pytest.raises(ValueError, match="verification"):
+        mosaic_rectified_surfaces((replace(a, georeferencing_verified=True),))
