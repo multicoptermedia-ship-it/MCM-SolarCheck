@@ -13,6 +13,7 @@ from mcm_solarcheck.services.flight_zip_preflight import inspect_dji_flight_zip
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Offline DJI RGB/thermal flight ZIP preflight")
     parser.add_argument("archive", help="local DJI inspection ZIP")
+    parser.add_argument("--inspect-images", action="store_true", help="read JPEG headers locally; no geometry approval")
     args = parser.parse_args(argv)
     try:
         result = inspect_dji_flight_zip(args.archive)
@@ -22,6 +23,16 @@ def main(argv=None):
     print(f"Unpaired IDs: {len(result.unpaired_ids)}; timestamp mismatches: {len(result.mismatched_timestamps)}")
     for note in result.diagnostics:
         print(f"NOTE: {note}")
+    if args.inspect_images:
+        from mcm_solarcheck.services.flight_image_readiness import inspect_flight_image_readiness
+        try:
+            images = inspect_flight_image_readiness(args.archive)
+        except (ValueError, OSError) as error:
+            parser.exit(2, f"JPEG inspection failed: {error}\\n")
+        print(f"Decoded RGB JPEGs: {images.rgb_images}; thermal JPEGs: {images.thermal_images}; multichannel thermal: {images.thermal_palette_images}")
+        print(f"RGB dimensions: {images.rgb_dimensions}; thermal dimensions: {images.thermal_dimensions}")
+        for note in images.diagnostics:
+            print(f"NOTE: {note}")
     return 0 if result.paired_count and not result.unpaired_ids and not result.mismatched_timestamps else 1
 
 
