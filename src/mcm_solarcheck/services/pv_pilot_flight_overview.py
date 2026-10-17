@@ -21,7 +21,11 @@ class PilotFlightOverview:
 
 
 def flight_overview_label(overview: PilotFlightOverview | None) -> str:
-    if overview is None or overview.path_kind == "not_available":
+    if overview is None:
+        return "Kein verifizierter Flugpfad oder RGB-Orthofoto verfügbar."
+    if overview.path_kind == "not_available":
+        if overview.image_path is not None:
+            return "RGB-Orthofoto-Übersicht vorhanden; kein verifizierter Flugpfad verfügbar."
         return "Kein verifizierter Flugpfad oder RGB-Orthofoto verfügbar."
     return {
         "recorded": "Tatsächlich aufgezeichneter Flugpfad",
