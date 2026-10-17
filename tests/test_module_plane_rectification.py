@@ -51,3 +51,21 @@ def test_reject_grid_outside_camera_coverage():
     with pytest.raises(ValueError, match="coverage"):
         rectify_module_surface(FRAME, np.zeros((11, 11), dtype=np.uint8), CAMERA, PLANE,
                                ModuleSurfaceGrid(1000, 1000, 1, 1, 1))
+
+
+def test_reject_nonfinite_source_and_missing_imported_pose():
+    from dataclasses import replace
+    image = np.zeros((11, 11), dtype=np.float32)
+    image[0, 0] = np.nan
+    with pytest.raises(ValueError, match="nonfinite"):
+        rectify_module_surface(FRAME, image, CAMERA, PLANE, GRID)
+    with pytest.raises(ValueError, match="pose"):
+        rectify_module_surface(replace(FRAME, camera_pose=Pose()), np.zeros((11, 11), dtype=np.uint8), CAMERA, PLANE, GRID)
+
+
+def test_reject_invalid_grid_and_image_dimensions():
+    with pytest.raises(ValueError, match="resolution"):
+        rectify_module_surface(FRAME, np.zeros((11, 11), dtype=np.uint8), CAMERA, PLANE,
+                               ModuleSurfaceGrid(0, 0, 0, 1, 1))
+    with pytest.raises(ValueError, match="dimensions"):
+        rectify_module_surface(FRAME, np.zeros((10, 11), dtype=np.uint8), CAMERA, PLANE, GRID)
