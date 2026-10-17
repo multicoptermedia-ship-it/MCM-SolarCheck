@@ -25,3 +25,17 @@ def test_rejects_off_plane_points():
     basis = basis_from_surveyed_plane(SurveyedPlane3D((0, 0, 0), (0, 0, 1)))
     with pytest.raises(ValueError, match="not on"):
         plane_coordinates(np.array([[1., 2., 0.1]]), basis)
+
+
+def test_calibrated_image_pixel_to_inclined_surface_coordinates():
+    from mcm_solarcheck.services.module_plane_basis import project_image_pixels_to_plane_coordinates
+    from mcm_solarcheck.services.module_plane_projection import PinholeIntrinsics, CameraExtrinsicsENU
+    intrinsics = PinholeIntrinsics(100, 100, 0, 0)
+    camera = CameraExtrinsicsENU((0, 0, 10), ((1., 0., 0.), (0., -1., 0.), (0., 0., -1.)))
+    normal = np.array([-1., 0., 1.]) / np.sqrt(2)
+    plane = SurveyedPlane3D((0, 0, 0), tuple(normal))
+    uv = project_image_pixels_to_plane_coordinates(np.array([[0., 0.], [10., 0.]]), intrinsics, camera, plane)
+    assert uv.shape == (2, 2)
+    np.testing.assert_allclose(uv[0], [0, 0], atol=1e-10)
+    assert uv[1, 0] > 0
+    np.testing.assert_allclose(uv[1, 1], 0, atol=1e-10)
