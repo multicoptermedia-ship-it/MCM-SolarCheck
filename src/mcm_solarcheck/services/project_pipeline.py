@@ -178,6 +178,26 @@ class ProjectApplicationService:
         )
         return reference
 
+    def generate_project_planar_orthophotos(
+        self, project_id, rgb_frames, thermal_frames, rgb_controls, thermal_controls,
+        rgb_reference, thermal_reference, rgb_destination, thermal_destination,
+        *, planar_surface_verified=False,
+    ):
+        """Generate from explicitly supplied imported frames and surveyed geometry.
+
+        No automatic reconstruction or inferred survey approval is performed.
+        """
+        if not any(project.project_id == project_id for project in self.projects()):
+            raise KeyError(f"Unknown project: {project_id}")
+        from mcm_solarcheck.services.orthophoto_imported_pair import (
+            generate_imported_planar_orthophoto_pair,
+        )
+        return generate_imported_planar_orthophoto_pair(
+            rgb_frames, thermal_frames, rgb_controls, thermal_controls,
+            rgb_reference, thermal_reference, rgb_destination, thermal_destination,
+            planar_surface_verified=planar_surface_verified,
+        )
+
     def project_geotiff_inspections(self, project_id: str):
         if not any(project.project_id == project_id for project in self.projects()):
             raise KeyError(f"Unknown project: {project_id}")
