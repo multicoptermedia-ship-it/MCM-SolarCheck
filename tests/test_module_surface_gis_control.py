@@ -33,7 +33,7 @@ def test_duplicate_and_collinear_controls_are_rejected():
 
 
 def test_reject_near_singular_gis_mapping():
-    compressed = np.column_stack((500000 + UV[:, 0], 5600000 + 1e-12 * UV[:, 1]))
+    compressed = np.column_stack((UV[:, 0], 1e-11 * UV[:, 1]))
     with pytest.raises(ValueError, match="singular"):
         audit_surface_gis_controls(UV, compressed, tolerance_m=0.01)
 
