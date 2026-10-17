@@ -30,3 +30,15 @@ def test_duplicate_and_collinear_controls_are_rejected():
     line = np.column_stack((np.arange(4.), np.zeros(4)))
     with pytest.raises(ValueError, match="two-dimensional"):
         audit_surface_gis_controls(line, line + 100, tolerance_m=0.1)
+
+
+def test_reject_near_singular_gis_mapping():
+    compressed = np.column_stack((500000 + UV[:, 0], 5600000 + 1e-12 * UV[:, 1]))
+    with pytest.raises(ValueError, match="singular"):
+        audit_surface_gis_controls(UV, compressed, tolerance_m=0.01)
+
+
+@pytest.mark.parametrize("tolerance", [0, -1, float("nan"), True])
+def test_reject_invalid_control_tolerance(tolerance):
+    with pytest.raises(ValueError, match="tolerance"):
+        audit_surface_gis_controls(UV, XY, tolerance_m=tolerance)
