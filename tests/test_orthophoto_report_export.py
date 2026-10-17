@@ -16,3 +16,15 @@ def test_orthophoto_pdf_pipeline(tmp_path):
     assert export_pilot_pdf_with_rgb_orthophoto(fictional_pilot_report(), source, target) == target
     assert target.read_bytes().startswith(b'%PDF')
     assert sorted(p.name for p in tmp_path.iterdir()) == ['report.pdf', 'rgb.tif']
+
+
+def test_reject_invalid_report_and_existing_pdf(tmp_path):
+    import pytest
+    source = tmp_path / 'missing.tif'
+    target = tmp_path / 'report.pdf'
+    with pytest.raises(TypeError, match='PilotReport'):
+        export_pilot_pdf_with_rgb_orthophoto(object(), source, target)
+    target.write_bytes(b'keep')
+    with pytest.raises(FileExistsError):
+        export_pilot_pdf_with_rgb_orthophoto(fictional_pilot_report(), source, target)
+    assert target.read_bytes() == b'keep'
