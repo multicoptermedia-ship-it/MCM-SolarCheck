@@ -42,3 +42,18 @@ def test_reject_non_rgb_geotiff_and_existing_target(tmp_path):
     with pytest.raises(FileExistsError):
         create_rgb_orthophoto_report_preview(source, target)
     assert target.read_bytes() == b"keep"
+
+
+def test_pdf_report_embeds_rgb_orthophoto_without_claiming_recorded_path(tmp_path):
+    from mcm_solarcheck.services.pv_pilot_pdf_export import export_pilot_pdf
+    from mcm_solarcheck.services.pv_pilot_report_sample import fictional_pilot_report
+    from mcm_solarcheck.services.pv_pilot_flight_overview import flight_overview_label
+
+    source = tmp_path / "rgb.tif"
+    make_rgb(source)
+    overview = create_rgb_orthophoto_report_preview(source, tmp_path / "overview.png")
+    assert "kein verifizierter Flugpfad" in flight_overview_label(overview)
+    pdf = export_pilot_pdf(fictional_pilot_report(), tmp_path / "report.pdf",
+                           flight_overview=overview)
+    assert pdf.read_bytes().startswith(b"%PDF")
+    assert pdf.stat().st_size > 1000
