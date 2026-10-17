@@ -47,6 +47,8 @@ def compose_visual_pair(first: np.ndarray, second: np.ndarray, *, max_pixels=12_
     matrix, mask = cv2.findHomography(src, dst, cv2.RANSAC, 4.0)
     if matrix is None or mask is None or int(mask.sum()) < minimum_inliers or not np.isfinite(matrix).all():
         raise ValueError("unreliable pair alignment")
+    from mcm_solarcheck.services.visual_homography_gate import validate_visual_homography
+    validate_visual_homography(matrix, first.shape[1], first.shape[0])
     def corners(a):
         h, w = a.shape[:2]
         return np.float32([[0, 0], [w, 0], [w, h], [0, h]]).reshape(-1, 1, 2)
