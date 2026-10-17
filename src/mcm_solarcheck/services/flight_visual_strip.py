@@ -12,11 +12,12 @@ import numpy as np
 from mcm_solarcheck.services.flight_zip_preflight import inspect_dji_flight_zip
 from mcm_solarcheck.services.visual_strip_preview import compose_visual_strip
 from mcm_solarcheck.services.visual_anchored_preview import compose_anchored_visual_preview
+from mcm_solarcheck.services.visual_loop_audit import audit_visual_loops
 
 _PATTERN = re.compile(r"DJI_\d{14}_(\d{4})_V\.JPG", re.IGNORECASE)
 
 
-def preview_rgb_strip(archive_path, frame_ids, output_path, *, max_image_bytes=80_000_000, max_side=800, anchored=False):
+def preview_rgb_strip(archive_path, frame_ids, output_path, *, max_image_bytes=80_000_000, max_side=800, anchored=False, audit_loops=False):
     ids = tuple(frame_ids)
     if not 2 <= len(ids) <= 4 or len(set(ids)) != len(ids) or any(not re.fullmatch(r"\d{4}", i) for i in ids):
         raise ValueError("provide 2-4 distinct four-digit RGB frame IDs")
@@ -46,7 +47,16 @@ def preview_rgb_strip(archive_path, frame_ids, output_path, *, max_image_bytes=8
             frames[frame_id] = cv2.cvtColor(decoded, cv2.COLOR_BGR2RGB)
     if set(frames) != set(ids):
         raise ValueError("one or more requested RGB frames are missing")
-    result = (compose_anchored_visual_preview if anchored else compose_visual_strip)([frames[i] for i in ids])
+    ordered = [frames[i] for i in ids]
+    if audit_loops:
+        if not anchored or len(ordered) < 3:
+            raise ValueError('loop audit requires --anchored and at least three RGB frames')
+        findings = audit_visual_loops(ordered)
+        failures = [f for f in findings if not f.passes]
+        if failures:
+            pairs = ', '.join(f'{ids[f.start_index]}-{ids[f.end_index]}' for f in failures)
+            raise ValueError(f'inconsistent or unverifiable visual loops: {pairs}')
+    result = (compose_anchored_visual_preview if anchored else compose_visual_strip)(ordered)
     destination = Path(output_path)
     if destination.suffix.lower() != ".png" or not destination.parent.is_dir() or destination.exists():
         raise ValueError("output must be a new PNG in an existing local directory")
@@ -64,9 +74,10 @@ def main(argv=None):
     parser.add_argument("output_png")
     parser.add_argument("frame_ids", nargs="+")
     parser.add_argument("--anchored", action="store_true", help="warp each original frame once into first-frame coordinates; non-metric")
+    parser.add_argument("--audit-loops", action="store_true", help="fail closed on inconsistent or unverifiable multi-frame loops")
     args = parser.parse_args(argv)
     try:
-        counts = preview_rgb_strip(args.archive, args.frame_ids, args.output_png, anchored=args.anchored)
+        counts = preview_rgb_strip(args.archive, args.frame_ids, args.output_png, anchored=args.anchored, audit_loops=args.audit_loops)
     except (ValueError, OSError) as exc:
         parser.exit(2, f"Visual strip failed: {exc}\n")
     print(f"NON-METRIC visual strip, NOT an orthophoto; RANSAC inliers per stage: {counts}")
