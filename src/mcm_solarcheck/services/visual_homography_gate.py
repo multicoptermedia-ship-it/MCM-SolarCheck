@@ -28,7 +28,9 @@ def validate_visual_homography(matrix, source_width, source_height, *, min_area_
     edges = np.linalg.norm(np.roll(transformed, -1, axis=0) - transformed, axis=1)
     if np.min(edges) <= 1e-6 or np.max(edges) / np.min(edges) > max_edge_ratio * max(source_width, source_height) / min(source_width, source_height):
         raise ValueError("implausible projected edge lengths")
-    cross = np.cross(np.roll(transformed, -1, axis=0) - transformed, np.roll(transformed, -2, axis=0) - np.roll(transformed, -1, axis=0))
+    edge_a = np.roll(transformed, -1, axis=0) - transformed
+    edge_b = np.roll(transformed, -2, axis=0) - np.roll(transformed, -1, axis=0)
+    cross = edge_a[:, 0] * edge_b[:, 1] - edge_a[:, 1] * edge_b[:, 0]
     if not (np.all(cross > 1e-5) or np.all(cross < -1e-5)):
         raise ValueError("folded or nonconvex projected image")
     return ratio
