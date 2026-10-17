@@ -54,3 +54,18 @@ def plane_coordinates(points_enu_m: np.ndarray, basis: PlaneBasisENU, *, toleran
     if np.any(np.linalg.norm(residual, axis=1) > tolerance_m):
         raise ValueError("points are not on the surveyed plane")
     return np.column_stack((offsets @ u, offsets @ v))
+
+
+def project_image_pixels_to_plane_coordinates(
+    pixels_xy: np.ndarray,
+    intrinsics: "PinholeIntrinsics",
+    extrinsics: "CameraExtrinsicsENU",
+    plane: SurveyedPlane3D,
+) -> np.ndarray:
+    """Return local metric plane coordinates from calibrated undistorted pixels.
+
+    The local origin is the surveyed plane point; no map CRS is implied.
+    """
+    from mcm_solarcheck.services.module_plane_projection import project_pixels_to_surveyed_plane
+    world_points = project_pixels_to_surveyed_plane(pixels_xy, intrinsics, extrinsics, plane)
+    return plane_coordinates(world_points, basis_from_surveyed_plane(plane))
