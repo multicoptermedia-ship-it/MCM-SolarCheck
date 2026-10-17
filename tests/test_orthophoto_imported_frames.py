@@ -33,3 +33,24 @@ def test_reject_missing_survey_and_out_of_image_controls(tmp_path):
     outside = ((0., 0.), (8., 0.), (7., 7.), (0., 7.))
     with pytest.raises(ValueError, match="outside"):
         surveyed_frames_from_import((frame,), (ImportedSurveyedControl("rgb", outside, POINTS, True),))
+
+
+def test_raw_thermal_uint16_is_accepted_and_palette_rejected(tmp_path):
+    raw = tmp_path / "raw.png"
+    assert cv2.imwrite(str(raw), np.full((8, 8), 2048, dtype=np.uint16))
+    frame = ThermalFrame("thermal", raw, width=8, height=8)
+    control = ImportedSurveyedControl("thermal", POINTS, POINTS, True)
+    assert surveyed_frames_from_import((frame,), (control,), thermal=True)[0].image_path == raw
+    palette = tmp_path / "palette.png"
+    assert cv2.imwrite(str(palette), np.zeros((8, 8, 3), dtype=np.uint8))
+    frame.source_file = palette
+    with pytest.raises(ValueError, match="single-band"):
+        surveyed_frames_from_import((frame,), (control,), thermal=True)
+
+
+def test_reject_source_dimension_mismatch(tmp_path):
+    path = tmp_path / "rgb.png"
+    assert cv2.imwrite(str(path), np.zeros((7, 8, 3), dtype=np.uint8))
+    frame = ImageFrame("rgb", path, width=8, height=8)
+    with pytest.raises(ValueError, match="dimensions"):
+        surveyed_frames_from_import((frame,), (ImportedSurveyedControl("rgb", POINTS, POINTS, True),))
