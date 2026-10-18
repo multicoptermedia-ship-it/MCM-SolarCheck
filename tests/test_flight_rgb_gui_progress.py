@@ -29,7 +29,9 @@ def test_progress_reports_every_link_and_persists_failures(tmp_path):
     assert '"processing_kind": "nonmetric_rgb_link_registration"' in target.read_text()
 
 
-def test_gui_folder_button_calls_full_flight_handler(qapp):
+def test_gui_folder_button_calls_full_flight_handler():
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication([])
     from mcm_solarcheck.gui.import_page import make_import_page
     selected = []
     page = make_import_page(
