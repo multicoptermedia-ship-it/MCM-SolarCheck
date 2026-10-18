@@ -244,6 +244,7 @@ class SolarCheckMainWindow(QMainWindow):
             on_preview_rgb_files=self._preview_selected_rgb_files,
             on_preview_rgb_folder=self._preview_rgb_folder,
             on_run_rgb_links=self._run_full_flight_rgb_links,
+            on_export_rgb_segments=self._export_full_flight_rgb_segments,
             rgb_preview_status=self._rgb_preview_status,
             rgb_preview_path=self._rgb_preview_path,
             on_inspect_geotiff=(self._inspect_project_geotiff if self._project_service is not None else None),
@@ -389,6 +390,72 @@ class SolarCheckMainWindow(QMainWindow):
         worker.finished.connect(on_finished)
         worker.failed.connect(on_failed)
         worker.cancelled.connect(on_cancelled)
+        worker.completed.connect(thread.quit)
+        worker.completed.connect(worker.deleteLater)
+        thread.finished.connect(on_thread_finished)
+        thread.start()
+
+    def _export_full_flight_rgb_segments(self, directory: str, registration_path: str) -> None:
+        """Export local previews asynchronously without changing project approvals."""
+        from pathlib import Path
+        from PySide6.QtCore import QThread
+        from PySide6.QtWidgets import QFileDialog, QProgressDialog
+        from mcm_solarcheck.gui.flight_rgb_segments_worker import FlightRgbSegmentsWorker
+
+        if self._current_project_id is None:
+            return
+        if getattr(self, "_rgb_segments_thread", None) is not None:
+            return
+        destination = QFileDialog.getExistingDirectory(
+            self, "Leeren Ausgabeordner für RGB-Segmente auswählen"
+        )
+        if not destination:
+            return
+        target = Path(destination)
+        if not target.is_dir() or target.is_symlink() or any(target.iterdir()):
+            self._rgb_preview_status = "RGB-Export benötigt einen vorhandenen leeren regulären Ausgabeordner."
+            self._refresh_import_page()
+            return
+        thread = QThread(self)
+        worker = FlightRgbSegmentsWorker(directory, registration_path, destination)
+        worker.moveToThread(thread)
+        progress = QProgressDialog("RGB-Segmente werden exportiert ...", "Abbrechen", 0, 100, self)
+        progress.setMinimumDuration(0)
+        self._rgb_segments_thread = thread
+        self._rgb_segments_worker = worker
+        self._rgb_segments_progress = progress
+        progress.canceled.connect(worker.request_cancel)
+        thread.started.connect(worker.run)
+
+        def on_progress(done, total, status):
+            progress.setValue(round(100 * done / max(1, total)))
+            progress.setLabelText(f"RGB-Segmente: {done}/{total}; zuletzt {status}")
+
+        def on_finished(result):
+            self._rgb_preview_path = None
+            self._rgb_preview_status = (
+                f"RGB-Segmentexport: {result['exported']} exportiert, "
+                f"{result['failed']} fehlgeschlagen, "
+                f"Abbruch: {'ja' if result['cancelled'] else 'nein'}. "
+                f"Zusammenfassung: {target / 'segments_summary.json'}. "
+                "Nichtmetrische Vorschau; kein verifiziertes Orthofoto."
+            )
+            self._refresh_import_page()
+
+        def on_failed(reason):
+            self._rgb_preview_status = f"RGB-Segmentexport fehlgeschlagen: {reason}"
+            self._refresh_import_page()
+
+        def on_thread_finished():
+            progress.close()
+            self._rgb_segments_thread = None
+            self._rgb_segments_worker = None
+            self._rgb_segments_progress = None
+            thread.deleteLater()
+
+        worker.progress.connect(on_progress)
+        worker.finished.connect(on_finished)
+        worker.failed.connect(on_failed)
         worker.completed.connect(thread.quit)
         worker.completed.connect(worker.deleteLater)
         thread.finished.connect(on_thread_finished)
