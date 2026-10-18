@@ -1,0 +1,1 @@
+"""DJI flight inventory."""
