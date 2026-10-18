@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from mcm_solarcheck.services.flight_rgb_tile_plan import RGBTile
+from mcm_solarcheck.services.flight_rgb_tile_plan import RGBTile, iter_rgb_tiles
 
 
 class RGBArrayTileSource:
@@ -37,3 +37,9 @@ class RGBArrayTileSource:
             raise ValueError("RGB tile outside bounds or pixel budget")
         return np.array(self._array[tile.y:tile.y + tile.height,
                                     tile.x:tile.x + tile.width], copy=True)
+
+    def iter_tiles(self, *, tile_side=512):
+        """Yield one bounded copied RGB tile at a time; no tile batch is retained."""
+        for tile in iter_rgb_tiles(self.width, self.height, tile_side=tile_side,
+                                   max_tile_pixels=self.max_tile_pixels):
+            yield tile, self.read_tile(tile)
