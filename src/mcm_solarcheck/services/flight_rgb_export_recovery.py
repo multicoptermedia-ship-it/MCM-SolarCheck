@@ -54,6 +54,7 @@ def inspect_rgb_export_directory(output_dir):
                          "files": sorted(path.name for path in parts.values())})
     summary = directory / "segments_summary.json"
     summary_state = "absent"
+    summary_mismatches = []
     if summary.is_symlink():
         raise ValueError("symlink summary is not allowed")
     if summary.exists():
@@ -61,14 +62,36 @@ def inspect_rgb_export_directory(output_dir):
             raise ValueError("non-file summary")
         try:
             data = json.loads(summary.read_text(encoding="utf-8"))
-            summary_state = ("present" if
+            summary_state = ("present" if isinstance(data, dict) and
                              data.get("processing_kind") == "nonmetric_rgb_flight_segment_previews"
                              else "invalid")
+            if summary_state == "present":
+                records = data.get("segments")
+                if not isinstance(records, list):
+                    summary_mismatches.append("invalid_segment_records")
+                else:
+                    by_index = {item["index"]: item for item in segments}
+                    for record in records:
+                        if not isinstance(record, dict) or not isinstance(record.get("index"), int):
+                            summary_mismatches.append("invalid_record")
+                            continue
+                        index = record["index"]
+                        if record.get("status") == "exported":
+                            found = by_index.get(index)
+                            if (found is None or found["status"] != "paired"
+                                    or record.get("image") != f"segment_{index:04d}.png"
+                                    or record.get("quality") != f"segment_{index:04d}.json"):
+                                summary_mismatches.append(f"exported_segment_{index:04d}")
+                    recorded = {r.get("index") for r in records
+                                if isinstance(r, dict) and isinstance(r.get("index"), int)}
+                    for index in by_index.keys() - recorded:
+                        summary_mismatches.append(f"unlisted_segment_{index:04d}")
         except (OSError, UnicodeError, ValueError, AttributeError):
             summary_state = "invalid"
     issues = sum(item["status"] != "paired" for item in segments)
-    issues += len(staging) + (summary_state == "invalid")
+    issues += len(staging) + (summary_state == "invalid") + len(summary_mismatches)
     return {"segments": segments, "staging_files": sorted(staging),
-            "summary": summary_state, "issues": issues,
+            "summary": summary_state, "summary_mismatches": sorted(summary_mismatches),
+            "issues": issues,
             "requires_manual_review": bool(issues),
             "read_only": True}
