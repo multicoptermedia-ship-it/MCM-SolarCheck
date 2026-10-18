@@ -3,7 +3,7 @@
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -91,6 +91,26 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
             "Nicht verfügbar, solange kein aktives Projekt und Import-Service angebunden sind."
         )
     layout.addWidget(import_images)
+    preview_button = QPushButton("RGB-Einzelbilder als Vorschau zusammensetzen (3–4)", page)
+    preview_button.setObjectName("preview_rgb_files_button")
+    if current_project_id is not None and on_preview_rgb_files is not None:
+        def request_rgb_preview():
+            chooser = choose_rgb_files or (lambda: QFileDialog.getOpenFileNames(
+                page, "3–4 RGB-Bilder in Aufnahmereihenfolge auswählen", "",
+                "RGB-Bilder (*.jpg *.jpeg *.png)"
+            )[0])
+            selected = chooser()
+            if selected:
+                on_preview_rgb_files(tuple(selected))
+        preview_button.clicked.connect(request_rgb_preview)
+    else:
+        preview_button.setEnabled(False)
+    layout.addWidget(preview_button)
+    if rgb_preview_status is not None:
+        preview_status = QLabel(rgb_preview_status, page)
+        preview_status.setObjectName("rgb_preview_status")
+        preview_status.setWordWrap(True)
+        layout.addWidget(preview_status)
     inspect_button = QPushButton("GeoTIFF / GIS-Metadaten prüfen", page)
     inspect_button.setObjectName("inspect_geotiff_button")
     if current_project_id is not None and on_inspect_geotiff is not None:
