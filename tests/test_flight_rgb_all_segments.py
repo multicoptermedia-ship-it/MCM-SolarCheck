@@ -64,3 +64,27 @@ def test_cancel_before_next_segment(tmp_path):
     )
     assert result["processed"] == 0
     assert result["cancelled"] is True
+
+
+def test_long_segment_sampling_is_explicit_and_bounded(tmp_path, monkeypatch):
+    from mcm_solarcheck.services import flight_rgb_folder_preview as preview
+    source = tmp_path / "DJI_20260725154421_0000_V.PNG"
+    assert cv2.imwrite(str(source), np.full((160, 160, 3), 90, np.uint8))
+    keys = [f"frame_{i}" for i in range(10)]
+    monkeypatch.setattr(preview, "scan_flight",
+                        lambda folder: ([(key, source, None) for key in keys], None))
+    registration = {"nonmetric_geometry": {"segments": [
+        {"frames": {key: np.eye(3).tolist() for key in keys}}
+    ]}}
+    with pytest.raises(ValueError, match="frame limit"):
+        preview.export_flight_rgb_segment(
+            tmp_path, registration, 0, tmp_path / "strict.png", tmp_path / "strict.json",
+            max_frames=3)
+    metadata = preview.export_flight_rgb_segment(
+        tmp_path, registration, 0, tmp_path / "sample.png", tmp_path / "sample.json",
+        max_frames=3, sample_long_segments=True)
+    assert metadata["preview_incomplete"] is True
+    assert metadata["source_frame_count"] == 10
+    assert metadata["preview_frame_count"] == 3
+    assert metadata["preview_frame_keys"] == [keys[0], keys[4], keys[9]]
+    assert source.exists()
