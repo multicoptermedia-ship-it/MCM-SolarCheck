@@ -1,6 +1,7 @@
 """Resume inspection is conservative and never modifies existing outputs."""
 import cv2
 import numpy as np
+import pytest
 
 from mcm_solarcheck.services.flight_rgb_batch_resume import inspect_rgb_batch_resume
 
