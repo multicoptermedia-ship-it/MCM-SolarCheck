@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -143,6 +143,34 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     else:
         segments_button.setEnabled(False)
     layout.addWidget(segments_button)
+    integrity_button = QPushButton("RGB-Arbeitsdateien auf Integrität prüfen (nur lesen)", page)
+    integrity_button.setObjectName("inspect_rgb_integrity_button")
+    if current_project_id is not None and on_inspect_rgb_integrity is not None:
+        def request_integrity():
+            choose_source = choose_rgb_integrity_folder or (
+                lambda: QFileDialog.getExistingDirectory(page, "DJI-JPEG-Quellordner auswählen")
+            )
+            source_folder = choose_source()
+            if not source_folder:
+                return
+            choose_output = choose_rgb_integrity_output or (
+                lambda: QFileDialog.getExistingDirectory(page, "RGB-NPY-Arbeitsordner auswählen")
+            )
+            output_folder = choose_output()
+            if output_folder:
+                on_inspect_rgb_integrity(source_folder, output_folder)
+        integrity_button.clicked.connect(request_integrity)
+    else:
+        integrity_button.setEnabled(False)
+    layout.addWidget(integrity_button)
+    if rgb_integrity_status is not None:
+        integrity_label = QLabel(rgb_integrity_status, page)
+        integrity_label.setObjectName("rgb_integrity_status")
+        integrity_label.setWordWrap(True)
+        integrity_label.setAccessibleDescription(
+            "Nur lesende Integritätsdiagnose; keine automatische Wiederaufnahme oder Freigabe."
+        )
+        layout.addWidget(integrity_label)
     preview_button = QPushButton("RGB-Einzelbilder als Vorschau zusammensetzen (3–4)", page)
     preview_button.setObjectName("preview_rgb_files_button")
     if current_project_id is not None and on_preview_rgb_files is not None:
