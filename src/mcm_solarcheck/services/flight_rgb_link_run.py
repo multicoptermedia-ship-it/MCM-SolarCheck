@@ -11,9 +11,13 @@ from mcm_solarcheck.services.flight_batch_plan import plan_flight_batches
 from mcm_solarcheck.services.visual_frame_registration import estimate_visual_link
 
 
+class FlightRunCancelled(RuntimeError):
+    """Cooperative cancellation before the next RGB link; no output is written."""
+
+
 def check_flight_rgb_links(folder, *, batch_size=80, overlap=10,
                            max_captures=1000, max_image_bytes=80_000_000,
-                           max_side=800, on_progress=None):
+                           max_side=800, on_progress=None, should_cancel=None):
     if (type(max_side) is not int or max_side < 128 or
             type(max_image_bytes) is not int or max_image_bytes < 1):
         raise ValueError("invalid working preview size")
@@ -48,6 +52,8 @@ def check_flight_rgb_links(folder, *, batch_size=80, overlap=10,
     links = []
     total = max(0, len(captures) - 1)
     for first, second in zip(captures, captures[1:]):
+        if should_cancel is not None and should_cancel():
+            raise FlightRunCancelled("RGB link run cancelled before the next pair")
         record = {"first": first[0], "second": second[0], "status": "failed"}
         try:
             _, inliers = estimate_visual_link(load(first[1]), load(second[1]))
