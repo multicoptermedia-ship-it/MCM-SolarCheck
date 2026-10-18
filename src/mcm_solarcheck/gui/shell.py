@@ -284,11 +284,18 @@ class SolarCheckMainWindow(QMainWindow):
         quality = png.with_suffix(".json")
         self._rgb_preview_path = None
         try:
-            preview_rgb_files(paths, png, quality)
+            result = preview_rgb_files(paths, png, quality)
             self._rgb_preview_path = png
+            overlap = result.overlap_quality
+            overlap_text = (
+                f"Visuelle Abweichung im Überlappungsbereich: "
+                f"{overlap.mean_overlap_disagreement:.1f}/255. "
+                if overlap is not None and overlap.mean_overlap_disagreement is not None
+                else "Keine auswertbare Überlappung. "
+            )
             self._rgb_preview_status = (
                 "Nicht metrische RGB-Vorschau und Qualitäts-JSON lokal erstellt. "
-                "Kein verifiziertes Orthofoto."
+                + overlap_text + "Kein verifiziertes Orthofoto."
             )
         except (ValueError, OSError) as exc:
             self._rgb_preview_status = f"RGB-Vorschau fehlgeschlagen: {exc}"
