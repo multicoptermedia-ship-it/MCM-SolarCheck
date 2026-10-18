@@ -3,6 +3,7 @@ from pathlib import Path
 
 from mcm_solarcheck.services.flight_rgb_jpeg_header import jpeg_dimensions
 from mcm_solarcheck.services.flight_rgb_tile_source import RGBArrayTileSource
+from mcm_solarcheck.services.flight_rgb_provenance import verify_rgb_provenance_manifest
 
 
 def inspect_rgb_batch_resume(sources, output_dir, *, max_pixels=12_000_000):
@@ -31,12 +32,18 @@ def inspect_rgb_batch_resume(sources, output_dir, *, max_pixels=12_000_000):
         elif destination.exists():
             try:
                 reader = RGBArrayTileSource(destination)
-                status = "existing_shape_valid" if (reader.width, reader.height) == (width, height) else "invalid"
+                if (reader.width, reader.height) != (width, height):
+                    status = "invalid"
+                elif verify_rgb_provenance_manifest(source, destination, folder / (source.stem + ".provenance.json")):
+                    status = "verified_provenance"
+                else:
+                    status = "existing_shape_valid"
             except (ValueError, OSError, TypeError):
                 status = "invalid"
         records.append({"source_name": source.name, "output_name": destination.name,
                         "status": status})
     return {"entries": records, "read_only": True,
             "safe_to_resume_automatically": all(r["status"] == "missing" for r in records),
+            "verified_outputs": sum(r["status"] == "verified_provenance" for r in records),
             "existing_outputs_unverified_provenance": any(
                 r["status"] == "existing_shape_valid" for r in records)}
