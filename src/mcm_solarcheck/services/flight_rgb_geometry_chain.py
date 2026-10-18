@@ -17,7 +17,7 @@ def chain_rgb_links(links):
         matrix = np.asarray(link["homography"], dtype=np.float64)
         if matrix.shape != (3, 3) or not np.isfinite(matrix).all():
             raise ValueError("invalid homography in RGB link")
-        previous = np.asarray(current["frames"][link["last"]])
+        previous = np.asarray(current["frames"][current["last"]])
         combined = matrix @ previous
         if not np.isfinite(combined).all() or abs(combined[2, 2]) < 1e-12:
             raise ValueError("unstable RGB transform chain")
