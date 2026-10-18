@@ -50,3 +50,23 @@ def inspect_flight_images(folder, *, max_image_bytes=80_000_000):
             "unreadable": sum(item["status"] == "unreadable" for item in statuses),
             "oversized": sum(item["status"] == "oversized" for item in statuses),
             "missing": sum(item["status"] == "missing" for item in statuses)}
+
+
+def save_flight_inspection(folder, destination, *, max_image_bytes=80_000_000):
+    """Write an explicit local inventory artifact; never alter source images."""
+    import json
+
+    output = Path(destination)
+    if output.suffix.lower() != ".json" or not output.parent.is_dir() or output.exists():
+        raise ValueError("new JSON path in an existing directory required")
+    report = inspect_flight_images(folder, max_image_bytes=max_image_bytes)
+    report["schema_version"] = 1
+    report["original_resolution_preserved"] = True
+    report["image_data_modified"] = False
+    report["preview_only"] = True
+    report["metric_orthophoto_verified"] = False
+    report["temperature_calibrated"] = False
+    with output.open("x", encoding="utf-8") as stream:
+        json.dump(report, stream, indent=2, ensure_ascii=False)
+        stream.write("\n")
+    return report
