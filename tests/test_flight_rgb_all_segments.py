@@ -149,3 +149,31 @@ def test_quality_publish_failure_cleans_new_png(tmp_path, monkeypatch):
     assert not png.exists()
     assert not quality.exists()
     assert not list(tmp_path.glob(".rgb-preview-*"))
+
+
+def test_summary_publish_failure_does_not_leave_partial_json(tmp_path, monkeypatch):
+    import os
+    output = tmp_path / "results"
+    output.mkdir()
+    original_link = os.link
+
+    def fail_summary(source, destination, *args, **kwargs):
+        if destination == output / "segments_summary.json":
+            raise OSError("simulated summary publication failure")
+        return original_link(source, destination, *args, **kwargs)
+
+    monkeypatch.setattr(os, "link", fail_summary)
+    with pytest.raises(OSError, match="simulated summary"):
+        save_all_flight_rgb_segments(tmp_path, _registration([]), output)
+    assert not (output / "segments_summary.json").exists()
+    assert not list(output.glob(".rgb-summary-*"))
+
+
+def test_existing_summary_is_never_replaced(tmp_path):
+    output = tmp_path / "results"
+    output.mkdir()
+    existing = output / "segments_summary.json"
+    existing.write_text("customer data", encoding="utf-8")
+    with pytest.raises(ValueError, match="empty regular"):
+        save_all_flight_rgb_segments(tmp_path, _registration([]), output)
+    assert existing.read_text(encoding="utf-8") == "customer data"
