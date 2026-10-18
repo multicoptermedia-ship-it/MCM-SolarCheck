@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -107,6 +107,20 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     else:
         folder_preview.setEnabled(False)
     layout.addWidget(folder_preview)
+    link_button = QPushButton("DJI-Flugordner: alle RGB-Bildverbindungen prüfen", page)
+    link_button.setObjectName("run_rgb_links_button")
+    if current_project_id is not None and on_run_rgb_links is not None:
+        def request_link_run():
+            chooser = choose_rgb_link_folder or (lambda: QFileDialog.getExistingDirectory(
+                page, "DJI-Flugordner für vollständige RGB-Prüfung auswählen"
+            ))
+            folder = chooser()
+            if folder:
+                on_run_rgb_links(folder)
+        link_button.clicked.connect(request_link_run)
+    else:
+        link_button.setEnabled(False)
+    layout.addWidget(link_button)
     preview_button = QPushButton("RGB-Einzelbilder als Vorschau zusammensetzen (3–4)", page)
     preview_button.setObjectName("preview_rgb_files_button")
     if current_project_id is not None and on_preview_rgb_files is not None:
