@@ -10,12 +10,12 @@ from mcm_solarcheck.services.visual_projective_preview import compose_projective
 from mcm_solarcheck.services.visual_quality_export import projective_quality_json
 
 
-def preview_rgb_files(image_paths, output_path, quality_json_path, *, max_image_bytes=80_000_000, max_side=800):
+def preview_rgb_files(image_paths, output_path, quality_json_path, *, max_image_bytes=80_000_000, max_side=800, max_canvas_pixels=12_000_000):
     """Use the shared registration/preview core; no ZIP or EXIF required."""
     paths = tuple(Path(p) for p in image_paths)
     if len(paths) not in (3, 4) or len(set(paths)) != len(paths):
         raise ValueError("select 3-4 distinct RGB images")
-    if type(max_image_bytes) is not int or max_image_bytes <= 0 or type(max_side) is not int or max_side < 128:
+    if type(max_image_bytes) is not int or max_image_bytes <= 0 or (max_side is not None and (type(max_side) is not int or max_side < 128)):
         raise ValueError("invalid resource limits")
     png, quality = Path(output_path), Path(quality_json_path)
     if (png.suffix.lower() != ".png" or quality.suffix.lower() != ".json" or
@@ -35,11 +35,11 @@ def preview_rgb_files(image_paths, output_path, quality_json_path, *, max_image_
         if decoded is None:
             raise ValueError("unreadable RGB input")
         height, width = decoded.shape[:2]
-        scale = min(1., max_side / max(height, width))
+        scale = 1. if max_side is None else min(1., max_side / max(height, width))
         if scale < 1:
             decoded = cv2.resize(decoded, (max(1, round(width * scale)), max(1, round(height * scale))))
         frames.append(cv2.cvtColor(decoded, cv2.COLOR_BGR2RGB))
-    result = compose_projective_visual_preview(frames)
+    result = compose_projective_visual_preview(frames, max_pixels=max_canvas_pixels)
     quality_text = projective_quality_json(result)
     ok, encoded = cv2.imencode(".png", cv2.cvtColor(result.image, cv2.COLOR_RGB2BGR))
     if not ok:
