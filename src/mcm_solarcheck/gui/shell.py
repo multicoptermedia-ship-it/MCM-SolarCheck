@@ -242,6 +242,7 @@ class SolarCheckMainWindow(QMainWindow):
             import_verification=import_verification,
             import_attempt=self._last_import_attempt,
             on_preview_rgb_files=self._preview_selected_rgb_files,
+            on_preview_rgb_folder=self._preview_rgb_folder,
             rgb_preview_status=self._rgb_preview_status,
             rgb_preview_path=self._rgb_preview_path,
             on_inspect_geotiff=(self._inspect_project_geotiff if self._project_service is not None else None),
@@ -260,6 +261,33 @@ class SolarCheckMainWindow(QMainWindow):
             self._stack.setCurrentWidget(new_page)
         self._stack.removeWidget(old_page)
         old_page.deleteLater()
+
+    def _preview_rgb_folder(self, directory: str) -> None:
+        """Run bounded automatic DJI folder preview; never silently omit frames."""
+        from pathlib import Path
+        from PySide6.QtWidgets import QFileDialog
+        from mcm_solarcheck.services.flight_visual_folder import preview_rgb_folder
+
+        if self._current_project_id is None:
+            return
+        destination = QFileDialog.getSaveFileName(
+            self, "Automatische RGB-Vorschau speichern", "", "PNG-Bild (*.png)"
+        )[0]
+        if not destination:
+            return
+        png = Path(destination)
+        self._rgb_preview_path = None
+        try:
+            result = preview_rgb_folder(directory, png, png.with_suffix(".json"))
+            self._rgb_preview_path = png
+            self._rgb_preview_status = (
+                "DJI-RGB-Bilder automatisch erkannt und verarbeitet. "
+                "Nicht metrische Vorschau; kein verifiziertes Orthofoto. "
+                "Große Flüge werden noch nicht vollständig unterstützt."
+            )
+        except (ValueError, OSError) as exc:
+            self._rgb_preview_status = f"Automatische RGB-Auswertung nicht möglich: {exc}"
+        self._refresh_import_page()
 
     def _preview_selected_rgb_files(self, paths) -> None:
         """Run existing offline RGB pipeline on selected local files."""
