@@ -65,5 +65,5 @@ def export_flight_rgb_segment(folder, registration, segment_index, png_path, qua
     # Persist the complete quality contract, retaining exclusive-create semantics.
     with Path(quality_path).open("w", encoding="utf-8") as stream:
         json.dump(metadata, stream, ensure_ascii=False, indent=2)
-        stream.write("\\n")
+        stream.write("\n")
     return metadata
