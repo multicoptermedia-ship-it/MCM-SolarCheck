@@ -1,4 +1,5 @@
 """Local DJI-folder RGB segment preview from a completed registration result."""
+import json
 from pathlib import Path
 
 import cv2
@@ -60,4 +61,9 @@ def export_flight_rgb_segment(folder, registration, segment_index, png_path, qua
     metadata["preview_frame_count"] = len(selected)
     metadata["preview_incomplete"] = len(selected) < len(keys)
     metadata["preview_frame_keys"] = selected
+    # save_rgb_segment_preview persisted its base metadata before these additions.
+    # Persist the complete quality contract, retaining exclusive-create semantics.
+    with Path(quality_path).open("w", encoding="utf-8") as stream:
+        json.dump(metadata, stream, ensure_ascii=False, indent=2)
+        stream.write("\\n")
     return metadata
