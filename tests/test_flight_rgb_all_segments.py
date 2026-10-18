@@ -112,3 +112,40 @@ def test_full_flight_reports_sampled_long_segment(tmp_path, monkeypatch):
     assert quality["preview_frame_count"] == 8
     assert quality["metric_orthophoto_verified"] is False
     assert json.loads((output / "segments_summary.json").read_text()) == result
+
+
+def test_quality_json_is_complete_on_first_publication(tmp_path, monkeypatch):
+    from mcm_solarcheck.services import flight_rgb_folder_preview as preview
+    source = tmp_path / "DJI_20260725154421_0000_V.PNG"
+    assert cv2.imwrite(str(source), np.full((160, 160, 3), 70, np.uint8))
+    monkeypatch.setattr(preview, "scan_flight",
+                        lambda folder: ([("one", source, None)], None))
+    registration = {"nonmetric_geometry": {"segments": [
+        {"frames": {"one": np.eye(3).tolist()}}
+    ]}}
+    png, quality = tmp_path / "result.png", tmp_path / "result.json"
+    result = preview.export_flight_rgb_segment(tmp_path, registration, 0, png, quality)
+    assert json.loads(quality.read_text()) == result
+    assert result["preview_frame_keys"] == ["one"]
+    assert not list(tmp_path.glob(".rgb-preview-*"))
+
+
+def test_quality_publish_failure_cleans_new_png(tmp_path, monkeypatch):
+    from mcm_solarcheck.services import flight_rgb_segment_export as exporter
+    frames = {"one": np.full((160, 160, 3), 70, np.uint8)}
+    segment = {"frames": {"one": np.eye(3).tolist()}}
+    png = tmp_path / "preview.png"
+    quality = tmp_path / "preview.json"
+    original_open = __import__("pathlib").Path.open
+
+    def fail_quality(path, mode="r", *args, **kwargs):
+        if path == quality and mode == "xb":
+            raise OSError("simulated quality write failure")
+        return original_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(__import__("pathlib").Path, "open", fail_quality)
+    with pytest.raises(OSError, match="simulated"):
+        exporter.save_rgb_segment_preview(segment, frames, png, quality)
+    assert not png.exists()
+    assert not quality.exists()
+    assert not list(tmp_path.glob(".rgb-preview-*"))
