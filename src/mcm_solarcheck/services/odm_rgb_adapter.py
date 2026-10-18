@@ -18,3 +18,28 @@ def prepare_odm_rgb_inputs(folder, *, max_captures=1000):
         raise ValueError("flight contains no RGB images")
     return {"rgb": rgb, "missing_rgb": missing,
             "capture_count": len(captures), "ignored": ignored}
+
+
+def stage_odm_rgb_project(folder, project_directory, *, max_captures=1000):
+    """Create ODM images/ with source-preserving copies, never resample."""
+    import shutil
+
+    manifest = prepare_odm_rgb_inputs(folder, max_captures=max_captures)
+    target = Path(project_directory)
+    if target.exists() or not target.parent.is_dir() or target.is_symlink():
+        raise ValueError("ODM project destination must be new")
+    # Validate all source paths before creating the project.
+    for source in manifest["rgb"]:
+        if source.is_symlink() or not source.is_file():
+            raise ValueError("ODM source image must be a regular local file")
+    images = target / "images"
+    images.mkdir(parents=True, exist_ok=False)
+    try:
+        for source in manifest["rgb"]:
+            with source.open("rb") as input_stream, (images / source.name).open("xb") as output_stream:
+                shutil.copyfileobj(input_stream, output_stream)
+    except Exception:
+        shutil.rmtree(target)
+        raise
+    return {"project": target, "images": tuple(images / p.name for p in manifest["rgb"]),
+            "missing_rgb": manifest["missing_rgb"], "ignored": manifest["ignored"]}
