@@ -59,3 +59,12 @@ Gezielter CI-Hotfix: `d4b068a` korrigiert den GUI-Test ohne verfügbare `qapp`-F
 - **CI Python 3.11/3.12 dieses Blocks noch prüfen**. Kein Merge nach `main`. Danach Nutzerbestätigung abwarten.
 - Offen: unvollständige Vorschauen auch im Qt-Ergebnistext deutlich kennzeichnen; verifizierte GIS-Georeferenzierung und native kachelbasierte Vollauflösungsverarbeitung.
 - Vor jedem neuen Fünferblock Remote-HEAD, CI und vorhandene Implementierungen prüfen; doppelte Arbeit vermeiden. Fünfter Commit aktualisiert beide Übergabedokumente gemeinsam. GPT-6 mit „Sehr hoch“ bevorzugt, soweit nutzerseitig verfügbar.
+
+## Übergabe 18. Oktober 2026 – Qt-Kennzeichnung unvollständiger RGB-Vorschauen
+
+- Vorheriger grüner HEAD `670ca2d` (Python 3.11 und 3.12 erfolgreich). Fünf Commits dieses Blocks: `5323c85` (Statusformatierung), `a89eba1` (Qt-Integration), `1c3777f` (Regressionstests), `88753ba` (verarbeitete Segmente anzeigen), dieser gemeinsame Dokumentationscommit.
+- Qt zeigt nach dem Flug-Segmentexport die Zahl vollständiger und **unvollständiger** Segmentvorschauen, fehlgeschlagene/verarbeitete Segmente und Abbruch an. „Vollständig“ bedeutet hier nur, dass sämtliche Bilder eines **einzelnen Vorschau-Segments** berücksichtigt wurden, **nicht** ein metrisch oder GIS-geprüftes Flugorthofoto.
+- Bestehende Offline-/Datenschutz-/Originalschutzgrenzen bleiben unverändert. Kein Merge nach `main`. CI für diesen neuen Block ist noch offen; Python 3.11/3.12 abwarten.
+- **Verbindliche neue Abschlusskommunikation:** Nach jedem Fünferblock dem Nutzer mitteilen: umgesetzte Commits, tatsächliche Funktionen und Grenzen, offene Risiken, konkreten Vorschlag für den **nächsten** Fünferblock samt Nutzen sowie anstehende Richtungsentscheidungen und CI-Status. Vor der nächsten Umsetzung Gelegenheit zur Korrektur der Entwicklungsrichtung geben.
+- **Vorschlag nächster Block:** Sicherheits- und Konsistenzhärtung der segmentweisen Qualitäts-/Summary-Ausgaben (atomare Dateiablage, Abbruch-/Teilresultate, klare Zuordnung der Vorschaubilder) und Tests. Alternativ nach Nutzerentscheidung zunächst Architektur/Prototyp für speichereffiziente native RGB-Kachelverarbeitung; niemals ungeprüfte Orthofoto-/GeoTIFF-Qualität behaupten.
+- Vor jedem neuen Fünferblock Remote-HEAD, CI und vorhandene Funktionen prüfen, Duplikate vermeiden. Fünfter Commit aktualisiert **beide** Übergabedokumente. GPT-6 „Sehr hoch“ ist nutzerseitig bevorzugt, nicht durch den Agenten einstellbar.
