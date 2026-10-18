@@ -88,3 +88,27 @@ def test_long_segment_sampling_is_explicit_and_bounded(tmp_path, monkeypatch):
     assert metadata["preview_frame_count"] == 3
     assert metadata["preview_frame_keys"] == [keys[0], keys[4], keys[9]]
     assert source.exists()
+
+
+def test_full_flight_reports_sampled_long_segment(tmp_path, monkeypatch):
+    from mcm_solarcheck.services import flight_rgb_folder_preview as preview
+    source = tmp_path / "DJI_20260725154421_0000_V.PNG"
+    assert cv2.imwrite(str(source), np.full((160, 160, 3), 70, np.uint8))
+    keys = [f"frame_{i}" for i in range(9)]
+    monkeypatch.setattr(preview, "scan_flight",
+                        lambda folder: ([(key, source, None) for key in keys], None))
+    registration = {"nonmetric_geometry": {"segments": [
+        {"frames": {key: np.eye(3).tolist() for key in keys}}
+    ]}}
+    output = tmp_path / "output"
+    output.mkdir()
+    result = save_all_flight_rgb_segments(tmp_path, registration, output)
+    assert result["exported"] == 1
+    assert result["sampled_previews"] == 1
+    assert result["segments"][0]["preview_incomplete"] is True
+    assert result["segments"][0]["preview_frame_count"] == 8
+    quality = json.loads((output / "segment_0000.json").read_text())
+    assert quality["source_frame_count"] == 9
+    assert quality["preview_frame_count"] == 8
+    assert quality["metric_orthophoto_verified"] is False
+    assert json.loads((output / "segments_summary.json").read_text()) == result
