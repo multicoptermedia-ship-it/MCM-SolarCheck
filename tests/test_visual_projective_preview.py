@@ -27,3 +27,23 @@ def test_preview_mixed_channels_rejected():
     rgb = np.repeat(frame[:, :, None], 3, axis=2)
     with pytest.raises(ValueError, match="mixed image channel"):
         compose_projective_visual_preview([frame, rgb, frame])
+
+
+def test_preview_rejects_nonredundant_graph_before_render(monkeypatch):
+    from mcm_solarcheck.services import visual_projective_audit
+    frame = np.random.default_rng(656).integers(0, 256, (256, 320), dtype=np.uint8)
+    original = visual_projective_audit.estimate_visual_link
+
+    def only_chain(first, second):
+        # Distinguish identity-linked images by the unique first pixel.
+        i, j = int(first[0, 0]), int(second[0, 0])
+        if (i, j) == (1, 3):
+            raise ValueError("no overlap")
+        return original(first, second)
+
+    frames = [frame.copy() for _ in range(3)]
+    for idx, item in enumerate(frames):
+        item[0, 0] = idx + 1
+    monkeypatch.setattr(visual_projective_audit, "estimate_visual_link", only_chain)
+    with pytest.raises(ValueError, match="redundant"):
+        compose_projective_visual_preview(frames)

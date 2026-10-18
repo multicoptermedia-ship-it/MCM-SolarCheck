@@ -33,7 +33,8 @@ def compose_projective_visual_preview(frames, *, max_pixels=12_000_000, max_rms_
         raise ValueError("mixed image channel layouts")
     if type(max_pixels) is not int or max_pixels < 1:
         raise ValueError("invalid canvas limit")
-    fit = audit_visual_projective_graph(frames, max_rms_px=max_rms_px)
+    fit = audit_visual_projective_graph(frames, max_rms_px=max_rms_px,
+                                        require_redundancy=True)
     corners = []
     for frame, h in zip(frames, fit.transforms_to_anchor):
         height, width = frame.shape[:2]
