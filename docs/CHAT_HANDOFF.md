@@ -170,3 +170,11 @@ Gezielter CI-Hotfix: `d4b068a` korrigiert den GUI-Test ohne verfügbare `qapp`-F
 - CI Python 3.11/3.12 für neuen Block noch offen; bei Rot gezielte Reparatur ohne neuen Fünferblock. Kein Merge nach `main`.
 - **Nächster Fünferblock – Vorschlag:** nachweisbare Quell-/Ausgabe-Provenienz über Hashes und nichtüberschreibbare Manifeste, mit strikter Wiederaufnahme nur nach vollständiger Prüfung; danach kontrollierter Resume-Executor. Alternativ Qt-Integritätsanzeige priorisieren; Nutzer kann Roadmap ändern.
 - Nach jedem Fünferblock Commits, Fähigkeiten/Grenzen, Risiken, nächsten Vorschlag, Entscheidungen und CI melden; vor neuen Blöcken HEAD, CI, PRs und vorhandene Funktionen prüfen; fünfter Commit synchronisiert beide Dokumente. GPT-6 „Sehr hoch“ nur nutzerseitig auswählbar.
+
+## RGB provenance handoff (2026-10-18)
+
+Base c463194 (Python 3.11/3.12 CI green). Five-commit block: e337568 SHA-256 source/output manifest, 618cfca provenance tests, a187870 resume classification, 173a7d9 resume tests, final synchronized docs commit.
+
+Source and NPY hashes, dimensions and converter identifier are recorded without customer paths. Manifest creation is exclusive (no overwrite). Resume inspection distinguishes verified_provenance from existing_shape_valid, but automatic resume remains disabled. A local unsigned JSON manifest does not authenticate the producer or prove actual converter execution; it can be fabricated alongside an arbitrary matching array. Manifest and NPY are not published atomically; failures may leave partial work. No 1000-image end-to-end guarantee, JPEG region decoding, Qt integration or GIS orthophoto. Originals and approvals unchanged. No merge to main.
+
+CI for this block pending; if red, targeted fix outside the next five-commit block. Next proposed block: couple conversion with manifest creation, diagnose interrupted publication, then safely implement controlled resume and quota tests. User may reprioritize Qt integrity UI. Each block ends with exactly one commit synchronizing both handoff documents; report actual capabilities, limits, risks, next proposal and CI.
