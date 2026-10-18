@@ -246,6 +246,7 @@ class SolarCheckMainWindow(QMainWindow):
             on_preview_rgb_folder=self._preview_rgb_folder,
             on_inspect_rgb_integrity=self._inspect_rgb_integrity,
             rgb_integrity_status=self._rgb_integrity_status,
+            on_cancel_rgb_integrity=self._cancel_rgb_integrity if getattr(self, '_integrity_thread', None) is not None else None,
             on_run_rgb_links=self._run_full_flight_rgb_links,
             on_export_rgb_segments=self._export_full_flight_rgb_segments,
             rgb_preview_status=self._rgb_preview_status,
@@ -268,27 +269,57 @@ class SolarCheckMainWindow(QMainWindow):
         old_page.deleteLater()
 
     def _inspect_rgb_integrity(self, source_folder: str, output_folder: str) -> None:
-        """Inspect all JPEGs in the chosen folder; never modify working files."""
-        from pathlib import Path
-        from mcm_solarcheck.services.flight_rgb_batch_resume import inspect_rgb_batch_resume
+        """Run integrity inspection off the UI thread and show progress."""
+        from PySide6.QtCore import QThread
+        from mcm_solarcheck.gui.flight_rgb_integrity_worker import FlightRgbIntegrityWorker
         from mcm_solarcheck.gui.flight_rgb_integrity_status import format_rgb_integrity_summary
 
-        try:
-            source = Path(source_folder)
-            if source.is_symlink() or not source.is_dir():
-                raise ValueError("Regulärer JPEG-Quellordner erforderlich")
-            images = sorted(
-                (path for path in source.iterdir()
-                 if path.suffix.lower() in (".jpg", ".jpeg")),
-                key=lambda path: path.name.casefold(),
-            )
-            if not images:
-                raise ValueError("Keine JPEG-Aufnahmen im gewählten Ordner")
-            result = inspect_rgb_batch_resume(images, output_folder)
-            self._rgb_integrity_status = format_rgb_integrity_summary(result)
-        except (ValueError, OSError, TypeError) as exc:
-            self._rgb_integrity_status = f"RGB-Integritätsprüfung nicht abgeschlossen: {exc}"
+        if getattr(self, "_integrity_thread", None) is not None:
+            return
+        thread = QThread(self)
+        worker = FlightRgbIntegrityWorker(source_folder, output_folder)
+        worker.moveToThread(thread)
+        self._integrity_thread = thread
+        self._integrity_worker = worker
+        self._rgb_integrity_status = "RGB-Integritätsprüfung läuft …"
         self._refresh_import_page()
+
+        def on_progress(done, total, status):
+            self._rgb_integrity_status = f"RGB-Integritätsprüfung: {done}/{total} geprüft ({status})."
+            self._refresh_import_page()
+
+        def on_finished(result):
+            self._rgb_integrity_status = format_rgb_integrity_summary(result)
+            self._refresh_import_page()
+
+        def on_failed(message):
+            self._rgb_integrity_status = f"RGB-Integritätsprüfung fehlgeschlagen: {message}"
+            self._refresh_import_page()
+
+        def on_cancelled():
+            self._rgb_integrity_status = "RGB-Integritätsprüfung abgebrochen; keine Dateien verändert."
+            self._refresh_import_page()
+
+        def on_thread_finished():
+            self._integrity_thread = None
+            self._integrity_worker = None
+            self._refresh_import_page()
+
+        thread.started.connect(worker.run)
+        worker.progress.connect(on_progress)
+        worker.finished.connect(on_finished)
+        worker.failed.connect(on_failed)
+        worker.cancelled.connect(on_cancelled)
+        worker.completed.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(on_thread_finished)
+        thread.finished.connect(thread.deleteLater)
+        thread.start()
+
+    def _cancel_rgb_integrity(self):
+        worker = getattr(self, "_integrity_worker", None)
+        if worker is not None:
+            worker.request_cancel()
 
     def _preview_rgb_folder(self, directory: str) -> None:
         """Run bounded automatic DJI folder preview; never silently omit frames."""
