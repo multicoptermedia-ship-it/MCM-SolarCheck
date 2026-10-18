@@ -52,6 +52,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._geotiff_result = None
         self._orthophoto_comparison = None
         self._orthophoto_comparison_error = None
+        self._rgb_integrity_status = None
         self._rgb_preview_status = None
         self._rgb_preview_path = None
         self._command_routes = {
@@ -243,6 +244,8 @@ class SolarCheckMainWindow(QMainWindow):
             import_attempt=self._last_import_attempt,
             on_preview_rgb_files=self._preview_selected_rgb_files,
             on_preview_rgb_folder=self._preview_rgb_folder,
+            on_inspect_rgb_integrity=self._inspect_rgb_integrity,
+            rgb_integrity_status=self._rgb_integrity_status,
             on_run_rgb_links=self._run_full_flight_rgb_links,
             on_export_rgb_segments=self._export_full_flight_rgb_segments,
             rgb_preview_status=self._rgb_preview_status,
@@ -263,6 +266,29 @@ class SolarCheckMainWindow(QMainWindow):
             self._stack.setCurrentWidget(new_page)
         self._stack.removeWidget(old_page)
         old_page.deleteLater()
+
+    def _inspect_rgb_integrity(self, source_folder: str, output_folder: str) -> None:
+        """Inspect all JPEGs in the chosen folder; never modify working files."""
+        from pathlib import Path
+        from mcm_solarcheck.services.flight_rgb_batch_resume import inspect_rgb_batch_resume
+        from mcm_solarcheck.gui.flight_rgb_integrity_status import format_rgb_integrity_summary
+
+        try:
+            source = Path(source_folder)
+            if source.is_symlink() or not source.is_dir():
+                raise ValueError("Regulärer JPEG-Quellordner erforderlich")
+            images = sorted(
+                (path for path in source.iterdir()
+                 if path.suffix.lower() in (".jpg", ".jpeg")),
+                key=lambda path: path.name.casefold(),
+            )
+            if not images:
+                raise ValueError("Keine JPEG-Aufnahmen im gewählten Ordner")
+            result = inspect_rgb_batch_resume(images, output_folder)
+            self._rgb_integrity_status = format_rgb_integrity_summary(result)
+        except (ValueError, OSError, TypeError) as exc:
+            self._rgb_integrity_status = f"RGB-Integritätsprüfung nicht abgeschlossen: {exc}"
+        self._refresh_import_page()
 
     def _preview_rgb_folder(self, directory: str) -> None:
         """Run bounded automatic DJI folder preview; never silently omit frames."""
