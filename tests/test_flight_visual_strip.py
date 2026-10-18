@@ -67,3 +67,40 @@ def test_projective_cli_rejects_conflicting_options_without_output(tmp_path):
     with pytest.raises(FileNotFoundError):
         preview_rgb_strip(tmp_path / "missing.zip", ["0001", "0002"], output, projective=True)
     assert not output.exists()
+
+
+def test_projective_zip_writes_explicit_nonmetric_quality_json(tmp_path):
+    import json
+    image = np.random.default_rng(833).integers(0, 256, (260, 340, 3), dtype=np.uint8)
+    buf = BytesIO()
+    Image.fromarray(image).save(buf, format="JPEG", quality=95)
+    archive_path = tmp_path / "flight.zip"
+    with ZipFile(archive_path, "w") as archive:
+        for i in (1, 2, 3):
+            archive.writestr(f"DJI_20260725154421_000{i}_V.JPG", buf.getvalue())
+    png = tmp_path / "preview.png"
+    quality = tmp_path / "quality.json"
+    assert preview_rgb_strip(archive_path, ["0001", "0002", "0003"], png,
+                             projective=True, quality_json_path=quality) == ()
+    data = json.loads(quality.read_text(encoding="utf-8"))
+    assert png.is_file()
+    assert data["preview_only"] is True
+    assert data["metric_orthophoto_verified"] is False
+    assert data["temperature_calibrated"] is False
+    assert data["multiply_covered_pixels"] > 0
+    assert data["mean_overlap_disagreement_0_255"] is not None
+    assert "DJI_" not in quality.read_text(encoding="utf-8")
+
+
+def test_quality_json_requires_projective_and_does_not_overwrite(tmp_path):
+    archive = tmp_path / "missing.zip"
+    png = tmp_path / "preview.png"
+    quality = tmp_path / "quality.json"
+    with pytest.raises(ValueError, match="requires --projective"):
+        preview_rgb_strip(archive, ["0001", "0002"], png, quality_json_path=quality)
+    quality.write_text("existing", encoding="utf-8")
+    with pytest.raises(ValueError, match="new JSON"):
+        preview_rgb_strip(archive, ["0001", "0002", "0003"], png,
+                          projective=True, quality_json_path=quality)
+    assert quality.read_text(encoding="utf-8") == "existing"
+    assert not png.exists()
