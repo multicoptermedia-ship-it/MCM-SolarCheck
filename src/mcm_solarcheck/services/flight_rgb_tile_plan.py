@@ -24,3 +24,18 @@ def iter_rgb_tiles(width, height, *, tile_side=512, max_tile_pixels=1_048_576):
         for x in range(0, width, tile_side):
             yield RGBTile(x, y, min(tile_side, width - x),
                           min(tile_side, height - y))
+
+
+def plan_rgb_tile_batch(width, height, *, tile_side=512,
+                        max_tile_pixels=1_048_576, max_tiles=4096):
+    """Materialize only a capped plan; reject oversized plans explicitly."""
+    if type(max_tiles) is not int or max_tiles < 1:
+        raise ValueError("positive integer RGB tile count limit required")
+    # Validate dimensions even for an empty or otherwise rejected plan.
+    tiles = []
+    for tile in iter_rgb_tiles(width, height, tile_side=tile_side,
+                               max_tile_pixels=max_tile_pixels):
+        if len(tiles) >= max_tiles:
+            raise ValueError("RGB tile plan exceeds tile count limit")
+        tiles.append(tile)
+    return tuple(tiles)
