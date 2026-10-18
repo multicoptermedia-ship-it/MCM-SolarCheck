@@ -4,6 +4,7 @@ The JPEG decoder still allocates a full RGB frame. This converter rejects
 images above a strict decoded-pixel budget; it is NOT streaming JPEG decoding.
 """
 import os
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -12,7 +13,8 @@ import numpy as np
 
 
 def convert_jpeg_to_rgb_array(source, destination, *, max_pixels=12_000_000,
-                              max_source_bytes=80_000_000):
+                              max_source_bytes=80_000_000,
+                              max_output_bytes=40_000_000):
     """Publish a derived .npy source without modifying JPEG or replacing output."""
     source, destination = Path(source), Path(destination)
     if (source.is_symlink() or not source.is_file()
@@ -22,7 +24,8 @@ def convert_jpeg_to_rgb_array(source, destination, *, max_pixels=12_000_000,
             or not destination.parent.is_dir()):
         raise ValueError("regular JPEG and new .npy destination required")
     if (type(max_pixels) is not int or max_pixels < 1
-            or type(max_source_bytes) is not int or max_source_bytes < 1):
+            or type(max_source_bytes) is not int or max_source_bytes < 1
+            or type(max_output_bytes) is not int or max_output_bytes < 1):
         raise ValueError("invalid conversion limits")
     if source.stat().st_size > max_source_bytes:
         raise ValueError("JPEG exceeds source byte budget")
@@ -35,6 +38,11 @@ def convert_jpeg_to_rgb_array(source, destination, *, max_pixels=12_000_000,
     height, width = image.shape[:2]
     if height * width > max_pixels:
         raise ValueError("decoded JPEG exceeds pixel budget")
+    estimated_output_bytes = height * width * 3 + 4096
+    if estimated_output_bytes > max_output_bytes:
+        raise ValueError("RGB working array exceeds output byte budget")
+    if shutil.disk_usage(destination.parent).free < estimated_output_bytes:
+        raise ValueError("insufficient free disk space for RGB working array")
     rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     staged = None
     try:
