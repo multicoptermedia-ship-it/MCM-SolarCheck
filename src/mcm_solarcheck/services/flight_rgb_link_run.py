@@ -14,7 +14,8 @@ from mcm_solarcheck.services.visual_frame_registration import estimate_visual_li
 def check_flight_rgb_links(folder, *, batch_size=80, overlap=10,
                            max_captures=1000, max_image_bytes=80_000_000,
                            max_side=800):
-    if type(max_side) is not int or max_side < 128:
+    if (type(max_side) is not int or max_side < 128 or
+            type(max_image_bytes) is not int or max_image_bytes < 1):
         raise ValueError("invalid working preview size")
     plan = plan_flight_batches(folder, batch_size=batch_size, overlap=overlap,
                                max_captures=max_captures)
