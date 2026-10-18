@@ -58,3 +58,16 @@ def test_report_never_overwrites_existing_pdf(tmp_path):
         export_reviewed_pdf_with_visual_preview(
             fictional_pilot_report(), png, quality, destination)
     assert destination.read_bytes() == b"existing"
+
+
+def test_pdf_text_explicitly_denies_metric_orthophoto(tmp_path):
+    pypdf = pytest.importorskip("pypdf")
+    png, quality = _inputs(tmp_path)
+    destination = tmp_path / "reviewed.pdf"
+    export_reviewed_pdf_with_visual_preview(
+        fictional_pilot_report(), png, quality, destination)
+    reader = pypdf.PdfReader(str(destination))
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    assert "Nicht metrisch verifizierte Bildvorschau" in text
+    assert "kein Orthofoto" in text
+    assert "kein Flugpfadnachweis" in text
