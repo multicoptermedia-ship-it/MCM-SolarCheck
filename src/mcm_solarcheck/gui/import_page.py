@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -163,6 +163,12 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     else:
         integrity_button.setEnabled(False)
     layout.addWidget(integrity_button)
+    cancel_integrity = QPushButton("RGB-Integritätsprüfung abbrechen", page)
+    cancel_integrity.setObjectName("cancel_rgb_integrity_button")
+    cancel_integrity.setEnabled(on_cancel_rgb_integrity is not None)
+    if on_cancel_rgb_integrity is not None:
+        cancel_integrity.clicked.connect(on_cancel_rgb_integrity)
+    layout.addWidget(cancel_integrity)
     if rgb_integrity_status is not None:
         integrity_label = QLabel(rgb_integrity_status, page)
         integrity_label.setObjectName("rgb_integrity_status")
