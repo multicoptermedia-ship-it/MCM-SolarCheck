@@ -59,3 +59,19 @@ def test_jpeg_conversion_rejects_insufficient_free_space(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="disk space"):
         convert_jpeg_to_rgb_array(source, target)
     assert not target.exists()
+
+
+def test_oversized_header_rejected_before_decoder(tmp_path, monkeypatch):
+    source, target = tmp_path / "capture.jpg", tmp_path / "working.npy"
+    assert cv2.imwrite(str(source), np.zeros((12, 13, 3), dtype=np.uint8))
+
+    def forbidden_decode(*args, **kwargs):
+        raise AssertionError("decoder must not run for oversized JPEG")
+
+    monkeypatch.setattr(
+        "mcm_solarcheck.services.flight_rgb_jpeg_conversion.cv2.imdecode",
+        forbidden_decode,
+    )
+    with pytest.raises(ValueError, match="before decode"):
+        convert_jpeg_to_rgb_array(source, target, max_pixels=100)
+    assert not target.exists()
