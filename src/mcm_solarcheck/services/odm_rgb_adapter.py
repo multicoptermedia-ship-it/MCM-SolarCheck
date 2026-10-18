@@ -1,6 +1,6 @@
-"""Prepare a read-only DJI RGB image list for an external ODM runner.
+"""Legacy compatibility entry points for independent offline flight staging.
 
-This adapter never invokes Docker, modifies originals, or claims an orthophoto.
+No external photogrammetry runner is invoked or required.
 """
 from pathlib import Path
 from mcm_solarcheck.services.flight_inventory import scan_flight
@@ -21,17 +21,17 @@ def prepare_odm_rgb_inputs(folder, *, max_captures=1000):
 
 
 def stage_odm_rgb_project(folder, project_directory, *, max_captures=1000):
-    """Create ODM images/ with source-preserving copies, never resample."""
+    """Create a local images/ workspace with byte-identical RGB copies."""
     import shutil
 
     manifest = prepare_odm_rgb_inputs(folder, max_captures=max_captures)
     target = Path(project_directory)
     if target.exists() or not target.parent.is_dir() or target.is_symlink():
-        raise ValueError("ODM project destination must be new")
+        raise ValueError("flight workspace destination must be new")
     # Validate all source paths before creating the project.
     for source in manifest["rgb"]:
         if source.is_symlink() or not source.is_file():
-            raise ValueError("ODM source image must be a regular local file")
+            raise ValueError("source image must be a regular local file")
     images = target / "images"
     images.mkdir(parents=True, exist_ok=False)
     try:
@@ -44,20 +44,3 @@ def stage_odm_rgb_project(folder, project_directory, *, max_captures=1000):
     return {"project": target, "images": tuple(images / p.name for p in manifest["rgb"]),
             "missing_rgb": manifest["missing_rgb"], "ignored": manifest["ignored"]}
 
-
-def odm_command(project_directory, *, split=400, split_overlap=100):
-    """Return an argument vector for installed ODM, without executing it.
-
-    ODM split-overlap is measured in meters, not image count.
-    """
-    if (type(split) is not int or split < 1 or
-            type(split_overlap) is not int or split_overlap < 0):
-        raise ValueError("invalid ODM split configuration")
-    project = Path(project_directory)
-    if not project.is_dir() or not (project / "images").is_dir():
-        raise ValueError("staged ODM project required")
-    return ("docker", "run", "--rm", "-v",
-            f"{project.parent.resolve().as_posix()}:/datasets",
-            "opendronemap/odm", "--project-path", "/datasets",
-            project.name, "--split", str(split),
-            "--split-overlap", str(split_overlap))
