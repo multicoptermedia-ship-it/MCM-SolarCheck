@@ -47,7 +47,9 @@ def test_inspector_accepts_valid_pair_and_summary(tmp_path):
         "metric_orthophoto_verified": False,
     }), encoding="utf-8")
     (tmp_path / "segments_summary.json").write_text(json.dumps({
-        "processing_kind": "nonmetric_rgb_flight_segment_previews"
+        "processing_kind": "nonmetric_rgb_flight_segment_previews",
+        "segments": [{"index": 0, "status": "exported",
+                      "image": "segment_0000.png", "quality": "segment_0000.json"}],
     }), encoding="utf-8")
     result = inspect_rgb_export_directory(tmp_path)
     assert result["segments"][0]["status"] == "paired"
@@ -67,3 +69,15 @@ def test_inspector_reports_corrupt_png_without_modifying_it(tmp_path):
     assert result["segments"][0]["status"] == "invalid_png"
     assert result["requires_manual_review"] is True
     assert image.read_bytes() == b"not a png"
+
+
+def test_inspector_reports_summary_mismatch(tmp_path):
+    (tmp_path / "segments_summary.json").write_text(json.dumps({
+        "processing_kind": "nonmetric_rgb_flight_segment_previews",
+        "segments": [{"index": 4, "status": "exported",
+                      "image": "segment_0004.png", "quality": "segment_0004.json"}],
+    }), encoding="utf-8")
+    result = inspect_rgb_export_directory(tmp_path)
+    assert result["summary"] == "present"
+    assert result["summary_mismatches"] == ["exported_segment_0004"]
+    assert result["requires_manual_review"] is True
