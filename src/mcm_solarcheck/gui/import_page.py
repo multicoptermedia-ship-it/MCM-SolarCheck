@@ -1,9 +1,11 @@
 """Import workspace presentation for SolarCheck."""
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -111,6 +113,20 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
         preview_status.setObjectName("rgb_preview_status")
         preview_status.setWordWrap(True)
         layout.addWidget(preview_status)
+    if rgb_preview_path is not None:
+        preview_image = QLabel(page)
+        preview_image.setObjectName("rgb_preview_image")
+        preview_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        preview_image.setAccessibleDescription(
+            "Nicht metrisch verifizierte RGB-Bildvorschau; kein Orthofoto."
+        )
+        pixmap = QPixmap(str(rgb_preview_path))
+        if not pixmap.isNull():
+            preview_image.setPixmap(pixmap.scaled(
+                720, 420, Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            ))
+            layout.addWidget(preview_image)
     inspect_button = QPushButton("GeoTIFF / GIS-Metadaten prüfen", page)
     inspect_button.setObjectName("inspect_geotiff_button")
     if current_project_id is not None and on_inspect_geotiff is not None:
