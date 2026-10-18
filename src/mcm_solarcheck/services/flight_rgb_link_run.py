@@ -58,3 +58,20 @@ def check_flight_rgb_links(folder, *, batch_size=80, overlap=10,
             "links": links, "registered": sum(x["status"] == "registered" for x in links),
             "failed": sum(x["status"] == "failed" for x in links),
             "metric_orthophoto_verified": False, "temperature_calibrated": False}
+
+
+def save_flight_rgb_link_run(folder, destination, **options):
+    """Persist link-by-link success/failure locally without overwriting files."""
+    import json
+
+    target = Path(destination)
+    if target.suffix.lower() != ".json" or target.exists() or not target.parent.is_dir():
+        raise ValueError("new JSON output path required")
+    result = check_flight_rgb_links(folder, **options)
+    result["schema_version"] = 1
+    result["processing_kind"] = "nonmetric_rgb_link_registration"
+    result["full_resolution_sources_modified"] = False
+    with target.open("x", encoding="utf-8") as stream:
+        json.dump(result, stream, indent=2, ensure_ascii=False)
+        stream.write("\n")
+    return result
