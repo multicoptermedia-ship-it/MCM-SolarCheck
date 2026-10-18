@@ -1,6 +1,9 @@
 """Interrupted export inspection must be read-only and conservative."""
 import json
 
+import cv2
+import numpy as np
+
 import pytest
 
 from mcm_solarcheck.services.flight_rgb_export_recovery import inspect_rgb_export_directory
@@ -38,7 +41,7 @@ def test_inspector_rejects_symlink(tmp_path):
 
 
 def test_inspector_accepts_valid_pair_and_summary(tmp_path):
-    (tmp_path / "segment_0000.png").write_bytes(b"png")
+    assert cv2.imwrite(str(tmp_path / "segment_0000.png"), np.zeros((4, 4, 3), np.uint8))
     (tmp_path / "segment_0000.json").write_text(json.dumps({
         "processing_kind": "nonmetric_rgb_segment_preview",
         "metric_orthophoto_verified": False,
@@ -51,3 +54,16 @@ def test_inspector_accepts_valid_pair_and_summary(tmp_path):
     assert result["summary"] == "present"
     assert result["issues"] == 0
     assert result["requires_manual_review"] is False
+
+
+def test_inspector_reports_corrupt_png_without_modifying_it(tmp_path):
+    image = tmp_path / "segment_0002.png"
+    image.write_bytes(b"not a png")
+    (tmp_path / "segment_0002.json").write_text(json.dumps({
+        "processing_kind": "nonmetric_rgb_segment_preview",
+        "metric_orthophoto_verified": False,
+    }), encoding="utf-8")
+    result = inspect_rgb_export_directory(tmp_path)
+    assert result["segments"][0]["status"] == "invalid_png"
+    assert result["requires_manual_review"] is True
+    assert image.read_bytes() == b"not a png"
