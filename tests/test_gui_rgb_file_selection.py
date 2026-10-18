@@ -49,3 +49,34 @@ def test_rgb_selection_cancel_does_not_call_service():
     status = page.findChild(QLabel, "rgb_preview_status")
     assert "Nicht metrische" in status.text()
     page.close()
+
+
+def test_local_preview_image_is_shown_with_nonmetric_description(tmp_path):
+    from PIL import Image
+    from PySide6.QtWidgets import QLabel
+    image_path = tmp_path / "preview.png"
+    Image.new("RGB", (200, 100), (120, 80, 40)).save(image_path)
+    app = QApplication.instance() or QApplication([])
+    page = make_import_page(
+        current_project_id="P1",
+        rgb_preview_path=image_path,
+        rgb_preview_status="Nicht metrische RGB-Vorschau erstellt.",
+    )
+    image = page.findChild(QLabel, "rgb_preview_image")
+    assert image is not None
+    assert image.pixmap() is not None and not image.pixmap().isNull()
+    assert image.pixmap().width() <= 720
+    assert image.pixmap().height() <= 420
+    assert "kein Orthofoto" in image.accessibleDescription()
+    page.close()
+
+
+def test_missing_preview_does_not_show_stale_image(tmp_path):
+    from PySide6.QtWidgets import QLabel
+    app = QApplication.instance() or QApplication([])
+    page = make_import_page(current_project_id="P1",
+                            rgb_preview_path=tmp_path / "missing.png")
+    image = page.findChild(QLabel, "rgb_preview_image")
+    assert image is not None
+    assert image.pixmap() is None or image.pixmap().isNull()
+    page.close()
