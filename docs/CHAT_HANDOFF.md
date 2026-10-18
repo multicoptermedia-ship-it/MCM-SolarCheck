@@ -40,3 +40,13 @@ Den vollständigen RGB-Linklauf in einen **Qt-Hintergrund-Worker** verlagern: be
 
 Letzter regulärer Block: `254894e` (Fortschritt), `484e62d` (GUI-Ordneraktion), `08177d3` (GUI-Service-Verbindung), `4255aa3` (Tests), `ba46544` (Dokumentation).
 Gezielter CI-Hotfix: `d4b068a` korrigiert den GUI-Test ohne verfügbare `qapp`-Fixture. Danach meldete der Nutzer grün.
+
+## Aktualisierte Übergabe – Qt-RGB-Segmentexport (18. Oktober 2026)
+
+- Maßgeblicher Entwicklungsbranch: `feature/rgb-all-segments-export`; vorheriger grüner Stand `5594f218`.
+- Fünf bereits vorgefundene Commits: `2b1195c` (abbrechbarer Qt-Worker), `1adbebc` (Importseitenaktion), `b9c8753` (asynchrone Shell-Anbindung), `43dd989` (GUI-/Worker-Tests), `b6fa69e` (Entwicklungsvereinbarung). Keine weiteren gleichartigen Features implementieren.
+- CI auf `b6fa69e` rot: Tests nutzten die nicht installierte `qtbot`-Fixture. Gezielter Korrekturcommit `f3e5656` ersetzt sie durch eine native `QApplication`-Fixture; CI Python 3.11 und 3.12 für den Korrekturstand noch zu bestätigen.
+- Bestehender Segmentexport bleibt lokal, auf acht Arbeitsbilder pro Segment begrenzt, mit PNG/JSON und Abbruch-/Fehlerstatus; kein metrisch verifiziertes Orthofoto und keine Kundenberichtfreigabe.
+- Vor jedem neuen Fünferblock den aktuellen Remote-HEAD, neue Commits und CI prüfen und doppelte Implementierungen vermeiden. Im fünften Commit **beide** Dokumente `docs/DEVELOPMENT_AGREEMENT.md` und `docs/CHAT_HANDOFF.md` auf denselben Stand bringen.
+- Für komplexe Entwicklungsarbeit ist GPT-6 mit Denkstufe „Sehr hoch“ bevorzugt, sofern nutzerseitig verfügbar; die Modelleinstellung kann der Agent nicht selbst ändern.
+- Bei roten Tests gezielt korrigieren, nicht einen neuen Fünferblock beginnen. Nach bestätigtem Grün auf „bitte weiter“ warten. Kein Merge nach `main` ohne ausdrückliche Freigabe.
