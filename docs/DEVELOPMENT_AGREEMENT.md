@@ -488,3 +488,10 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - Inventur ist **nur Dateinamen-Erkennung**, keine Validierung von JPEG-Inhalt, Aufnahmezeit, GPS, Kamerakalibrierung oder tatsächlicher Paar-Synchronität. Nicht zugeordnete Einträge werden gezählt, nicht automatisch verarbeitet. Vorschau bleibt auf drei bis vier RGB-Aufnahmen begrenzt und ist nicht metrisch.
 - Nächster vertikaler Schritt: nachvollziehbare, vollständige Batch-Verarbeitung der erkannten Aufnahmen mit explizitem Erfolgs-/Fehlerstatus pro Bild und separater RGB/Thermal-Geometrie; anschließend manuelle Befundprüfung und PDF. Keine private DJI-Datei ins Repository.
 - CI nach diesem Block prüfen; kein Merge nach `main` ohne ausdrückliche Freigabe.
+
+## Übergabe – vollständige DJI-Dateiprüfung je RGB/Thermalbild (18.10.2026)
+- Nutzerziel bleibt: ein Bildordner, alle Aufnahmen ohne manuelle Einzelmarkierung, danach automatische Auswertung; strikt vertikal entwickeln.
+- Genau fünf Commits: `38e2a11` implementiert `inspect_flight_images` für **jede** erkannte RGB-/Thermaldatei (lesbar, unlesbar, zu groß, fehlend), ohne Thermalkalibrierung zu behaupten; `114965e` testet fünf Aufnahmepaare mit unlesbarem Thermalbild und fehlendem Gegenstück sowie Größenlimit; `f500b39` verbindet die vollständige Prüfung mit der GUI und zeigt die Statussummen auch bei großen Flügen; `6f5d9ac` testet die Ordneraktion ohne Einzelbildmarkierung; dieser fünfte Commit ist die Übergabe.
+- Die Prüfung decodiert alle Bilder, erzeugt aber **noch keine vollständige Flug-Mosaikverarbeitung**. Bei mehr als vier RGB-Bildern bzw. defekten/fehlenden Bildern wird die Vorschau nicht gestartet. Ein lesbares Thermal-JPEG ist keine kalibrierte Temperaturmessung. Die Dateinamen-Paarung bestätigt keine tatsächliche Kamerasynchronität.
+- Nächster vertikaler Schritt nach CI: per-Bild-Status persistent als lokales Projektartefakt und ein tatsächlich vollständiger, fehlertoleranter Batch-Ablauf für alle RGB-Aufnahmen, anschließend geometrisch getrennte Thermalverarbeitung und geprüfter PDF-Bericht.
+- Keine privaten DJI-Bilder/GPS ins Repository; kein Merge nach `main` ohne Freigabe.
