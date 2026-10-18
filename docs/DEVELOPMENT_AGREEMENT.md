@@ -547,3 +547,11 @@ Fünf Commits: `74ab038` bewahrt Homographiematrizen erfolgreicher RGB-Paare; `7
 Die Verarbeitung prüft weiterhin **alle benachbarten RGB-Paare** und speichert nun die Transformationen als geometrische Grundlage. Fehlgeschlagene Verbindungen werden nicht künstlich überbrückt. Keine metrische Orthofoto-Validierung, kein Pixel-Mosaik, keine nativen Zoom-Kacheln und keine Celsius-Kalibrierung. RGB-/Thermal-Originale bleiben unangetastet; keine ODM-/WebODM-Laufzeit.
 
 **CI für diesen neuen Block noch nicht bestätigt.** Nutzer soll GitHub Actions prüfen und „alle grün“ oder „rot“ melden. Bei Rot nur gezielter Hotfix. Nach Grün und „bitte weiter“ als nächstes begrenzte RGB-Mosaiksegmente auf Disk mit expliziten Qualitäts-/Speichergrenzen und später Kacheln implementieren. Kein Merge nach `main` ohne Freigabe.
+
+## Übergabe – begrenzte RGB-Segmentvorschau (18.10.2026)
+
+Fünf Commits: `e7cea2e` begrenzte Canvas-Planung aus Bildtransformationen, `474959d` kleine nichtmetrische RGB-Segmentvorschau mit Überlappungs-Mittelung, `35e0aad` synthetische Rendering-/Grenzwerttests, `80b1bb9` expliziter PNG-/Qualitäts-JSON-Export und dieser Dokumentationscommit.
+
+Die neuen Services arbeiten auf **bereits bereitgestellten RGB-Arbeitsframes**. Noch **keine** automatische vollständige Flugordner-Mosaikpipeline, kein Streaming nativer Originalauflösung, keine Zoom-Kacheln, kein metrisch verifiziertes Orthofoto und keine Celsius-Kalibrierung. Canvas ist hart auf Pixelanzahl begrenzt. Kein ODM/WebODM; private Bilder nicht committen.
+
+Nächster Produktblock nach bestätigtem CI-Grün: Bild-/Segment-Auswahl aus Flug-JSON, sichere Integration in den Ordner-Workflow, anschließend disk-backed native RGB-Kacheln statt großem RAM-Canvas. Bitte aktuellen CI-Lauf prüfen; bei Rot ausschließlich gezielten Hotfix. Kein Merge nach `main`.
