@@ -47,3 +47,17 @@ def test_preview_rejects_nonredundant_graph_before_render(monkeypatch):
     monkeypatch.setattr(visual_projective_audit, "estimate_visual_link", only_chain)
     with pytest.raises(ValueError, match="redundant"):
         compose_projective_visual_preview(frames)
+
+
+@pytest.mark.parametrize("channels", [1, 3])
+def test_preview_exposes_nonmetric_overlap_diagnostics(channels):
+    gray = np.random.default_rng(772 + channels).integers(0, 256, (256, 320), dtype=np.uint8)
+    image = gray if channels == 1 else np.repeat(gray[..., None], 3, axis=2)
+    result = compose_projective_visual_preview([image, image.copy(), image.copy()])
+    quality = result.overlap_quality
+    assert quality is not None
+    assert quality.covered_pixels >= image.shape[0] * image.shape[1]
+    assert quality.multiply_covered_pixels > 0
+    assert quality.mean_overlap_disagreement is not None
+    assert quality.mean_overlap_disagreement < 2.
+    assert not quality.metric_accuracy_verified
