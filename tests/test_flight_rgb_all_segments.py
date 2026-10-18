@@ -136,14 +136,14 @@ def test_quality_publish_failure_cleans_new_png(tmp_path, monkeypatch):
     segment = {"frames": {"one": np.eye(3).tolist()}}
     png = tmp_path / "preview.png"
     quality = tmp_path / "preview.json"
-    original_open = __import__("pathlib").Path.open
+    original_link = __import__("os").link
 
-    def fail_quality(path, mode="r", *args, **kwargs):
-        if path == quality and mode == "xb":
+    def fail_quality(source, destination, *args, **kwargs):
+        if destination == quality:
             raise OSError("simulated quality write failure")
-        return original_open(path, mode, *args, **kwargs)
+        return original_link(source, destination, *args, **kwargs)
 
-    monkeypatch.setattr(__import__("pathlib").Path, "open", fail_quality)
+    monkeypatch.setattr(__import__("os"), "link", fail_quality)
     with pytest.raises(OSError, match="simulated"):
         exporter.save_rgb_segment_preview(segment, frames, png, quality)
     assert not png.exists()
