@@ -555,3 +555,11 @@ Fünf Commits: `e7cea2e` begrenzte Canvas-Planung aus Bildtransformationen, `474
 Die neuen Services arbeiten auf **bereits bereitgestellten RGB-Arbeitsframes**. Noch **keine** automatische vollständige Flugordner-Mosaikpipeline, kein Streaming nativer Originalauflösung, keine Zoom-Kacheln, kein metrisch verifiziertes Orthofoto und keine Celsius-Kalibrierung. Canvas ist hart auf Pixelanzahl begrenzt. Kein ODM/WebODM; private Bilder nicht committen.
 
 Nächster Produktblock nach bestätigtem CI-Grün: Bild-/Segment-Auswahl aus Flug-JSON, sichere Integration in den Ordner-Workflow, anschließend disk-backed native RGB-Kacheln statt großem RAM-Canvas. Bitte aktuellen CI-Lauf prüfen; bei Rot ausschließlich gezielten Hotfix. Kein Merge nach `main`.
+
+## Übergabe – DJI-Ordner zur begrenzten RGB-Segmentvorschau (18.10.2026)
+
+Genau fünf Commits: `67b6c80` korrigiert die Richtung der Rendertransformationen (registrierte Homographien bilden vorheriges auf nächstes Bild ab); `526a36f` korrigiert die Canvas-Eckprojektion in Ankerkoordinaten; `8955caf` führt den DJI-Ordner über die vorhandene Registrierung an den begrenzten RGB-Segmentexport heran; `3ab508d` ergänzt synthetische Richtungs- und Ordner-Tests; dieser Commit dokumentiert die Übergabe.
+
+**Grenzen:** Der neue Ordner-Service verarbeitet derzeit **ein ausgewähltes Segment** mit maximal acht RGB-Arbeitsbildern; noch keine automatische Verarbeitung sämtlicher Segmente, keine native hochauflösende Kachelausgabe. Transformationsmatrizen stammen aus der Registrierung bei max_side=800; der Ordner-Export muss mit derselben Arbeitsauflösung betrieben werden. Die Quellen bleiben unverändert. Nichtmetrische Vorschau, kein verifiziertes Orthofoto und keine Celsius-Kalibrierung. Keine ODM-/WebODM-Abhängigkeit.
+
+**CI noch offen.** Prüfen und bei Rot gezielt nachbessern. Besonders die bisherigen synthetischen Render-Erwartungen müssen nach der korrigierten Transformationsrichtung abgeglichen werden. Kein Merge nach `main`.
