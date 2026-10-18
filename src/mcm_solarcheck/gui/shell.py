@@ -267,8 +267,25 @@ class SolarCheckMainWindow(QMainWindow):
         from pathlib import Path
         from PySide6.QtWidgets import QFileDialog
         from mcm_solarcheck.services.flight_visual_folder import preview_rgb_folder
+        from mcm_solarcheck.services.flight_inventory import scan_flight
 
         if self._current_project_id is None:
+            return
+        try:
+            captures, ignored = scan_flight(directory)
+            rgb_count = sum(rgb is not None for _, rgb, _ in captures)
+            thermal_count = sum(thermal is not None for _, _, thermal in captures)
+            pairs = sum(rgb is not None and thermal is not None for _, rgb, thermal in captures)
+            summary = f"Flug: {rgb_count} RGB, {thermal_count} Thermal, {pairs} Paare; {len(ignored)} weitere Einträge. "
+            if rgb_count not in (3, 4):
+                self._rgb_preview_path = None
+                self._rgb_preview_status = summary + "Alle Aufnahmen erfasst; Bildzusammensetzung für ganze Flüge folgt."
+                self._refresh_import_page()
+                return
+        except (ValueError, OSError) as exc:
+            self._rgb_preview_path = None
+            self._rgb_preview_status = f"Fluginventar fehlgeschlagen: {exc}"
+            self._refresh_import_page()
             return
         destination = QFileDialog.getSaveFileName(
             self, "Automatische RGB-Vorschau speichern", "", "PNG-Bild (*.png)"
@@ -281,7 +298,7 @@ class SolarCheckMainWindow(QMainWindow):
             result = preview_rgb_folder(directory, png, png.with_suffix(".json"))
             self._rgb_preview_path = png
             self._rgb_preview_status = (
-                "DJI-RGB-Bilder automatisch erkannt und verarbeitet. "
+                summary + "DJI-RGB-Bilder automatisch erkannt und verarbeitet. "
                 "Nicht metrische Vorschau; kein verifiziertes Orthofoto. "
                 "Große Flüge werden noch nicht vollständig unterstützt."
             )
