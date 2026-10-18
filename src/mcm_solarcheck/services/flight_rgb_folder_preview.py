@@ -1,5 +1,4 @@
 """Local DJI-folder RGB segment preview from a completed registration result."""
-import json
 from pathlib import Path
 
 import cv2
@@ -54,16 +53,15 @@ def export_flight_rgb_segment(folder, registration, segment_index, png_path, qua
                                             max(1, round(height * scale))))
         frames[key] = cv2.cvtColor(decoded, cv2.COLOR_BGR2RGB)
     preview_segment = dict(segment, frames={key: segment["frames"][key] for key in selected})
-    metadata = save_rgb_segment_preview(preview_segment, frames, png_path, quality_path,
-                                         max_pixels=max_pixels)
-    metadata["working_max_side"] = max_side
-    metadata["source_frame_count"] = len(keys)
-    metadata["preview_frame_count"] = len(selected)
-    metadata["preview_incomplete"] = len(selected) < len(keys)
-    metadata["preview_frame_keys"] = selected
-    # save_rgb_segment_preview persisted its base metadata before these additions.
-    # Persist the complete quality contract, retaining exclusive-create semantics.
-    with Path(quality_path).open("w", encoding="utf-8") as stream:
-        json.dump(metadata, stream, ensure_ascii=False, indent=2)
-        stream.write("\n")
+    metadata = save_rgb_segment_preview(
+        preview_segment, frames, png_path, quality_path,
+        max_pixels=max_pixels,
+        extra_metadata={
+            "working_max_side": max_side,
+            "source_frame_count": len(keys),
+            "preview_frame_count": len(selected),
+            "preview_incomplete": len(selected) < len(keys),
+            "preview_frame_keys": selected,
+        },
+    )
     return metadata
