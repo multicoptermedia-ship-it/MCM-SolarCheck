@@ -56,8 +56,8 @@ def check_flight_rgb_links(folder, *, batch_size=80, overlap=10,
             raise FlightRunCancelled("RGB link run cancelled before the next pair")
         record = {"first": first[0], "second": second[0], "status": "failed"}
         try:
-            _, inliers = estimate_visual_link(load(first[1]), load(second[1]))
-            record.update(status="registered", inliers=inliers)
+            matrix, inliers = estimate_visual_link(load(first[1]), load(second[1]))
+            record.update(status="registered", inliers=inliers, homography=matrix.tolist())
         except (ValueError, OSError, cv2.error) as exc:
             record["reason"] = str(exc)
         links.append(record)
