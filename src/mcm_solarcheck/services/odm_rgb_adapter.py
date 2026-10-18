@@ -43,3 +43,21 @@ def stage_odm_rgb_project(folder, project_directory, *, max_captures=1000):
         raise
     return {"project": target, "images": tuple(images / p.name for p in manifest["rgb"]),
             "missing_rgb": manifest["missing_rgb"], "ignored": manifest["ignored"]}
+
+
+def odm_command(project_directory, *, split=400, split_overlap=100):
+    """Return an argument vector for installed ODM, without executing it.
+
+    ODM split-overlap is measured in meters, not image count.
+    """
+    if (type(split) is not int or split < 1 or
+            type(split_overlap) is not int or split_overlap < 0):
+        raise ValueError("invalid ODM split configuration")
+    project = Path(project_directory)
+    if not project.is_dir() or not (project / "images").is_dir():
+        raise ValueError("staged ODM project required")
+    return ("docker", "run", "--rm", "-v",
+            f"{project.parent.resolve().as_posix()}:/datasets",
+            "opendronemap/odm", "--project-path", "/datasets",
+            project.name, "--split", str(split),
+            "--split-overlap", str(split_overlap))
