@@ -433,12 +433,9 @@ class SolarCheckMainWindow(QMainWindow):
 
         def on_finished(result):
             self._rgb_preview_path = None
-            self._rgb_preview_status = (
-                f"RGB-Segmentexport: {result['exported']} exportiert, "
-                f"{result['failed']} fehlgeschlagen, "
-                f"Abbruch: {'ja' if result['cancelled'] else 'nein'}. "
-                f"Zusammenfassung: {target / 'segments_summary.json'}. "
-                "Nichtmetrische Vorschau; kein verifiziertes Orthofoto."
+            from mcm_solarcheck.gui.flight_rgb_segments_status import format_rgb_segments_result
+            self._rgb_preview_status = format_rgb_segments_result(
+                result, target / "segments_summary.json"
             )
             self._refresh_import_page()
 
