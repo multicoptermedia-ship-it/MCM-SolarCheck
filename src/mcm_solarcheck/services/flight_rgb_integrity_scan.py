@@ -18,6 +18,10 @@ def scan_rgb_integrity(source_folder, output_folder, *, on_progress=None,
                     key=lambda p: p.name.casefold())
     if not images:
         raise ValueError("no JPEG images in source folder")
+    if len({p.stem.casefold() for p in images}) != len(images):
+        raise ValueError("colliding RGB output names across JPEG sources")
+    if any(p.is_symlink() or not p.is_file() for p in images):
+        raise ValueError("regular JPEG files required")
     entries = []
     total = len(images)
     for index, image in enumerate(images, 1):
