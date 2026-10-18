@@ -583,3 +583,12 @@ Genau fünf Commits: `67b6c80` korrigiert die Richtung der Rendertransformatione
 - Tests wurden hinzugefügt, aber **GitHub Actions Python 3.11/3.12 für diesen Block sind noch nicht bestätigt**. Bei Rot gezielten Hotfix ausführen, nicht den nächsten Fünferblock starten.
 - **Bevorzugte Modelleinstellung:** GPT-6 mit Denkstufe „Sehr hoch“ (Extra High), sofern im jeweiligen Chat verfügbar und vom Nutzer ausgewählt. Die Modelleinstellung kann nicht durch Repository-Code oder eine Agentenanweisung erzwungen werden. Tests und Sicherheitsregeln gelten unabhängig von der Denkstufe.
 - Noch offen: CI bestätigen, längere Segmente ohne Acht-Bilder-Vorschaugrenze, vollständige hochauflösende kachelbasierte RGB-/Thermal-Rekonstruktion und unabhängige GIS-Qualitätsprüfung.
+
+## Übergabe 18. Oktober 2026 – Begrenzte Vorschauen langer RGB-Segmente
+
+- Branch `feature/rgb-all-segments-export`, Basis `a0deedb` (CI zuvor erfolgreich). Fünf Commits: `2ab79a3` (Sampling), `89a148f` (Samplingtests), `1d3663a` (Flugexport), `350a3a6` (Regressionstests), dieser Dokumentationscommit.
+- Segmente mit mehr als acht Bildern erhalten beim vollständigen Flugexport eine **unvollständige, nichtmetrische** Vorschau aus maximal acht geordneten Arbeitsbildern. Kein vollständiges Flugorthofoto. Einzel-Segment-Export bleibt ohne explizites Sampling strikt.
+- Qualitäts-JSON und Zusammenfassung kennzeichnen `source_frame_count`, `preview_frame_count`, `preview_incomplete`; `sampled_previews` zählt unvollständige Vorschauen. Originaldaten und Speichergrenzen bleiben geschützt.
+- **CI Python 3.11/3.12 dieses Blocks noch prüfen**. Kein Merge nach `main`. Danach Nutzerbestätigung abwarten.
+- Offen: unvollständige Vorschauen auch im Qt-Ergebnistext deutlich kennzeichnen; verifizierte GIS-Georeferenzierung und native kachelbasierte Vollauflösungsverarbeitung.
+- Vor jedem neuen Fünferblock Remote-HEAD, CI und vorhandene Implementierungen prüfen; doppelte Arbeit vermeiden. Fünfter Commit aktualisiert beide Übergabedokumente gemeinsam. GPT-6 mit „Sehr hoch“ bevorzugt, soweit nutzerseitig verfügbar.

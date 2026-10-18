@@ -50,3 +50,12 @@ Gezielter CI-Hotfix: `d4b068a` korrigiert den GUI-Test ohne verfügbare `qapp`-F
 - Vor jedem neuen Fünferblock den aktuellen Remote-HEAD, neue Commits und CI prüfen und doppelte Implementierungen vermeiden. Im fünften Commit **beide** Dokumente `docs/DEVELOPMENT_AGREEMENT.md` und `docs/CHAT_HANDOFF.md` auf denselben Stand bringen.
 - Für komplexe Entwicklungsarbeit ist GPT-6 mit Denkstufe „Sehr hoch“ bevorzugt, sofern nutzerseitig verfügbar; die Modelleinstellung kann der Agent nicht selbst ändern.
 - Bei roten Tests gezielt korrigieren, nicht einen neuen Fünferblock beginnen. Nach bestätigtem Grün auf „bitte weiter“ warten. Kein Merge nach `main` ohne ausdrückliche Freigabe.
+
+## Übergabe 18. Oktober 2026 – Begrenzte Vorschauen langer RGB-Segmente
+
+- Branch `feature/rgb-all-segments-export`, Basis `a0deedb` (CI zuvor erfolgreich). Fünf Commits: `2ab79a3` (Sampling), `89a148f` (Samplingtests), `1d3663a` (Flugexport), `350a3a6` (Regressionstests), dieser Dokumentationscommit.
+- Segmente mit mehr als acht Bildern erhalten beim vollständigen Flugexport eine **unvollständige, nichtmetrische** Vorschau aus maximal acht geordneten Arbeitsbildern. Kein vollständiges Flugorthofoto. Einzel-Segment-Export bleibt ohne explizites Sampling strikt.
+- Qualitäts-JSON und Zusammenfassung kennzeichnen `source_frame_count`, `preview_frame_count`, `preview_incomplete`; `sampled_previews` zählt unvollständige Vorschauen. Originaldaten und Speichergrenzen bleiben geschützt.
+- **CI Python 3.11/3.12 dieses Blocks noch prüfen**. Kein Merge nach `main`. Danach Nutzerbestätigung abwarten.
+- Offen: unvollständige Vorschauen auch im Qt-Ergebnistext deutlich kennzeichnen; verifizierte GIS-Georeferenzierung und native kachelbasierte Vollauflösungsverarbeitung.
+- Vor jedem neuen Fünferblock Remote-HEAD, CI und vorhandene Implementierungen prüfen; doppelte Arbeit vermeiden. Fünfter Commit aktualisiert beide Übergabedokumente gemeinsam. GPT-6 mit „Sehr hoch“ bevorzugt, soweit nutzerseitig verfügbar.
