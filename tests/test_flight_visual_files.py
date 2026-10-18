@@ -69,3 +69,17 @@ def test_individual_png_inputs_also_work(tmp_path):
                               tmp_path / "mosaic.json")
     assert result.preview_only is True
     assert (tmp_path / "mosaic.png").is_file()
+
+
+def test_individual_rgb_images_reach_reviewed_pdf(tmp_path):
+    from mcm_solarcheck.services.pv_pilot_report_sample import fictional_pilot_report
+    from mcm_solarcheck.services.visual_preview_report_export import (
+        export_reviewed_pdf_with_visual_preview,
+    )
+    paths = _images(tmp_path)
+    png, quality, pdf = (tmp_path / "preview.png", tmp_path / "quality.json",
+                         tmp_path / "reviewed.pdf")
+    preview_rgb_files(paths, png, quality)
+    export_reviewed_pdf_with_visual_preview(fictional_pilot_report(), png, quality, pdf)
+    assert pdf.read_bytes().startswith(b"%PDF")
+    assert pdf.stat().st_size > 1000
