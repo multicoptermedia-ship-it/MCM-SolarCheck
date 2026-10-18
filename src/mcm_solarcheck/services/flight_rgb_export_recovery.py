@@ -3,6 +3,8 @@
 Never delete, repair or overwrite customer files automatically.
 """
 import json
+
+import cv2
 import re
 from pathlib import Path
 
@@ -30,14 +32,23 @@ def inspect_rgb_export_directory(output_dir):
     for index, parts in sorted(entries.items()):
         missing = [ext for ext in ("png", "json") if ext not in parts]
         state = "missing_partner" if missing else "paired"
+        if "png" in parts:
+            try:
+                image = cv2.imread(str(parts["png"]), cv2.IMREAD_UNCHANGED)
+                if image is None or image.size == 0:
+                    state = "invalid_png"
+            except (OSError, ValueError, cv2.error):
+                state = "invalid_png"
         if not missing:
             try:
                 data = json.loads(parts["json"].read_text(encoding="utf-8"))
                 if (data.get("processing_kind") != "nonmetric_rgb_segment_preview"
                         or data.get("metric_orthophoto_verified") is not False):
-                    state = "invalid_quality"
+                    if state == "paired":
+                        state = "invalid_quality"
             except (OSError, UnicodeError, ValueError, AttributeError):
-                state = "invalid_quality"
+                if state == "paired":
+                    state = "invalid_quality"
         segments.append({"index": index, "status": state,
                          "missing": missing,
                          "files": sorted(path.name for path in parts.values())})
