@@ -55,3 +55,17 @@ def test_missing_individual_input_does_not_create_outputs(tmp_path):
     with pytest.raises(ValueError, match="local JPEG or PNG"):
         preview_rgb_files(paths, png, quality)
     assert not png.exists() and not quality.exists()
+
+
+def test_individual_png_inputs_also_work(tmp_path):
+    paths = _images(tmp_path)
+    png_paths = []
+    for index, source in enumerate(paths):
+        destination = tmp_path / f"input_{index}.png"
+        with Image.open(source) as image:
+            image.save(destination)
+        png_paths.append(destination)
+    result = preview_rgb_files(png_paths, tmp_path / "mosaic.png",
+                              tmp_path / "mosaic.json")
+    assert result.preview_only is True
+    assert (tmp_path / "mosaic.png").is_file()
