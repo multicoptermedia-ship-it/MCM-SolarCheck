@@ -30,3 +30,22 @@ def test_rgb_selection_disabled_without_project():
     button = page.findChild(QPushButton, "preview_rgb_files_button")
     assert button is not None and not button.isEnabled()
     page.close()
+
+
+def test_rgb_selection_cancel_does_not_call_service():
+    app = QApplication.instance() or QApplication([])
+    from PySide6.QtWidgets import QPushButton
+    selected = []
+    page = make_import_page(
+        current_project_id="P1",
+        on_preview_rgb_files=lambda paths: selected.append(paths),
+        choose_rgb_files=lambda: [],
+        rgb_preview_status="Nicht metrische RGB-Vorschau erstellt.",
+    )
+    button = page.findChild(QPushButton, "preview_rgb_files_button")
+    button.click()
+    assert selected == []
+    from PySide6.QtWidgets import QLabel
+    status = page.findChild(QLabel, "rgb_preview_status")
+    assert "Nicht metrische" in status.text()
+    page.close()
