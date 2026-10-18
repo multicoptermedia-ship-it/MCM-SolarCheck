@@ -53,6 +53,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._orthophoto_comparison = None
         self._orthophoto_comparison_error = None
         self._rgb_preview_status = None
+        self._rgb_preview_path = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -196,6 +197,7 @@ class SolarCheckMainWindow(QMainWindow):
             self._orthophoto_comparison = None
             self._orthophoto_comparison_error = None
             self._rgb_preview_status = None
+            self._rgb_preview_path = None
         self._current_project_id = project_id
         self._refresh_import_page()
         self.apply_workflow_state(state)
@@ -241,6 +243,7 @@ class SolarCheckMainWindow(QMainWindow):
             import_attempt=self._last_import_attempt,
             on_preview_rgb_files=self._preview_selected_rgb_files,
             rgb_preview_status=self._rgb_preview_status,
+            rgb_preview_path=self._rgb_preview_path,
             on_inspect_geotiff=(self._inspect_project_geotiff if self._project_service is not None else None),
             geotiff_result=self._geotiff_result,
             geotiff_artifacts=geotiff_artifacts,
@@ -267,6 +270,7 @@ class SolarCheckMainWindow(QMainWindow):
         if self._current_project_id is None:
             return
         if len(paths) not in (3, 4):
+            self._rgb_preview_path = None
             self._rgb_preview_status = "Bitte 3–4 RGB-Bilder auswählen."
             self._refresh_import_page()
             return
@@ -278,8 +282,10 @@ class SolarCheckMainWindow(QMainWindow):
             return
         png = Path(destination)
         quality = png.with_suffix(".json")
+        self._rgb_preview_path = None
         try:
             preview_rgb_files(paths, png, quality)
+            self._rgb_preview_path = png
             self._rgb_preview_status = (
                 "Nicht metrische RGB-Vorschau und Qualitäts-JSON lokal erstellt. "
                 "Kein verifiziertes Orthofoto."
