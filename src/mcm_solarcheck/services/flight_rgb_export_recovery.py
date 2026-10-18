@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-_SEGMENT = re.compile(r"segment_([0-9]{4})\\.(png|json)\\Z")
+_SEGMENT = re.compile(r"segment_([0-9]{4})\.(png|json)\Z")
 
 
 def inspect_rgb_export_directory(output_dir):
