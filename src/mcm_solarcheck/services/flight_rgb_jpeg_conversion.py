@@ -11,6 +11,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from mcm_solarcheck.services.flight_rgb_jpeg_header import jpeg_dimensions
+
 
 def convert_jpeg_to_rgb_array(source, destination, *, max_pixels=12_000_000,
                               max_source_bytes=80_000_000,
@@ -29,6 +31,9 @@ def convert_jpeg_to_rgb_array(source, destination, *, max_pixels=12_000_000,
         raise ValueError("invalid conversion limits")
     if source.stat().st_size > max_source_bytes:
         raise ValueError("JPEG exceeds source byte budget")
+    expected_width, expected_height = jpeg_dimensions(source)
+    if expected_width * expected_height > max_pixels:
+        raise ValueError("JPEG header exceeds pixel budget before decode")
     encoded = source.read_bytes()
     if len(encoded) > max_source_bytes:
         raise ValueError("JPEG exceeds source byte budget")
@@ -36,6 +41,8 @@ def convert_jpeg_to_rgb_array(source, destination, *, max_pixels=12_000_000,
     if image is None or image.ndim != 3 or image.shape[2] != 3:
         raise ValueError("unreadable RGB JPEG")
     height, width = image.shape[:2]
+    if (height, width) != (expected_height, expected_width):
+        raise ValueError("JPEG decoded dimensions differ from header")
     if height * width > max_pixels:
         raise ValueError("decoded JPEG exceeds pixel budget")
     estimated_output_bytes = height * width * 3 + 4096
