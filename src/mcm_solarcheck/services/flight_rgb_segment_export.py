@@ -1,5 +1,7 @@
 """Write a bounded nonmetric RGB preview and explicit quality metadata."""
 import json
+import os
+import tempfile
 from pathlib import Path
 
 import cv2
@@ -8,7 +10,7 @@ from mcm_solarcheck.services.flight_rgb_segment_render import render_rgb_segment
 
 
 def save_rgb_segment_preview(segment, frames, png_path, quality_path, *,
-                             max_pixels=12_000_000):
+                             max_pixels=12_000_000, extra_metadata=None):
     png = Path(png_path)
     quality = Path(quality_path)
     if (png.suffix.lower() != ".png" or quality.suffix.lower() != ".json"
@@ -20,16 +22,35 @@ def save_rgb_segment_preview(segment, frames, png_path, quality_path, *,
                     metric_orthophoto_verified=False,
                     full_resolution_sources_modified=False,
                     temperature_calibrated=False)
+    if extra_metadata is not None:
+        if not isinstance(extra_metadata, dict):
+            raise ValueError("invalid preview metadata")
+        metadata.update(extra_metadata)
     ok, encoded = cv2.imencode(".png", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
     if not ok:
         raise ValueError("RGB preview PNG encoding failed")
-    with png.open("xb") as output:
-        output.write(encoded.tobytes())
+    # Stage complete bytes before publishing either file.
+    staged = []
     try:
-        with quality.open("x", encoding="utf-8") as output:
-            json.dump(metadata, output, ensure_ascii=False, indent=2)
-            output.write("\n")
-    except Exception:
-        png.unlink(missing_ok=True)
-        raise
+        for destination, payload in (
+            (png, encoded.tobytes()),
+            (quality, (json.dumps(metadata, ensure_ascii=False, indent=2) + "\n").encode("utf-8")),
+        ):
+            with tempfile.NamedTemporaryFile(
+                mode="wb", dir=destination.parent, prefix=".rgb-preview-",
+                suffix=".tmp", delete=False
+            ) as output:
+                staged.append(Path(output.name))
+                output.write(payload)
+        with png.open("xb") as output:
+            output.write(staged[0].read_bytes())
+        try:
+            with quality.open("xb") as output:
+                output.write(staged[1].read_bytes())
+        except Exception:
+            png.unlink(missing_ok=True)
+            raise
+    finally:
+        for temporary in staged:
+            temporary.unlink(missing_ok=True)
     return metadata
