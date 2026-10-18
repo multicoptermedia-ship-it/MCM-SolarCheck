@@ -80,3 +80,31 @@ def test_missing_preview_does_not_show_stale_image(tmp_path):
     assert image is not None
     assert image.pixmap() is None or image.pixmap().isNull()
     page.close()
+
+
+def test_folder_action_forwards_one_directory_without_manual_image_selection():
+    from PySide6.QtWidgets import QPushButton
+    app = QApplication.instance() or QApplication([])
+    selected = []
+    page = make_import_page(
+        current_project_id="P1",
+        on_preview_rgb_folder=selected.append,
+        choose_rgb_folder=lambda: "/local/dji-flight",
+    )
+    button = page.findChild(QPushButton, "preview_rgb_folder_button")
+    assert button is not None and button.isEnabled()
+    button.click()
+    assert selected == ["/local/dji-flight"]
+    page.close()
+
+
+def test_folder_action_disabled_without_project():
+    from PySide6.QtWidgets import QPushButton
+    app = QApplication.instance() or QApplication([])
+    page = make_import_page(
+        on_preview_rgb_folder=lambda directory: None,
+        choose_rgb_folder=lambda: "/local/dji-flight",
+    )
+    button = page.findChild(QPushButton, "preview_rgb_folder_button")
+    assert button is not None and not button.isEnabled()
+    page.close()
