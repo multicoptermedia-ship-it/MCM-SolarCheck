@@ -55,5 +55,9 @@ def inspect_rgb_export_directory(output_dir):
                              else "invalid")
         except (OSError, UnicodeError, ValueError, AttributeError):
             summary_state = "invalid"
+    issues = sum(item["status"] != "paired" for item in segments)
+    issues += len(staging) + (summary_state == "invalid")
     return {"segments": segments, "staging_files": sorted(staging),
-            "summary": summary_state, "read_only": True}
+            "summary": summary_state, "issues": issues,
+            "requires_manual_review": bool(issues),
+            "read_only": True}
