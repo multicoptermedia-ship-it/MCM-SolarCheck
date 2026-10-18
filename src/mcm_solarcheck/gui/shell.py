@@ -243,6 +243,7 @@ class SolarCheckMainWindow(QMainWindow):
             import_attempt=self._last_import_attempt,
             on_preview_rgb_files=self._preview_selected_rgb_files,
             on_preview_rgb_folder=self._preview_rgb_folder,
+            on_run_rgb_links=self._run_full_flight_rgb_links,
             rgb_preview_status=self._rgb_preview_status,
             rgb_preview_path=self._rgb_preview_path,
             on_inspect_geotiff=(self._inspect_project_geotiff if self._project_service is not None else None),
@@ -326,6 +327,49 @@ class SolarCheckMainWindow(QMainWindow):
             )
         except (ValueError, OSError) as exc:
             self._rgb_preview_status = f"Automatische RGB-Auswertung nicht möglich: {exc}"
+        self._refresh_import_page()
+
+    def _run_full_flight_rgb_links(self, directory: str) -> None:
+        """Run the independent complete-flight RGB link check from one folder."""
+        from PySide6.QtWidgets import QApplication, QFileDialog, QProgressDialog
+        from mcm_solarcheck.services.flight_rgb_link_run import save_flight_rgb_link_run
+
+        if self._current_project_id is None:
+            return
+        destination = QFileDialog.getSaveFileName(
+            self, "RGB-Registrierungsergebnisse als JSON speichern", "",
+            "JSON-Datei (*.json)"
+        )[0]
+        if not destination:
+            return
+        progress = QProgressDialog("RGB-Bildverbindungen werden geprüft ...", "", 0, 100, self)
+        progress.setWindowTitle("DJI-Flugverarbeitung")
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        def on_progress(done, total, record):
+            progress.setValue(round(100 * done / max(1, total)))
+            progress.setLabelText(
+                f"RGB-Verbindungen: {done}/{total}; zuletzt {record['status']}"
+            )
+            QApplication.processEvents()
+        try:
+            result = save_flight_rgb_link_run(
+                directory, destination, on_progress=on_progress
+            )
+            progress.setValue(100)
+            self._rgb_preview_status = (
+                f"RGB-Prüfung abgeschlossen: {result['capture_count']} Aufnahmen, "
+                f"{result['registered']} Verbindungen erfolgreich, "
+                f"{result['failed']} fehlgeschlagen. "
+                f"Einzelstatus gespeichert: {destination}. "
+                "Nicht metrisch; kein Orthofoto. Thermal noch nicht registriert."
+            )
+        except (ValueError, OSError, RuntimeError) as exc:
+            self._rgb_preview_status = f"Vollständige RGB-Prüfung fehlgeschlagen: {exc}"
+        finally:
+            progress.close()
+        self._rgb_preview_path = None
         self._refresh_import_page()
 
     def _preview_selected_rgb_files(self, paths) -> None:
