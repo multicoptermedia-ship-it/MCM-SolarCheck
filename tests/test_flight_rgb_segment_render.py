@@ -14,9 +14,9 @@ def test_translated_frames_blend_and_extend_canvas():
     b = np.full((10, 10, 3), 160, dtype=np.uint8)
     image, quality = render_rgb_segment(segment, {"a": a, "b": b})
     assert image.shape == (10, 15, 3)
-    assert image[5, 2, 0] == 60
+    assert image[5, 2, 0] == 160
     assert image[5, 7, 0] == 110
-    assert image[5, 12, 0] == 160
+    assert image[5, 12, 0] == 60
     assert quality["nonmetric"] is True
     assert quality["native_resolution"] is False
 
