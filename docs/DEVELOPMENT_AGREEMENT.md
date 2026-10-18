@@ -539,3 +539,11 @@ Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen
 - Laufzeit: GUI-Hauptthread soll während der Registrierung frei bleiben. Abbruch ist kooperativ zwischen Bildpaaren, nicht mitten in OpenCV; bei Abbruch wird keine JSON-Ergebnisdatei angelegt. Ergebnisse bleiben nichtmetrische RGB-Link-Status, **keine** vollständigen Orthofotos.
 - WICHTIG: GitHub Actions für diesen Block noch **nicht** bestätigt; bei Rot gezielten Hotfix aus Joblogs erstellen. Als nächste Produktarbeit nach Grün Worker-Lebenszyklus bei Fenster-/Projektwechsel und echte Bild-/Batch-Fortschritte prüfen, danach geometrischen Mosaik-/Kachelpfad entwickeln.
 - Unverändert: nur eigenständige Algorithmen, keine ODM-/WebODM-Laufzeit; keine privaten DJI-Bilder/GPS committen, kein Merge nach `main` ohne Freigabe.
+
+## Übergabe – RGB-Geometrieketten für spätere Mosaikbildung (18.10.2026)
+
+Fünf Commits: `74ab038` bewahrt Homographiematrizen erfolgreicher RGB-Paare; `77bee39` fügt unabhängige nichtmetrische Geometrieketten mit Segmentgrenzen hinzu; `ea61f2e` prüft Ketten, fehlerhafte Verbindungen und ungültige Matrizen synthetisch; `df9de45` ergänzt die Ketten im vollständigen Flug-JSON; dieser fünfte Commit dokumentiert die Übergabe.
+
+Die Verarbeitung prüft weiterhin **alle benachbarten RGB-Paare** und speichert nun die Transformationen als geometrische Grundlage. Fehlgeschlagene Verbindungen werden nicht künstlich überbrückt. Keine metrische Orthofoto-Validierung, kein Pixel-Mosaik, keine nativen Zoom-Kacheln und keine Celsius-Kalibrierung. RGB-/Thermal-Originale bleiben unangetastet; keine ODM-/WebODM-Laufzeit.
+
+**CI für diesen neuen Block noch nicht bestätigt.** Nutzer soll GitHub Actions prüfen und „alle grün“ oder „rot“ melden. Bei Rot nur gezielter Hotfix. Nach Grün und „bitte weiter“ als nächstes begrenzte RGB-Mosaiksegmente auf Disk mit expliziten Qualitäts-/Speichergrenzen und später Kacheln implementieren. Kein Merge nach `main` ohne Freigabe.
