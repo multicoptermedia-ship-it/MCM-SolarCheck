@@ -64,6 +64,6 @@ def test_projective_zip_writes_nonmetric_png_and_rejects_overwrite(tmp_path):
 
 def test_projective_cli_rejects_conflicting_options_without_output(tmp_path):
     output = tmp_path / "not_written.png"
-    with pytest.raises(ValueError):
+    with pytest.raises(FileNotFoundError):
         preview_rgb_strip(tmp_path / "missing.zip", ["0001", "0002"], output, projective=True)
     assert not output.exists()
