@@ -24,6 +24,7 @@ def inspect_flight_images(folder, *, max_image_bytes=80_000_000):
                                  "status": "missing", "filename": None})
                 continue
             status = "readable"
+            width = height = None
             try:
                 if path.stat().st_size > max_image_bytes:
                     status = "oversized"
@@ -31,13 +32,18 @@ def inspect_flight_images(folder, *, max_image_bytes=80_000_000):
                     raw = path.read_bytes()
                     if len(raw) > max_image_bytes:
                         status = "oversized"
-                    elif cv2.imdecode(np.frombuffer(raw, dtype=np.uint8),
-                                      cv2.IMREAD_UNCHANGED) is None:
-                        status = "unreadable"
+                    else:
+                        decoded = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8),
+                                              cv2.IMREAD_UNCHANGED)
+                        if decoded is None:
+                            status = "unreadable"
+                        else:
+                            height, width = decoded.shape[:2]
             except OSError:
                 status = "unreadable"
             statuses.append({"capture": key, "modality": modality,
-                             "status": status, "filename": path.name})
+                             "status": status, "filename": path.name,
+                             "width": width, "height": height})
     return {"captures": len(captures), "images": statuses,
             "ignored": list(ignored),
             "readable": sum(item["status"] == "readable" for item in statuses),
