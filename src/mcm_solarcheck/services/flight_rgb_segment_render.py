@@ -20,7 +20,7 @@ def render_rgb_segment(segment, frames, *, max_pixels=12_000_000):
         frame = frames[key]
         if frame.dtype != np.uint8 or frame.ndim != 3 or frame.shape[2] != 3:
             raise ValueError("expected uint8 RGB frame")
-        transform = shift @ np.asarray(raw, dtype=np.float64)
+        transform = shift @ np.linalg.inv(np.asarray(raw, dtype=np.float64))
         warped = cv2.warpPerspective(frame, transform, (width, height))
         mask = cv2.warpPerspective(np.ones(frame.shape[:2], dtype=np.uint8),
                                    transform, (width, height), flags=cv2.INTER_NEAREST)
