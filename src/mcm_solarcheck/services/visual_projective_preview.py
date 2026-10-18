@@ -10,6 +10,7 @@ import numpy as np
 
 from mcm_solarcheck.services.registration_image import registration_gray
 from mcm_solarcheck.services.visual_projective_audit import audit_visual_projective_graph
+from mcm_solarcheck.services.visual_overlap_quality import VisualOverlapQuality, assess_visual_overlap
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,7 @@ class ProjectiveVisualPreview:
     image: np.ndarray
     rms_corner_error_px: float
     pair_inliers: tuple[int, ...] = ()
+    overlap_quality: VisualOverlapQuality | None = None
     preview_only: bool = True
     metric_orthophoto_verified: bool = False
 
@@ -60,6 +62,8 @@ def compose_projective_visual_preview(frames, *, max_pixels=12_000_000, max_rms_
     channels = 1 if frames[0].ndim == 2 else frames[0].shape[2]
     total = np.zeros((height, width, channels), dtype=np.float32)
     coverage = np.zeros((height, width), dtype=np.uint16)
+    warped_frames = []
+    masks = []
     for frame, h in zip(frames, fit.transforms_to_anchor):
         transform = offset @ h
         warped = cv2.warpPerspective(frame, transform, (width, height))
@@ -67,6 +71,8 @@ def compose_projective_visual_preview(frames, *, max_pixels=12_000_000, max_rms_
             warped = warped[:, :, None]
         mask = cv2.warpPerspective(np.ones(frame.shape[:2], dtype=np.uint8),
                                    transform, (width, height), flags=cv2.INTER_NEAREST)
+        warped_frames.append(warped[:, :, 0] if channels == 1 else warped)
+        masks.append(mask)
         total += warped.astype(np.float32) * mask[:, :, None]
         coverage += mask
     result = np.zeros_like(total, dtype=np.uint8)
@@ -74,4 +80,5 @@ def compose_projective_visual_preview(frames, *, max_pixels=12_000_000, max_rms_
     result[valid] = np.clip(total[valid] / coverage[valid, None], 0, 255).astype(np.uint8)
     if channels == 1:
         result = result[:, :, 0]
-    return ProjectiveVisualPreview(result, fit.rms_corner_error_px)
+    quality = assess_visual_overlap(warped_frames, masks)
+    return ProjectiveVisualPreview(result, fit.rms_corner_error_px, overlap_quality=quality)
