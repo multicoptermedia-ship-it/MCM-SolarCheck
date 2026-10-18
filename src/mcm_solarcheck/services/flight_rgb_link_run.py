@@ -13,7 +13,7 @@ from mcm_solarcheck.services.visual_frame_registration import estimate_visual_li
 
 def check_flight_rgb_links(folder, *, batch_size=80, overlap=10,
                            max_captures=1000, max_image_bytes=80_000_000,
-                           max_side=800):
+                           max_side=800, on_progress=None):
     if (type(max_side) is not int or max_side < 128 or
             type(max_image_bytes) is not int or max_image_bytes < 1):
         raise ValueError("invalid working preview size")
@@ -46,6 +46,7 @@ def check_flight_rgb_links(folder, *, batch_size=80, overlap=10,
         return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     links = []
+    total = max(0, len(captures) - 1)
     for first, second in zip(captures, captures[1:]):
         record = {"first": first[0], "second": second[0], "status": "failed"}
         try:
@@ -54,6 +55,8 @@ def check_flight_rgb_links(folder, *, batch_size=80, overlap=10,
         except (ValueError, OSError, cv2.error) as exc:
             record["reason"] = str(exc)
         links.append(record)
+        if on_progress is not None:
+            on_progress(len(links), total, record)
     return {"capture_count": len(captures), "batch_count": len(plan["batches"]),
             "links": links, "registered": sum(x["status"] == "registered" for x in links),
             "failed": sum(x["status"] == "failed" for x in links),
