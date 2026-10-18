@@ -52,6 +52,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._geotiff_result = None
         self._orthophoto_comparison = None
         self._orthophoto_comparison_error = None
+        self._rgb_preview_status = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -194,6 +195,7 @@ class SolarCheckMainWindow(QMainWindow):
             self._geotiff_result = None
             self._orthophoto_comparison = None
             self._orthophoto_comparison_error = None
+            self._rgb_preview_status = None
         self._current_project_id = project_id
         self._refresh_import_page()
         self.apply_workflow_state(state)
@@ -237,6 +239,8 @@ class SolarCheckMainWindow(QMainWindow):
             import_summary=import_summary,
             import_verification=import_verification,
             import_attempt=self._last_import_attempt,
+            on_preview_rgb_files=self._preview_selected_rgb_files,
+            rgb_preview_status=self._rgb_preview_status,
             on_inspect_geotiff=(self._inspect_project_geotiff if self._project_service is not None else None),
             geotiff_result=self._geotiff_result,
             geotiff_artifacts=geotiff_artifacts,
@@ -253,6 +257,36 @@ class SolarCheckMainWindow(QMainWindow):
             self._stack.setCurrentWidget(new_page)
         self._stack.removeWidget(old_page)
         old_page.deleteLater()
+
+    def _preview_selected_rgb_files(self, paths) -> None:
+        """Run existing offline RGB pipeline on selected local files."""
+        from pathlib import Path
+        from PySide6.QtWidgets import QFileDialog
+        from mcm_solarcheck.services.flight_visual_files import preview_rgb_files
+
+        if self._current_project_id is None:
+            return
+        if len(paths) not in (3, 4):
+            self._rgb_preview_status = "Bitte 3–4 RGB-Bilder auswählen."
+            self._refresh_import_page()
+            return
+        destination = QFileDialog.getSaveFileName(
+            self, "Nicht metrische RGB-Vorschau speichern", "",
+            "PNG-Bild (*.png)"
+        )[0]
+        if not destination:
+            return
+        png = Path(destination)
+        quality = png.with_suffix(".json")
+        try:
+            preview_rgb_files(paths, png, quality)
+            self._rgb_preview_status = (
+                "Nicht metrische RGB-Vorschau und Qualitäts-JSON lokal erstellt. "
+                "Kein verifiziertes Orthofoto."
+            )
+        except (ValueError, OSError) as exc:
+            self._rgb_preview_status = f"RGB-Vorschau fehlgeschlagen: {exc}"
+        self._refresh_import_page()
 
     def _inspect_project_geotiff(self, source_path: str) -> None:
         """Display unapproved local GIS metadata without changing project workflow."""
