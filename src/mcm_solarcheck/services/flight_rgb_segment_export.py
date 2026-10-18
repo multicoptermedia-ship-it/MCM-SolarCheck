@@ -1,6 +1,5 @@
 """Write a bounded nonmetric RGB preview and explicit quality metadata."""
 import json
-import os
 import tempfile
 from pathlib import Path
 
@@ -42,11 +41,12 @@ def save_rgb_segment_preview(segment, frames, png_path, quality_path, *,
             ) as output:
                 staged.append(Path(output.name))
                 output.write(payload)
-        with png.open("xb") as output:
-            output.write(staged[0].read_bytes())
+        # Atomically publish each complete file; never replace an existing target.
+        # A hard link to the staged inode provides exclusive creation on the same FS.
+        import os
+        os.link(staged[0], png, follow_symlinks=False)
         try:
-            with quality.open("xb") as output:
-                output.write(staged[1].read_bytes())
+            os.link(staged[1], quality, follow_symlinks=False)
         except Exception:
             png.unlink(missing_ok=True)
             raise
