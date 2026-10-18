@@ -43,8 +43,15 @@ def compose_projective_visual_preview(frames, *, max_pixels=12_000_000, max_rms_
             raise ValueError("invalid projected bounds")
         corners.append(projected)
     bounds = np.vstack(corners)
-    low = np.floor(bounds.min(axis=0)).astype(np.int64)
-    high = np.ceil(bounds.max(axis=0)).astype(np.int64)
+    # Snap subpixel numerical noise to exact integer canvas edges.
+    extrema_min = bounds.min(axis=0)
+    extrema_max = bounds.max(axis=0)
+    extrema_min = np.where(np.abs(extrema_min - np.rint(extrema_min)) < 1e-3,
+                           np.rint(extrema_min), extrema_min)
+    extrema_max = np.where(np.abs(extrema_max - np.rint(extrema_max)) < 1e-3,
+                           np.rint(extrema_max), extrema_max)
+    low = np.floor(extrema_min).astype(np.int64)
+    high = np.ceil(extrema_max).astype(np.int64)
     width, height = (high - low).tolist()
     if width <= 0 or height <= 0 or width * height > max_pixels:
         raise ValueError("projective preview exceeds canvas limit")
