@@ -6,7 +6,7 @@ from mcm_solarcheck.services.flight_rgb_folder_preview import export_flight_rgb_
 
 
 def export_all_flight_rgb_segments(folder, registration, output_dir, *,
-                                   max_side=800, max_frames=8,
+                                   max_side=800, max_frames=8, sample_long_segments=True,
                                    max_image_bytes=80_000_000,
                                    max_pixels=12_000_000,
                                    on_progress=None, should_cancel=None):
@@ -34,6 +34,7 @@ def export_all_flight_rgb_segments(folder, registration, output_dir, *,
                 folder, registration, index, png, quality,
                 max_side=max_side, max_frames=max_frames,
                 max_image_bytes=max_image_bytes, max_pixels=max_pixels,
+                sample_long_segments=sample_long_segments,
             )
         except (ValueError, OSError, KeyError, TypeError) as exc:
             record = {"index": index, "status": "failed",
@@ -41,7 +42,10 @@ def export_all_flight_rgb_segments(folder, registration, output_dir, *,
         else:
             record = {"index": index, "status": "exported",
                       "image": png.name, "quality": quality.name,
-                      "nonmetric": metadata["nonmetric"]}
+                      "nonmetric": metadata["nonmetric"],
+                      "preview_incomplete": metadata["preview_incomplete"],
+                      "source_frame_count": metadata["source_frame_count"],
+                      "preview_frame_count": metadata["preview_frame_count"]}
         records.append(record)
         if on_progress is not None:
             on_progress(len(records), total, record)
@@ -52,6 +56,7 @@ def export_all_flight_rgb_segments(folder, registration, output_dir, *,
         "processed": len(records),
         "exported": sum(item["status"] == "exported" for item in records),
         "failed": sum(item["status"] == "failed" for item in records),
+        "sampled_previews": sum(item.get("preview_incomplete", False) for item in records),
         "cancelled": len(records) < total,
         "metric_orthophoto_verified": False,
         "full_resolution_sources_modified": False,
