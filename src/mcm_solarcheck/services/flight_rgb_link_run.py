@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from mcm_solarcheck.services.flight_batch_plan import plan_flight_batches
+from mcm_solarcheck.services.flight_rgb_geometry_chain import chain_rgb_links
 from mcm_solarcheck.services.visual_frame_registration import estimate_visual_link
 
 
@@ -64,6 +65,7 @@ def check_flight_rgb_links(folder, *, batch_size=80, overlap=10,
         if on_progress is not None:
             on_progress(len(links), total, record)
     return {"capture_count": len(captures), "batch_count": len(plan["batches"]),
+            "nonmetric_geometry": chain_rgb_links(links),
             "links": links, "registered": sum(x["status"] == "registered" for x in links),
             "failed": sum(x["status"] == "failed" for x in links),
             "metric_orthophoto_verified": False, "temperature_calibrated": False}
