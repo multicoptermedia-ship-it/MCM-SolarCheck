@@ -10,7 +10,7 @@ class PilotFlightOverview:
     source_note: str = "nicht erfasst"
 
     def __post_init__(self):
-        if self.path_kind not in {"recorded", "planned", "illustrative", "not_available"}:
+        if self.path_kind not in {"recorded", "planned", "illustrative", "not_available", "nonmetric_visual"}:
             raise ValueError("unknown flight-path provenance")
         if self.image_path is not None:
             path = Path(self.image_path)
@@ -28,6 +28,7 @@ def flight_overview_label(overview: PilotFlightOverview | None) -> str:
             return "RGB-Orthofoto-Übersicht vorhanden; kein verifizierter Flugpfad verfügbar."
         return "Kein verifizierter Flugpfad oder RGB-Orthofoto verfügbar."
     return {
+        "nonmetric_visual": "Nicht metrisch verifizierte Bildvorschau – kein Orthofoto und kein Flugpfadnachweis",
         "recorded": "Tatsächlich aufgezeichneter Flugpfad",
         "planned": "Geplanter Flugpfad – kein Nachweis des tatsächlichen Flugs",
         "illustrative": "Schematische Flugroute – ausschließlich Layoutbeispiel",
