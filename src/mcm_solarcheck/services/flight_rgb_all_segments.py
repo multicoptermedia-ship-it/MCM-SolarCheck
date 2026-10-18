@@ -1,5 +1,6 @@
 """Sequential, bounded exports for every registered RGB segment of one DJI flight."""
 import json
+import tempfile
 from pathlib import Path
 
 from mcm_solarcheck.services.flight_rgb_folder_preview import export_flight_rgb_segment
@@ -70,7 +71,18 @@ def save_all_flight_rgb_segments(folder, registration, output_dir, **options):
     output_dir = Path(output_dir)
     result = export_all_flight_rgb_segments(folder, registration, output_dir, **options)
     summary = output_dir / "segments_summary.json"
-    with summary.open("x", encoding="utf-8") as stream:
-        json.dump(result, stream, ensure_ascii=False, indent=2)
-        stream.write("\n")
+    payload = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    staged = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=output_dir, prefix=".rgb-summary-",
+            suffix=".tmp", delete=False
+        ) as stream:
+            staged = Path(stream.name)
+            stream.write(payload)
+        with summary.open("xb") as stream:
+            stream.write(staged.read_bytes())
+    finally:
+        if staged is not None:
+            staged.unlink(missing_ok=True)
     return result
