@@ -268,7 +268,7 @@ class SolarCheckMainWindow(QMainWindow):
         from PySide6.QtWidgets import QFileDialog
         from mcm_solarcheck.services.flight_visual_folder import preview_rgb_folder
         from mcm_solarcheck.services.flight_inventory import scan_flight
-        from mcm_solarcheck.services.flight_image_inspection import inspect_flight_images
+        from mcm_solarcheck.services.flight_image_inspection import inspect_flight_images, save_flight_inspection
 
         if self._current_project_id is None:
             return
@@ -286,6 +286,16 @@ class SolarCheckMainWindow(QMainWindow):
                 f"{inspection['missing']} fehlend. "
             )
             if rgb_count not in (3, 4) or inspection["unreadable"] or inspection["oversized"] or inspection["missing"]:
+                inspection_destination = QFileDialog.getSaveFileName(
+                    self, "Vollständige Bildprüfung als JSON speichern", "",
+                    "JSON-Datei (*.json)"
+                )[0]
+                if inspection_destination:
+                    try:
+                        save_flight_inspection(directory, inspection_destination)
+                        inspection_summary += "Bildprüfung lokal als JSON gespeichert. "
+                    except (ValueError, OSError) as exc:
+                        inspection_summary += f"JSON-Speicherung fehlgeschlagen: {exc}. "
                 self._rgb_preview_path = None
                 self._rgb_preview_status = (
                     summary + inspection_summary +
