@@ -1,5 +1,6 @@
 """Sequential, bounded exports for every registered RGB segment of one DJI flight."""
 import json
+import os
 import tempfile
 from pathlib import Path
 
@@ -80,8 +81,8 @@ def save_all_flight_rgb_segments(folder, registration, output_dir, **options):
         ) as stream:
             staged = Path(stream.name)
             stream.write(payload)
-        with summary.open("xb") as stream:
-            stream.write(staged.read_bytes())
+        # Publish a fully written inode, never a partially visible JSON file.
+        os.link(staged, summary, follow_symlinks=False)
     finally:
         if staged is not None:
             staged.unlink(missing_ok=True)
