@@ -10,7 +10,7 @@ from mcm_solarcheck.services.flight_rgb_export_recovery import inspect_rgb_expor
 
 
 def test_inspector_reports_orphans_and_staging_without_changes(tmp_path):
-    (tmp_path / "segment_0000.png").write_bytes(b"untouched")
+    assert cv2.imwrite(str(tmp_path / "segment_0000.png"), np.zeros((4, 4, 3), np.uint8))
     (tmp_path / ".rgb-preview-123.tmp").write_bytes(b"private")
     before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
     result = inspect_rgb_export_directory(tmp_path)
@@ -25,7 +25,7 @@ def test_inspector_reports_orphans_and_staging_without_changes(tmp_path):
 
 
 def test_inspector_detects_invalid_quality(tmp_path):
-    (tmp_path / "segment_0001.png").write_bytes(b"png")
+    assert cv2.imwrite(str(tmp_path / "segment_0001.png"), np.zeros((4, 4, 3), np.uint8))
     (tmp_path / "segment_0001.json").write_text(json.dumps({
         "processing_kind": "nonmetric_rgb_segment_preview",
         "metric_orthophoto_verified": True,
