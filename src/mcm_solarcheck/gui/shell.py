@@ -331,8 +331,9 @@ class SolarCheckMainWindow(QMainWindow):
 
     def _run_full_flight_rgb_links(self, directory: str) -> None:
         """Run the independent complete-flight RGB link check from one folder."""
-        from PySide6.QtWidgets import QApplication, QFileDialog, QProgressDialog
-        from mcm_solarcheck.services.flight_rgb_link_run import save_flight_rgb_link_run
+        from PySide6.QtCore import QThread
+        from PySide6.QtWidgets import QFileDialog, QProgressDialog
+        from mcm_solarcheck.gui.flight_rgb_worker import FlightRgbWorker
 
         if self._current_project_id is None:
             return
@@ -342,35 +343,56 @@ class SolarCheckMainWindow(QMainWindow):
         )[0]
         if not destination:
             return
-        progress = QProgressDialog("RGB-Bildverbindungen werden geprüft ...", "", 0, 100, self)
-        progress.setWindowTitle("DJI-Flugverarbeitung")
-        progress.setCancelButton(None)
+        if getattr(self, "_rgb_link_thread", None) is not None:
+            return
+        thread = QThread(self)
+        worker = FlightRgbWorker(directory, destination)
+        worker.moveToThread(thread)
+        progress = QProgressDialog("RGB-Bildverbindungen werden geprüft ...", "Abbrechen", 0, 100, self)
         progress.setMinimumDuration(0)
-        progress.setValue(0)
-        def on_progress(done, total, record):
+        self._rgb_link_thread = thread
+        self._rgb_link_worker = worker
+        self._rgb_link_progress = progress
+        progress.canceled.connect(worker.request_cancel)
+        thread.started.connect(worker.run)
+
+        def on_progress(done, total, status):
             progress.setValue(round(100 * done / max(1, total)))
-            progress.setLabelText(
-                f"RGB-Verbindungen: {done}/{total}; zuletzt {record['status']}"
-            )
-            QApplication.processEvents()
-        try:
-            result = save_flight_rgb_link_run(
-                directory, destination, on_progress=on_progress
-            )
-            progress.setValue(100)
+            progress.setLabelText(f"RGB-Verbindungen: {done}/{total}; zuletzt {status}")
+
+        def on_finished(result):
             self._rgb_preview_status = (
                 f"RGB-Prüfung abgeschlossen: {result['capture_count']} Aufnahmen, "
                 f"{result['registered']} Verbindungen erfolgreich, "
-                f"{result['failed']} fehlgeschlagen. "
-                f"Einzelstatus gespeichert: {destination}. "
+                f"{result['failed']} fehlgeschlagen. Einzelstatus: {destination}. "
                 "Nicht metrisch; kein Orthofoto. Thermal noch nicht registriert."
             )
-        except (ValueError, OSError, RuntimeError) as exc:
-            self._rgb_preview_status = f"Vollständige RGB-Prüfung fehlgeschlagen: {exc}"
-        finally:
+            self._rgb_preview_path = None
+            self._refresh_import_page()
+
+        def on_failed(reason):
+            self._rgb_preview_status = f"Vollständige RGB-Prüfung fehlgeschlagen: {reason}"
+            self._refresh_import_page()
+
+        def on_cancelled():
+            self._rgb_preview_status = "RGB-Prüfung abgebrochen; keine Ergebnisdatei erstellt."
+            self._refresh_import_page()
+
+        def on_thread_finished():
             progress.close()
-        self._rgb_preview_path = None
-        self._refresh_import_page()
+            self._rgb_link_thread = None
+            self._rgb_link_worker = None
+            self._rgb_link_progress = None
+            thread.deleteLater()
+
+        worker.progress.connect(on_progress)
+        worker.finished.connect(on_finished)
+        worker.failed.connect(on_failed)
+        worker.cancelled.connect(on_cancelled)
+        worker.completed.connect(thread.quit)
+        worker.completed.connect(worker.deleteLater)
+        thread.finished.connect(on_thread_finished)
+        thread.start()
 
     def _preview_selected_rgb_files(self, paths) -> None:
         """Run existing offline RGB pipeline on selected local files."""
