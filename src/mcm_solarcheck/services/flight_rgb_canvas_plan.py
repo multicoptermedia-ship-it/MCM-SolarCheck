@@ -26,7 +26,9 @@ def plan_rgb_canvas(segment, dimensions, *, max_pixels=12_000_000):
             raise ValueError("invalid RGB transform")
         pts = np.array([[0, 0, 1], [width, 0, 1],
                         [width, height, 1], [0, height, 1]], dtype=np.float64).T
-        mapped = h @ pts
+        if abs(np.linalg.det(h)) < 1e-12:
+            raise ValueError("singular RGB transform")
+        mapped = np.linalg.inv(h) @ pts
         if np.any(np.abs(mapped[2]) < 1e-9):
             raise ValueError("unbounded projective geometry")
         xy = mapped[:2] / mapped[2]
