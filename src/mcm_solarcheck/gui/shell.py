@@ -52,6 +52,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._geotiff_result = None
         self._orthophoto_comparison = None
         self._orthophoto_comparison_error = None
+        self._integrity_close_pending = False
         self._rgb_integrity_status = None
         self._rgb_preview_status = None
         self._rgb_preview_path = None
@@ -303,7 +304,11 @@ class SolarCheckMainWindow(QMainWindow):
         def on_thread_finished():
             self._integrity_thread = None
             self._integrity_worker = None
-            self._refresh_import_page()
+            if self._integrity_close_pending:
+                self._integrity_close_pending = False
+                self.close()
+            else:
+                self._refresh_import_page()
 
         thread.started.connect(worker.run)
         worker.progress.connect(on_progress)
@@ -315,6 +320,15 @@ class SolarCheckMainWindow(QMainWindow):
         thread.finished.connect(on_thread_finished)
         thread.finished.connect(thread.deleteLater)
         thread.start()
+
+    def closeEvent(self, event):
+        """Defer closing until the running worker has cooperatively stopped."""
+        if getattr(self, "_integrity_thread", None) is not None:
+            self._integrity_close_pending = True
+            self._cancel_rgb_integrity()
+            event.ignore()
+            return
+        super().closeEvent(event)
 
     def _cancel_rgb_integrity(self):
         worker = getattr(self, "_integrity_worker", None)
