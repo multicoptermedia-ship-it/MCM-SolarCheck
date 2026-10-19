@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from PySide6.QtCore import Qt, QThread, QTimer, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
 
@@ -53,6 +54,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._orthophoto_comparison = None
         self._orthophoto_comparison_error = None
         self._integrity_close_pending = False
+        self._integrity_project_id = None
         self._rgb_integrity_status = None
         self._rgb_preview_status = None
         self._rgb_preview_path = None
@@ -283,69 +285,89 @@ class SolarCheckMainWindow(QMainWindow):
         old_page.deleteLater()
 
     def _inspect_rgb_integrity(self, source_folder: str, output_folder: str) -> None:
-        """Run integrity inspection off the UI thread and show progress."""
-        from PySide6.QtCore import QThread
+        """Start one read-only scan; Qt delivers status back to the GUI thread."""
         from mcm_solarcheck.gui.flight_rgb_integrity_worker import FlightRgbIntegrityWorker
-        from mcm_solarcheck.gui.flight_rgb_integrity_status import format_rgb_integrity_summary
 
         if (self._current_project_id is None
                 or getattr(self, "_integrity_thread", None) is not None
                 or self._integrity_close_pending):
             return
-        inspection_project = self._current_project_id
         thread = QThread(self)
         worker = FlightRgbIntegrityWorker(source_folder, output_folder)
         worker.moveToThread(thread)
         self._integrity_thread = thread
         self._integrity_worker = worker
+        self._integrity_project_id = self._current_project_id
         self._rgb_integrity_status = "RGB-Integritätsprüfung läuft …"
         self._refresh_import_page()
 
-        def on_progress(done, total, status):
-            if self._current_project_id != inspection_project or self._integrity_close_pending:
-                return
-            self._rgb_integrity_status = f"RGB-Integritätsprüfung: {done}/{total} geprüft ({status})."
-            self._refresh_import_page()
-
-        def on_finished(result):
-            if self._current_project_id != inspection_project or self._integrity_close_pending:
-                return
-            self._rgb_integrity_status = format_rgb_integrity_summary(result)
-            self._refresh_import_page()
-
-        def on_failed(message):
-            if self._current_project_id != inspection_project or self._integrity_close_pending:
-                return
-            self._rgb_integrity_status = f"RGB-Integritätsprüfung fehlgeschlagen: {message}"
-            self._refresh_import_page()
-
-        def on_cancelled():
-            if self._current_project_id != inspection_project or self._integrity_close_pending:
-                return
-            self._rgb_integrity_status = "RGB-Integritätsprüfung abgebrochen; keine Dateien verändert."
-            self._refresh_import_page()
-
-        def on_thread_finished():
-            self._integrity_thread = None
-            self._integrity_worker = None
-            if self._current_project_id != inspection_project:
-                self._rgb_integrity_status = None
-            if self._integrity_close_pending:
-                self._integrity_close_pending = False
-                self.close()
-            else:
-                self._refresh_import_page()
-
         thread.started.connect(worker.run)
-        worker.progress.connect(on_progress)
-        worker.finished.connect(on_finished)
-        worker.failed.connect(on_failed)
-        worker.cancelled.connect(on_cancelled)
+        # QObject receiver slots (not closures) are explicitly queued onto
+        # the GUI event loop; no widgets are touched by the worker thread.
+        worker.progress.connect(self._integrity_progress, Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(self._integrity_finished, Qt.ConnectionType.QueuedConnection)
+        worker.failed.connect(self._integrity_failed, Qt.ConnectionType.QueuedConnection)
+        worker.cancelled.connect(self._integrity_cancelled, Qt.ConnectionType.QueuedConnection)
         worker.completed.connect(thread.quit)
         thread.finished.connect(worker.deleteLater)
-        thread.finished.connect(on_thread_finished)
+        thread.finished.connect(self._integrity_thread_stopped, Qt.ConnectionType.QueuedConnection)
         thread.finished.connect(thread.deleteLater)
         thread.start()
+
+    def _integrity_result_is_current(self) -> bool:
+        return (self._integrity_project_id is not None
+                and self._current_project_id == self._integrity_project_id
+                and not self._integrity_close_pending)
+
+    @Slot(int, int, str)
+    def _integrity_progress(self, done: int, total: int, status: str) -> None:
+        if not self._integrity_result_is_current():
+            return
+        self._rgb_integrity_status = (
+            f"RGB-Integritätsprüfung: {done}/{total} geprüft ({status})."
+        )
+        self._refresh_import_page()
+
+    @Slot(object)
+    def _integrity_finished(self, result) -> None:
+        if not self._integrity_result_is_current():
+            return
+        from mcm_solarcheck.gui.flight_rgb_integrity_status import format_rgb_integrity_summary
+        self._rgb_integrity_status = format_rgb_integrity_summary(result)
+        self._refresh_import_page()
+
+    @Slot(str)
+    def _integrity_failed(self, message: str) -> None:
+        if not self._integrity_result_is_current():
+            return
+        self._rgb_integrity_status = f"RGB-Integritätsprüfung fehlgeschlagen: {message}"
+        self._refresh_import_page()
+
+    @Slot()
+    def _integrity_cancelled(self) -> None:
+        if not self._integrity_result_is_current():
+            return
+        self._rgb_integrity_status = "RGB-Integritätsprüfung abgebrochen; keine Dateien verändert."
+        self._refresh_import_page()
+
+    @Slot()
+    def _integrity_thread_stopped(self) -> None:
+        # Keep both Python wrappers alive until Qt has returned from the
+        # finished signal and its deferred QObject deletions have been queued.
+        QTimer.singleShot(0, self._integrity_cleanup)
+
+    @Slot()
+    def _integrity_cleanup(self) -> None:
+        self._integrity_thread = None
+        self._integrity_worker = None
+        if self._current_project_id != self._integrity_project_id:
+            self._rgb_integrity_status = None
+        self._integrity_project_id = None
+        if self._integrity_close_pending:
+            self._integrity_close_pending = False
+            self.close()
+        else:
+            self._refresh_import_page()
 
     def closeEvent(self, event):
         """Defer closing until the running worker has cooperatively stopped."""
