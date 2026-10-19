@@ -8,8 +8,8 @@ from pathlib import Path
 from mcm_solarcheck.importers.project import ProjectImportResult, import_m3t_project
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
 from mcm_solarcheck.domain.project_profile import ProjectProfile
-from mcm_solarcheck.storage.queries import InspectionQueries, ProjectRecord
-from mcm_solarcheck.services.workflow import ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, action_availability, record_attempt, require_action
+from mcm_solarcheck.storage.queries import InspectionQueries, InspectionSummary, ProjectRecord
+from mcm_solarcheck.services.workflow import ActionAvailability, ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, action_availability, record_attempt, require_action
 from mcm_solarcheck.services.product_entitlements import ProductCapabilities, ProductOperation, effective_output_availability
 from mcm_solarcheck.reporting.export import export_report
 from mcm_solarcheck.reporting.report_assembler import assemble_inspection_report
@@ -25,6 +25,15 @@ class ProjectPipelineSummary:
     findings: int
     unpaired_rgb: int
     unpaired_thermal: int
+
+
+@dataclass(frozen=True)
+class ProjectProcessingOverview:
+    """Persisted project evidence plus existing action gates, never an invented result."""
+
+    summary: InspectionSummary
+    process: ActionAvailability
+    review: ActionAvailability
 
 
 def import_and_store_m3t_project(
@@ -230,6 +239,20 @@ class ProjectApplicationService:
         if not any(project.project_id == project_id for project in self.projects()):
             raise KeyError(f"Unknown project: {project_id}")
         return InspectionQueries(self.database).summary(project_id)
+
+    def processing_overview(self, project_id: str) -> ProjectProcessingOverview:
+        """Read the authoritative SQLite evidence and existing workflow gates.
+
+        An imported frame does not imply a finished processing job or a
+        reviewed finding. This read-only view never starts processing.
+        """
+        summary = self.import_summary(project_id)
+        state = self.state(project_id)
+        return ProjectProcessingOverview(
+            summary=summary,
+            process=action_availability(state, WorkflowAction.PROCESS),
+            review=action_availability(state, WorkflowAction.REVIEW),
+        )
 
     def import_verification(self, project_id: str):
         """Expose persisted import metadata verification through the application boundary."""
