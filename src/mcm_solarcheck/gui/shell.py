@@ -253,7 +253,12 @@ class SolarCheckMainWindow(QMainWindow):
             import_attempt=self._last_import_attempt,
             on_preview_rgb_files=self._preview_selected_rgb_files,
             on_preview_rgb_folder=self._preview_rgb_folder,
-            on_inspect_rgb_integrity=self._inspect_rgb_integrity,
+            on_inspect_rgb_integrity=(
+                self._inspect_rgb_integrity
+                if getattr(self, "_integrity_thread", None) is None
+                and not self._integrity_close_pending
+                else None
+            ),
             rgb_integrity_status=self._rgb_integrity_status,
             on_cancel_rgb_integrity=self._cancel_rgb_integrity if getattr(self, '_integrity_thread', None) is not None else None,
             on_run_rgb_links=self._run_full_flight_rgb_links,
