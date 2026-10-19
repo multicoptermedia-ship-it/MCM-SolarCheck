@@ -313,6 +313,39 @@ class ProjectApplicationService:
 
 
 
+    def pending_review_findings(self, project_id: str, *, limit: int = 50):
+        """Return a bounded, project-scoped queue of persisted pending findings."""
+        self.import_summary(project_id)  # Reject unknown projects explicitly.
+        return InspectionQueries(self.database).findings(
+            project_id, reviewer_status=ReviewStatus.UNREVIEWED.value, limit=limit,
+        )
+
+    def review_pending_finding(
+        self, project_id: str, finding_id: str, *,
+        status: ReviewStatus, reviewer: str, note: str | None = None,
+    ):
+        """Decide an existing pending finding using the established expert gate.
+
+        Never accept caller-created findings as evidence. An atomic SQLite
+        condition prevents repeated/stale decisions and cross-project updates.
+        """
+        self.require(project_id, WorkflowAction.REVIEW)
+        if not isinstance(status, ReviewStatus) or status is ReviewStatus.UNREVIEWED:
+            raise ValueError("explicit completed expert decision required")
+        if not isinstance(finding_id, str) or not finding_id.strip():
+            raise ValueError("stored finding ID required")
+        finding = self.database.load_finding_for_review(project_id, finding_id)
+        if finding.reviewer_status != ReviewStatus.UNREVIEWED.value:
+            raise ValueError("finding has already been reviewed")
+        reviewed, audit = review_finding(
+            finding, status=status, reviewer=reviewer, note=note,
+        )
+        self.database.save_review(
+            audit, project_id=project_id, require_unreviewed=True,
+            reviewed_metadata=reviewed.metadata,
+        )
+        return reviewed, audit, self.state(project_id)
+
     def review_finding(
         self,
         project_id: str,

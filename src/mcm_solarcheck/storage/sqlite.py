@@ -347,11 +347,72 @@ class ProjectDatabase:
         if values is None:raise ValueError('finding has no cross-sensor linkage metadata')
         cols=('project_id','finding_id','rgb_frame_id','pair_id','pair_confidence','rgb_pixel_x','rgb_pixel_y','transform_method','transform_validated','transform_error_px','status','candidates_json')
         with self.connect() as db:db.execute(_upsert('finding_sensor_links',cols,('project_id','finding_id')),values)
-    def save_review(self,review,*,project_id:str):
+    def load_finding_for_review(self, project_id: str, finding_id: str) -> Finding:
+        """Load exactly one persisted finding, without trusting GUI-supplied evidence."""
+        from mcm_solarcheck.domain.models import Position
+
         with self.connect() as db:
-            cur=db.execute('UPDATE findings SET reviewer_status=? WHERE project_id=? AND finding_id=?',(review.status.value,project_id,review.finding_id))
-            if cur.rowcount!=1:raise KeyError(f'Unknown finding: {project_id}/{review.finding_id}')
-            db.execute('INSERT INTO finding_reviews(project_id,finding_id,status,reviewer,reviewed_at_utc,note) VALUES (?,?,?,?,?,?)',(project_id,review.finding_id,review.status.value,review.reviewer,review.reviewed_at_utc.isoformat(),review.note))
+            row = db.execute(
+                "SELECT * FROM findings WHERE project_id=? AND finding_id=?",
+                (project_id, finding_id),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown finding: {project_id}/{finding_id}")
+        try:
+            metadata = json.loads(row["metadata_json"] or "{}")
+        except (TypeError, ValueError) as exc:
+            raise ValueError("invalid stored finding metadata") from exc
+        if not isinstance(metadata, dict):
+            raise ValueError("invalid stored finding metadata")
+        position = (
+            Position(row["latitude"], row["longitude"], row["altitude_m"])
+            if row["latitude"] is not None and row["longitude"] is not None
+            else None
+        )
+        return Finding(
+            finding_id=row["finding_id"],
+            thermal_frame_id=row["thermal_frame_id"],
+            pixel_x=row["pixel_x"], pixel_y=row["pixel_y"],
+            finding_type=row["finding_type"], confidence=row["confidence"],
+            raw_value=row["raw_value"],
+            raw_delta_from_median=row["raw_delta_from_median"],
+            temperature_c=row["temperature_c"], module_id=row["module_id"],
+            position=position, reviewer_status=row["reviewer_status"],
+            metadata=metadata,
+        )
+
+    def save_review(self, review, *, project_id: str,
+                    require_unreviewed: bool = False, reviewed_metadata=None):
+        """Commit the review and audit together; optionally reject stale decisions.
+
+        The new GUI path uses compare-and-set on 'unreviewed'. Existing service
+        callers retain the old API until they are explicitly migrated.
+        """
+        if reviewed_metadata is not None and not isinstance(reviewed_metadata, dict):
+            raise TypeError("reviewed metadata must be a dictionary")
+        set_clause = "reviewer_status=?"
+        values = [review.status.value]
+        if reviewed_metadata is not None:
+            set_clause += ",metadata_json=?"
+            values.append(json.dumps(reviewed_metadata, ensure_ascii=False))
+        sql = (f"UPDATE findings SET {set_clause} "
+               "WHERE project_id=? AND finding_id=?")
+        values.extend((project_id, review.finding_id))
+        if require_unreviewed:
+            sql += " AND reviewer_status='unreviewed'"
+        with self.connect() as db:
+            cur = db.execute(sql, tuple(values))
+            if cur.rowcount != 1:
+                if require_unreviewed:
+                    raise ValueError("finding is missing or no longer unreviewed")
+                raise KeyError(f"Unknown finding: {project_id}/{review.finding_id}")
+            db.execute(
+                "INSERT INTO finding_reviews"
+                "(project_id,finding_id,status,reviewer,reviewed_at_utc,note)"
+                " VALUES (?,?,?,?,?,?)",
+                (project_id, review.finding_id, review.status.value,
+                 review.reviewer, review.reviewed_at_utc.isoformat(), review.note),
+            )
 
     def save_training_samples(self,project_id,samples):
         cols=('sample_id','project_id','source_frame_id','source_file','modality','content_sha256','label_status','rights_status')
