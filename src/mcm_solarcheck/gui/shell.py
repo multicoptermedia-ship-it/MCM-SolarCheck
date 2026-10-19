@@ -65,6 +65,10 @@ class SolarCheckMainWindow(QMainWindow):
         self._preflight_project_id = None
         self._preflight_close_pending = False
         self._preflight_status = None
+        self._import_thread = None
+        self._import_project_id = None
+        self._import_close_pending = False
+        self._import_status = None
         self._rgb_preview_status = None
         self._rgb_preview_path = None
         self._last_review_status = None
@@ -235,6 +239,12 @@ class SolarCheckMainWindow(QMainWindow):
                 self._preflight_status = "Vorprüfung des vorherigen Projekts wird beendet …"
             else:
                 self._preflight_status = None
+            import_thread = self._import_thread
+            if import_thread is not None:
+                import_thread.request_cancel()
+                self._import_status = "Import des vorherigen Projekts wird beendet …"
+            else:
+                self._import_status = None
             self._last_import_attempt = None
             self._last_review_status = None
             self._plant_overview_offset = 0
@@ -642,9 +652,17 @@ class SolarCheckMainWindow(QMainWindow):
             current_project_id=self._current_project_id,
             on_import_images=(
                 self._request_image_import
-                if self._project_service is not None
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._project_service is not None
+                and self._import_thread is None
+                and not self._import_close_pending
                 else None
             ),
+            on_cancel_image_import=(
+                self._cancel_image_import
+                if self._import_thread is not None else None
+            ),
+            image_import_status=self._import_status,
             import_summary=import_summary,
             import_verification=import_verification,
             import_attempt=self._last_import_attempt,
@@ -878,16 +896,20 @@ class SolarCheckMainWindow(QMainWindow):
             self._refresh_import_page()
 
     def closeEvent(self, event):
-        """Keep both owned QThreads alive until each has stopped."""
+        """Keep all owned QThreads alive until their native work has stopped."""
         integrity_busy = getattr(self, "_integrity_thread", None) is not None
         preflight_busy = self._preflight_thread is not None
-        if integrity_busy or preflight_busy:
+        import_busy = self._import_thread is not None
+        if integrity_busy or preflight_busy or import_busy:
             if integrity_busy:
                 self._integrity_close_pending = True
                 self._cancel_rgb_integrity()
             if preflight_busy:
                 self._preflight_close_pending = True
                 self._cancel_flight_preflight()
+            if import_busy:
+                self._import_close_pending = True
+                self._cancel_image_import()
             event.ignore()
             return
         super().closeEvent(event)
@@ -1201,9 +1223,122 @@ class SolarCheckMainWindow(QMainWindow):
             self._orthophoto_comparison_error = f"Orthofoto-Vergleich fehlgeschlagen: {error}"
         self._refresh_import_page()
 
+    def _start_background_image_import(self, source_directory: str) -> None:
+        """Run guarded DJI import off-thread, with no Qt objects in its worker."""
+        from mcm_solarcheck.gui.flight_import_worker import FlightImportThread
+
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._current_project_id is None
+            or self._import_thread is not None
+            or self._import_close_pending
+        ):
+            return
+        worker = FlightImportThread(
+            self._project_service, self._current_project_id, source_directory, self,
+        )
+        self._import_thread = worker
+        self._import_project_id = self._current_project_id
+        self._last_import_attempt = None
+        self._import_status = "DJI-Bildimport läuft im Hintergrund …"
+        worker.progress.connect(self._import_progress, Qt.ConnectionType.QueuedConnection)
+        worker.result_ready.connect(self._import_finished, Qt.ConnectionType.QueuedConnection)
+        worker.failed.connect(self._import_failed, Qt.ConnectionType.QueuedConnection)
+        worker.cancelled.connect(self._import_cancelled, Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(self._import_thread_stopped, Qt.ConnectionType.QueuedConnection)
+        self._refresh_import_page()
+        worker.start()
+
+    def _import_result_is_current(self) -> bool:
+        return (
+            self._import_project_id is not None
+            and self._import_project_id == self._current_project_id
+            and not self._import_close_pending
+        )
+
+    @Slot(str, int)
+    def _import_progress(self, phase: str, count: int) -> None:
+        if not self._import_result_is_current():
+            return
+        self._import_status = f"DJI-Bildimport: {phase} ({count} Prüfpunkte)."
+        self._refresh_import_page()
+
+    @Slot(object)
+    def _import_finished(self, outcome) -> None:
+        if not self._import_result_is_current():
+            return
+        attempt, _result, state = outcome
+        self._last_import_attempt = attempt
+        if attempt.succeeded:
+            self._import_status = (
+                "DJI-Import atomar gespeichert; "
+                "keine automatische Fachprüfung oder Berichtsfreigabe."
+            )
+            self._last_review_status = None
+            self._plant_overview_offset = 0
+            self._clear_prepared_draft()
+        else:
+            self._import_status = f"DJI-Import fehlgeschlagen: {attempt.error}"
+        self._refresh_import_page()
+        self._refresh_processing_page()
+        self._refresh_plant_overview_page()
+        self._refresh_review_page()
+        self._refresh_report_page()
+        self._refresh_export_page()
+        self.apply_workflow_state(state)
+
+    @Slot(str)
+    def _import_failed(self, message: str) -> None:
+        if not self._import_result_is_current():
+            return
+        self._import_status = f"DJI-Import fehlgeschlagen: {message}"
+        self._refresh_import_page()
+
+    @Slot()
+    def _import_cancelled(self) -> None:
+        if not self._import_result_is_current():
+            return
+        self._import_status = (
+            "DJI-Import abgebrochen, bevor die SQLite-Transaktion "
+            "vollständig übernommen wurde."
+        )
+        self._refresh_import_page()
+
+    @Slot()
+    def _import_thread_stopped(self) -> None:
+        QTimer.singleShot(0, self._import_cleanup)
+
+    @Slot()
+    def _import_cleanup(self) -> None:
+        worker = self._import_thread
+        if worker is None:
+            return
+        worker.wait()
+        self._import_thread = None
+        worker.deleteLater()
+        if self._current_project_id != self._import_project_id:
+            self._import_status = None
+        self._import_project_id = None
+        if self._import_close_pending:
+            self._import_close_pending = False
+            self.close()
+        else:
+            self._refresh_import_page()
+
+    def _cancel_image_import(self) -> None:
+        worker = self._import_thread
+        if worker is not None:
+            worker.request_cancel()
+
     def _request_image_import(self, source_directory: str) -> None:
         """Route a selected directory through the guarded application import boundary."""
-        if self._project_service is None or self._current_project_id is None:
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or self._project_service is None or self._current_project_id is None
+                or self._import_thread is not None or self._import_close_pending):
+            return
+        if (self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and callable(getattr(self._project_service, "import_project_images_cancellable", None))):
+            self._start_background_image_import(source_directory)
             return
         attempt, _result, state = self._project_service.import_project_images(
             self._current_project_id,
