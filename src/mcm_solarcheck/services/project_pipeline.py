@@ -18,6 +18,10 @@ from mcm_solarcheck.reporting.report_assembler import assemble_inspection_report
 from mcm_solarcheck.review.findings import ReviewStatus, review_finding
 
 
+class ProjectImportCancelled(Exception):
+    """The running import was cancelled before its database transaction committed."""
+
+
 @dataclass(frozen=True)
 class ProjectPipelineSummary:
     rgb_frames: int
@@ -326,6 +330,96 @@ class ProjectApplicationService:
                 candidate_percentile=candidate_percentile,
                 candidate_limit=candidate_limit,
             ),
+        )
+
+    def import_project_images_cancellable(
+        self,
+        project_id: str,
+        source_directory: str | Path,
+        *,
+        should_cancel=None,
+        on_progress=None,
+        minimum_pair_confidence: float = 0.70,
+        candidate_percentile: float = 99.9,
+        candidate_limit: int = 100,
+    ):
+        """Offline worker entry: import first, then atomically persist all evidence.
+
+        No writes take place during decoding or pairing. The single
+        save_project_import transaction contains all RGB frames, thermal
+        frames, candidate findings, and pairs. A cooperative cancellation
+        before its commit rolls the whole transaction back.
+        """
+        self.require(project_id, WorkflowAction.IMPORT)
+        project = next(
+            (item for item in self.projects() if item.project_id == project_id),
+            None,
+        )
+        if project is None:
+            raise KeyError(f"Unknown project: {project_id}")
+
+        phase, count = "Einlesen und Zuordnen", 0
+
+        def heartbeat():
+            nonlocal count
+            if should_cancel is not None and should_cancel():
+                raise ProjectImportCancelled("DJI-Projektimport abgebrochen")
+            count += 1
+            if on_progress is not None and count % 50 == 0:
+                on_progress(phase, count)
+
+        def set_phase(value):
+            nonlocal phase, count
+            phase, count = value, 0
+            if on_progress is not None:
+                on_progress(value, 0)
+
+        try:
+            set_phase("Einlesen und Zuordnen")
+            heartbeat()
+            result = import_m3t_project(
+                source_directory,
+                minimum_pair_confidence=minimum_pair_confidence,
+                candidate_percentile=candidate_percentile,
+                candidate_limit=candidate_limit,
+                heartbeat=heartbeat,
+            )
+            heartbeat()
+            # Do not quietly commit only the readable part of a flight after
+            # the thermal importer has recorded corrupt/unreadable images.
+            if result.thermal_batch.failures:
+                raise ValueError(
+                    f"{len(result.thermal_batch.failures)} Thermaldateien konnten "
+                    "nicht importiert werden; Projekt bleibt unverändert"
+                )
+            if not result.rgb_frames and not result.thermal_batch.results:
+                raise ValueError("Keine importierbaren DJI-Bilder im Verzeichnis")
+            set_phase("Atomare SQLite-Speicherung")
+            self.database.save_project_import(
+                project_id, result, heartbeat=heartbeat,
+            )
+        except ProjectImportCancelled:
+            raise
+        except Exception as exc:
+            return (
+                record_attempt(WorkflowAction.IMPORT, exc),
+                None,
+                self.state(project_id),
+            )
+
+        summary = ProjectPipelineSummary(
+            rgb_frames=len(result.rgb_frames),
+            thermal_frames=len(result.thermal_batch.results),
+            thermal_failures=len(result.thermal_batch.failures),
+            pairs=len(result.pairs),
+            findings=sum(len(item.findings) for item in result.thermal_batch.results),
+            unpaired_rgb=result.unpaired_rgb_count,
+            unpaired_thermal=result.unpaired_thermal_count,
+        )
+        return (
+            record_attempt(WorkflowAction.IMPORT),
+            (result, summary),
+            self.state(project_id),
         )
 
     def output_availability(
