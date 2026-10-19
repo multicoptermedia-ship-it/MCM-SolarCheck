@@ -94,9 +94,9 @@ def make_review_page(
     decision = QComboBox(page)
     decision.setObjectName("expert_decision")
     decision.addItem("Bitte fachliche Entscheidung wählen", None)
-    decision.addItem("Bestätigen", ReviewStatus.CONFIRMED)
-    decision.addItem("Verwerfen", ReviewStatus.REJECTED)
-    decision.addItem("Unklar – weitere Prüfung nötig", ReviewStatus.UNCLEAR)
+    decision.addItem("Bestätigen", ReviewStatus.CONFIRMED.value)
+    decision.addItem("Verwerfen", ReviewStatus.REJECTED.value)
+    decision.addItem("Unklar – weitere Prüfung nötig", ReviewStatus.UNCLEAR.value)
     layout.addWidget(decision)
 
     note = QPlainTextEdit(page)
@@ -118,8 +118,11 @@ def make_review_page(
         submit.setEnabled(bool(
             allowed and finding_list.currentItem() is not None
             and reviewer.text().strip()
-            and isinstance(decision.currentData(), ReviewStatus)
-            and decision.currentData() is not ReviewStatus.UNREVIEWED
+            and decision.currentData() in (
+                ReviewStatus.CONFIRMED.value,
+                ReviewStatus.REJECTED.value,
+                ReviewStatus.UNCLEAR.value,
+            )
         ))
 
     def submit_review():
@@ -128,7 +131,7 @@ def make_review_page(
             return
         on_review(
             item.data(Qt.ItemDataRole.UserRole),
-            decision.currentData(),
+            ReviewStatus(decision.currentData()),
             reviewer.text().strip(),
             note.toPlainText().strip() or None,
         )
