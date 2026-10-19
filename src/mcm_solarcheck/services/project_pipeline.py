@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
+from tempfile import TemporaryDirectory
 
 from mcm_solarcheck.importers.project import ProjectImportResult, import_m3t_project
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
 from mcm_solarcheck.domain.project_profile import ProjectProfile
 from mcm_solarcheck.storage.queries import InspectionQueries, InspectionSummary, ProjectRecord
 from mcm_solarcheck.services.workflow import ActionAvailability, ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, action_availability, record_attempt, require_action
-from mcm_solarcheck.services.product_entitlements import ProductCapabilities, ProductOperation, effective_output_availability
+from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP, ProductCapabilities, ProductOperation, effective_output_availability
 from mcm_solarcheck.reporting.export import export_report
 from mcm_solarcheck.reporting.report_assembler import assemble_inspection_report
 from mcm_solarcheck.review.findings import ReviewStatus, review_finding
@@ -395,6 +397,62 @@ class ProjectApplicationService:
             operator_profile=operator_profile,
         )
 
+
+    def export_offline_draft(
+        self,
+        project_id: str,
+        report_id: str,
+        inspection_started_at,
+        destination: str | Path,
+        *,
+        capabilities: ProductCapabilities,
+    ) -> Path:
+        """Safely publish a freshly assembled, *unreleased* local report draft.
+
+        Recheck persisted workflow/product restrictions on every invocation,
+        generate inside a private temporary directory, then exclusively create
+        the destination. Never overwrite an existing file or an original photo.
+        """
+        if capabilities != OFFLINE_DESKTOP:
+            raise PermissionError("offline draft export requires offline desktop entitlement")
+        destination = Path(destination)
+        if destination.suffix.lower() not in (".pdf", ".odt", ".docx"):
+            raise ValueError("draft report output must be PDF, ODT or DOCX")
+        if not destination.is_absolute():
+            raise ValueError("draft report destination must be an absolute local path")
+        if destination.exists() or destination.is_symlink():
+            raise FileExistsError(f"destination already exists: {destination}")
+        parent = destination.parent
+        if not parent.is_dir():
+            raise ValueError("draft report destination directory must exist")
+        if any(part.is_symlink() for part in (parent, *parent.parents)):
+            raise ValueError("draft report destination cannot traverse symbolic links")
+
+        availability = self.output_availability(
+            project_id, capabilities, ProductOperation.EXPORT,
+        )
+        if not availability.allowed:
+            raise ValueError("export action is blocked: " + "; ".join(availability.blockers))
+        report = self.prepare_report(
+            project_id, report_id, inspection_started_at, release_status="draft",
+        )
+        if report.project_id != project_id or report.release_status != "draft":
+            raise ValueError("draft report identity or release status mismatch")
+
+        with TemporaryDirectory(prefix=".solarcheck-draft-", dir=parent) as workspace:
+            staged = Path(workspace) / ("report" + destination.suffix.lower())
+            # Keep the existing service as the single report/renderer boundary.
+            self.export_report(project_id, capabilities, report, staged)
+            try:
+                with staged.open("rb") as source, destination.open("xb") as target:
+                    shutil.copyfileobj(source, target, length=1024 * 1024)
+            except BaseException:
+                # Only remove our newly created incomplete output, never an
+                # existing destination (exclusive open prevents replacement).
+                if destination.exists() and destination.stat().st_size == 0:
+                    destination.unlink()
+                raise
+        return destination
 
     def export_report(
         self,
