@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QLabel, QHBoxLayout, QMainWindow, QStackedWidget, 
 from mcm_solarcheck.gui.entry_page import make_entry_page
 from mcm_solarcheck.gui.import_page import make_import_page
 from mcm_solarcheck.gui.project_page import make_project_page
+from mcm_solarcheck.gui.processing_page import make_processing_page
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET
 from mcm_solarcheck.gui.workflow_navigation import WorkflowNavigation
 from mcm_solarcheck.services.deployment import DeploymentMode
@@ -113,6 +114,8 @@ class SolarCheckMainWindow(QMainWindow):
                 )
             elif route is ShellRoute.IMPORT:
                 page = make_import_page(current_project_id=self._current_project_id)
+            elif route is ShellRoute.PROCESSING:
+                page = make_processing_page(current_project_id=self._current_project_id)
             else:
                 page = self._make_placeholder_page(route)
             self._pages[route] = page
@@ -212,7 +215,46 @@ class SolarCheckMainWindow(QMainWindow):
             self._rgb_preview_path = None
         self._current_project_id = project_id
         self._refresh_import_page()
+        self._refresh_processing_page()
         self.apply_workflow_state(state)
+
+    def _reload_processing_page(self) -> None:
+        """Refresh read-only processing evidence and backend-derived navigation."""
+        if self._current_project_id is None:
+            return
+        state_provider = getattr(self._project_service, "state", None)
+        state = (
+            state_provider(self._current_project_id)
+            if callable(state_provider) else None
+        )
+        self._refresh_processing_page()
+        if state is not None:
+            self.apply_workflow_state(state)
+
+    def _refresh_processing_page(self) -> None:
+        """Render the selected project's persisted evidence through its service."""
+        old_page = self._pages[ShellRoute.PROCESSING]
+        overview_provider = getattr(self._project_service, "processing_overview", None)
+        overview = (
+            overview_provider(self._current_project_id)
+            if callable(overview_provider) and self._current_project_id is not None
+            else None
+        )
+        new_page = make_processing_page(
+            current_project_id=self._current_project_id,
+            overview=overview,
+            on_refresh=(
+                self._reload_processing_page
+                if callable(overview_provider) else None
+            ),
+        )
+        self._pages[ShellRoute.PROCESSING] = new_page
+        index = self._stack.indexOf(old_page)
+        self._stack.insertWidget(index, new_page)
+        if self._stack.currentWidget() is old_page:
+            self._stack.setCurrentWidget(new_page)
+        self._stack.removeWidget(old_page)
+        old_page.deleteLater()
 
     def _refresh_import_page(self) -> None:
         """Rebuild import presentation from the active persisted project context."""
@@ -698,6 +740,7 @@ class SolarCheckMainWindow(QMainWindow):
         )
         self._last_import_attempt = attempt
         self._refresh_import_page()
+        self._refresh_processing_page()
         self.apply_workflow_state(state)
 
     @property
