@@ -194,6 +194,14 @@ class SolarCheckMainWindow(QMainWindow):
             return
         state = self._project_service.open_project(project_id)
         if project_id != self._current_project_id:
+            # A running integrity scan belongs to the previous project. Its
+            # callbacks must never publish results into the newly opened one.
+            active_worker = getattr(self, "_integrity_worker", None)
+            if active_worker is not None:
+                active_worker.request_cancel()
+                self._rgb_integrity_status = "Vorherige RGB-Prüfung wird beendet …"
+            else:
+                self._rgb_integrity_status = None
             self._last_import_attempt = None
             self._geotiff_result = None
             self._orthophoto_comparison = None
@@ -275,8 +283,11 @@ class SolarCheckMainWindow(QMainWindow):
         from mcm_solarcheck.gui.flight_rgb_integrity_worker import FlightRgbIntegrityWorker
         from mcm_solarcheck.gui.flight_rgb_integrity_status import format_rgb_integrity_summary
 
-        if getattr(self, "_integrity_thread", None) is not None:
+        if (self._current_project_id is None
+                or getattr(self, "_integrity_thread", None) is not None
+                or self._integrity_close_pending):
             return
+        inspection_project = self._current_project_id
         thread = QThread(self)
         worker = FlightRgbIntegrityWorker(source_folder, output_folder)
         worker.moveToThread(thread)
@@ -286,24 +297,34 @@ class SolarCheckMainWindow(QMainWindow):
         self._refresh_import_page()
 
         def on_progress(done, total, status):
+            if self._current_project_id != inspection_project or self._integrity_close_pending:
+                return
             self._rgb_integrity_status = f"RGB-Integritätsprüfung: {done}/{total} geprüft ({status})."
             self._refresh_import_page()
 
         def on_finished(result):
+            if self._current_project_id != inspection_project or self._integrity_close_pending:
+                return
             self._rgb_integrity_status = format_rgb_integrity_summary(result)
             self._refresh_import_page()
 
         def on_failed(message):
+            if self._current_project_id != inspection_project or self._integrity_close_pending:
+                return
             self._rgb_integrity_status = f"RGB-Integritätsprüfung fehlgeschlagen: {message}"
             self._refresh_import_page()
 
         def on_cancelled():
+            if self._current_project_id != inspection_project or self._integrity_close_pending:
+                return
             self._rgb_integrity_status = "RGB-Integritätsprüfung abgebrochen; keine Dateien verändert."
             self._refresh_import_page()
 
         def on_thread_finished():
             self._integrity_thread = None
             self._integrity_worker = None
+            if self._current_project_id != inspection_project:
+                self._rgb_integrity_status = None
             if self._integrity_close_pending:
                 self._integrity_close_pending = False
                 self.close()
