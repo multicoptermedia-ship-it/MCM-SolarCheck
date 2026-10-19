@@ -16,6 +16,8 @@ from mcm_solarcheck.gui.entry_page import make_entry_page
 from mcm_solarcheck.gui.import_page import make_import_page
 from mcm_solarcheck.gui.project_page import make_project_page
 from mcm_solarcheck.gui.processing_page import make_processing_page
+from mcm_solarcheck.gui.report_page import make_report_page
+from mcm_solarcheck.gui.export_page import make_export_page
 from mcm_solarcheck.gui.review_page import MAX_REVIEW_PAGE_FINDINGS, make_review_page
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET
 from mcm_solarcheck.gui.workflow_navigation import WorkflowNavigation
@@ -61,6 +63,10 @@ class SolarCheckMainWindow(QMainWindow):
         self._rgb_preview_status = None
         self._rgb_preview_path = None
         self._last_review_status = None
+        self._draft_report = None
+        self._draft_request = None
+        self._last_report_status = None
+        self._last_export_status = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -120,6 +126,10 @@ class SolarCheckMainWindow(QMainWindow):
                 page = make_processing_page(current_project_id=self._current_project_id)
             elif route is ShellRoute.REVIEW:
                 page = make_review_page(current_project_id=self._current_project_id)
+            elif route is ShellRoute.REPORT:
+                page = make_report_page(current_project_id=self._current_project_id)
+            elif route is ShellRoute.EXPORT:
+                page = make_export_page(current_project_id=self._current_project_id)
             else:
                 page = self._make_placeholder_page(route)
             self._pages[route] = page
@@ -213,6 +223,7 @@ class SolarCheckMainWindow(QMainWindow):
                 self._rgb_integrity_status = None
             self._last_import_attempt = None
             self._last_review_status = None
+            self._clear_prepared_draft()
             self._geotiff_result = None
             self._orthophoto_comparison = None
             self._orthophoto_comparison_error = None
@@ -222,7 +233,196 @@ class SolarCheckMainWindow(QMainWindow):
         self._refresh_import_page()
         self._refresh_processing_page()
         self._refresh_review_page()
+        self._refresh_report_page()
+        self._refresh_export_page()
         self.apply_workflow_state(state)
+
+    def _clear_prepared_draft(self) -> None:
+        """Discard stale report previews and their export authorization context."""
+        self._draft_report = None
+        self._draft_request = None
+        self._last_report_status = None
+        self._last_export_status = None
+
+    def _refresh_report_page(self) -> None:
+        """Render offline report readiness from the existing service and product gate."""
+        from mcm_solarcheck.services.product_entitlements import (
+            OFFLINE_DESKTOP, ProductOperation,
+        )
+
+        old_page = self._pages[ShellRoute.REPORT]
+        service = self._project_service
+        project_id = self._current_project_id
+        offline = self._deployment is DeploymentMode.OFFLINE_DESKTOP
+        enabled = (
+            offline and project_id is not None and service is not None
+            and callable(getattr(service, "output_availability", None))
+            and callable(getattr(service, "project_profile", None))
+            and callable(getattr(service, "prepare_report", None))
+        )
+        availability = (
+            service.output_availability(
+                project_id, OFFLINE_DESKTOP, ProductOperation.REPORT_DOWNLOAD,
+            ) if enabled else None
+        )
+        profile = service.project_profile(project_id) if enabled else None
+        draft = (
+            self._draft_report
+            if enabled and self._draft_request is not None
+            and self._draft_request[0] == project_id else None
+        )
+        on_prepare = (
+            (lambda report_id, started, source=project_id:
+             self._prepare_report_draft(source, report_id, started))
+            if enabled else None
+        )
+        page = make_report_page(
+            current_project_id=project_id if offline else None,
+            availability=availability,
+            profile=profile,
+            draft=draft,
+            on_prepare=on_prepare,
+            last_status=self._last_report_status if offline else None,
+        )
+        self._pages[ShellRoute.REPORT] = page
+        index = self._stack.indexOf(old_page)
+        self._stack.insertWidget(index, page)
+        if self._stack.currentWidget() is old_page:
+            self._stack.setCurrentWidget(page)
+        self._stack.removeWidget(old_page)
+        old_page.deleteLater()
+
+    def _refresh_export_page(self) -> None:
+        """Present only the active project's explicit unreleased draft."""
+        from mcm_solarcheck.services.product_entitlements import (
+            OFFLINE_DESKTOP, ProductOperation,
+        )
+
+        old_page = self._pages[ShellRoute.EXPORT]
+        service = self._project_service
+        project_id = self._current_project_id
+        offline = self._deployment is DeploymentMode.OFFLINE_DESKTOP
+        enabled = (
+            offline and project_id is not None and service is not None
+            and callable(getattr(service, "output_availability", None))
+            and callable(getattr(service, "export_offline_draft", None))
+        )
+        availability = (
+            service.output_availability(
+                project_id, OFFLINE_DESKTOP, ProductOperation.EXPORT,
+            ) if enabled else None
+        )
+        draft = (
+            self._draft_report
+            if enabled and self._draft_request is not None
+            and self._draft_request[0] == project_id else None
+        )
+        on_export = (
+            (lambda format_name, source=project_id:
+             self._export_offline_draft(source, format_name))
+            if enabled else None
+        )
+        page = make_export_page(
+            current_project_id=project_id if offline else None,
+            availability=availability, draft=draft,
+            on_export=on_export,
+            last_status=self._last_export_status if offline else None,
+        )
+        self._pages[ShellRoute.EXPORT] = page
+        index = self._stack.indexOf(old_page)
+        self._stack.insertWidget(index, page)
+        if self._stack.currentWidget() is old_page:
+            self._stack.setCurrentWidget(page)
+        self._stack.removeWidget(old_page)
+        old_page.deleteLater()
+
+    def _prepare_report_draft(
+        self, source_project: str, report_id: str, started_at,
+    ) -> None:
+        """Build a non-released snapshot only from the selected offline project."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or self._project_service is None
+        ):
+            return
+        try:
+            report = self._project_service.prepare_report(
+                source_project, report_id, started_at, release_status="draft",
+            )
+            if report.project_id != source_project or report.release_status != "draft":
+                raise ValueError("unzulässiger Bericht oder Freigabestatus")
+        except (ValueError, PermissionError, OSError, KeyError, TypeError) as exc:
+            self._clear_prepared_draft()
+            self._last_report_status = f"Entwurf nicht vorbereitet: {exc}"
+        else:
+            self._draft_report = report
+            self._draft_request = (source_project, report_id, started_at)
+            self._last_report_status = (
+                f"Berichtsentwurf {report.report_id} vorbereitet (draft). "
+                "Noch keine Datei erzeugt oder freigegeben."
+            )
+            self._last_export_status = None
+        self._refresh_report_page()
+        self._refresh_export_page()
+
+    def _export_offline_draft(self, source_project: str, format_name: str) -> None:
+        """Rebuild on export and never publish a stale or released report."""
+        from pathlib import Path
+        from PySide6.QtWidgets import QFileDialog
+        from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP
+
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or self._draft_request is None
+            or self._draft_request[0] != source_project
+            or self._draft_report is None
+            or format_name not in ("pdf", "odt", "docx")
+        ):
+            return
+        _, report_id, started_at = self._draft_request
+        try:
+            current = self._project_service.prepare_report(
+                source_project, report_id, started_at, release_status="draft",
+            )
+            if current != self._draft_report:
+                self._clear_prepared_draft()
+                raise ValueError(
+                    "Gespeicherte Befunde/Stammdaten haben sich geändert; "
+                    "den Entwurf bitte neu vorbereiten"
+                )
+        except (ValueError, PermissionError, OSError, KeyError, TypeError) as exc:
+            self._clear_prepared_draft()
+            self._last_export_status = f"Export gesperrt: {exc}"
+            self._refresh_report_page()
+            self._refresh_export_page()
+            return
+
+        selected, _filter = QFileDialog.getSaveFileName(
+            self,
+            "Lokalen Berichtsentwurf speichern (keine Freigabe)",
+            f"SolarCheck-Berichtsentwurf.{format_name}",
+            f"Berichtsentwurf (*.{format_name})",
+        )
+        if not selected:
+            return
+        try:
+            destination = Path(selected).absolute()
+            if destination.suffix.lower() != f".{format_name}":
+                raise ValueError("Dateiendung stimmt nicht mit dem Exportformat überein")
+            saved = self._project_service.export_offline_draft(
+                source_project, report_id, started_at, destination,
+                capabilities=OFFLINE_DESKTOP,
+            )
+        except (ValueError, PermissionError, OSError, KeyError, TypeError) as exc:
+            self._last_export_status = f"Entwurf nicht gespeichert: {exc}"
+        else:
+            self._last_export_status = (
+                f"Berichtsentwurf lokal gespeichert: {saved}. "
+                "Freigabestatus: draft; keine Veröffentlichung."
+            )
+        self._refresh_export_page()
 
     def _reload_review_page(self) -> None:
         """Reload pending findings and backend-derived workflow availability."""
@@ -303,8 +503,11 @@ class SolarCheckMainWindow(QMainWindow):
             f"Fachliche Entscheidung für {audit.finding_id} protokolliert "
             f"({audit.status.value}). Keine automatische Berichtsfreigabe."
         )
+        self._clear_prepared_draft()
         self._refresh_review_page()
         self._refresh_processing_page()
+        self._refresh_report_page()
+        self._refresh_export_page()
         self.apply_workflow_state(state)
 
     def _reload_processing_page(self) -> None:
@@ -829,9 +1032,12 @@ class SolarCheckMainWindow(QMainWindow):
         )
         self._last_import_attempt = attempt
         self._last_review_status = None
+        self._clear_prepared_draft()
         self._refresh_import_page()
         self._refresh_processing_page()
         self._refresh_review_page()
+        self._refresh_report_page()
+        self._refresh_export_page()
         self.apply_workflow_state(state)
 
     @property
