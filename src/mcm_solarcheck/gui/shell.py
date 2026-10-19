@@ -16,6 +16,7 @@ from mcm_solarcheck.gui.entry_page import make_entry_page
 from mcm_solarcheck.gui.import_page import make_import_page
 from mcm_solarcheck.gui.project_page import make_project_page
 from mcm_solarcheck.gui.processing_page import make_processing_page
+from mcm_solarcheck.gui.review_page import MAX_REVIEW_PAGE_FINDINGS, make_review_page
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET
 from mcm_solarcheck.gui.workflow_navigation import WorkflowNavigation
 from mcm_solarcheck.services.deployment import DeploymentMode
@@ -59,6 +60,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._rgb_integrity_status = None
         self._rgb_preview_status = None
         self._rgb_preview_path = None
+        self._last_review_status = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -116,6 +118,8 @@ class SolarCheckMainWindow(QMainWindow):
                 page = make_import_page(current_project_id=self._current_project_id)
             elif route is ShellRoute.PROCESSING:
                 page = make_processing_page(current_project_id=self._current_project_id)
+            elif route is ShellRoute.REVIEW:
+                page = make_review_page(current_project_id=self._current_project_id)
             else:
                 page = self._make_placeholder_page(route)
             self._pages[route] = page
@@ -208,6 +212,7 @@ class SolarCheckMainWindow(QMainWindow):
             else:
                 self._rgb_integrity_status = None
             self._last_import_attempt = None
+            self._last_review_status = None
             self._geotiff_result = None
             self._orthophoto_comparison = None
             self._orthophoto_comparison_error = None
@@ -215,6 +220,90 @@ class SolarCheckMainWindow(QMainWindow):
             self._rgb_preview_path = None
         self._current_project_id = project_id
         self._refresh_import_page()
+        self._refresh_processing_page()
+        self._refresh_review_page()
+        self.apply_workflow_state(state)
+
+    def _reload_review_page(self) -> None:
+        """Reload pending findings and backend-derived workflow availability."""
+        if self._current_project_id is None:
+            return
+        state_provider = getattr(self._project_service, "state", None)
+        state = (
+            state_provider(self._current_project_id)
+            if callable(state_provider) else None
+        )
+        self._refresh_review_page()
+        if state is not None:
+            self.apply_workflow_state(state)
+
+    def _refresh_review_page(self) -> None:
+        """Build a project-specific review page from the existing service."""
+        old_page = self._pages[ShellRoute.REVIEW]
+        overview_provider = getattr(self._project_service, "processing_overview", None)
+        queue_provider = getattr(self._project_service, "pending_review_findings", None)
+        action_provider = getattr(self._project_service, "review_pending_finding", None)
+        # Online access requires a separate ownership-scoped adapter; do not
+        # expose this local expert-review action through an online shell.
+        offline = self._deployment is DeploymentMode.OFFLINE_DESKTOP
+        project_id = self._current_project_id
+        enabled = (
+            offline and project_id is not None
+            and callable(overview_provider) and callable(queue_provider)
+        )
+        overview = overview_provider(project_id) if enabled else None
+        pending = (
+            queue_provider(project_id, limit=MAX_REVIEW_PAGE_FINDINGS)
+            if enabled else ()
+        )
+        on_review = (
+            (lambda finding_id, status, reviewer, note, source_project=project_id:
+             self._review_pending_finding(
+                 source_project, finding_id, status, reviewer, note,
+             ))
+            if enabled and callable(action_provider) else None
+        )
+        new_page = make_review_page(
+            current_project_id=project_id if offline else None,
+            overview=overview, pending=pending,
+            on_review=on_review,
+            on_refresh=self._reload_review_page if enabled else None,
+            last_review_status=self._last_review_status if offline else None,
+        )
+        self._pages[ShellRoute.REVIEW] = new_page
+        index = self._stack.indexOf(old_page)
+        self._stack.insertWidget(index, new_page)
+        if self._stack.currentWidget() is old_page:
+            self._stack.setCurrentWidget(new_page)
+        self._stack.removeWidget(old_page)
+        old_page.deleteLater()
+
+    def _review_pending_finding(
+        self, source_project: str, finding_id: str, status, reviewer: str,
+        note: str | None,
+    ) -> None:
+        """Only a live action from the selected project can persist a review."""
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or source_project != self._current_project_id
+                or self._project_service is None):
+            return
+        review_action = getattr(self._project_service, "review_pending_finding", None)
+        if not callable(review_action):
+            return
+        try:
+            _finding, audit, state = review_action(
+                source_project, finding_id, status=status,
+                reviewer=reviewer, note=note,
+            )
+        except (KeyError, ValueError, TypeError) as exc:
+            self._last_review_status = f"Entscheidung nicht gespeichert: {exc}"
+            self._refresh_review_page()
+            return
+        self._last_review_status = (
+            f"Fachliche Entscheidung für {audit.finding_id} protokolliert "
+            f"({audit.status.value}). Keine automatische Berichtsfreigabe."
+        )
+        self._refresh_review_page()
         self._refresh_processing_page()
         self.apply_workflow_state(state)
 
@@ -739,8 +828,10 @@ class SolarCheckMainWindow(QMainWindow):
             source_directory,
         )
         self._last_import_attempt = attempt
+        self._last_review_status = None
         self._refresh_import_page()
         self._refresh_processing_page()
+        self._refresh_review_page()
         self.apply_workflow_state(state)
 
     @property
