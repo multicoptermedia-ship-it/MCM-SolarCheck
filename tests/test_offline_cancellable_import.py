@@ -116,15 +116,15 @@ def test_cancel_during_sqlite_transaction_rolls_back_prior_writes(monkeypatch, t
     original_save = app.database.save_project_import
     n = 0
 
-    def interrupted_save(project_id, imported, *, heartbeat=None):
+    def interrupted_save(project_id, imported, *, checkpoint=None):
         def stop_mid_transaction():
             nonlocal n
             n += 1
             if n == 4:
                 raise ProjectImportCancelled("cancel during sqlite save")
-            if heartbeat is not None:
-                heartbeat()
-        return original_save(project_id, imported, heartbeat=stop_mid_transaction)
+            if checkpoint is not None:
+                checkpoint()
+        return original_save(project_id, imported, checkpoint=stop_mid_transaction)
 
     monkeypatch.setattr(app.database, "save_project_import", interrupted_save)
     with pytest.raises(ProjectImportCancelled, match="sqlite save"):
@@ -132,7 +132,7 @@ def test_cancel_during_sqlite_transaction_rolls_back_prior_writes(monkeypatch, t
     assert n == 4
     assert_empty(app)
     with app.database.connect() as db:
-        assert db.execute("SELECT COUNT(*) FROM training_frames").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM training_samples").fetchone()[0] == 0
 
 
 def test_unreadable_thermal_image_fails_closed_before_writes(monkeypatch, tmp_path):
