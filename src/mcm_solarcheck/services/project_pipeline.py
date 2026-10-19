@@ -443,14 +443,17 @@ class ProjectApplicationService:
             staged = Path(workspace) / ("report" + destination.suffix.lower())
             # Keep the existing service as the single report/renderer boundary.
             self.export_report(project_id, capabilities, report, staged)
+            created = False
             try:
-                with staged.open("rb") as source, destination.open("xb") as target:
-                    shutil.copyfileobj(source, target, length=1024 * 1024)
+                with staged.open("rb") as source:
+                    with destination.open("xb") as target:
+                        created = True
+                        shutil.copyfileobj(source, target, length=1024 * 1024)
             except BaseException:
-                # Only remove our newly created incomplete output, never an
-                # existing destination (exclusive open prevents replacement).
-                if destination.exists() and destination.stat().st_size == 0:
-                    destination.unlink()
+                # Never delete the user's existing file: only our own
+                # exclusively created, incomplete destination can be removed.
+                if created:
+                    destination.unlink(missing_ok=True)
                 raise
         return destination
 
@@ -465,6 +468,8 @@ class ProjectApplicationService:
         banner_path: str | Path | None = None,
     ):
         """Export only after both persisted workflow and product gates allow it."""
+        if report.project_id != project_id:
+            raise ValueError("report project does not match active project")
         availability = self.output_availability(
             project_id, capabilities, ProductOperation.EXPORT
         )
