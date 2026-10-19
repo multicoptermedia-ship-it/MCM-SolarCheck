@@ -269,7 +269,7 @@ class SolarCheckMainWindow(QMainWindow):
             current_project_id=project_id if self._deployment is DeploymentMode.OFFLINE_DESKTOP else None,
             overview=overview,
             on_refresh=(
-                (lambda source=project_id:
+                (lambda checked=False, source=project_id:
                     self._load_plant_overview_page(source, self._plant_overview_offset))
                 if enabled else None
             ),
