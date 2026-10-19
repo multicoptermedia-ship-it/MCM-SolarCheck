@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -93,6 +93,39 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
             "Nicht verfügbar, solange kein aktives Projekt und Import-Service angebunden sind."
         )
     layout.addWidget(import_images)
+
+    preflight_start = QPushButton(
+        "Großen DJI-Flugordner vorab prüfen (nur Dateinamen/Größen)", page,
+    )
+    preflight_start.setObjectName("start_large_flight_preflight_button")
+    if current_project_id is not None and on_start_flight_preflight is not None:
+        def request_preflight():
+            select = choose_preflight_folder or (
+                lambda: QFileDialog.getExistingDirectory(
+                    page, "DJI-Mavic-3T-Quellordner für Vorprüfung auswählen",
+                )
+            )
+            folder = select()
+            if folder:
+                on_start_flight_preflight(folder)
+        preflight_start.clicked.connect(request_preflight)
+    else:
+        preflight_start.setEnabled(False)
+    layout.addWidget(preflight_start)
+
+    preflight_cancel = QPushButton("Laufende DJI-Vorprüfung abbrechen", page)
+    preflight_cancel.setObjectName("cancel_large_flight_preflight_button")
+    preflight_cancel.setEnabled(on_cancel_flight_preflight is not None)
+    if on_cancel_flight_preflight is not None:
+        preflight_cancel.clicked.connect(on_cancel_flight_preflight)
+    layout.addWidget(preflight_cancel)
+    if flight_preflight_status is not None:
+        preflight_label = QLabel(flight_preflight_status, page)
+        preflight_label.setObjectName("large_flight_preflight_status")
+        preflight_label.setTextFormat(Qt.TextFormat.PlainText)
+        preflight_label.setWordWrap(True)
+        layout.addWidget(preflight_label)
+
     folder_preview = QPushButton("DJI-Bildordner automatisch auswerten (derzeit 3–4 RGB)", page)
     folder_preview.setObjectName("preview_rgb_folder_button")
     if current_project_id is not None and on_preview_rgb_folder is not None:
