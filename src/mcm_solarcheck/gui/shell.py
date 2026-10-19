@@ -286,32 +286,26 @@ class SolarCheckMainWindow(QMainWindow):
 
     def _inspect_rgb_integrity(self, source_folder: str, output_folder: str) -> None:
         """Start one read-only scan; Qt delivers status back to the GUI thread."""
-        from mcm_solarcheck.gui.flight_rgb_integrity_worker import FlightRgbIntegrityWorker
+        from mcm_solarcheck.gui.flight_rgb_integrity_worker import FlightRgbIntegrityThread
 
         if (self._current_project_id is None
                 or getattr(self, "_integrity_thread", None) is not None
                 or self._integrity_close_pending):
             return
-        thread = QThread(self)
-        worker = FlightRgbIntegrityWorker(source_folder, output_folder)
-        worker.moveToThread(thread)
+        thread = FlightRgbIntegrityThread(source_folder, output_folder, self)
         self._integrity_thread = thread
-        self._integrity_worker = worker
+        self._integrity_worker = thread
         self._integrity_project_id = self._current_project_id
         self._rgb_integrity_status = "RGB-Integritätsprüfung läuft …"
         self._refresh_import_page()
 
-        thread.started.connect(worker.run)
-        # QObject receiver slots (not closures) are explicitly queued onto
-        # the GUI event loop; no widgets are touched by the worker thread.
-        worker.progress.connect(self._integrity_progress, Qt.ConnectionType.QueuedConnection)
-        worker.finished.connect(self._integrity_finished, Qt.ConnectionType.QueuedConnection)
-        worker.failed.connect(self._integrity_failed, Qt.ConnectionType.QueuedConnection)
-        worker.cancelled.connect(self._integrity_cancelled, Qt.ConnectionType.QueuedConnection)
-        worker.completed.connect(thread.quit)
-        thread.finished.connect(worker.deleteLater)
+        # Signals are queued to GUI-owned slots. The background QThread
+        # runs the shared service directly and owns no moved QObject worker.
+        thread.progress.connect(self._integrity_progress, Qt.ConnectionType.QueuedConnection)
+        thread.result_ready.connect(self._integrity_finished, Qt.ConnectionType.QueuedConnection)
+        thread.failed.connect(self._integrity_failed, Qt.ConnectionType.QueuedConnection)
+        thread.cancelled.connect(self._integrity_cancelled, Qt.ConnectionType.QueuedConnection)
         thread.finished.connect(self._integrity_thread_stopped, Qt.ConnectionType.QueuedConnection)
-        thread.finished.connect(thread.deleteLater)
         thread.start()
 
     def _integrity_result_is_current(self) -> bool:
@@ -358,8 +352,15 @@ class SolarCheckMainWindow(QMainWindow):
 
     @Slot()
     def _integrity_cleanup(self) -> None:
+        thread = self._integrity_thread
+        if thread is None:
+            return
+        # QThread.finished may precede native thread-local destructors.
+        # Synchronize before releasing the object or rebuilding the Qt page.
+        thread.wait()
         self._integrity_thread = None
         self._integrity_worker = None
+        thread.deleteLater()
         if self._current_project_id != self._integrity_project_id:
             self._rgb_integrity_status = None
         self._integrity_project_id = None
