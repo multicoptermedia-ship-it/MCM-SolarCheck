@@ -27,8 +27,15 @@ class Projects:
         return object()
 
 
-def window_for_project():
+@pytest.fixture(scope="module")
+def qt_app():
+    """Keep a strong QApplication reference alive across real Qt thread tests."""
     app = QApplication.instance() or QApplication([])
+    yield app
+
+
+def window_for_project(qt_app):
+    assert QApplication.instance() is qt_app
     window = SolarCheckMainWindow(
         DeploymentMode.OFFLINE_DESKTOP, project_service=Projects(),
     )
@@ -47,7 +54,7 @@ def pump_until(predicate, *, seconds=7):
     assert predicate(), "Qt worker did not finish within bounded test time"
 
 
-def test_real_thread_finishes_and_displays_read_only_integrity_status(tmp_path):
+def test_real_thread_finishes_and_displays_read_only_integrity_status(tmp_path, qt_app):
     source = tmp_path / "jpeg"
     output = tmp_path / "npy"
     source.mkdir()
@@ -55,7 +62,7 @@ def test_real_thread_finishes_and_displays_read_only_integrity_status(tmp_path):
     assert cv2.imwrite(
         str(source / "sample.jpg"), np.zeros((6, 8, 3), dtype=np.uint8),
     )
-    window = window_for_project()
+    window = window_for_project(qt_app)
     try:
         window._inspect_rgb_integrity(str(source), str(output))
         pump_until(lambda: getattr(window, "_integrity_thread", None) is None)
@@ -75,7 +82,7 @@ def test_real_thread_finishes_and_displays_read_only_integrity_status(tmp_path):
         window.close()
 
 
-def test_real_thread_cancel_close_and_no_duplicate_start(monkeypatch):
+def test_real_thread_cancel_close_and_no_duplicate_start(monkeypatch, qt_app):
     import mcm_solarcheck.gui.flight_rgb_integrity_worker as worker_module
 
     entered = threading.Event()
@@ -90,7 +97,7 @@ def test_real_thread_cancel_close_and_no_duplicate_start(monkeypatch):
         return {"entries": [], "read_only": True}
 
     monkeypatch.setattr(worker_module, "scan_rgb_integrity", blocking_scan)
-    window = window_for_project()
+    window = window_for_project(qt_app)
     window.show()
     try:
         window._inspect_rgb_integrity("source", "output")
