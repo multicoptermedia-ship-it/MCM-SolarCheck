@@ -61,6 +61,10 @@ class SolarCheckMainWindow(QMainWindow):
         self._integrity_close_pending = False
         self._integrity_project_id = None
         self._rgb_integrity_status = None
+        self._preflight_thread = None
+        self._preflight_project_id = None
+        self._preflight_close_pending = False
+        self._preflight_status = None
         self._rgb_preview_status = None
         self._rgb_preview_path = None
         self._last_review_status = None
@@ -225,6 +229,12 @@ class SolarCheckMainWindow(QMainWindow):
                 self._rgb_integrity_status = "Vorherige RGB-Prüfung wird beendet …"
             else:
                 self._rgb_integrity_status = None
+            active_preflight = self._preflight_thread
+            if active_preflight is not None:
+                active_preflight.request_cancel()
+                self._preflight_status = "Vorprüfung des vorherigen Projekts wird beendet …"
+            else:
+                self._preflight_status = None
             self._last_import_attempt = None
             self._last_review_status = None
             self._plant_overview_offset = 0
@@ -640,6 +650,17 @@ class SolarCheckMainWindow(QMainWindow):
             import_attempt=self._last_import_attempt,
             on_preview_rgb_files=self._preview_selected_rgb_files,
             on_preview_rgb_folder=self._preview_rgb_folder,
+            on_start_flight_preflight=(
+                self._start_flight_preflight
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._preflight_thread is None
+                and not self._preflight_close_pending else None
+            ),
+            on_cancel_flight_preflight=(
+                self._cancel_flight_preflight
+                if self._preflight_thread is not None else None
+            ),
+            flight_preflight_status=self._preflight_status,
             on_inspect_rgb_integrity=(
                 self._inspect_rgb_integrity
                 if getattr(self, "_integrity_thread", None) is None
@@ -668,6 +689,107 @@ class SolarCheckMainWindow(QMainWindow):
             self._stack.setCurrentWidget(new_page)
         self._stack.removeWidget(old_page)
         old_page.deleteLater()
+
+    def _start_flight_preflight(self, source_folder: str) -> None:
+        """Start one read-only DJI directory scan outside the GUI thread."""
+        from mcm_solarcheck.gui.flight_preflight_worker import FlightPreflightThread
+
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or self._current_project_id is None
+                or self._preflight_thread is not None
+                or self._preflight_close_pending
+                or self._integrity_close_pending):
+            return
+        thread = FlightPreflightThread(source_folder, self)
+        self._preflight_thread = thread
+        self._preflight_project_id = self._current_project_id
+        self._preflight_status = "DJI-Ordner-Vorprüfung läuft (nur Dateinamen/Größen) …"
+        self._refresh_import_page()
+        thread.progress.connect(
+            self._preflight_progress, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.result_ready.connect(
+            self._preflight_finished, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.failed.connect(
+            self._preflight_failed, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.cancelled.connect(
+            self._preflight_cancelled, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.finished.connect(
+            self._preflight_thread_stopped, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.start()
+
+    def _preflight_result_is_current(self) -> bool:
+        return (
+            self._preflight_project_id is not None
+            and self._preflight_project_id == self._current_project_id
+            and not self._preflight_close_pending
+        )
+
+    @Slot(int)
+    def _preflight_progress(self, entries: int) -> None:
+        if not self._preflight_result_is_current():
+            return
+        self._preflight_status = (
+            f"DJI-Ordner-Vorprüfung läuft: {entries} Einträge erfasst "
+            "(Dateimetadaten, keine Bilddekodierung)."
+        )
+        self._refresh_import_page()
+
+    @Slot(object)
+    def _preflight_finished(self, result) -> None:
+        if not self._preflight_result_is_current():
+            return
+        from mcm_solarcheck.gui.flight_preflight_worker import format_flight_preflight
+
+        self._preflight_status = format_flight_preflight(result)
+        self._refresh_import_page()
+
+    @Slot(str)
+    def _preflight_failed(self, message: str) -> None:
+        if not self._preflight_result_is_current():
+            return
+        self._preflight_status = f"DJI-Ordner-Vorprüfung fehlgeschlagen: {message}"
+        self._refresh_import_page()
+
+    @Slot()
+    def _preflight_cancelled(self) -> None:
+        if not self._preflight_result_is_current():
+            return
+        self._preflight_status = (
+            "DJI-Ordner-Vorprüfung abgebrochen. Originaldateien unverändert."
+        )
+        self._refresh_import_page()
+
+    @Slot()
+    def _preflight_thread_stopped(self) -> None:
+        # The native thread must finish before we release its Python wrapper.
+        QTimer.singleShot(0, self._preflight_cleanup)
+
+    @Slot()
+    def _preflight_cleanup(self) -> None:
+        thread = self._preflight_thread
+        if thread is None:
+            return
+        thread.wait()
+        self._preflight_thread = None
+        thread.deleteLater()
+        if self._current_project_id != self._preflight_project_id:
+            self._preflight_status = None
+        self._preflight_project_id = None
+        if self._preflight_close_pending:
+            self._preflight_close_pending = False
+            self.close()
+        else:
+            self._refresh_import_page()
+
+    def _cancel_flight_preflight(self) -> None:
+        thread = self._preflight_thread
+        if thread is not None:
+            thread.request_cancel()
 
     def _inspect_rgb_integrity(self, source_folder: str, output_folder: str) -> None:
         """Start one read-only scan; Qt delivers status back to the GUI thread."""
@@ -756,10 +878,16 @@ class SolarCheckMainWindow(QMainWindow):
             self._refresh_import_page()
 
     def closeEvent(self, event):
-        """Defer closing until the running worker has cooperatively stopped."""
-        if getattr(self, "_integrity_thread", None) is not None:
-            self._integrity_close_pending = True
-            self._cancel_rgb_integrity()
+        """Keep both owned QThreads alive until each has stopped."""
+        integrity_busy = getattr(self, "_integrity_thread", None) is not None
+        preflight_busy = self._preflight_thread is not None
+        if integrity_busy or preflight_busy:
+            if integrity_busy:
+                self._integrity_close_pending = True
+                self._cancel_rgb_integrity()
+            if preflight_busy:
+                self._preflight_close_pending = True
+                self._cancel_flight_preflight()
             event.ignore()
             return
         super().closeEvent(event)
