@@ -16,6 +16,7 @@ from mcm_solarcheck.gui.entry_page import make_entry_page
 from mcm_solarcheck.gui.import_page import make_import_page
 from mcm_solarcheck.gui.project_page import make_project_page
 from mcm_solarcheck.gui.processing_page import make_processing_page
+from mcm_solarcheck.gui.plant_overview_page import make_plant_overview_page
 from mcm_solarcheck.gui.report_page import make_report_page
 from mcm_solarcheck.gui.export_page import make_export_page
 from mcm_solarcheck.gui.review_page import MAX_REVIEW_PAGE_FINDINGS, make_review_page
@@ -67,6 +68,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._draft_request = None
         self._last_report_status = None
         self._last_export_status = None
+        self._plant_overview_offset = 0
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -124,6 +126,8 @@ class SolarCheckMainWindow(QMainWindow):
                 page = make_import_page(current_project_id=self._current_project_id)
             elif route is ShellRoute.PROCESSING:
                 page = make_processing_page(current_project_id=self._current_project_id)
+            elif route is ShellRoute.PLANT_OVERVIEW:
+                page = make_plant_overview_page(current_project_id=self._current_project_id)
             elif route is ShellRoute.REVIEW:
                 page = make_review_page(current_project_id=self._current_project_id)
             elif route is ShellRoute.REPORT:
@@ -223,6 +227,7 @@ class SolarCheckMainWindow(QMainWindow):
                 self._rgb_integrity_status = None
             self._last_import_attempt = None
             self._last_review_status = None
+            self._plant_overview_offset = 0
             self._clear_prepared_draft()
             self._geotiff_result = None
             self._orthophoto_comparison = None
@@ -232,10 +237,55 @@ class SolarCheckMainWindow(QMainWindow):
         self._current_project_id = project_id
         self._refresh_import_page()
         self._refresh_processing_page()
+        self._refresh_plant_overview_page()
         self._refresh_review_page()
         self._refresh_report_page()
         self._refresh_export_page()
         self.apply_workflow_state(state)
+
+    def _load_plant_overview_page(self, source_project: str, offset: int) -> None:
+        """Handle Qt navigation without applying stale project callbacks."""
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or source_project != self._current_project_id
+                or type(offset) is not int or offset < 0):
+            return
+        self._plant_overview_offset = offset
+        self._refresh_plant_overview_page()
+
+    def _refresh_plant_overview_page(self) -> None:
+        """Rebuild a bounded read-only site inventory from authoritative SQLite."""
+        old_page = self._pages[ShellRoute.PLANT_OVERVIEW]
+        provider = getattr(self._project_service, "plant_overview", None)
+        project_id = self._current_project_id
+        enabled = (
+            self._deployment is DeploymentMode.OFFLINE_DESKTOP
+            and project_id is not None and callable(provider)
+        )
+        overview = (
+            provider(project_id, offset=self._plant_overview_offset, limit=100)
+            if enabled else None
+        )
+        new_page = make_plant_overview_page(
+            current_project_id=project_id if self._deployment is DeploymentMode.OFFLINE_DESKTOP else None,
+            overview=overview,
+            on_refresh=(
+                (lambda source=project_id:
+                    self._load_plant_overview_page(source, self._plant_overview_offset))
+                if enabled else None
+            ),
+            on_page_requested=(
+                (lambda offset, source=project_id:
+                    self._load_plant_overview_page(source, offset))
+                if enabled else None
+            ),
+        )
+        self._pages[ShellRoute.PLANT_OVERVIEW] = new_page
+        index = self._stack.indexOf(old_page)
+        self._stack.insertWidget(index, new_page)
+        if self._stack.currentWidget() is old_page:
+            self._stack.setCurrentWidget(new_page)
+        self._stack.removeWidget(old_page)
+        old_page.deleteLater()
 
     def _clear_prepared_draft(self) -> None:
         """Discard stale report previews and their export authorization context."""
@@ -506,6 +556,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._clear_prepared_draft()
         self._refresh_review_page()
         self._refresh_processing_page()
+        self._refresh_plant_overview_page()
         self._refresh_report_page()
         self._refresh_export_page()
         self.apply_workflow_state(state)
@@ -1032,9 +1083,11 @@ class SolarCheckMainWindow(QMainWindow):
         )
         self._last_import_attempt = attempt
         self._last_review_status = None
+        self._plant_overview_offset = 0
         self._clear_prepared_draft()
         self._refresh_import_page()
         self._refresh_processing_page()
+        self._refresh_plant_overview_page()
         self._refresh_review_page()
         self._refresh_report_page()
         self._refresh_export_page()
