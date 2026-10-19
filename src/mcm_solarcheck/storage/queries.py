@@ -70,6 +70,22 @@ class FindingRecord:
     temperature_provider: str | None = None
 
 @dataclass(frozen=True)
+class ModuleEvidenceRecord:
+    """One observed module, not a confirmed unique physical PV-module identity."""
+    module_id: str
+    frame_id: str
+    detector: str
+    detection_confidence: float | None
+    proposed_physical_id: str | None
+    identity_status: str | None
+    findings: int
+    unreviewed: int
+    confirmed: int
+    rejected: int
+    unclear: int
+
+
+@dataclass(frozen=True)
 class ModuleIdentityRecord:
     frame_id:str
     local_module_id:str
@@ -129,6 +145,71 @@ class InspectionQueries:
                 for row in rows
             ),
         )
+    def module_evidence_page(
+        self, project_id: str, *, limit: int = 100, offset: int = 0,
+    ) -> tuple[ModuleEvidenceRecord, ...]:
+        """Read a bounded page of local module observations and review counts.
+
+        The grouping is per persisted local module ID and is strictly scoped
+        by project. A geometric identity suggestion never becomes a verified
+        physical assignment merely because it is stored.
+        """
+        if type(limit) is not int or not (1 <= limit <= 100):
+            raise ValueError("module page limit must be between 1 and 100")
+        if type(offset) is not int or offset < 0:
+            raise ValueError("module page offset must be a non-negative integer")
+        sql = """
+            SELECT m.module_id, m.frame_id, m.detector, m.detection_confidence,
+                   i.physical_module_id AS proposed_physical_id,
+                   i.status AS identity_status,
+                   COALESCE(f.total, 0) AS findings,
+                   COALESCE(f.unreviewed, 0) AS unreviewed,
+                   COALESCE(f.confirmed, 0) AS confirmed,
+                   COALESCE(f.rejected, 0) AS rejected,
+                   COALESCE(f.unclear, 0) AS unclear
+              FROM pv_modules AS m
+              LEFT JOIN module_identity_links AS i
+                ON i.project_id=m.project_id AND i.frame_id=m.frame_id
+               AND i.local_module_id=m.module_id
+              LEFT JOIN (
+                SELECT project_id,module_id,COUNT(*) AS total,
+                       SUM(CASE WHEN reviewer_status='unreviewed' THEN 1 ELSE 0 END)
+                         AS unreviewed,
+                       SUM(CASE WHEN reviewer_status='confirmed' THEN 1 ELSE 0 END)
+                         AS confirmed,
+                       SUM(CASE WHEN reviewer_status='rejected' THEN 1 ELSE 0 END)
+                         AS rejected,
+                       SUM(CASE WHEN reviewer_status='unclear' THEN 1 ELSE 0 END)
+                         AS unclear
+                  FROM findings
+                 WHERE project_id=? AND module_id IS NOT NULL
+                 GROUP BY project_id,module_id
+              ) AS f ON f.project_id=m.project_id AND f.module_id=m.module_id
+             WHERE m.project_id=?
+             ORDER BY m.module_id,m.frame_id
+             LIMIT ? OFFSET ?
+        """
+        with self.database.connect() as db:
+            rows = db.execute(sql, (project_id, project_id, limit, offset)).fetchall()
+        return tuple(ModuleEvidenceRecord(**dict(row)) for row in rows)
+
+    def unassigned_module_findings(self, project_id: str) -> int:
+        """Count findings not linked to any local module in the same project."""
+        with self.database.connect() as db:
+            row = db.execute("""
+                SELECT COUNT(*) FROM findings AS f
+                 WHERE f.project_id=?
+                   AND (
+                     f.module_id IS NULL OR TRIM(f.module_id)=''
+                     OR NOT EXISTS (
+                        SELECT 1 FROM pv_modules AS m
+                         WHERE m.project_id=f.project_id
+                           AND m.module_id=f.module_id
+                     )
+                   )
+            """, (project_id,)).fetchone()
+        return int(row[0])
+
     def module_identities(self,project_id:str,*,physical_module_id:str|None=None)->tuple[ModuleIdentityRecord,...]:
         sql='SELECT frame_id,local_module_id,physical_module_id,status,normalized_distance FROM module_identity_links WHERE project_id=?'
         params=[project_id]

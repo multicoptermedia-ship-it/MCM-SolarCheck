@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 from mcm_solarcheck.importers.project import ProjectImportResult, import_m3t_project
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
 from mcm_solarcheck.domain.project_profile import ProjectProfile
-from mcm_solarcheck.storage.queries import InspectionQueries, InspectionSummary, ProjectRecord
+from mcm_solarcheck.storage.queries import InspectionQueries, InspectionSummary, ModuleEvidenceRecord, ProjectRecord
 from mcm_solarcheck.services.workflow import ActionAvailability, ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, action_availability, record_attempt, require_action
 from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP, ProductCapabilities, ProductOperation, effective_output_availability
 from mcm_solarcheck.reporting.export import export_report
@@ -27,6 +27,16 @@ class ProjectPipelineSummary:
     findings: int
     unpaired_rgb: int
     unpaired_thermal: int
+
+
+@dataclass(frozen=True)
+class PlantOverview:
+    """Authoritative counts plus a bounded page of local PV module observations."""
+    summary: InspectionSummary
+    modules: tuple[ModuleEvidenceRecord, ...]
+    unassigned_findings: int
+    offset: int
+    limit: int
 
 
 @dataclass(frozen=True)
@@ -241,6 +251,31 @@ class ProjectApplicationService:
         if not any(project.project_id == project_id for project in self.projects()):
             raise KeyError(f"Unknown project: {project_id}")
         return InspectionQueries(self.database).summary(project_id)
+
+    def plant_overview(
+        self, project_id: str, *, offset: int = 0, limit: int = 100,
+    ) -> PlantOverview:
+        """Display persisted local module evidence, never a fabricated site map.
+
+        Exactly the same project boundary and overall counts as Import/Review
+        are reused. Spatial accuracy and unique physical identity are not
+        inferred from image-local detector labels.
+        """
+        if type(limit) is not int or not (1 <= limit <= 100):
+            raise ValueError("module page limit must be between 1 and 100")
+        if type(offset) is not int or offset < 0:
+            raise ValueError("module page offset must be a non-negative integer")
+        summary = self.import_summary(project_id)
+        queries = InspectionQueries(self.database)
+        return PlantOverview(
+            summary=summary,
+            modules=queries.module_evidence_page(
+                project_id, offset=offset, limit=limit,
+            ),
+            unassigned_findings=queries.unassigned_module_findings(project_id),
+            offset=offset,
+            limit=limit,
+        )
 
     def processing_overview(self, project_id: str) -> ProjectProcessingOverview:
         """Read the authoritative SQLite evidence and existing workflow gates.
