@@ -1,30 +1,33 @@
-"""Qt background worker for read-only RGB integrity scanning."""
+"""Cancellable Qt thread for read-only local RGB working-array integrity scans.
+
+The QThread object remains owned by the GUI thread. Only run() executes in the
+background; the shared service has no Qt widget dependencies.
+"""
 import threading
 
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QThread, Signal
 
 from mcm_solarcheck.services.flight_rgb_integrity_scan import (
     IntegrityScanCancelled, scan_rgb_integrity,
 )
 
 
-class FlightRgbIntegrityWorker(QObject):
+class FlightRgbIntegrityThread(QThread):
     progress = Signal(int, int, str)
-    finished = Signal(object)
+    result_ready = Signal(object)
     failed = Signal(str)
     cancelled = Signal()
-    completed = Signal()
 
-    def __init__(self, source_folder, output_folder):
-        super().__init__()
+    def __init__(self, source_folder, output_folder, parent=None):
+        super().__init__(parent)
         self.source_folder = source_folder
         self.output_folder = output_folder
         self._stop = threading.Event()
 
     def request_cancel(self):
+        """Signal cancellation without relying on a blocked Qt event loop."""
         self._stop.set()
 
-    @Slot()
     def run(self):
         try:
             result = scan_rgb_integrity(
@@ -38,6 +41,4 @@ class FlightRgbIntegrityWorker(QObject):
         except (ValueError, OSError, TypeError) as exc:
             self.failed.emit(str(exc))
         else:
-            self.finished.emit(result)
-        finally:
-            self.completed.emit()
+            self.result_ready.emit(result)
