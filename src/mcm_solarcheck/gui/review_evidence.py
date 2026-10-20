@@ -18,7 +18,8 @@ def _number(value: int | float | None, *, decimals: int = 3) -> str:
     try:
         if not isfinite(float(value)):
             return "nicht erfasst"
-        return f"{value:.{decimals}f}".rstrip("0").rstrip(".")
+        formatted = f"{value:.{decimals}f}"
+        return formatted.rstrip("0").rstrip(".") if "." in formatted else formatted
     except (TypeError, ValueError, OverflowError):
         return "nicht erfasst"
 
