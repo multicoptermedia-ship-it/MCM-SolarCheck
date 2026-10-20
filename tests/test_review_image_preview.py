@@ -313,3 +313,115 @@ def test_checksum_gating_never_writes_review_or_source_files(tmp_path):
             "SELECT reviewer_status FROM findings WHERE project_id='P1' "
             "AND finding_id='F1'",
         ).fetchone()[0] == "unreviewed"
+
+
+def set_matching_thermal_geometry(service, project="P1", *, size=(1200, 800), point=(600, 400)):
+    with service.database.connect() as db:
+        db.execute(
+            "UPDATE thermal_frames SET width=?, height=? "
+            "WHERE project_id=? AND frame_id='T1'",
+            (*size, project),
+        )
+        db.execute(
+            "UPDATE findings SET pixel_x=?, pixel_y=? "
+            "WHERE project_id=? AND finding_id='F1'",
+            (*point, project),
+        )
+
+
+def set_matching_rgb_geometry(service, *, size=(1200, 800), point=(600.0, 400.0), validated=1):
+    with service.database.connect() as db:
+        db.execute(
+            "UPDATE image_frames SET width=?, height=? "
+            "WHERE project_id='P1' AND frame_id='V1'",
+            size,
+        )
+        db.execute(
+            "UPDATE finding_sensor_links SET rgb_pixel_x=?, rgb_pixel_y=?, "
+            "transform_validated=? WHERE project_id='P1' AND finding_id='F1'",
+            (*point, validated),
+        )
+
+
+def preview_center_color(png):
+    with Image.open(BytesIO(png)) as image:
+        return image.getpixel((image.width // 2, image.height // 2))
+
+
+def test_thermal_marker_uses_real_saved_pixel_only_at_matching_dimensions(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(90, 100, 110))
+    baseline = service.preview_review_image_evidence("P1", "F1", root)
+    assert baseline.thermal_marker == "different_geometry"
+    assert preview_center_color(baseline.thermal_png) != (57, 243, 189)
+
+    set_matching_thermal_geometry(service)
+    located = service.preview_review_image_evidence("P1", "F1", root)
+    assert located.thermal_marker == "marked"
+    assert preview_center_color(located.thermal_png) == (57, 243, 189)
+    assert located.thermal_integrity == "unverified"
+    assert located.rgb_marker == "unavailable"
+    # A locator never updates inspection conclusions or original bytes.
+    assert service.import_summary("P1").unreviewed_findings == 1
+
+
+def test_rgb_marker_requires_validated_transform_and_native_dimensions(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(90, 100, 110))
+    write_image(root / "V.JPG", color=(50, 60, 70))
+    set_matching_rgb_geometry(service, validated=0)
+    not_validated = service.preview_review_image_evidence("P1", "F1", root)
+    assert not_validated.rgb_marker == "unvalidated"
+    assert preview_center_color(not_validated.rgb_png) != (57, 243, 189)
+    set_matching_rgb_geometry(service, validated=1)
+    validated = service.preview_review_image_evidence("P1", "F1", root)
+    assert validated.rgb_marker == "marked"
+    assert preview_center_color(validated.rgb_png) == (57, 243, 189)
+    assert validated.thermal_marker == "different_geometry"
+    assert service.preview_review_image_evidence("P2", "F1", root).rgb_marker == "unavailable"
+
+
+def test_mismatched_native_geometry_and_out_of_bounds_pixel_never_mark(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(31, 41, 51))
+    set_matching_thermal_geometry(service, size=(640, 512))
+    wrong_dimensions = service.preview_review_image_evidence("P1", "F1", root)
+    assert wrong_dimensions.thermal_marker == "different_geometry"
+    assert preview_center_color(wrong_dimensions.thermal_png) != (57, 243, 189)
+    set_matching_thermal_geometry(service, point=(1200, 10))
+    outside = service.preview_review_image_evidence("P1", "F1", root)
+    assert outside.thermal_marker == "different_geometry"
+    set_matching_thermal_geometry(service, size=(1200, 800), point=(1200, 10))
+    outside = service.preview_review_image_evidence("P1", "F1", root)
+    assert outside.thermal_marker == "outside"
+    with service.database.connect() as db:
+        db.execute(
+            "UPDATE findings SET pixel_x=-1, pixel_y=0 "
+            "WHERE project_id='P1' AND finding_id='F1'"
+        )
+    negative = service.preview_review_image_evidence("P1", "F1", root)
+    assert negative.thermal_marker == "outside"
+
+
+def test_exif_rotated_thermal_jpeg_is_not_marked_without_coordinate_transform(tmp_path):
+    service, root = sample(tmp_path)
+    set_matching_thermal_geometry(service)
+    rotated = Image.new("RGB", (1200, 800), (26, 36, 46))
+    exif = Image.Exif()
+    exif[274] = 6
+    rotated.save(root / "T.JPG", format="JPEG", exif=exif)
+    evidence = service.preview_review_image_evidence("P1", "F1", root)
+    assert evidence.thermal_marker == "orientation"
+    assert evidence.thermal_png is not None
+    assert preview_center_color(evidence.thermal_png) != (57, 243, 189)
+
+
+def test_mismatched_sha_blocks_image_and_locator_even_if_geometry_matches(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(25, 35, 45))
+    set_matching_thermal_geometry(service)
+    stored_checksum(service, "P1", "T1", "thermal", "0" * 64)
+    result = service.preview_review_image_evidence("P1", "F1", root)
+    assert result.thermal_integrity == "mismatch"
+    assert result.thermal_marker == "unavailable"
+    assert result.thermal_png is None
