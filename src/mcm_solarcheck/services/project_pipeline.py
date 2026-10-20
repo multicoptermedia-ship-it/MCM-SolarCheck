@@ -462,6 +462,15 @@ class ProjectApplicationService:
 
 
 
+    def expert_review_history(
+        self, project_id: str, *, limit: int = 25, offset: int = 0,
+    ):
+        """Read-only, project-scoped audit trail of explicit human decisions."""
+        self.import_summary(project_id)  # Fail on an unknown project.
+        return InspectionQueries(self.database).expert_review_history(
+            project_id, limit=limit, offset=offset,
+        )
+
     def pending_review_findings(
         self, project_id: str, *, limit: int = 50, offset: int = 0,
     ):

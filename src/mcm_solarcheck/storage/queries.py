@@ -70,6 +70,26 @@ class FindingRecord:
     temperature_provider: str | None = None
 
 @dataclass(frozen=True)
+class ExpertReviewAuditRecord:
+    """Actual persisted human review event, never the current model prediction."""
+    review_id: int
+    finding_id: str
+    status: str
+    reviewer: str
+    reviewed_at_utc: str
+    note: str | None
+    thermal_frame_id: str
+    module_id: str | None
+
+
+@dataclass(frozen=True)
+class ExpertReviewHistory:
+    total: int
+    offset: int
+    entries: tuple[ExpertReviewAuditRecord, ...]
+
+
+@dataclass(frozen=True)
 class ModuleEvidenceRecord:
     """One observed module, not a confirmed unique physical PV-module identity."""
     module_id: str
@@ -217,6 +237,43 @@ class InspectionQueries:
         sql+=' ORDER BY physical_module_id,frame_id,local_module_id'
         with self.database.connect() as db:rows=db.execute(sql,tuple(params)).fetchall()
         return tuple(ModuleIdentityRecord(**dict(row)) for row in rows)
+    def expert_review_history(
+        self, project_id: str, *, limit: int = 25, offset: int = 0,
+    ) -> ExpertReviewHistory:
+        """Read bounded, latest-first persisted audit events for one project.
+
+        An audit event may be older than the finding's current status. Never
+        substitute the present status for the immutable historic decision.
+        """
+        if type(limit) is not int or not 1 <= limit <= 50:
+            raise ValueError("review history limit must be 1 through 50")
+        if type(offset) is not int or offset < 0:
+            raise ValueError("review history offset must be nonnegative")
+        with self.database.connect() as db:
+            total = int(db.execute(
+                "SELECT COUNT(*) FROM finding_reviews WHERE project_id=?",
+                (project_id,),
+            ).fetchone()[0])
+            rows = db.execute(
+                """
+                SELECT a.review_id, a.finding_id, a.status, a.reviewer,
+                       a.reviewed_at_utc, a.note,
+                       f.thermal_frame_id, f.module_id
+                  FROM finding_reviews AS a
+                  JOIN findings AS f
+                    ON f.project_id=a.project_id
+                   AND f.finding_id=a.finding_id
+                 WHERE a.project_id=?
+                 ORDER BY a.review_id DESC
+                 LIMIT ? OFFSET ?
+                """,
+                (project_id, limit, offset),
+            ).fetchall()
+        return ExpertReviewHistory(
+            total, offset,
+            tuple(ExpertReviewAuditRecord(**dict(row)) for row in rows),
+        )
+
     def findings(self,project_id:str,*,reviewer_status:str|None=None,confirmed_only:bool=False,limit:int|None=None,offset:int=0)->tuple[FindingRecord,...]:
         if confirmed_only and reviewer_status is not None:raise ValueError('Use either confirmed_only or reviewer_status, not both')
         if limit is not None and (type(limit) is not int or limit < 1):
