@@ -629,12 +629,45 @@ class SolarCheckMainWindow(QMainWindow):
         self._review_offset = offset
         self._refresh_review_page()
 
+    def _preview_review_images(
+        self, source_project: str, finding_id: str, local_folder: str,
+    ) -> tuple[bytes | None, bytes | None] | None:
+        """Read thumbnails only for the active offline review page.
+
+        Errors never echo selected or persisted customer paths into Qt.
+        """
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._project_service is None
+            or source_project != self._current_project_id
+        ):
+            return None
+        provider = getattr(self._project_service, "preview_review_images", None)
+        if not callable(provider):
+            return None
+        try:
+            # A stale widget from another review page cannot read another
+            # finding. The IDs and page boundary originate from SQLite.
+            active = self._project_service.pending_review_findings(
+                source_project, limit=MAX_REVIEW_PAGE_FINDINGS,
+                offset=self._review_offset,
+            )
+            if finding_id not in (item.finding_id for item in active):
+                return None
+            images = provider(source_project, finding_id, local_folder)
+        except (KeyError, PermissionError, ValueError, TypeError, OSError):
+            images = (None, None)
+        if source_project != self._current_project_id:
+            return None
+        return images
+
     def _refresh_review_page(self) -> None:
         """Build one project-specific page of persisted, unreviewed findings."""
         old_page = self._pages[ShellRoute.REVIEW]
         overview_provider = getattr(self._project_service, "processing_overview", None)
         queue_provider = getattr(self._project_service, "pending_review_findings", None)
         action_provider = getattr(self._project_service, "review_pending_finding", None)
+        preview_provider = getattr(self._project_service, "preview_review_images", None)
         # Online access requires a separate ownership-scoped adapter; do not
         # expose this local expert-review action through an online shell.
         offline = self._deployment is DeploymentMode.OFFLINE_DESKTOP
@@ -677,6 +710,11 @@ class SolarCheckMainWindow(QMainWindow):
                 if enabled else None
             ),
             offset=self._review_offset if enabled else 0,
+            on_preview_images=(
+                (lambda finding_id, folder, source=project_id:
+                 self._preview_review_images(source, finding_id, folder))
+                if enabled and callable(preview_provider) else None
+            ),
             last_review_status=self._last_review_status if offline else None,
         )
         self._pages[ShellRoute.REVIEW] = new_page

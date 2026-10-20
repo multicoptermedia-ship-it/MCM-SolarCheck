@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QComboBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QPlainTextEdit, QPushButton, QVBoxLayout, QWidget,
 )
 
@@ -16,7 +17,7 @@ MAX_REVIEW_PAGE_FINDINGS = 50
 def make_review_page(
     parent=None, *, current_project_id=None, overview=None, pending=(),
     on_review=None, on_refresh=None, last_review_status=None,
-    offset=0, on_page_requested=None,
+    offset=0, on_page_requested=None, on_preview_images=None,
 ):
     """Present expert choices; never classify or approve a report automatically."""
     page = QWidget(parent)
@@ -109,6 +110,89 @@ def make_review_page(
         )
 
     finding_list.itemSelectionChanged.connect(update_evidence)
+
+    preview_button = QPushButton(
+        "RGB-/Thermal-Vorschau aus lokalem Flugordner öffnen …", page,
+    )
+    preview_button.setObjectName("review_preview_images_button")
+    preview_button.setEnabled(False)
+    layout.addWidget(preview_button)
+    preview_status = QLabel(
+        "Bildvorschau nur nach bewusst gewähltem lokalem Flugordner. "
+        "Keine Originalbild-Verifizierung, Thermokalibrierung oder Diagnose.",
+        page,
+    )
+    preview_status.setObjectName("review_preview_images_status")
+    preview_status.setTextFormat(Qt.TextFormat.PlainText)
+    preview_status.setWordWrap(True)
+    layout.addWidget(preview_status)
+    preview_row = QHBoxLayout()
+    thermal_preview = QLabel("Thermal: kein Bild geladen", page)
+    thermal_preview.setObjectName("review_preview_thermal")
+    rgb_preview = QLabel("RGB: kein Bild geladen", page)
+    rgb_preview.setObjectName("review_preview_rgb")
+    for display in (thermal_preview, rgb_preview):
+        display.setTextFormat(Qt.TextFormat.PlainText)
+        display.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        display.setMinimumHeight(150)
+        display.setWordWrap(True)
+        display.setAccessibleDescription(
+            "Sichtbild-Vorschau, keine Temperaturmessung oder geprüfte "
+            "räumliche Zuordnung; ausschließlich lokale Originaldateien."
+        )
+        preview_row.addWidget(display, 1)
+    layout.addLayout(preview_row)
+
+    def reset_image_preview():
+        thermal_preview.clear()
+        thermal_preview.setText("Thermal: kein Bild geladen")
+        rgb_preview.clear()
+        rgb_preview.setText("RGB: kein Bild geladen")
+        preview_status.setText(
+            "Für die Bildvorschau bitte ausdrücklich einen lokalen Flugordner wählen."
+        )
+        preview_button.setEnabled(bool(
+            on_preview_images is not None and finding_list.currentItem() is not None
+        ))
+
+    def load_preview():
+        selected = finding_list.currentItem()
+        if selected is None or not preview_button.isEnabled():
+            return
+        finding_id = selected.data(Qt.ItemDataRole.UserRole)
+        folder = QFileDialog.getExistingDirectory(
+            page, "Lokalen Flugordner mit RGB-/Thermalbildern auswählen",
+        )
+        if not folder:
+            return
+        # A modal dialog may change selection or active project while open.
+        if finding_list.currentItem() is not selected:
+            return
+        result = on_preview_images(finding_id, folder)
+        if result is None or finding_list.currentItem() is not selected:
+            return
+        for payload, target, prefix in zip(
+            result, (thermal_preview, rgb_preview), ("Thermal", "RGB"),
+        ):
+            target.clear()
+            frame = QPixmap()
+            if payload is not None and frame.loadFromData(payload, "PNG"):
+                target.setPixmap(frame.scaled(
+                    320, 210, Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                ))
+            else:
+                target.setText(prefix + ": Bild nicht verfügbar")
+        preview_status.setText(
+            "Sichtbilder aus dem ausdrücklich ausgewählten lokalen Ordner. "
+            "RGB nur bei gespeicherter Verknüpfung; Thermal-JPEG ist kein "
+            "radiometrischer Messwert. Originaldateien wurden nicht verändert."
+        )
+
+    finding_list.itemSelectionChanged.connect(reset_image_preview)
+    if on_preview_images is not None:
+        preview_button.clicked.connect(load_preview)
+
 
     # Pagination is read-only; only explicitly submitted decisions persist.
     navigation = QHBoxLayout()
