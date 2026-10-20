@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 )
 
 from mcm_solarcheck.review.findings import ReviewStatus
+from mcm_solarcheck.gui.review_evidence import review_evidence_text
 
 MAX_REVIEW_PAGE_FINDINGS = 50
 
@@ -66,6 +67,7 @@ def make_review_page(
     finding_list.setAccessibleDescription(
         "Nur aktuell gespeicherte, noch nicht fachlich entschiedene Befunde."
     )
+    records = {finding.finding_id: finding for finding in pending}
     for finding in pending:
         module = finding.module_id or "nicht zugeordnet"
         item = QListWidgetItem(
@@ -75,6 +77,38 @@ def make_review_page(
         item.setData(Qt.ItemDataRole.UserRole, finding.finding_id)
         finding_list.addItem(item)
     layout.addWidget(finding_list)
+
+    evidence = QLabel(
+        "Bitte einen offenen Befund auswählen, um die gespeicherten "
+        "Einzelnachweise zu sehen.",
+        page,
+    )
+    evidence.setObjectName("review_selected_evidence")
+    evidence.setTextFormat(Qt.TextFormat.PlainText)
+    evidence.setTextInteractionFlags(
+        Qt.TextInteractionFlag.TextSelectableByMouse
+    )
+    evidence.setWordWrap(True)
+    evidence.setAccessibleDescription(
+        "Nur gespeicherte Einzelbefunddaten; keine automatische Kalibrierung, "
+        "Bildvalidierung, Diagnose oder Freigabe."
+    )
+    layout.addWidget(evidence)
+
+    def update_evidence():
+        item = finding_list.currentItem()
+        record = (
+            records.get(item.data(Qt.ItemDataRole.UserRole))
+            if item is not None else None
+        )
+        evidence.setText(
+            review_evidence_text(record)
+            if record is not None else
+            "Bitte einen offenen Befund auswählen, um die gespeicherten "
+            "Einzelnachweise zu sehen."
+        )
+
+    finding_list.itemSelectionChanged.connect(update_evidence)
 
     # Pagination is read-only; only explicitly submitted decisions persist.
     navigation = QHBoxLayout()
@@ -118,6 +152,7 @@ def make_review_page(
         "Eine Bestätigung ist eine fachliche Entscheidung über einen gespeicherten "
         "Kandidaten, keine automatische Diagnose. Fehlende Modulzuordnung, "
         "Temperaturkalibrierung und Berichtfreigabe bleiben gesonderte Prüfschritte. "
+        "Die Detailansicht zeigt gespeicherte Werte, keine Originalbilder. "
         "Die Liste zeigt jeweils eine begrenzte Seite offener Befunde.",
         page,
     )
