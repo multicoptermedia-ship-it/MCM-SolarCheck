@@ -199,3 +199,122 @@ def test_online_shell_has_no_unscoped_offline_report_or_export(qt_app, tmp_path)
         ).isEnabled()
     finally:
         online.close()
+
+
+@pytest.mark.parametrize("format_name", ("pdf", "odt", "docx"))
+def test_draft_export_status_does_not_show_private_save_path(
+    tmp_path, qt_app, monkeypatch, format_name,
+):
+    """Actual Qt -> application service -> local renderer, with path-free UI."""
+    window = seeded_window(tmp_path)
+    private_name = f"PRIVATER_KUNDENNAME-Berichtsentwurf.{format_name}"
+    destination = tmp_path / private_name
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName",
+        lambda *args, **kwargs: (str(destination), f"*.{format_name}"),
+    )
+    try:
+        window._prepare_report_draft(
+            "P1", "ENTWURF-PRIVAT", datetime(2026, 10, 19, 12, tzinfo=timezone.utc),
+        )
+        assert window._draft_report is not None
+        window.show_route(ShellRoute.EXPORT)
+        formats = window._pages[ShellRoute.EXPORT].findChild(
+            QComboBox, "draft_export_format",
+        )
+        formats.setCurrentIndex(formats.findData(format_name))
+        button = window._pages[ShellRoute.EXPORT].findChild(
+            QPushButton, "export_report_draft",
+        )
+        assert button.isEnabled()
+        assert not destination.exists()
+        button.click()
+        assert destination.is_file()
+        status = window._pages[ShellRoute.EXPORT].findChild(
+            QLabel, "report_export_status",
+        ).text()
+        assert "lokal gespeichert" in status
+        assert "draft" in status
+        assert private_name not in status
+        assert str(destination) not in status
+        assert str(tmp_path) not in status
+        assert window._draft_report.release_status == "draft"
+
+        original = destination.read_bytes()
+        window._pages[ShellRoute.EXPORT].findChild(
+            QPushButton, "export_report_draft",
+        ).click()
+        assert destination.read_bytes() == original
+        status = window._pages[ShellRoute.EXPORT].findChild(
+            QLabel, "report_export_status",
+        ).text()
+        assert "nicht gespeichert" in status
+        assert private_name not in status
+        assert str(destination) not in status
+        assert str(tmp_path) not in status
+    finally:
+        window.close()
+
+
+def test_draft_export_errors_never_copy_exception_text_to_qt(
+    tmp_path, qt_app, monkeypatch,
+):
+    window = seeded_window(tmp_path)
+    sentinel = "VERTRAULICHER_KUNDENPFAD"
+    dest = tmp_path / f"{sentinel}.pdf"
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName",
+        lambda *args, **kwargs: (str(dest), "*.pdf"),
+    )
+    try:
+        started = datetime(2026, 10, 19, 12, tzinfo=timezone.utc)
+        window._prepare_report_draft("P1", "R", started)
+        service = window._project_service
+        def disk_failure(*args, **kwargs):
+            raise OSError(f"{sentinel}: {dest}")
+        monkeypatch.setattr(service, "export_offline_draft", disk_failure)
+        window._export_offline_draft("P1", "pdf")
+        assert not dest.exists()
+        text = window._pages[ShellRoute.EXPORT].findChild(
+            QLabel, "report_export_status",
+        ).text()
+        assert "nicht gespeichert" in text
+        assert sentinel not in text
+        assert str(dest) not in text
+        assert window._draft_report.release_status == "draft"
+
+        def preparation_failure(*args, **kwargs):
+            raise ValueError(f"{sentinel}: {dest}")
+        monkeypatch.setattr(service, "prepare_report", preparation_failure)
+        window._export_offline_draft("P1", "pdf")
+        assert window._draft_report is None
+        text = window._pages[ShellRoute.EXPORT].findChild(
+            QLabel, "report_export_status",
+        ).text()
+        assert "gesperrt" in text
+        assert sentinel not in text
+        assert str(dest) not in text
+        assert not dest.exists()
+    finally:
+        window.close()
+
+
+def test_cancelled_save_dialog_does_not_write_or_change_preview(
+    tmp_path, qt_app, monkeypatch,
+):
+    window = seeded_window(tmp_path)
+    target = tmp_path / "must-not-exist.pdf"
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *args, **kwargs: ("", "*.pdf"),
+    )
+    try:
+        window._prepare_report_draft(
+            "P1", "R-CANCEL", datetime(2026, 10, 19, 12, tzinfo=timezone.utc),
+        )
+        draft = window._draft_report
+        window._export_offline_draft("P1", "pdf")
+        assert window._draft_report is draft
+        assert window._last_export_status is None
+        assert not target.exists()
+    finally:
+        window.close()
