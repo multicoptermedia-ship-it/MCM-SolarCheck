@@ -249,3 +249,53 @@ def test_online_shell_rejects_local_export_even_with_a_stale_snapshot(
         assert not destination.exists()
     finally:
         window.close()
+
+
+def test_close_pending_disables_button_and_prevents_stale_export(
+    offline_window, tmp_path, monkeypatch,
+):
+    """A closing import window cannot create a diagnostic via an old callback."""
+    destination = tmp_path / f"{PRIVATE_CUSTOMER}-schliessend.json"
+    choices = choose_destination(monkeypatch, destination)
+    assert export_button(offline_window).isEnabled()
+
+    offline_window._import_close_pending = True
+    offline_window._refresh_import_page()
+    try:
+        assert not export_button(offline_window).isEnabled()
+        export_button(offline_window).click()
+        assert choices == []
+        offline_window._save_import_metrics(PRIVATE_PROJECT, str(destination))
+        assert not destination.exists()
+        assert PRIVATE_CUSTOMER not in import_page_text(offline_window)
+    finally:
+        offline_window._import_close_pending = False
+        offline_window._refresh_import_page()
+
+    # With an active, correctly bound project again, explicit export works.
+    assert export_button(offline_window).isEnabled()
+    export_button(offline_window).click()
+    assert choices == [True]
+    assert destination.is_file()
+    assert PRIVATE_CUSTOMER not in destination.read_text(encoding="utf-8")
+
+
+def test_active_worker_blocks_direct_and_button_metrics_export(
+    offline_window, tmp_path, monkeypatch,
+):
+    """Do not bypass the running-import lifecycle gate using a saved snapshot."""
+    destination = tmp_path / f"{PRIVATE_CUSTOMER}-aktiver-import.json"
+    choices = choose_destination(monkeypatch, destination)
+    assert export_button(offline_window).isEnabled()
+    offline_window._import_thread = object()
+    offline_window._refresh_import_page()
+    try:
+        assert not export_button(offline_window).isEnabled()
+        export_button(offline_window).click()
+        offline_window._save_import_metrics(PRIVATE_PROJECT, str(destination))
+        assert choices == []
+        assert not destination.exists()
+        assert PRIVATE_CUSTOMER not in import_page_text(offline_window)
+    finally:
+        offline_window._import_thread = None
+        offline_window._refresh_import_page()
