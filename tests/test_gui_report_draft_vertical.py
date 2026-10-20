@@ -318,3 +318,98 @@ def test_cancelled_save_dialog_does_not_write_or_change_preview(
         assert not target.exists()
     finally:
         window.close()
+
+
+def test_modal_project_switch_blocks_stale_report(tmp_path, qt_app, monkeypatch):
+    window = seeded_window(tmp_path)
+    target = tmp_path / "PRIVATER_KUNDENNAME-P1.pdf"
+    try:
+        window._prepare_report_draft(
+            "P1", "OLD", datetime(2026, 10, 19, 12, tzinfo=timezone.utc),
+        )
+        def change_project(*_a, **_k):
+            window._open_project("P2")
+            return str(target), "*.pdf"
+        monkeypatch.setattr(QFileDialog, "getSaveFileName", change_project)
+        window._export_offline_draft("P1", "pdf")
+        assert window.current_project_id == "P2"
+        assert window._draft_report is None
+        assert window._last_export_status is None
+        assert not target.exists()
+    finally:
+        window.close()
+
+
+def test_modal_replacement_draft_cannot_export_previous_preview(
+    tmp_path, qt_app, monkeypatch,
+):
+    window = seeded_window(tmp_path)
+    target = tmp_path / "PRIVATER_KUNDENNAME-OLD.pdf"
+    started = datetime(2026, 10, 19, 12, tzinfo=timezone.utc)
+    try:
+        window._prepare_report_draft("P1", "OLD", started)
+        def prepare_new(*_a, **_k):
+            window._prepare_report_draft("P1", "NEW", started)
+            return str(target), "*.pdf"
+        monkeypatch.setattr(QFileDialog, "getSaveFileName", prepare_new)
+        window._export_offline_draft("P1", "pdf")
+        assert not target.exists()
+        assert window._draft_report is not None
+        assert window._draft_report.report_id == "NEW"
+        assert window._last_export_status is None
+    finally:
+        window.close()
+
+
+def test_modal_evidence_change_requires_new_draft(tmp_path, qt_app, monkeypatch):
+    window = seeded_window(tmp_path)
+    target = tmp_path / "PRIVATER_KUNDENNAME-changed.pdf"
+    try:
+        window._prepare_report_draft(
+            "P1", "OLD", datetime(2026, 10, 19, 12, tzinfo=timezone.utc),
+        )
+        def change_profile(*_a, **_k):
+            window._project_service.database.save_project_profile(
+                "P1", ProjectProfile(
+                    "Kunde", "Solarpark geaendert", "Strasse 1", "50667",
+                    "Koeln", "Prueferin", site_timezone="Europe/Berlin",
+                ),
+            )
+            return str(target), "*.pdf"
+        monkeypatch.setattr(QFileDialog, "getSaveFileName", change_profile)
+        window._export_offline_draft("P1", "pdf")
+        assert not target.exists()
+        assert window._draft_report is None
+        assert window._draft_request is None
+        message = window._pages[ShellRoute.EXPORT].findChild(
+            QLabel, "report_export_status",
+        ).text()
+        assert "gesperrt" in message
+        assert "PRIVATER_KUNDENNAME" not in message
+    finally:
+        window.close()
+
+
+def test_relative_report_destination_fails_without_implicit_cwd_path(
+    tmp_path, qt_app, monkeypatch,
+):
+    window = seeded_window(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    target = tmp_path / "PRIVATER_KUNDENNAME-relative.pdf"
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName",
+        lambda *_a, **_k: (target.name, "*.pdf"),
+    )
+    try:
+        window._prepare_report_draft(
+            "P1", "READY", datetime(2026, 10, 19, 12, tzinfo=timezone.utc),
+        )
+        window._export_offline_draft("P1", "pdf")
+        assert not target.exists()
+        message = window._pages[ShellRoute.EXPORT].findChild(
+            QLabel, "report_export_status",
+        ).text()
+        assert "nicht gespeichert" in message
+        assert "PRIVATER_KUNDENNAME" not in message
+    finally:
+        window.close()
