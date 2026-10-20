@@ -144,6 +144,33 @@ def make_review_page(
         preview_row.addWidget(display, 1)
     layout.addLayout(preview_row)
 
+    detail_header = QLabel(
+        "Befundausschnitt in Originalpixeln (maximal 256 × 256). "
+        "Nur bei eindeutig passender gespeicherter Pixelgeometrie. "
+        "Keine thermometrische Auswertung oder automatische Diagnose.",
+        page,
+    )
+    detail_header.setObjectName("review_preview_detail_header")
+    detail_header.setWordWrap(True)
+    detail_header.setTextFormat(Qt.TextFormat.PlainText)
+    layout.addWidget(detail_header)
+    detail_row = QHBoxLayout()
+    thermal_detail = QLabel("Thermal-Ausschnitt: nicht geladen", page)
+    thermal_detail.setObjectName("review_preview_thermal_detail")
+    rgb_detail = QLabel("RGB-Ausschnitt: nicht geladen", page)
+    rgb_detail.setObjectName("review_preview_rgb_detail")
+    for detail in (thermal_detail, rgb_detail):
+        detail.setTextFormat(Qt.TextFormat.PlainText)
+        detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        detail.setMinimumHeight(160)
+        detail.setWordWrap(True)
+        detail.setAccessibleDescription(
+            "Nur lokale, geometrisch abgesicherte Originalpixel-Ausschnitte. "
+            "Keine Temperaturkalibrierung oder fachliche Beurteilung."
+        )
+        detail_row.addWidget(detail, 1)
+    layout.addLayout(detail_row)
+
     integrity_row = QHBoxLayout()
     thermal_integrity = QLabel("", page)
     thermal_integrity.setObjectName("review_preview_thermal_integrity")
@@ -209,6 +236,10 @@ def make_review_page(
         thermal_preview.setText("Thermal: kein Bild geladen")
         rgb_preview.clear()
         rgb_preview.setText("RGB: kein Bild geladen")
+        thermal_detail.clear()
+        thermal_detail.setText("Thermal-Ausschnitt: nicht geladen")
+        rgb_detail.clear()
+        rgb_detail.setText("RGB-Ausschnitt: nicht geladen")
         thermal_integrity.setText("")
         rgb_integrity.setText("")
         thermal_locator.setText("")
@@ -240,6 +271,7 @@ def make_review_page(
             payloads = (result.thermal_png, result.rgb_png)
             statuses = (result.thermal_integrity, result.rgb_integrity)
             marker_statuses = (result.thermal_marker, result.rgb_marker)
+            details = (result.thermal_detail_png, result.rgb_detail_png)
         else:
             # Legacy/local test callbacks cannot claim a verified file hash.
             payloads = result
@@ -248,6 +280,7 @@ def make_review_page(
                 for payload in payloads
             )
             marker_statuses = ("unavailable", "unavailable")
+            details = (None, None)
         for payload, target, prefix in zip(
             payloads, (thermal_preview, rgb_preview), ("Thermal", "RGB"),
         ):
@@ -260,6 +293,17 @@ def make_review_page(
                 ))
             else:
                 target.setText(prefix + ": Bild nicht verfügbar")
+        for payload, target, prefix in zip(
+            details, (thermal_detail, rgb_detail), ("Thermal", "RGB"),
+        ):
+            target.clear()
+            detail_pixmap = QPixmap()
+            if payload is not None and detail_pixmap.loadFromData(payload, "PNG"):
+                # Pixels from the bounded native-resolution crop. Never
+                # enlarge a tiny or unverifiable image to imply extra detail.
+                target.setPixmap(detail_pixmap)
+            else:
+                target.setText(prefix + "-Ausschnitt: nicht verfügbar")
         for integrity_label, state in zip(
             (thermal_integrity, rgb_integrity), statuses,
         ):
