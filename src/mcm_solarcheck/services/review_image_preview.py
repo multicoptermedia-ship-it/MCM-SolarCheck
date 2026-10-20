@@ -7,9 +7,12 @@ proof that a filename identifies an unchanged original flight image.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+from hashlib import sha256
 from io import BytesIO
 import os
 from pathlib import Path
+import re
 import stat
 
 from PIL import Image, ImageOps
@@ -19,6 +22,15 @@ from mcm_solarcheck.storage.sqlite import ProjectDatabase
 MAX_IMAGE_BYTES = 40 * 1024 * 1024
 MAX_IMAGE_PIXELS = 40_000_000
 PREVIEW_SIZE = (640, 420)
+
+
+@dataclass(frozen=True)
+class ReviewImageEvidence:
+    """Memory-only previews and the outcome of optional import-time SHA-256 checks."""
+    thermal_png: bytes | None
+    rgb_png: bytes | None
+    thermal_integrity: str
+    rgb_integrity: str
 
 
 def _name_from_stored_source(source: str | None) -> str | None:
@@ -46,17 +58,19 @@ def _safe_selected_directory(directory: str | Path) -> Path:
     return root
 
 
-def _render_thumbnail(root: Path, stored_source: str | None) -> bytes | None:
+def _render_thumbnail(
+    root: Path, stored_source: str | None, expected_sha256: str | None,
+) -> tuple[bytes | None, str]:
     name = _name_from_stored_source(stored_source)
     if name is None:
-        return None
+        return None, "unavailable"
     path = root / name
     if path.is_symlink():
         raise ValueError("image links are not allowed")
     try:
         details = path.stat()
     except FileNotFoundError:
-        return None
+        return None, "unavailable"
     if not stat.S_ISREG(details.st_mode) or details.st_size > MAX_IMAGE_BYTES:
         raise ValueError("unsupported image file")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
@@ -68,6 +82,26 @@ def _render_thumbnail(root: Path, stored_source: str | None) -> bytes | None:
                 os.fstat(stream.fileno()).st_size > MAX_IMAGE_BYTES
             ):
                 raise ValueError("unsupported image file")
+            if expected_sha256 is not None:
+                # A corrupt stored digest is not proof of an image. Do not
+                # show the same-name replacement in that case.
+                if not isinstance(expected_sha256, str) or not re.fullmatch(
+                    r"[0-9a-fA-F]{64}", expected_sha256,
+                ):
+                    return None, "mismatch"
+                digest = sha256()
+                scanned = 0
+                while chunk := stream.read(1024 * 1024):
+                    scanned += len(chunk)
+                    if scanned > MAX_IMAGE_BYTES:
+                        raise ValueError("image exceeded local byte limit")
+                    digest.update(chunk)
+                if digest.hexdigest() != expected_sha256.lower():
+                    return None, "mismatch"
+                stream.seek(0)
+                integrity = "verified"
+            else:
+                integrity = "unverified"
             with Image.open(stream) as img:
                 if (
                     img.format not in ("JPEG", "PNG")
@@ -80,17 +114,17 @@ def _render_thumbnail(root: Path, stored_source: str | None) -> bytes | None:
                 thumbnail = ImageOps.exif_transpose(img).convert("RGB")
                 payload = BytesIO()
                 thumbnail.save(payload, format="PNG")
-                return payload.getvalue()
+                return payload.getvalue(), integrity
     finally:
         if fd >= 0:
             os.close(fd)
 
 
-def preview_pending_finding_images(
+def preview_pending_finding_image_evidence(
     database: ProjectDatabase, project_id: str, finding_id: str,
     selected_folder: str | Path,
-) -> tuple[bytes | None, bytes | None]:
-    """Return (thermal PNG thumbnail, linked RGB PNG thumbnail).
+) -> ReviewImageEvidence:
+    """Return read-only previews and their per-frame import hash-check statuses.
 
     An unreviewed candidate is read via project-qualified foreign keys. The
     selected folder is unrelated to persisted absolute source paths except for
@@ -104,7 +138,15 @@ def preview_pending_finding_images(
         row = db.execute(
             """
             SELECT t.source_file AS thermal_source,
-                   r.source_file AS rgb_source
+                   r.source_file AS rgb_source,
+                   (SELECT ts.content_sha256 FROM training_samples AS ts
+                     WHERE ts.project_id=f.project_id
+                       AND ts.source_frame_id=t.frame_id
+                       AND ts.modality='thermal') AS thermal_sha256,
+                   (SELECT rs.content_sha256 FROM training_samples AS rs
+                     WHERE rs.project_id=f.project_id
+                       AND rs.source_frame_id=r.frame_id
+                       AND rs.modality='rgb') AS rgb_sha256
               FROM findings AS f
               JOIN thermal_frames AS t
                 ON t.project_id=f.project_id
@@ -126,7 +168,21 @@ def preview_pending_finding_images(
     rgb_name = _name_from_stored_source(row["rgb_source"])
     if thermal_name and rgb_name and thermal_name.casefold() == rgb_name.casefold():
         raise ValueError("ambiguous thermal/RGB filenames")
-    return (
-        _render_thumbnail(root, row["thermal_source"]),
-        _render_thumbnail(root, row["rgb_source"]),
+    thermal, thermal_integrity = _render_thumbnail(
+        root, row["thermal_source"], row["thermal_sha256"],
     )
+    rgb, rgb_integrity = _render_thumbnail(
+        root, row["rgb_source"], row["rgb_sha256"],
+    )
+    return ReviewImageEvidence(thermal, rgb, thermal_integrity, rgb_integrity)
+
+
+def preview_pending_finding_images(
+    database: ProjectDatabase, project_id: str, finding_id: str,
+    selected_folder: str | Path,
+) -> tuple[bytes | None, bytes | None]:
+    """Backwards-compatible thumbnail API; checks any stored image hashes."""
+    evidence = preview_pending_finding_image_evidence(
+        database, project_id, finding_id, selected_folder,
+    )
+    return evidence.thermal_png, evidence.rgb_png

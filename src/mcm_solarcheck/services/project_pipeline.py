@@ -486,6 +486,18 @@ class ProjectApplicationService:
             self.database, project_id, finding_id, selected_folder,
         )
 
+    def preview_review_image_evidence(
+        self, project_id: str, finding_id: str, selected_folder: str | Path,
+    ):
+        """Expose project-gated thumbnails and truthful import-hash status."""
+        self.require(project_id, WorkflowAction.REVIEW)
+        from mcm_solarcheck.services.review_image_preview import (
+            preview_pending_finding_image_evidence,
+        )
+        return preview_pending_finding_image_evidence(
+            self.database, project_id, finding_id, selected_folder,
+        )
+
     def review_pending_finding(
         self, project_id: str, finding_id: str, *,
         status: ReviewStatus, reviewer: str, note: str | None = None,
