@@ -178,3 +178,154 @@ def test_online_shell_does_not_expose_unscoped_local_expert_actions(
         assert not page.findChild(QPushButton, "submit_expert_review").isEnabled()
     finally:
         online.close()
+
+
+
+def test_selected_pending_candidate_displays_stored_evidence_without_auto_review(
+    qt_app, tmp_path,
+):
+    window = build_offline_window(tmp_path / "evidence.sqlite3")
+    service = window._project_service
+    try:
+        service.create_project("P1", "Lokaler Solarpark")
+        service.create_project("P2", "Getrenntes Projekt")
+        seed_finding(service, "P1")
+        seed_finding(service, "P2")
+        service.database.save_findings("P1", (
+            Finding(
+                "F1", "T1", 23, 41, module_id="MOD-PRIV-1",
+                raw_value=18500, raw_delta_from_median=235.0,
+                confidence=0.8, temperature_c=87.5,
+                metadata={"temperature_status": "unvalidated"},
+            ),
+        ))
+        window._open_project("P1")
+        window.show_route(ShellRoute.REVIEW)
+        page = window._pages[ShellRoute.REVIEW]
+        label = page.findChild(QLabel, "review_selected_evidence")
+        findings = page.findChild(QListWidget, "pending_review_findings")
+        assert label is not None
+        assert "Bitte einen offenen Befund auswählen" in label.text()
+        assert review_count(service, "P1") == 0
+        assert review_count(service, "P2") == 0
+
+        findings.setCurrentRow(0)
+        assert "Befund-ID: F1" in label.text()
+        assert "Thermalpixel: x=23, y=41" in label.text()
+        assert "Sensorrohwert (keine °C): 18500" in label.text()
+        assert "Rohwert-Abweichung vom Median: 235" in label.text()
+        assert "Modulbeobachtung: MOD-PRIV-1" in label.text()
+        assert "Temperatur in °C: nicht belegt" in label.text()
+        assert "87.5 °C" not in label.text()
+        assert not page.findChild(QPushButton, "submit_expert_review").isEnabled()
+        assert review_count(service, "P1") == 0
+
+        page.findChild(QLineEdit, "expert_reviewer").setText("Expertin")
+        page.findChild(QComboBox, "expert_decision").setCurrentIndex(1)
+        page.findChild(QPushButton, "submit_expert_review").click()
+        assert review_count(service, "P1") == 1
+        assert review_count(service, "P2") == 0
+        assert service.import_summary("P1").confirmed_findings == 1
+        assert service.import_summary("P2").unreviewed_findings == 1
+        assert "Bitte einen offenen Befund" in window._pages[
+            ShellRoute.REVIEW
+        ].findChild(QLabel, "review_selected_evidence").text()
+    finally:
+        window.close()
+
+
+def test_real_sqlite_calibrated_evidence_only_after_explicit_provenance(
+    qt_app, tmp_path,
+):
+    window = build_offline_window(tmp_path / "calibration.sqlite3")
+    service = window._project_service
+    try:
+        service.create_project("P1", "Fiktiver Test")
+        seed_finding(service, "P1")
+        service.database.save_findings("P1", (
+            Finding(
+                "F2", "T1", 0, 12, module_id=None,
+                raw_value=0, temperature_c=49.25,
+                metadata={
+                    "temperature_status": "calibrated",
+                    "temperature_provider": "synthetic_reference",
+                },
+            ),
+        ))
+        window._open_project("P1")
+        window.show_route(ShellRoute.REVIEW)
+        items = window._pages[ShellRoute.REVIEW].findChild(
+            QListWidget, "pending_review_findings",
+        )
+        assert items.count() == 2
+        items.setCurrentRow(0)
+        missing = window._pages[ShellRoute.REVIEW].findChild(
+            QLabel, "review_selected_evidence",
+        ).text()
+        assert "Temperatur in °C: nicht belegt" in missing
+        items.setCurrentRow(1)
+        calibrated = window._pages[ShellRoute.REVIEW].findChild(
+            QLabel, "review_selected_evidence",
+        ).text()
+        assert "49.25 °C (kalibriert; Quelle: synthetic_reference)" in calibrated
+        assert "Sensorrohwert (keine °C): 0" in calibrated
+        assert "Modulbeobachtung: nicht zugeordnet" in calibrated
+        assert review_count(service, "P1") == 0
+        assert service.import_summary("P1").unreviewed_findings == 2
+    finally:
+        window.close()
+
+
+def test_selected_details_do_not_survive_project_switch_or_online_shell(
+    qt_app, tmp_path,
+):
+    window = build_offline_window(tmp_path / "isolation.sqlite3")
+    service = window._project_service
+    try:
+        service.create_project("P1", "Projekt Eins")
+        service.create_project("P2", "Projekt Zwei")
+        seed_finding(service, "P1")
+        seed_finding(service, "P2")
+        service.database.save_findings("P1", (
+            Finding("F1", "T1", 33, 44, module_id="PROJECT-ONE"),
+        ))
+        window._open_project("P1")
+        window.show_route(ShellRoute.REVIEW)
+        old_page = window._pages[ShellRoute.REVIEW]
+        old_page.findChild(
+            QListWidget, "pending_review_findings",
+        ).setCurrentRow(0)
+        assert "PROJECT-ONE" in old_page.findChild(
+            QLabel, "review_selected_evidence",
+        ).text()
+
+        window._open_project("P2")
+        new_page = window._pages[ShellRoute.REVIEW]
+        label = new_page.findChild(QLabel, "review_selected_evidence")
+        assert "PROJECT-ONE" not in label.text()
+        assert "Bitte einen offenen Befund" in label.text()
+        new_page.findChild(
+            QListWidget, "pending_review_findings",
+        ).setCurrentRow(0)
+        assert "PROJECT-ONE" not in label.text()
+        assert review_count(service, "P1") == 0
+
+        online = SolarCheckMainWindow(
+            DeploymentMode.ONLINE, project_service=service,
+        )
+        try:
+            online._open_project("P1")
+            page = online._pages[ShellRoute.REVIEW]
+            assert page.findChild(
+                QListWidget, "pending_review_findings",
+            ).count() == 0
+            assert "PROJECT-ONE" not in page.findChild(
+                QLabel, "review_selected_evidence",
+            ).text()
+            assert not page.findChild(
+                QPushButton, "submit_expert_review",
+            ).isEnabled()
+        finally:
+            online.close()
+    finally:
+        window.close()
