@@ -10,12 +10,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from io import BytesIO
+from math import isfinite
 import os
 from pathlib import Path
 import re
 import stat
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageDraw, ImageOps
 
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
 
@@ -31,6 +32,8 @@ class ReviewImageEvidence:
     rgb_png: bytes | None
     thermal_integrity: str
     rgb_integrity: str
+    thermal_marker: str = "unavailable"
+    rgb_marker: str = "unavailable"
 
 
 def _name_from_stored_source(source: str | None) -> str | None:
@@ -60,17 +63,20 @@ def _safe_selected_directory(directory: str | Path) -> Path:
 
 def _render_thumbnail(
     root: Path, stored_source: str | None, expected_sha256: str | None,
-) -> tuple[bytes | None, str]:
+    *, expected_size: tuple[int | None, int | None],
+    marker_position: tuple[float | int | None, float | int | None] | None,
+    mapping_validated: bool,
+) -> tuple[bytes | None, str, str]:
     name = _name_from_stored_source(stored_source)
     if name is None:
-        return None, "unavailable"
+        return None, "unavailable", "unavailable"
     path = root / name
     if path.is_symlink():
         raise ValueError("image links are not allowed")
     try:
         details = path.stat()
     except FileNotFoundError:
-        return None, "unavailable"
+        return None, "unavailable", "unavailable"
     if not stat.S_ISREG(details.st_mode) or details.st_size > MAX_IMAGE_BYTES:
         raise ValueError("unsupported image file")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
@@ -88,7 +94,7 @@ def _render_thumbnail(
                 if not isinstance(expected_sha256, str) or not re.fullmatch(
                     r"[0-9a-fA-F]{64}", expected_sha256,
                 ):
-                    return None, "mismatch"
+                    return None, "mismatch", "unavailable"
                 digest = sha256()
                 scanned = 0
                 while chunk := stream.read(1024 * 1024):
@@ -97,7 +103,7 @@ def _render_thumbnail(
                         raise ValueError("image exceeded local byte limit")
                     digest.update(chunk)
                 if digest.hexdigest() != expected_sha256.lower():
-                    return None, "mismatch"
+                    return None, "mismatch", "unavailable"
                 stream.seek(0)
                 integrity = "verified"
             else:
@@ -109,12 +115,58 @@ def _render_thumbnail(
                     or img.width * img.height > MAX_IMAGE_PIXELS
                 ):
                     raise ValueError("unsupported image format or dimensions")
-                # Decode only once, reduce size before expensive RGB expansion.
+                # Persisted thermal pixel coordinates are NOT automatically
+                # the JPEG display coordinates. Only matching native dimensions
+                # and unrotated orientation permit a conservative locator.
+                raw_width, raw_height = img.size
+                orientation = img.getexif().get(274, 1)
                 img.thumbnail(PREVIEW_SIZE)
                 thumbnail = ImageOps.exif_transpose(img).convert("RGB")
+                if not mapping_validated:
+                    marker = "unvalidated"
+                elif (
+                    type(expected_size[0]) is not int
+                    or type(expected_size[1]) is not int
+                    or expected_size != (raw_width, raw_height)
+                ):
+                    marker = "different_geometry"
+                elif orientation != 1:
+                    marker = "orientation"
+                elif marker_position is None or any(
+                    value is None or isinstance(value, bool)
+                    or not isinstance(value, (int, float))
+                    or not isfinite(float(value))
+                    for value in marker_position
+                ):
+                    marker = "outside"
+                else:
+                    x, y = marker_position
+                    if not (0 <= x < raw_width and 0 <= y < raw_height):
+                        marker = "outside"
+                    else:
+                        cx = round((x + 0.5) * thumbnail.width / raw_width)
+                        cy = round((y + 0.5) * thumbnail.height / raw_height)
+                        # A plain sight-image locator, not a diagnostic overlay.
+                        draw = ImageDraw.Draw(thumbnail)
+                        radius = 8
+                        draw.ellipse(
+                            (cx-radius-1, cy-radius-1, cx+radius+1, cy+radius+1),
+                            outline="#101a28", width=4,
+                        )
+                        draw.ellipse(
+                            (cx-radius, cy-radius, cx+radius, cy+radius),
+                            outline="#39f3bd", width=2,
+                        )
+                        draw.line(
+                            (cx-12, cy, cx+12, cy), fill="#39f3bd", width=2,
+                        )
+                        draw.line(
+                            (cx, cy-12, cx, cy+12), fill="#39f3bd", width=2,
+                        )
+                        marker = "marked"
                 payload = BytesIO()
                 thumbnail.save(payload, format="PNG")
-                return payload.getvalue(), integrity
+                return payload.getvalue(), integrity, marker
     finally:
         if fd >= 0:
             os.close(fd)
@@ -139,6 +191,11 @@ def preview_pending_finding_image_evidence(
             """
             SELECT t.source_file AS thermal_source,
                    r.source_file AS rgb_source,
+                   t.width AS thermal_width, t.height AS thermal_height,
+                   f.pixel_x AS thermal_x, f.pixel_y AS thermal_y,
+                   r.width AS rgb_width, r.height AS rgb_height,
+                   l.rgb_pixel_x AS rgb_x, l.rgb_pixel_y AS rgb_y,
+                   l.transform_validated AS rgb_transform_validated,
                    (SELECT ts.content_sha256 FROM training_samples AS ts
                      WHERE ts.project_id=f.project_id
                        AND ts.source_frame_id=t.frame_id
@@ -168,13 +225,22 @@ def preview_pending_finding_image_evidence(
     rgb_name = _name_from_stored_source(row["rgb_source"])
     if thermal_name and rgb_name and thermal_name.casefold() == rgb_name.casefold():
         raise ValueError("ambiguous thermal/RGB filenames")
-    thermal, thermal_integrity = _render_thumbnail(
+    thermal, thermal_integrity, thermal_marker = _render_thumbnail(
         root, row["thermal_source"], row["thermal_sha256"],
+        expected_size=(row["thermal_width"], row["thermal_height"]),
+        marker_position=(row["thermal_x"], row["thermal_y"]),
+        mapping_validated=True,
     )
-    rgb, rgb_integrity = _render_thumbnail(
+    rgb, rgb_integrity, rgb_marker = _render_thumbnail(
         root, row["rgb_source"], row["rgb_sha256"],
+        expected_size=(row["rgb_width"], row["rgb_height"]),
+        marker_position=(row["rgb_x"], row["rgb_y"]),
+        mapping_validated=row["rgb_transform_validated"] == 1,
     )
-    return ReviewImageEvidence(thermal, rgb, thermal_integrity, rgb_integrity)
+    return ReviewImageEvidence(
+        thermal, rgb, thermal_integrity, rgb_integrity,
+        thermal_marker, rgb_marker,
+    )
 
 
 def preview_pending_finding_images(
