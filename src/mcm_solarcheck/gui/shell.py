@@ -69,6 +69,8 @@ class SolarCheckMainWindow(QMainWindow):
         self._import_project_id = None
         self._import_close_pending = False
         self._import_status = None
+        self._import_performance_snapshot = None
+        self._import_metrics_status = None
         self._rgb_preview_status = None
         self._rgb_preview_path = None
         self._last_review_status = None
@@ -239,6 +241,8 @@ class SolarCheckMainWindow(QMainWindow):
                 self._preflight_status = "Vorprüfung des vorherigen Projekts wird beendet …"
             else:
                 self._preflight_status = None
+            self._import_performance_snapshot = None
+            self._import_metrics_status = None
             import_thread = self._import_thread
             if import_thread is not None:
                 import_thread.request_cancel()
@@ -663,6 +667,18 @@ class SolarCheckMainWindow(QMainWindow):
                 if self._import_thread is not None else None
             ),
             image_import_status=self._import_status,
+            import_metrics_text=(
+                self._import_metrics_text()
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP else None
+            ),
+            on_save_import_metrics=(
+                (lambda destination, source=self._current_project_id:
+                    self._save_import_metrics(source, destination))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and self._import_performance_snapshot is not None
+                and self._import_thread is None else None
+            ),
             import_summary=import_summary,
             import_verification=import_verification,
             import_attempt=self._last_import_attempt,
@@ -1240,8 +1256,13 @@ class SolarCheckMainWindow(QMainWindow):
         self._import_thread = worker
         self._import_project_id = self._current_project_id
         self._last_import_attempt = None
+        self._import_performance_snapshot = None
+        self._import_metrics_status = None
         self._import_status = "DJI-Bildimport läuft im Hintergrund …"
         worker.progress.connect(self._import_progress, Qt.ConnectionType.QueuedConnection)
+        worker.metrics_ready.connect(
+            self._import_metrics_ready, Qt.ConnectionType.QueuedConnection,
+        )
         worker.result_ready.connect(self._import_finished, Qt.ConnectionType.QueuedConnection)
         worker.failed.connect(self._import_failed, Qt.ConnectionType.QueuedConnection)
         worker.cancelled.connect(self._import_cancelled, Qt.ConnectionType.QueuedConnection)
@@ -1261,6 +1282,56 @@ class SolarCheckMainWindow(QMainWindow):
         if not self._import_result_is_current():
             return
         self._import_status = f"DJI-Bildimport: {phase} ({count} Prüfpunkte)."
+        self._refresh_import_page()
+
+    def _import_metrics_text(self) -> str | None:
+        from mcm_solarcheck.services.offline_import_metrics import (
+            format_import_performance,
+        )
+
+        if self._import_performance_snapshot is None:
+            return self._import_metrics_status
+        formatted = format_import_performance(self._import_performance_snapshot)
+        return (
+            f"{formatted} {self._import_metrics_status}"
+            if self._import_metrics_status else formatted
+        )
+
+    @Slot(object)
+    def _import_metrics_ready(self, snapshot) -> None:
+        """Only the original project's completed worker can publish measurements."""
+        if not self._import_result_is_current():
+            return
+        self._import_performance_snapshot = snapshot
+        self._import_metrics_status = None
+        self._refresh_import_page()
+
+    def _save_import_metrics(self, source_project: str, destination: str) -> None:
+        """Save anonymous diagnostics only by explicit offline user action."""
+        from mcm_solarcheck.services.offline_import_metrics import (
+            save_anonymous_import_report,
+        )
+
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or self._import_performance_snapshot is None
+            or self._import_thread is not None
+        ):
+            return
+        try:
+            save_anonymous_import_report(
+                self._import_performance_snapshot, destination,
+            )
+        except (FileExistsError, OSError, TypeError, ValueError) as error:
+            self._import_metrics_status = (
+                f"Messbericht nicht gespeichert: {error}"
+            )
+        else:
+            self._import_metrics_status = (
+                "Anonymer Import-Messbericht lokal als JSON gespeichert. "
+                "Keine Bildpfade oder Projektkennungen enthalten."
+            )
         self._refresh_import_page()
 
     @Slot(object)
@@ -1345,6 +1416,8 @@ class SolarCheckMainWindow(QMainWindow):
             source_directory,
         )
         self._last_import_attempt = attempt
+        self._import_performance_snapshot = None
+        self._import_metrics_status = None
         self._last_review_status = None
         self._plant_overview_offset = 0
         self._clear_prepared_draft()
