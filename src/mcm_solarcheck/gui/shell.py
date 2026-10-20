@@ -1349,9 +1349,11 @@ class SolarCheckMainWindow(QMainWindow):
             save_anonymous_import_report(
                 self._import_performance_snapshot, destination,
             )
-        except (FileExistsError, OSError, TypeError, ValueError) as error:
+        except (FileExistsError, OSError, TypeError, ValueError):
             self._import_metrics_status = (
-                f"Messbericht nicht gespeichert: {error}"
+                "Messbericht nicht gespeichert. Bitte eine neue JSON-Datei "
+                "in einem vorhandenen, beschreibbaren lokalen Ordner "
+                "ohne Verknüpfungen wählen."
             )
         else:
             self._import_metrics_status = (
