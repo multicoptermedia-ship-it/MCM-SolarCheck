@@ -158,3 +158,57 @@ def test_empty_project_workflow_gate_still_rejects_review(tmp_path):
         service.review_pending_finding(
             "empty", "F1", status=ReviewStatus.CONFIRMED, reviewer="Expert",
         )
+
+
+def test_pending_queue_paginates_persisted_findings_in_stable_order(tmp_path):
+    """53 real SQLite candidates must all remain reachable through bounded pages."""
+    service = make_service(tmp_path)
+    service.database.save_findings("P1", tuple(
+        Finding(f"F{i:03}", "T1", i, i + 10, module_id="M1")
+        for i in range(2, 54)
+    ))
+    first = service.pending_review_findings("P1", limit=50, offset=0)
+    second = service.pending_review_findings("P1", limit=50, offset=50)
+    assert len(first) == 50
+    assert len(second) == 3
+    assert len({item.finding_id for item in (*first, *second)}) == 53
+    assert [item.finding_id for item in second] == ["F051", "F052", "F053"]
+    assert service.pending_review_findings("P1", limit=50, offset=100) == ()
+    assert [x.finding_id for x in service.pending_review_findings("P2")] == ["F1"]
+    # Offset is SQL-backed, never a Python slice of all customer findings.
+    assert [x.finding_id for x in service.pending_review_findings(
+        "P1", limit=2, offset=49,
+    )] == ["F050", "F051"]
+
+    for offset in (True, -1, 2.1, "50", None):
+        with pytest.raises(ValueError, match="offset"):
+            service.pending_review_findings("P1", limit=50, offset=offset)
+    for limit in (0, True, -3):
+        with pytest.raises(ValueError, match="positive integer"):
+            service.pending_review_findings("P1", limit=limit, offset=1)
+    with pytest.raises(KeyError, match="Unknown project"):
+        service.pending_review_findings("MISSING", limit=50, offset=50)
+
+
+def test_pending_queue_review_updates_next_page_without_implicit_decisions(tmp_path):
+    service = make_service(tmp_path)
+    service.database.save_findings("P1", tuple(
+        Finding(f"F{i:03}", "T1", i, i + 10, module_id="M1")
+        for i in range(2, 53)
+    ))
+    page = service.pending_review_findings("P1", limit=50, offset=50)
+    assert len(page) == 2
+    assert not service.state("P1").readiness(WorkflowStage.REPORT).ready
+
+    _record, audit, _state = service.review_pending_finding(
+        "P1", page[0].finding_id,
+        status=ReviewStatus.CONFIRMED, reviewer="Fachperson",
+    )
+    assert audit.finding_id == "F051"
+    remaining = service.pending_review_findings("P1", limit=50, offset=50)
+    assert [record.finding_id for record in remaining] == ["F052"]
+    assert service.import_summary("P1").confirmed_findings == 1
+    assert service.import_summary("P1").unreviewed_findings == 51
+    assert service.import_summary("P2").unreviewed_findings == 1
+    assert len(audit_rows(service, "P1")) == 1
+    assert not service.state("P1").readiness(WorkflowStage.REPORT).ready
