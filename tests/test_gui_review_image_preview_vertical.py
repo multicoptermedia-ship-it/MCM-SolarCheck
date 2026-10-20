@@ -513,3 +513,115 @@ def test_qt_locator_status_clears_on_selection_and_project_switch(
         assert audit_count(window._project_service, "P2") == 0
     finally:
         window.close()
+
+
+def test_qt_shows_native_pixel_detail_beside_overview_without_review(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    service = window._project_service
+    set_review_locator_geometry(window)
+    original_thermal = (folder / "T.JPG").read_bytes()
+    original_rgb = (folder / "V.JPG").read_bytes()
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        items = widget(window, QListWidget, "pending_review_findings")
+        items.setCurrentRow(0)
+        for name in ("review_preview_thermal_detail", "review_preview_rgb_detail"):
+            assert no_pixmap(widget(window, QLabel, name))
+        widget(window, QPushButton, "review_preview_images_button").click()
+        for name, size in (
+            ("review_preview_thermal_detail", (180, 130)),
+            ("review_preview_rgb_detail", (190, 140)),
+        ):
+            pixmap = widget(window, QLabel, name).pixmap()
+            assert pixmap is not None and not pixmap.isNull()
+            assert (pixmap.width(), pixmap.height()) == size
+        assert "maximal 256" in widget(
+            window, QLabel, "review_preview_detail_header",
+        ).text()
+        assert (folder / "T.JPG").read_bytes() == original_thermal
+        assert (folder / "V.JPG").read_bytes() == original_rgb
+        assert audit_count(service, "P1") == 0
+        assert service.import_summary("P1").unreviewed_findings == 2
+    finally:
+        window.close()
+
+
+def test_qt_detail_is_absent_for_unvalidated_rgb_or_mismatched_frame(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    set_review_locator_geometry(window, thermal_size=(640, 512), rgb_validated=0)
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        widget(window, QListWidget, "pending_review_findings").setCurrentRow(0)
+        widget(window, QPushButton, "review_preview_images_button").click()
+        for name in ("review_preview_thermal_detail", "review_preview_rgb_detail"):
+            label = widget(window, QLabel, name)
+            assert no_pixmap(label)
+            assert "nicht verfügbar" in label.text()
+        assert not no_pixmap(widget(window, QLabel, "review_preview_thermal"))
+        assert not no_pixmap(widget(window, QLabel, "review_preview_rgb"))
+        assert audit_count(window._project_service, "P1") == 0
+    finally:
+        window.close()
+
+
+def test_qt_detail_clears_immediately_on_selection_and_project_switch(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    set_review_locator_geometry(window)
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        choices = widget(window, QListWidget, "pending_review_findings")
+        choices.setCurrentRow(0)
+        widget(window, QPushButton, "review_preview_images_button").click()
+        assert not no_pixmap(widget(window, QLabel, "review_preview_thermal_detail"))
+        choices.setCurrentRow(1)
+        assert no_pixmap(widget(window, QLabel, "review_preview_thermal_detail"))
+        assert no_pixmap(widget(window, QLabel, "review_preview_rgb_detail"))
+        widget(window, QPushButton, "review_preview_images_button").click()
+        assert no_pixmap(widget(window, QLabel, "review_preview_rgb_detail"))
+        window._open_project("P2")
+        assert no_pixmap(widget(window, QLabel, "review_preview_thermal_detail"))
+        assert no_pixmap(widget(window, QLabel, "review_preview_rgb_detail"))
+        assert audit_count(window._project_service, "P1") == 0
+        assert audit_count(window._project_service, "P2") == 0
+    finally:
+        window.close()
+
+
+def test_qt_modified_image_hash_suppresses_original_and_detail(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    set_review_locator_geometry(window)
+    service = window._project_service
+    add_original_sha(service, "P1", "T1", "thermal", (folder / "T.JPG").read_bytes())
+    Image.new("RGB", (180, 130), (51, 61, 71)).save(folder / "T.JPG")
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        widget(window, QListWidget, "pending_review_findings").setCurrentRow(0)
+        widget(window, QPushButton, "review_preview_images_button").click()
+        assert no_pixmap(widget(window, QLabel, "review_preview_thermal"))
+        assert no_pixmap(widget(window, QLabel, "review_preview_thermal_detail"))
+        assert "Abweichende Import-Prüfsumme" in widget(
+            window, QLabel, "review_preview_thermal_integrity",
+        ).text()
+        assert "nicht verfügbar" in widget(
+            window, QLabel, "review_preview_thermal_detail",
+        ).text()
+        assert not no_pixmap(widget(window, QLabel, "review_preview_rgb_detail"))
+        assert audit_count(service, "P1") == 0
+    finally:
+        window.close()
