@@ -186,3 +186,130 @@ def test_successful_preview_does_not_change_sqlite_or_original_bytes(tmp_path):
         assert db.execute(
             "SELECT COUNT(*) FROM finding_reviews WHERE project_id='P1'",
         ).fetchone()[0] == audit
+
+
+def stored_checksum(service, project, frame_id, modality, digest):
+    """Create synthetic import-time provenance, not a training approval."""
+    with service.database.connect() as db:
+        db.execute(
+            "INSERT INTO training_samples "
+            "(sample_id, project_id, source_frame_id, source_file, modality, "
+            "content_sha256, label_status, rights_status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                modality + ":" + project + ":" + frame_id, project, frame_id,
+                "/synthetic/import/" + frame_id + ".JPG", modality, digest,
+                "unlabeled", "unverified",
+            ),
+        )
+
+
+def test_import_sha256_binds_original_rgb_and_thermal_bytes(tmp_path):
+    """Both matched files show only the verifiable import-time digest status."""
+    from hashlib import sha256
+
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(30, 80, 140))
+    write_image(root / "V.JPG", color=(120, 10, 50))
+    thermal_digest = sha256((root / "T.JPG").read_bytes()).hexdigest()
+    rgb_digest = sha256((root / "V.JPG").read_bytes()).hexdigest()
+    stored_checksum(service, "P1", "T1", "thermal", thermal_digest)
+    stored_checksum(service, "P1", "V1", "rgb", rgb_digest)
+    evidence = service.preview_review_image_evidence("P1", "F1", root)
+    assert evidence.thermal_integrity == "verified"
+    assert evidence.rgb_integrity == "verified"
+    assert decoded(evidence.thermal_png)[2] > decoded(evidence.thermal_png)[0]
+    assert decoded(evidence.rgb_png)[0] > decoded(evidence.rgb_png)[1]
+    assert service.preview_review_images("P1", "F1", root) == (
+        evidence.thermal_png, evidence.rgb_png,
+    )
+    # Same filename and unchanged dimensions are not sufficient.
+    write_image(root / "T.JPG", color=(31, 80, 140))
+    changed = service.preview_review_image_evidence("P1", "F1", root)
+    assert changed.thermal_png is None
+    assert changed.thermal_integrity == "mismatch"
+    assert changed.rgb_integrity == "verified"
+    assert changed.rgb_png == evidence.rgb_png
+    assert service.preview_review_images("P1", "F1", root) == (
+        None, evidence.rgb_png,
+    )
+
+
+def test_digest_is_scoped_to_project_and_modality(tmp_path):
+    from hashlib import sha256
+
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(20, 40, 60))
+    write_image(root / "V.JPG", color=(60, 40, 20))
+    thermal_digest = sha256((root / "T.JPG").read_bytes()).hexdigest()
+    rgb_digest = sha256((root / "V.JPG").read_bytes()).hexdigest()
+    # P1 knows only an RGB fingerprint. No thermal fingerprint is fabricated.
+    stored_checksum(service, "P1", "V1", "rgb", rgb_digest)
+    # P2 has the same thermal frame ID but an intentionally different digest.
+    stored_checksum(service, "P2", "T1", "thermal", "f" * 64)
+    p1 = service.preview_review_image_evidence("P1", "F1", root)
+    assert p1.thermal_integrity == "unverified"
+    assert p1.rgb_integrity == "verified"
+    assert p1.thermal_png is not None and p1.rgb_png is not None
+    p2 = service.preview_review_image_evidence("P2", "F1", root)
+    assert p2.thermal_integrity == "mismatch"
+    assert p2.thermal_png is None
+    assert p2.rgb_integrity == "unavailable"
+    assert p2.rgb_png is None
+    assert service.preview_review_images("P1", "F1", root)[0] is not None
+    # Use the actual import digest for P2 after removing its wrong provenance.
+    with service.database.connect() as db:
+        db.execute(
+            "UPDATE training_samples SET content_sha256=? "
+            "WHERE project_id=? AND source_frame_id=? AND modality=?",
+            (thermal_digest, "P2", "T1", "thermal"),
+        )
+    verified = service.preview_review_image_evidence("P2", "F1", root)
+    assert verified.thermal_integrity == "verified"
+    assert verified.thermal_png is not None
+
+
+def test_invalid_or_incomplete_stored_sha_cannot_authorize_a_preview(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(55, 65, 75))
+    stored_checksum(service, "P1", "T1", "thermal", "not-a-digest")
+    result = service.preview_review_image_evidence("P1", "F1", root)
+    assert result.thermal_png is None
+    assert result.thermal_integrity == "mismatch"
+    assert result.rgb_png is None
+    assert result.rgb_integrity == "unavailable"
+
+
+def test_no_recorded_sha_does_not_get_false_verification_badge(tmp_path):
+    service, root = sample(tmp_path, rgb_link=False)
+    write_image(root / "T.JPG", color=(101, 111, 121))
+    result = service.preview_review_image_evidence("P1", "F1", root)
+    assert result.thermal_integrity == "unverified"
+    assert decoded(result.thermal_png) == (101, 111, 121)
+    assert result.rgb_integrity == "unavailable"
+    assert result.rgb_png is None
+    assert not hasattr(result, "customer_path")
+
+
+def test_checksum_gating_never_writes_review_or_source_files(tmp_path):
+    from hashlib import sha256
+
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(11, 21, 31))
+    before_bytes = (root / "T.JPG").read_bytes()
+    stored_checksum(service, "P1", "T1", "thermal", sha256(before_bytes).hexdigest())
+    with service.database.connect() as db:
+        n_before = db.execute(
+            "SELECT COUNT(*) FROM finding_reviews WHERE project_id='P1'",
+        ).fetchone()[0]
+    result = service.preview_review_image_evidence("P1", "F1", root)
+    assert result.thermal_integrity == "verified"
+    assert (root / "T.JPG").read_bytes() == before_bytes
+    with service.database.connect() as db:
+        assert db.execute(
+            "SELECT COUNT(*) FROM finding_reviews WHERE project_id='P1'",
+        ).fetchone()[0] == n_before
+        assert db.execute(
+            "SELECT reviewer_status FROM findings WHERE project_id='P1' "
+            "AND finding_id='F1'",
+        ).fetchone()[0] == "unreviewed"
