@@ -474,6 +474,18 @@ class ProjectApplicationService:
             limit=limit, offset=offset,
         )
 
+    def preview_review_images(
+        self, project_id: str, finding_id: str, selected_folder: str | Path,
+    ) -> tuple[bytes | None, bytes | None]:
+        """Read local thumbnails only for an active, pending project finding."""
+        self.require(project_id, WorkflowAction.REVIEW)
+        from mcm_solarcheck.services.review_image_preview import (
+            preview_pending_finding_images,
+        )
+        return preview_pending_finding_images(
+            self.database, project_id, finding_id, selected_folder,
+        )
+
     def review_pending_finding(
         self, project_id: str, finding_id: str, *,
         status: ReviewStatus, reviewer: str, note: str | None = None,
