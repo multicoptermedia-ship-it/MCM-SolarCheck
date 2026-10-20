@@ -44,15 +44,15 @@ def seeded_window(tmp_path):
             db.execute(
                 "INSERT INTO findings "
                 "(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,"
-                "reviewer_status,metadata_json) VALUES (?,?,?,?,?,?,?)",
-                (project, "F1", "T1", 15, 20, "unreviewed", "{}"),
+                "finding_type,reviewer_status,metadata_json) VALUES (?,?,?,?,?,?,?,?)",
+                (project, "F1", "T1", 15, 20, "thermal_anomaly_candidate", "unreviewed", "{}"),
             )
             if project == "P1":
                 db.execute(
                     "INSERT INTO findings "
                     "(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,"
-                    "reviewer_status,metadata_json) VALUES (?,?,?,?,?,?,?)",
-                    (project, "F2", "T1", 19, 27, "unreviewed", "{}"),
+                    "finding_type,reviewer_status,metadata_json) VALUES (?,?,?,?,?,?,?,?)",
+                    (project, "F2", "T1", 19, 27, "thermal_anomaly_candidate", "unreviewed", "{}"),
                 )
                 db.execute(
                     "INSERT INTO finding_sensor_links("
@@ -72,6 +72,11 @@ def widget(window, klass, name):
     result = window._pages[ShellRoute.REVIEW].findChild(klass, name)
     assert result is not None
     return result
+
+
+def no_pixmap(widget):
+    pixmap = widget.pixmap()
+    return pixmap is None or pixmap.isNull()
 
 
 def audit_count(service, project):
@@ -113,7 +118,7 @@ def test_explicit_qt_selection_renders_both_linked_originals_read_only(
             assert pixmap is not None and not pixmap.isNull()
             assert pixmap.width() <= 320 and pixmap.height() <= 210
         message = widget(window, QLabel, "review_preview_images_status").text()
-        assert "keine" in message.lower()
+        assert "kein radiometrischer" in message.lower()
         assert "PRIVATE_CLIENT" not in message
         assert str(folder) not in message
         assert (folder / "T.JPG").read_bytes() == original
@@ -135,15 +140,15 @@ def test_changing_finding_clears_previous_images_and_blocks_unlinked_rgb(
         choices = widget(window, QListWidget, "pending_review_findings")
         choices.setCurrentRow(0)
         widget(window, QPushButton, "review_preview_images_button").click()
-        assert widget(window, QLabel, "review_preview_rgb").pixmap() is not None
+        assert not no_pixmap(widget(window, QLabel, "review_preview_rgb"))
         choices.setCurrentRow(1)
-        assert widget(window, QLabel, "review_preview_rgb").pixmap() is None
+        assert no_pixmap(widget(window, QLabel, "review_preview_rgb"))
         assert "kein Bild geladen" in widget(
             window, QLabel, "review_preview_rgb",
         ).text()
         widget(window, QPushButton, "review_preview_images_button").click()
-        assert widget(window, QLabel, "review_preview_thermal").pixmap() is not None
-        assert widget(window, QLabel, "review_preview_rgb").pixmap() is None
+        assert not no_pixmap(widget(window, QLabel, "review_preview_thermal"))
+        assert no_pixmap(widget(window, QLabel, "review_preview_rgb"))
         assert "nicht verfügbar" in widget(
             window, QLabel, "review_preview_rgb",
         ).text()
@@ -163,14 +168,14 @@ def test_missing_or_rejected_folder_never_exposes_local_paths(
             QFileDialog, "getExistingDirectory", lambda *a, **kw: "",
         )
         choose.click()
-        assert widget(window, QLabel, "review_preview_thermal").pixmap() is None
+        assert no_pixmap(widget(window, QLabel, "review_preview_thermal"))
         alternate = tmp_path / "unrelated-private"
         alternate.mkdir()
         monkeypatch.setattr(
             QFileDialog, "getExistingDirectory", lambda *a, **kw: str(alternate),
         )
         choose.click()
-        assert widget(window, QLabel, "review_preview_thermal").pixmap() is None
+        assert no_pixmap(widget(window, QLabel, "review_preview_thermal"))
         status = widget(window, QLabel, "review_preview_images_status").text()
         assert str(alternate) not in status
         assert "PRIVATE_CLIENT" not in status
@@ -197,8 +202,8 @@ def test_modal_project_change_rejects_old_preview_even_same_finding_id(
             QPushButton, "review_preview_images_button",
         ).click()
         assert window.current_project_id == "P2"
-        assert widget(window, QLabel, "review_preview_thermal").pixmap() is None
-        assert widget(window, QLabel, "review_preview_rgb").pixmap() is None
+        assert no_pixmap(widget(window, QLabel, "review_preview_thermal"))
+        assert no_pixmap(widget(window, QLabel, "review_preview_rgb"))
         assert audit_count(service, "P1") == 0
         assert audit_count(service, "P2") == 0
         assert "PRIVATE_CLIENT" not in widget(

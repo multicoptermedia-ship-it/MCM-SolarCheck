@@ -36,8 +36,8 @@ def sample(tmp_path, *, rgb_link=True, rgb_name="V.JPG", thermal_name="T.JPG"):
             db.execute(
                 "INSERT INTO findings"
                 "(project_id,finding_id,thermal_frame_id,pixel_x,pixel_y,"
-                "reviewer_status,metadata_json) VALUES (?,?,?,?,?,?,?)",
-                (project, "F1", "T1", 6, 8, "unreviewed", "{}"),
+                "finding_type,reviewer_status,metadata_json) VALUES (?,?,?,?,?,?,?,?)",
+                (project, "F1", "T1", 6, 8, "thermal_anomaly_candidate", "unreviewed", "{}"),
             )
             if rgb_link and project == "P1":
                 db.execute(
