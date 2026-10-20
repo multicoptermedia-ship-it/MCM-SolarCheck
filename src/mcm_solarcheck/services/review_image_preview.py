@@ -23,6 +23,7 @@ from mcm_solarcheck.storage.sqlite import ProjectDatabase
 MAX_IMAGE_BYTES = 40 * 1024 * 1024
 MAX_IMAGE_PIXELS = 40_000_000
 PREVIEW_SIZE = (640, 420)
+DETAIL_CROP_SIZE = 256
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,39 @@ class ReviewImageEvidence:
     rgb_integrity: str
     thermal_marker: str = "unavailable"
     rgb_marker: str = "unavailable"
+    thermal_detail_png: bytes | None = None
+    rgb_detail_png: bytes | None = None
+
+
+def _draw_locator(image: Image.Image, x: int, y: int) -> None:
+    """Position aid, not radiometric measurement or a defect diagnosis."""
+    draw = ImageDraw.Draw(image)
+    radius = 8
+    draw.ellipse(
+        (x-radius-1, y-radius-1, x+radius+1, y+radius+1),
+        outline="#101a28", width=4,
+    )
+    draw.ellipse(
+        (x-radius, y-radius, x+radius, y+radius),
+        outline="#39f3bd", width=2,
+    )
+    draw.line((x-12, y, x+12, y), fill="#39f3bd", width=2)
+    draw.line((x, y-12, x, y+12), fill="#39f3bd", width=2)
+
+
+def _detail_crop_png(
+    source: Image.Image, x: float | int, y: float | int,
+) -> bytes:
+    """Crop at most 256 native pixels around an already validated position."""
+    size_x = min(DETAIL_CROP_SIZE, source.width)
+    size_y = min(DETAIL_CROP_SIZE, source.height)
+    left = max(0, min(source.width - size_x, int(x) - size_x // 2))
+    top = max(0, min(source.height - size_y, int(y) - size_y // 2))
+    cropped = source.crop((left, top, left + size_x, top + size_y)).convert("RGB")
+    _draw_locator(cropped, round(x + 0.5 - left), round(y + 0.5 - top))
+    output = BytesIO()
+    cropped.save(output, format="PNG")
+    return output.getvalue()
 
 
 def _name_from_stored_source(source: str | None) -> str | None:
@@ -66,17 +100,17 @@ def _render_thumbnail(
     *, expected_size: tuple[int | None, int | None],
     marker_position: tuple[float | int | None, float | int | None] | None,
     mapping_validated: bool,
-) -> tuple[bytes | None, str, str]:
+) -> tuple[bytes | None, str, str, bytes | None]:
     name = _name_from_stored_source(stored_source)
     if name is None:
-        return None, "unavailable", "unavailable"
+        return None, "unavailable", "unavailable", None
     path = root / name
     if path.is_symlink():
         raise ValueError("image links are not allowed")
     try:
         details = path.stat()
     except FileNotFoundError:
-        return None, "unavailable", "unavailable"
+        return None, "unavailable", "unavailable", None
     if not stat.S_ISREG(details.st_mode) or details.st_size > MAX_IMAGE_BYTES:
         raise ValueError("unsupported image file")
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
@@ -89,12 +123,10 @@ def _render_thumbnail(
             ):
                 raise ValueError("unsupported image file")
             if expected_sha256 is not None:
-                # A corrupt stored digest is not proof of an image. Do not
-                # show the same-name replacement in that case.
                 if not isinstance(expected_sha256, str) or not re.fullmatch(
                     r"[0-9a-fA-F]{64}", expected_sha256,
                 ):
-                    return None, "mismatch", "unavailable"
+                    return None, "mismatch", "unavailable", None
                 digest = sha256()
                 scanned = 0
                 while chunk := stream.read(1024 * 1024):
@@ -103,7 +135,7 @@ def _render_thumbnail(
                         raise ValueError("image exceeded local byte limit")
                     digest.update(chunk)
                 if digest.hexdigest() != expected_sha256.lower():
-                    return None, "mismatch", "unavailable"
+                    return None, "mismatch", "unavailable", None
                 stream.seek(0)
                 integrity = "verified"
             else:
@@ -115,13 +147,8 @@ def _render_thumbnail(
                     or img.width * img.height > MAX_IMAGE_PIXELS
                 ):
                     raise ValueError("unsupported image format or dimensions")
-                # Persisted thermal pixel coordinates are NOT automatically
-                # the JPEG display coordinates. Only matching native dimensions
-                # and unrotated orientation permit a conservative locator.
                 raw_width, raw_height = img.size
                 orientation = img.getexif().get(274, 1)
-                img.thumbnail(PREVIEW_SIZE)
-                thumbnail = ImageOps.exif_transpose(img).convert("RGB")
                 if not mapping_validated:
                     marker = "unvalidated"
                 elif (
@@ -139,34 +166,28 @@ def _render_thumbnail(
                     for value in marker_position
                 ):
                     marker = "outside"
+                elif not (
+                    0 <= marker_position[0] < raw_width
+                    and 0 <= marker_position[1] < raw_height
+                ):
+                    marker = "outside"
                 else:
+                    marker = "marked"
+
+                detail_png = (
+                    _detail_crop_png(img, *marker_position)
+                    if marker == "marked" else None
+                )
+                img.thumbnail(PREVIEW_SIZE)
+                thumbnail = ImageOps.exif_transpose(img).convert("RGB")
+                if marker == "marked":
                     x, y = marker_position
-                    if not (0 <= x < raw_width and 0 <= y < raw_height):
-                        marker = "outside"
-                    else:
-                        cx = round((x + 0.5) * thumbnail.width / raw_width)
-                        cy = round((y + 0.5) * thumbnail.height / raw_height)
-                        # A plain sight-image locator, not a diagnostic overlay.
-                        draw = ImageDraw.Draw(thumbnail)
-                        radius = 8
-                        draw.ellipse(
-                            (cx-radius-1, cy-radius-1, cx+radius+1, cy+radius+1),
-                            outline="#101a28", width=4,
-                        )
-                        draw.ellipse(
-                            (cx-radius, cy-radius, cx+radius, cy+radius),
-                            outline="#39f3bd", width=2,
-                        )
-                        draw.line(
-                            (cx-12, cy, cx+12, cy), fill="#39f3bd", width=2,
-                        )
-                        draw.line(
-                            (cx, cy-12, cx, cy+12), fill="#39f3bd", width=2,
-                        )
-                        marker = "marked"
+                    cx = round((x + 0.5) * thumbnail.width / raw_width)
+                    cy = round((y + 0.5) * thumbnail.height / raw_height)
+                    _draw_locator(thumbnail, cx, cy)
                 payload = BytesIO()
                 thumbnail.save(payload, format="PNG")
-                return payload.getvalue(), integrity, marker
+                return payload.getvalue(), integrity, marker, detail_png
     finally:
         if fd >= 0:
             os.close(fd)
@@ -225,13 +246,13 @@ def preview_pending_finding_image_evidence(
     rgb_name = _name_from_stored_source(row["rgb_source"])
     if thermal_name and rgb_name and thermal_name.casefold() == rgb_name.casefold():
         raise ValueError("ambiguous thermal/RGB filenames")
-    thermal, thermal_integrity, thermal_marker = _render_thumbnail(
+    thermal, thermal_integrity, thermal_marker, thermal_detail = _render_thumbnail(
         root, row["thermal_source"], row["thermal_sha256"],
         expected_size=(row["thermal_width"], row["thermal_height"]),
         marker_position=(row["thermal_x"], row["thermal_y"]),
         mapping_validated=True,
     )
-    rgb, rgb_integrity, rgb_marker = _render_thumbnail(
+    rgb, rgb_integrity, rgb_marker, rgb_detail = _render_thumbnail(
         root, row["rgb_source"], row["rgb_sha256"],
         expected_size=(row["rgb_width"], row["rgb_height"]),
         marker_position=(row["rgb_x"], row["rgb_y"]),
@@ -240,6 +261,7 @@ def preview_pending_finding_image_evidence(
     return ReviewImageEvidence(
         thermal, rgb, thermal_integrity, rgb_integrity,
         thermal_marker, rgb_marker,
+        thermal_detail, rgb_detail,
     )
 
 
