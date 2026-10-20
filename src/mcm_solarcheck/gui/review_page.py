@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 
 from mcm_solarcheck.review.findings import ReviewStatus
 from mcm_solarcheck.gui.review_evidence import review_evidence_text
+from mcm_solarcheck.gui.review_history_panel import make_review_history_panel
 from mcm_solarcheck.services.review_image_preview import ReviewImageEvidence
 
 MAX_REVIEW_PAGE_FINDINGS = 50
@@ -19,6 +20,7 @@ def make_review_page(
     parent=None, *, current_project_id=None, overview=None, pending=(),
     on_review=None, on_refresh=None, last_review_status=None,
     offset=0, on_page_requested=None, on_preview_images=None,
+    history=None, on_history_page_requested=None,
 ):
     """Present expert choices; never classify or approve a report automatically."""
     page = QWidget(parent)
@@ -472,5 +474,8 @@ def make_review_page(
         result.setWordWrap(True)
         layout.addWidget(result)
 
+    layout.addWidget(make_review_history_panel(
+        page, history=history, on_page_requested=on_history_page_requested,
+    ))
     layout.addStretch(1)
     return page

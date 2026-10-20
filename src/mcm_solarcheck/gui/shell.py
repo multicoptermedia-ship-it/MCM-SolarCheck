@@ -20,6 +20,7 @@ from mcm_solarcheck.gui.plant_overview_page import make_plant_overview_page
 from mcm_solarcheck.gui.report_page import make_report_page
 from mcm_solarcheck.gui.export_page import make_export_page
 from mcm_solarcheck.gui.review_page import MAX_REVIEW_PAGE_FINDINGS, make_review_page
+from mcm_solarcheck.gui.review_history_panel import HISTORY_PAGE_SIZE
 from mcm_solarcheck.gui.theme import APP_STYLE_SHEET
 from mcm_solarcheck.gui.workflow_navigation import WorkflowNavigation
 from mcm_solarcheck.services.deployment import DeploymentMode
@@ -78,6 +79,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._rgb_preview_path = None
         self._last_review_status = None
         self._review_offset = 0
+        self._review_history_offset = 0
         self._review_generation = 0
         self._draft_report = None
         self._draft_request = None
@@ -317,6 +319,7 @@ class SolarCheckMainWindow(QMainWindow):
             self._last_profile_status = None
             self._last_review_status = None
             self._review_offset = 0
+            self._review_history_offset = 0
             self._plant_overview_offset = 0
             self._clear_prepared_draft()
             self._geotiff_result = None
@@ -635,6 +638,23 @@ class SolarCheckMainWindow(QMainWindow):
         self._review_offset = offset
         self._refresh_review_page()
 
+    def _load_review_history_page(
+        self, source_project: str, offset: int,
+        expected_generation: int | None = None,
+    ) -> None:
+        """Block older Qt history controls and cross-project navigation."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or type(offset) is not int or offset < 0
+            or offset % HISTORY_PAGE_SIZE != 0
+            or (expected_generation is not None
+                and expected_generation != self._review_generation)
+        ):
+            return
+        self._review_history_offset = offset
+        self._refresh_review_page()
+
     def _preview_review_images(
         self, source_project: str, finding_id: str, local_folder: str,
         expected_generation: int | None = None,
@@ -682,6 +702,7 @@ class SolarCheckMainWindow(QMainWindow):
         old_page = self._pages[ShellRoute.REVIEW]
         overview_provider = getattr(self._project_service, "processing_overview", None)
         queue_provider = getattr(self._project_service, "pending_review_findings", None)
+        history_provider = getattr(self._project_service, "expert_review_history", None)
         action_provider = getattr(self._project_service, "review_pending_finding", None)
         preview_provider = getattr(
             self._project_service, "preview_review_image_evidence", None,
@@ -710,6 +731,23 @@ class SolarCheckMainWindow(QMainWindow):
             )
             if enabled else ()
         )
+        history = None
+        if enabled and callable(history_provider):
+            history = history_provider(
+                project_id, limit=HISTORY_PAGE_SIZE,
+                offset=self._review_history_offset,
+            )
+            if history.total == 0:
+                self._review_history_offset = 0
+            elif self._review_history_offset >= history.total:
+                self._review_history_offset = (
+                    (history.total - 1) // HISTORY_PAGE_SIZE
+                ) * HISTORY_PAGE_SIZE
+            if history.offset != self._review_history_offset:
+                history = history_provider(
+                    project_id, limit=HISTORY_PAGE_SIZE,
+                    offset=self._review_history_offset,
+                )
         # Each redraw revokes all callbacks belonging to the old Qt page,
         # even if a new page has the same project and finding identifiers.
         self._review_generation += 1
@@ -743,6 +781,12 @@ class SolarCheckMainWindow(QMainWindow):
                 if enabled and callable(preview_provider) else None
             ),
             last_review_status=self._last_review_status if offline else None,
+            history=history,
+            on_history_page_requested=(
+                (lambda offset, source=project_id, generation=generation:
+                 self._load_review_history_page(source, offset, generation))
+                if enabled and callable(history_provider) else None
+            ),
         )
         self._pages[ShellRoute.REVIEW] = new_page
         index = self._stack.indexOf(old_page)
