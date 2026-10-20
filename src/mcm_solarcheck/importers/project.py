@@ -37,6 +37,7 @@ def import_m3t_project(
     candidate_percentile: float = 99.9,
     candidate_limit: int = 100,
     heartbeat: Callable[[], None] | None = None,
+    retain_rasters: bool = True,
 ) -> ProjectImportResult:
     """Import visible and thermal M3T imagery and pair matching frames."""
     root = Path(directory)
@@ -45,6 +46,7 @@ def import_m3t_project(
         root, importer=thermal_importer,
         candidate_percentile=candidate_percentile, candidate_limit=candidate_limit,
         heartbeat=heartbeat,
+        retain_rasters=retain_rasters,
     )
     thermal_frames = tuple(result.frame for result in thermal.results)
     pairs = pair_rgb_thermal_frames(

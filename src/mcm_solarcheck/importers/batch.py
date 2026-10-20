@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable
 
@@ -41,8 +41,11 @@ def import_m3t_directory(
     candidate_percentile: float = 99.9,
     candidate_limit: int = 100,
     heartbeat: Callable[[], None] | None = None,
+    retain_rasters: bool = True,
 ) -> M3TBatchResult:
     """Import all DJI ``*_T.JPG`` files in deterministic filename order."""
+    if type(retain_rasters) is not bool:
+        raise ValueError("retain_rasters must be a boolean")
     root = Path(directory)
     files = tuple(sorted(root.glob("*_T.JPG")))
     worker = importer or M3TImporter()
@@ -53,13 +56,17 @@ def import_m3t_directory(
         if heartbeat is not None:
             heartbeat()
         try:
-            results.append(
-                worker.import_file(
-                    path,
-                    candidate_percentile=candidate_percentile,
-                    candidate_limit=candidate_limit,
-                )
+            imported = worker.import_file(
+                path,
+                candidate_percentile=candidate_percentile,
+                candidate_limit=candidate_limit,
             )
+            # The full 640x512 Python-int raster is expensive (~many MiB per
+            # frame). Offline persistence needs only compact analysis outputs.
+            # Keep raw samples for legacy and independently requested analyses.
+            if not retain_rasters:
+                imported = replace(imported, raster=None)
+            results.append(imported)
         except Exception as exc:  # batch boundary: preserve remaining evidence
             failures.append(M3TBatchFailure(path, type(exc).__name__, str(exc)))
     grades = [result.quality.grade.value for result in results]

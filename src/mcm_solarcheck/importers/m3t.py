@@ -18,8 +18,10 @@ _SEQUENCE_RE = re.compile(r"_(\d{4})_T\.JPG$", re.IGNORECASE)
 
 @dataclass(frozen=True)
 class M3TImportResult:
+    # Raster is optional only for a caller opting into compact batch results.
+    # Standalone import_file always returns the parsed raster.
     frame: ThermalFrame
-    raster: RadiometricRaster
+    raster: RadiometricRaster | None
     quality: ThermalQualityResult
     candidates: tuple[RawAnomalyCandidate, ...]
     findings: tuple[Finding, ...]
