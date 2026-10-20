@@ -71,6 +71,8 @@ class SolarCheckMainWindow(QMainWindow):
         self._import_status = None
         self._import_performance_snapshot = None
         self._import_metrics_status = None
+        self._benchmark_comparison = None
+        self._benchmark_comparison_status = None
         self._rgb_preview_status = None
         self._rgb_preview_path = None
         self._last_review_status = None
@@ -243,6 +245,8 @@ class SolarCheckMainWindow(QMainWindow):
                 self._preflight_status = None
             self._import_performance_snapshot = None
             self._import_metrics_status = None
+            self._benchmark_comparison = None
+            self._benchmark_comparison_status = None
             import_thread = self._import_thread
             if import_thread is not None:
                 import_thread.request_cancel()
@@ -677,6 +681,26 @@ class SolarCheckMainWindow(QMainWindow):
                 if self._deployment is DeploymentMode.OFFLINE_DESKTOP
                 and self._current_project_id is not None
                 and self._import_performance_snapshot is not None
+                and self._import_thread is None else None
+            ),
+            on_compare_benchmark_reports=(
+                (lambda paths, source=self._current_project_id:
+                    self._compare_benchmark_reports(source, paths))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and self._import_thread is None
+                and not self._import_close_pending else None
+            ),
+            benchmark_comparison_text=(
+                self._benchmark_comparison_text()
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP else None
+            ),
+            on_save_benchmark_comparison=(
+                (lambda destination, source=self._current_project_id:
+                    self._save_benchmark_comparison(source, destination))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and self._benchmark_comparison is not None
                 and self._import_thread is None else None
             ),
             import_summary=import_summary,
@@ -1258,6 +1282,8 @@ class SolarCheckMainWindow(QMainWindow):
         self._last_import_attempt = None
         self._import_performance_snapshot = None
         self._import_metrics_status = None
+        self._benchmark_comparison = None
+        self._benchmark_comparison_status = None
         self._import_status = "DJI-Bildimport läuft im Hintergrund …"
         worker.progress.connect(self._import_progress, Qt.ConnectionType.QueuedConnection)
         worker.metrics_ready.connect(
@@ -1331,6 +1357,110 @@ class SolarCheckMainWindow(QMainWindow):
             self._import_metrics_status = (
                 "Anonymer Import-Messbericht lokal als JSON gespeichert. "
                 "Keine Bildpfade oder Projektkennungen enthalten."
+            )
+        self._refresh_import_page()
+
+    def _benchmark_comparison_text(self) -> str | None:
+        """Show only aggregate measurements, never user-selected file paths."""
+        comparison = self._benchmark_comparison
+        if comparison is None:
+            return self._benchmark_comparison_status
+
+        seconds = comparison.elapsed_seconds
+        summary = (
+            f"Anonymer Import-Benchmark-Vergleich: {comparison.runs} Läufe; "
+            f"je {comparison.rgb_frames} RGB, "
+            f"{comparison.thermal_frames} Thermal und "
+            f"{comparison.image_pairs} Paare gespeichert. "
+            f"Gesamtdauer min/median/max: "
+            f"{seconds['min']:.2f}/{seconds['median']:.2f}/"
+            f"{seconds['max']:.2f} s."
+        )
+        def stage(label, values):
+            if values is None:
+                return f" {label}: nicht durchgängig verfügbar."
+            return (
+                f" {label} min/median/max: "
+                f"{values['min']:.2f}/{values['median']:.2f}/"
+                f"{values['max']:.2f} s."
+            )
+        summary += stage("Einlesen/Zuordnen", comparison.read_and_pair_seconds)
+        summary += stage("SQLite", comparison.sqlite_commit_seconds)
+        rss = comparison.process_peak_rss_bytes
+        if rss is None:
+            summary += " Prozess-RSS: nicht durchgängig verfügbar."
+        else:
+            mib = tuple(rss[key] / (1024 * 1024) for key in ("min", "median", "max"))
+            summary += (
+                f" Prozess-RSS min/median/max: "
+                f"{mib[0]:.1f}/{mib[1]:.1f}/{mib[2]:.1f} MiB."
+            )
+        summary += (
+            " RSS gilt für die gesamte Prozesslaufzeit; keine isolierte "
+            "Importspitze oder garantierte RAM-Obergrenze. Gleiche Bildzahlen "
+            "beweisen weder denselben Flug noch identische Hardware; keine "
+            "Windows-/DJI-Fachabnahme."
+        )
+        if self._benchmark_comparison_status is not None:
+            summary += " " + self._benchmark_comparison_status
+        return summary
+
+    def _compare_benchmark_reports(
+        self, source_project: str, report_paths,
+    ) -> None:
+        """Read only explicitly selected files through the shared service."""
+        from mcm_solarcheck.services.offline_benchmark_comparison import (
+            compare_offline_benchmark_reports,
+        )
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project is None
+            or source_project != self._current_project_id
+            or self._import_thread is not None
+            or self._import_close_pending
+        ):
+            return
+        # Fail closed: never re-export a previous success after an invalid set.
+        self._benchmark_comparison = None
+        try:
+            result = compare_offline_benchmark_reports(report_paths)
+        except (OSError, ValueError, TypeError):
+            self._benchmark_comparison_status = (
+                "Vergleich nicht möglich: 3–30 erfolgreiche, gültige lokale "
+                "Benchmark-Berichte mit gleichen Bildzahlen auswählen."
+            )
+        else:
+            self._benchmark_comparison = result
+            self._benchmark_comparison_status = None
+        self._refresh_import_page()
+
+    def _save_benchmark_comparison(
+        self, source_project: str, destination: str,
+    ) -> None:
+        """Write an anonymous result only following the separate save click."""
+        from mcm_solarcheck.services.offline_import_metrics import (
+            save_anonymous_import_report,
+        )
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project is None
+            or source_project != self._current_project_id
+            or self._benchmark_comparison is None
+            or self._import_thread is not None
+            or self._import_close_pending
+        ):
+            return
+        try:
+            save_anonymous_import_report(self._benchmark_comparison, destination)
+        except (OSError, ValueError, TypeError):
+            self._benchmark_comparison_status = (
+                "Anonymer Vergleich nicht gespeichert: "
+                "Ziel und vorhandene Dateien prüfen."
+            )
+        else:
+            self._benchmark_comparison_status = (
+                "Anonymer Vergleich lokal als JSON gespeichert; "
+                "keine Quelldateinamen oder Projektkennungen im Bericht."
             )
         self._refresh_import_page()
 
@@ -1418,6 +1548,8 @@ class SolarCheckMainWindow(QMainWindow):
         self._last_import_attempt = attempt
         self._import_performance_snapshot = None
         self._import_metrics_status = None
+        self._benchmark_comparison = None
+        self._benchmark_comparison_status = None
         self._last_review_status = None
         self._plant_overview_offset = 0
         self._clear_prepared_draft()
