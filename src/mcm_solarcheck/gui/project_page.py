@@ -1,4 +1,8 @@
+from dataclasses import replace
+
 from mcm_solarcheck.domain.project_profile import ProjectProfile
+
+from PySide6.QtCore import Qt
 
 """Project workspace for the SolarCheck GUI.
 
@@ -64,12 +68,83 @@ class NewProjectDialog(QDialog):
         return self.project_id.text(), self.name.text(), self.profile()
 
 
+class EditProjectProfileDialog(QDialog):
+    """Edit only visible fields, preserving all original optional metadata."""
+
+    FIELDS = (
+        ("customer_name", "Kunde"),
+        ("site_name", "Anlage"),
+        ("site_street", "Standort Straße"),
+        ("site_postal_code", "Standort PLZ"),
+        ("site_city", "Standort Ort"),
+        ("site_timezone", "Standort-Zeitzone (IANA, optional)"),
+        ("inspector", "Prüfer"),
+    )
+
+    def __init__(self, original: ProjectProfile | None, parent=None) -> None:
+        super().__init__(parent)
+        self._original = original
+        self.setWindowTitle("Projektstammdaten bearbeiten")
+        layout = QFormLayout(self)
+        self.fields = {}
+        for key, label in self.FIELDS:
+            field = QLineEdit(self)
+            field.setObjectName("edit_profile_" + key)
+            field.setText(getattr(original, key, None) or "")
+            if key == "site_timezone":
+                field.setPlaceholderText("z. B. Europe/Berlin")
+            layout.addRow(label, field)
+            self.fields[key] = field
+
+        info = QLabel(
+            "Änderungen gelten nur für das aktive Offline-Projekt. "
+            "Ein vorbereiteter Berichtsentwurf wird nach dem Speichern ungültig.",
+            self,
+        )
+        info.setWordWrap(True)
+        info.setTextFormat(Qt.TextFormat.PlainText)
+        layout.addRow(info)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel,
+            parent=self,
+        )
+        self._ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+        for field in self.fields.values():
+            field.textChanged.connect(self._update_acceptance)
+        self._update_acceptance()
+
+    def profile(self) -> ProjectProfile:
+        values = {key: field.text().strip() for key, field in self.fields.items()}
+        values["site_timezone"] = values["site_timezone"] or None
+        if self._original is None:
+            return ProjectProfile(**values)
+        return replace(self._original, **values)
+
+    def _update_acceptance(self) -> None:
+        try:
+            result = self.profile()
+        except ValueError:
+            self._ok_button.setEnabled(False)
+        else:
+            self._ok_button.setEnabled(
+                self._original is None or result != self._original
+            )
+
+
 def make_project_page(
     parent: QWidget | None = None,
     *,
     projects=(),
     on_create_project=None,
     on_open_project=None,
+    current_project_id=None,
+    profile=None,
+    on_edit_profile=None,
+    last_profile_status=None,
 ) -> QWidget:
     page = QWidget(parent)
     page.setObjectName("project_page")
@@ -140,5 +215,31 @@ def make_project_page(
             "Nicht verfügbar, solange kein Project Application Service angebunden ist."
         )
     layout.addWidget(open_project)
+
+    current = QLabel(
+        f"Aktives Projekt: {current_project_id}"
+        if current_project_id is not None else "Kein aktives Projekt geöffnet.",
+        page,
+    )
+    current.setObjectName("project_profile_context")
+    current.setTextFormat(Qt.TextFormat.PlainText)
+    layout.addWidget(current)
+    edit = QPushButton("Stammdaten des aktiven Projekts bearbeiten …", page)
+    edit.setObjectName("edit_project_profile_button")
+    edit.setEnabled(current_project_id is not None and on_edit_profile is not None)
+    if current_project_id is not None and on_edit_profile is not None:
+        def request_profile_edit():
+            dialog = EditProjectProfileDialog(profile, page)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                on_edit_profile(profile, dialog.profile())
+
+        edit.clicked.connect(request_profile_edit)
+    layout.addWidget(edit)
+    if last_profile_status:
+        status = QLabel(last_profile_status, page)
+        status.setObjectName("project_profile_edit_status")
+        status.setTextFormat(Qt.TextFormat.PlainText)
+        status.setWordWrap(True)
+        layout.addWidget(status)
     layout.addStretch(1)
     return page

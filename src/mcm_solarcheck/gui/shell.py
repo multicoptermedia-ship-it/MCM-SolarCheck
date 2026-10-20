@@ -53,6 +53,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._actions: dict[ShellCommandId, QAction] = {}
         self._workflow_availability = None
         self._current_project_id = None
+        self._last_profile_status = None
         self._verified_user_id = None
         self._last_import_attempt = None
         self._geotiff_result = None
@@ -215,6 +216,28 @@ class SolarCheckMainWindow(QMainWindow):
             projects=self._project_service.projects(),
             on_create_project=self._create_project,
             on_open_project=self._open_project,
+            current_project_id=self._current_project_id,
+            profile=(
+                self._project_service.project_profile(self._current_project_id)
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and callable(getattr(self._project_service, "project_profile", None))
+                else None
+            ),
+            on_edit_profile=(
+                (lambda expected, updated, source=self._current_project_id:
+                 self._update_project_profile(source, expected, updated))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and callable(getattr(
+                    self._project_service, "update_project_profile_if_unchanged", None
+                ))
+                else None
+            ),
+            last_profile_status=(
+                self._last_profile_status
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP else None
+            ),
         )
         self._pages[ShellRoute.PROJECT] = new_page
         index = self._stack.indexOf(old_page)
@@ -223,6 +246,41 @@ class SolarCheckMainWindow(QMainWindow):
             self._stack.setCurrentWidget(new_page)
         self._stack.removeWidget(old_page)
         old_page.deleteLater()
+
+    def _update_project_profile(
+        self, source_project: str, expected, updated,
+    ) -> None:
+        """Only an explicit offline edit from the current project can persist."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or self._project_service is None
+        ):
+            return
+        update = getattr(
+            self._project_service, "update_project_profile_if_unchanged", None
+        )
+        if not callable(update):
+            return
+        try:
+            changed = update(source_project, expected, updated)
+        except (KeyError, ValueError, TypeError, OSError):
+            self._clear_prepared_draft()
+            self._last_profile_status = (
+                "Stammdaten nicht gespeichert. Projekt und gespeicherte Daten "
+                "bitte erneut öffnen und prüfen."
+            )
+        else:
+            if changed:
+                self._clear_prepared_draft()
+            self._last_profile_status = (
+                "Projektstammdaten gespeichert. Einen Berichtsentwurf "
+                "bitte neu vorbereiten."
+                if changed else "Keine Änderung der Projektstammdaten."
+            )
+        self._refresh_project_page()
+        self._refresh_report_page()
+        self._refresh_export_page()
 
     def _open_project(self, project_id: str | None) -> None:
         """Open a persisted project through the application service boundary."""
@@ -255,6 +313,7 @@ class SolarCheckMainWindow(QMainWindow):
             else:
                 self._import_status = None
             self._last_import_attempt = None
+            self._last_profile_status = None
             self._last_review_status = None
             self._review_offset = 0
             self._plant_overview_offset = 0
@@ -265,6 +324,7 @@ class SolarCheckMainWindow(QMainWindow):
             self._rgb_preview_status = None
             self._rgb_preview_path = None
         self._current_project_id = project_id
+        self._refresh_project_page()
         self._refresh_import_page()
         self._refresh_processing_page()
         self._refresh_plant_overview_page()
