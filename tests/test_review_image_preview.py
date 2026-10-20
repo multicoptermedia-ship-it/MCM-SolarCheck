@@ -388,7 +388,9 @@ def test_mismatched_native_geometry_and_out_of_bounds_pixel_never_mark(tmp_path)
     wrong_dimensions = service.preview_review_image_evidence("P1", "F1", root)
     assert wrong_dimensions.thermal_marker == "different_geometry"
     assert preview_center_color(wrong_dimensions.thermal_png) != (57, 243, 189)
-    set_matching_thermal_geometry(service, point=(1200, 10))
+    set_matching_thermal_geometry(
+        service, size=(640, 512), point=(1200, 10),
+    )
     outside = service.preview_review_image_evidence("P1", "F1", root)
     assert outside.thermal_marker == "different_geometry"
     set_matching_thermal_geometry(service, size=(1200, 800), point=(1200, 10))
