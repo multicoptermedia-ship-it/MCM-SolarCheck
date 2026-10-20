@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QComboBox, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QComboBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QPlainTextEdit, QPushButton, QVBoxLayout, QWidget,
 )
 
@@ -15,6 +15,7 @@ MAX_REVIEW_PAGE_FINDINGS = 50
 def make_review_page(
     parent=None, *, current_project_id=None, overview=None, pending=(),
     on_review=None, on_refresh=None, last_review_status=None,
+    offset=0, on_page_requested=None,
 ):
     """Present expert choices; never classify or approve a report automatically."""
     page = QWidget(parent)
@@ -75,11 +76,49 @@ def make_review_page(
         finding_list.addItem(item)
     layout.addWidget(finding_list)
 
+    # Pagination is read-only; only explicitly submitted decisions persist.
+    navigation = QHBoxLayout()
+    previous = QPushButton("Vorherige Befunde", page)
+    previous.setObjectName("review_previous_page")
+    page_count = QLabel("", page)
+    page_count.setObjectName("review_page_status")
+    following = QPushButton("Weitere Befunde", page)
+    following.setObjectName("review_next_page")
+    count = overview.summary.unreviewed_findings if overview is not None else 0
+    enabled = (
+        overview is not None and current_project_id is not None
+        and on_page_requested is not None
+    )
+    page_count.setText(
+        f"Offene Befunde {offset + 1}–{offset + len(pending)} von {count}"
+        if pending else f"Keine offenen Befunde auf dieser Seite ({count} insgesamt)"
+    )
+    page_count.setTextFormat(Qt.TextFormat.PlainText)
+    previous.setEnabled(bool(enabled and offset >= MAX_REVIEW_PAGE_FINDINGS))
+    following.setEnabled(bool(
+        enabled and pending and offset + len(pending) < count
+    ))
+    if enabled:
+        previous.clicked.connect(
+            lambda checked=False: on_page_requested(
+                max(0, offset - MAX_REVIEW_PAGE_FINDINGS),
+            )
+        )
+        following.clicked.connect(
+            lambda checked=False: on_page_requested(
+                offset + MAX_REVIEW_PAGE_FINDINGS,
+            )
+        )
+    navigation.addWidget(previous)
+    navigation.addWidget(page_count, 1)
+    navigation.addWidget(following)
+    layout.addLayout(navigation)
+
     caution = QLabel(
         "Eine Bestätigung ist eine fachliche Entscheidung über einen gespeicherten "
         "Kandidaten, keine automatische Diagnose. Fehlende Modulzuordnung, "
         "Temperaturkalibrierung und Berichtfreigabe bleiben gesonderte Prüfschritte. "
-        "Die Liste zeigt nur die ersten offenen Befunde.",
+        "Die Liste zeigt jeweils eine begrenzte Seite offener Befunde.",
         page,
     )
     caution.setObjectName("review_safety_notice")

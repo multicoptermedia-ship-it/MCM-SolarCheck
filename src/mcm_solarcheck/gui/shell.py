@@ -76,6 +76,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._rgb_preview_status = None
         self._rgb_preview_path = None
         self._last_review_status = None
+        self._review_offset = 0
         self._draft_report = None
         self._draft_request = None
         self._last_report_status = None
@@ -255,6 +256,7 @@ class SolarCheckMainWindow(QMainWindow):
                 self._import_status = None
             self._last_import_attempt = None
             self._last_review_status = None
+            self._review_offset = 0
             self._plant_overview_offset = 0
             self._clear_prepared_draft()
             self._geotiff_result = None
@@ -515,8 +517,20 @@ class SolarCheckMainWindow(QMainWindow):
         if state is not None:
             self.apply_workflow_state(state)
 
+    def _load_review_page(self, source_project: str, offset: int) -> None:
+        """Reject stale, online, negative or unaligned Qt navigation requests."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or type(offset) is not int or offset < 0
+            or offset % MAX_REVIEW_PAGE_FINDINGS != 0
+        ):
+            return
+        self._review_offset = offset
+        self._refresh_review_page()
+
     def _refresh_review_page(self) -> None:
-        """Build a project-specific review page from the existing service."""
+        """Build one project-specific page of persisted, unreviewed findings."""
         old_page = self._pages[ShellRoute.REVIEW]
         overview_provider = getattr(self._project_service, "processing_overview", None)
         queue_provider = getattr(self._project_service, "pending_review_findings", None)
@@ -530,8 +544,19 @@ class SolarCheckMainWindow(QMainWindow):
             and callable(overview_provider) and callable(queue_provider)
         )
         overview = overview_provider(project_id) if enabled else None
+        # Reviews shrink the queue. Do not leave the reviewer on an empty page.
+        total = overview.summary.unreviewed_findings if overview is not None else 0
+        if total == 0:
+            self._review_offset = 0
+        elif self._review_offset >= total:
+            self._review_offset = (
+                (total - 1) // MAX_REVIEW_PAGE_FINDINGS
+            ) * MAX_REVIEW_PAGE_FINDINGS
         pending = (
-            queue_provider(project_id, limit=MAX_REVIEW_PAGE_FINDINGS)
+            queue_provider(
+                project_id, limit=MAX_REVIEW_PAGE_FINDINGS,
+                offset=self._review_offset,
+            )
             if enabled else ()
         )
         on_review = (
@@ -546,6 +571,12 @@ class SolarCheckMainWindow(QMainWindow):
             overview=overview, pending=pending,
             on_review=on_review,
             on_refresh=self._reload_review_page if enabled else None,
+            on_page_requested=(
+                (lambda offset, source=project_id:
+                 self._load_review_page(source, offset))
+                if enabled else None
+            ),
+            offset=self._review_offset if enabled else 0,
             last_review_status=self._last_review_status if offline else None,
         )
         self._pages[ShellRoute.REVIEW] = new_page
