@@ -383,6 +383,7 @@ class ProjectApplicationService:
                 candidate_percentile=candidate_percentile,
                 candidate_limit=candidate_limit,
                 heartbeat=heartbeat,
+                retain_rasters=False,  # Offline persistence needs findings, not raw pixels.
             )
             heartbeat()
             # Do not quietly commit only the readable part of a flight after

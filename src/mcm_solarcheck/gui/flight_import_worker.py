@@ -38,7 +38,9 @@ class FlightImportThread(QThread):
         except Exception as error:
             self.failed.emit(str(error) or type(error).__name__)
         else:
-            # The transaction may already have committed when a late cancel
-            # is requested; report the actual persisted outcome, not a false
-            # cancellation signal.
-            self.result_ready.emit(outcome)
+            # The GUI needs only the persisted state and attempt status.
+            # Do not enqueue the full frame/thermal batch in Qt signal data:
+            # otherwise queued GUI events may retain thousands of objects.
+            # A late cancellation cannot undo a committed transaction.
+            attempt, _import_data, state = outcome
+            self.result_ready.emit((attempt, None, state))
