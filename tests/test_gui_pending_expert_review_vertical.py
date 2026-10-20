@@ -329,3 +329,134 @@ def test_selected_details_do_not_survive_project_switch_or_online_shell(
             online.close()
     finally:
         window.close()
+
+
+def test_old_review_page_cannot_replay_decision_after_same_project_refresh(
+    qt_app, tmp_path,
+):
+    """Even identical project and finding IDs cannot keep an obsolete action alive."""
+    window = build_offline_window(tmp_path / "same-project.sqlite3")
+    service = window._project_service
+    try:
+        service.create_project("P1", "Private project")
+        seed_finding(service, "P1")
+        window._open_project("P1")
+        old_page = window._pages[ShellRoute.REVIEW]
+        old_page.findChild(QListWidget, "pending_review_findings").setCurrentRow(0)
+        old_page.findChild(QLineEdit, "expert_reviewer").setText("Fachperson")
+        old_page.findChild(QComboBox, "expert_decision").setCurrentIndex(1)
+        old_submit = old_page.findChild(QPushButton, "submit_expert_review")
+        assert old_submit.isEnabled()
+        old_generation = window._review_generation
+
+        window._refresh_review_page()
+        assert window.current_project_id == "P1"
+        assert window._review_generation > old_generation
+        # Invoke the genuinely connected stale Qt callback, not just a mock.
+        old_submit.clicked.emit()
+        assert review_count(service, "P1") == 0
+        assert service.import_summary("P1").unreviewed_findings == 1
+        assert window._last_review_status is None
+
+        new_page = window._pages[ShellRoute.REVIEW]
+        new_page.findChild(QListWidget, "pending_review_findings").setCurrentRow(0)
+        new_page.findChild(QLineEdit, "expert_reviewer").setText("Fachperson")
+        new_page.findChild(QComboBox, "expert_decision").setCurrentIndex(1)
+        new_page.findChild(QPushButton, "submit_expert_review").click()
+        assert review_count(service, "P1") == 1
+        assert service.import_summary("P1").confirmed_findings == 1
+    finally:
+        window.close()
+
+
+def test_same_project_stale_navigation_and_preview_generation_cannot_run(
+    qt_app, tmp_path,
+):
+    window = build_offline_window(tmp_path / "navigation.sqlite3")
+    service = window._project_service
+    try:
+        service.create_project("P1", "Private project")
+        seed_finding(service, "P1")
+        window._open_project("P1")
+        old_gen = window._review_generation
+        window._refresh_review_page()
+        current_gen = window._review_generation
+        assert current_gen > old_gen
+
+        window._load_review_page("P1", 50, old_gen)
+        assert window._review_offset == 0
+        assert window._review_generation == current_gen
+        assert window._preview_review_images(
+            "P1", "F1", "/private/customer/flight", old_gen,
+        ) is None
+        assert review_count(service, "P1") == 0
+
+        window._load_review_page("P1", 0, current_gen)
+        assert window._review_generation == current_gen + 1
+        assert window._preview_review_images(
+            "P1", "F1", "/private/customer/flight", current_gen,
+        ) is None
+    finally:
+        window.close()
+
+
+def test_review_service_errors_do_not_expose_private_paths_in_qt(
+    qt_app, tmp_path, monkeypatch,
+):
+    window = build_offline_window(tmp_path / "privacy.sqlite3")
+    service = window._project_service
+    try:
+        service.create_project("P1", "Private project")
+        seed_finding(service, "P1")
+        window._open_project("P1")
+        page = window._pages[ShellRoute.REVIEW]
+        page.findChild(QListWidget, "pending_review_findings").setCurrentRow(0)
+        page.findChild(QLineEdit, "expert_reviewer").setText("Fachperson")
+        page.findChild(QComboBox, "expert_decision").setCurrentIndex(1)
+        sentinel = "PRIVATER_KUNDENPFAD"
+        def refuse(*args, **kwargs):
+            raise ValueError("C:/customer/" + sentinel + "/T.JPG")
+        monkeypatch.setattr(service, "review_pending_finding", refuse)
+
+        page.findChild(QPushButton, "submit_expert_review").click()
+        new_page = window._pages[ShellRoute.REVIEW]
+        status = new_page.findChild(QLabel, "review_decision_status")
+        assert status is not None
+        assert "Entscheidung nicht gespeichert" in status.text()
+        assert sentinel not in status.text()
+        assert "C:/customer" not in status.text()
+        assert review_count(service, "P1") == 0
+        assert service.import_summary("P1").unreviewed_findings == 1
+    finally:
+        window.close()
+
+
+def test_same_project_stale_action_cannot_review_different_paged_candidate(
+    qt_app, tmp_path,
+):
+    window = build_offline_window(tmp_path / "offsets.sqlite3")
+    service = window._project_service
+    try:
+        service.create_project("P1", "Large review")
+        seed_finding(service, "P1")
+        service.database.save_findings("P1", tuple(
+            Finding(f"F{i:03}", "T1", i, i + 1, module_id="M1")
+            for i in range(2, 54)
+        ))
+        window._open_project("P1")
+        first_generation = window._review_generation
+        window._load_review_page("P1", 50, first_generation)
+        assert window._review_offset == 50
+        assert window._review_generation > first_generation
+        window._review_pending_finding(
+            "P1", "F1", ReviewStatus.CONFIRMED, "Fachperson", None,
+            expected_generation=first_generation,
+        )
+        window._review_pending_finding(
+            "P1", "F1", ReviewStatus.CONFIRMED, "Fachperson", None,
+            expected_generation=window._review_generation,
+        )
+        assert review_count(service, "P1") == 0
+        assert service.import_summary("P1").unreviewed_findings == 53
+    finally:
+        window.close()
