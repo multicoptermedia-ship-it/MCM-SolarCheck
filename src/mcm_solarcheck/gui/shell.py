@@ -78,6 +78,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._rgb_preview_path = None
         self._last_review_status = None
         self._review_offset = 0
+        self._review_generation = 0
         self._draft_report = None
         self._draft_request = None
         self._last_report_status = None
@@ -617,13 +618,18 @@ class SolarCheckMainWindow(QMainWindow):
         if state is not None:
             self.apply_workflow_state(state)
 
-    def _load_review_page(self, source_project: str, offset: int) -> None:
+    def _load_review_page(
+        self, source_project: str, offset: int,
+        expected_generation: int | None = None,
+    ) -> None:
         """Reject stale, online, negative or unaligned Qt navigation requests."""
         if (
             self._deployment is not DeploymentMode.OFFLINE_DESKTOP
             or source_project != self._current_project_id
             or type(offset) is not int or offset < 0
             or offset % MAX_REVIEW_PAGE_FINDINGS != 0
+            or (expected_generation is not None
+                and expected_generation != self._review_generation)
         ):
             return
         self._review_offset = offset
@@ -631,6 +637,7 @@ class SolarCheckMainWindow(QMainWindow):
 
     def _preview_review_images(
         self, source_project: str, finding_id: str, local_folder: str,
+        expected_generation: int | None = None,
     ):
         """Read hashed thumbnails only for the active offline review page.
 
@@ -640,6 +647,8 @@ class SolarCheckMainWindow(QMainWindow):
             self._deployment is not DeploymentMode.OFFLINE_DESKTOP
             or self._project_service is None
             or source_project != self._current_project_id
+            or (expected_generation is not None
+                and expected_generation != self._review_generation)
         ):
             return None
         provider = getattr(
@@ -660,7 +669,11 @@ class SolarCheckMainWindow(QMainWindow):
         except (KeyError, PermissionError, ValueError, TypeError, OSError):
             from mcm_solarcheck.services.review_image_preview import ReviewImageEvidence
             images = ReviewImageEvidence(None, None, "unavailable", "unavailable")
-        if source_project != self._current_project_id:
+        if (
+            source_project != self._current_project_id
+            or (expected_generation is not None
+                and expected_generation != self._review_generation)
+        ):
             return None
         return images
 
@@ -697,10 +710,16 @@ class SolarCheckMainWindow(QMainWindow):
             )
             if enabled else ()
         )
+        # Each redraw revokes all callbacks belonging to the old Qt page,
+        # even if a new page has the same project and finding identifiers.
+        self._review_generation += 1
+        generation = self._review_generation
         on_review = (
-            (lambda finding_id, status, reviewer, note, source_project=project_id:
+            (lambda finding_id, status, reviewer, note,
+             source_project=project_id, generation=generation:
              self._review_pending_finding(
                  source_project, finding_id, status, reviewer, note,
+                 expected_generation=generation,
              ))
             if enabled and callable(action_provider) else None
         )
@@ -710,14 +729,17 @@ class SolarCheckMainWindow(QMainWindow):
             on_review=on_review,
             on_refresh=self._reload_review_page if enabled else None,
             on_page_requested=(
-                (lambda offset, source=project_id:
-                 self._load_review_page(source, offset))
+                (lambda offset, source=project_id, generation=generation:
+                 self._load_review_page(source, offset, generation))
                 if enabled else None
             ),
             offset=self._review_offset if enabled else 0,
             on_preview_images=(
-                (lambda finding_id, folder, source=project_id:
-                 self._preview_review_images(source, finding_id, folder))
+                (lambda finding_id, folder, source=project_id,
+                 generation=generation:
+                 self._preview_review_images(
+                     source, finding_id, folder, generation,
+                 ))
                 if enabled and callable(preview_provider) else None
             ),
             last_review_status=self._last_review_status if offline else None,
@@ -733,22 +755,35 @@ class SolarCheckMainWindow(QMainWindow):
     def _review_pending_finding(
         self, source_project: str, finding_id: str, status, reviewer: str,
         note: str | None,
+        expected_generation: int | None = None,
     ) -> None:
-        """Only a live action from the selected project can persist a review."""
+        """Persist only an active project/page's deliberately chosen decision."""
         if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
                 or source_project != self._current_project_id
-                or self._project_service is None):
+                or self._project_service is None
+                or (expected_generation is not None
+                    and expected_generation != self._review_generation)):
             return
         review_action = getattr(self._project_service, "review_pending_finding", None)
         if not callable(review_action):
             return
         try:
+            if expected_generation is not None:
+                current = self._project_service.pending_review_findings(
+                    source_project, limit=MAX_REVIEW_PAGE_FINDINGS,
+                    offset=self._review_offset,
+                )
+                if finding_id not in (item.finding_id for item in current):
+                    return
             _finding, audit, state = review_action(
                 source_project, finding_id, status=status,
                 reviewer=reviewer, note=note,
             )
-        except (KeyError, ValueError, TypeError) as exc:
-            self._last_review_status = f"Entscheidung nicht gespeichert: {exc}"
+        except (KeyError, ValueError, TypeError):
+            self._last_review_status = (
+                "Entscheidung nicht gespeichert. Bitte den aktuellen "
+                "Projektstand und den Befund erneut laden und prüfen."
+            )
             self._refresh_review_page()
             return
         self._last_review_status = (
