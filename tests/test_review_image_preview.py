@@ -427,3 +427,111 @@ def test_mismatched_sha_blocks_image_and_locator_even_if_geometry_matches(tmp_pa
     assert result.thermal_integrity == "mismatch"
     assert result.thermal_marker == "unavailable"
     assert result.thermal_png is None
+
+
+def test_native_resolution_thermal_detail_is_256_px_and_centered(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(90, 100, 110), size=(1200, 800))
+    set_matching_thermal_geometry(service, size=(1200, 800), point=(600, 400))
+    before = (root / "T.JPG").read_bytes()
+    evidence = service.preview_review_image_evidence("P1", "F1", root)
+    assert evidence.thermal_marker == "marked"
+    assert evidence.thermal_detail_png is not None
+    with Image.open(BytesIO(evidence.thermal_detail_png)) as image:
+        assert image.size == (256, 256)
+        assert image.format == "PNG"
+        assert image.getpixel((128, 128)) == (57, 243, 189)
+        assert image.getpixel((0, 0)) == (90, 100, 110)
+    assert (root / "T.JPG").read_bytes() == before
+    assert service.import_summary("P1").unreviewed_findings == 1
+
+
+def test_detail_near_border_is_clipped_without_fabricating_pixels(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(10, 20, 30), size=(1200, 800))
+    set_matching_thermal_geometry(service, size=(1200, 800), point=(0, 0))
+    detail = service.preview_review_image_evidence("P1", "F1", root)
+    assert detail.thermal_marker == "marked"
+    with Image.open(BytesIO(detail.thermal_detail_png)) as image:
+        assert image.size == (256, 256)
+        assert image.getpixel((255, 255)) == (10, 20, 30)
+    set_matching_thermal_geometry(service, size=(1200, 800), point=(1199, 799))
+    opposite = service.preview_review_image_evidence("P1", "F1", root)
+    assert opposite.thermal_marker == "marked"
+    with Image.open(BytesIO(opposite.thermal_detail_png)) as image:
+        assert image.size == (256, 256)
+        assert image.getpixel((0, 0)) == (10, 20, 30)
+
+
+def test_detail_requires_rgb_transform_and_same_image_geometry(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(50, 60, 70))
+    write_image(root / "V.JPG", color=(20, 30, 40))
+    set_matching_thermal_geometry(service)
+    set_matching_rgb_geometry(service, validated=0)
+    unvalidated = service.preview_review_image_evidence("P1", "F1", root)
+    assert unvalidated.thermal_detail_png is not None
+    assert unvalidated.rgb_detail_png is None
+    assert unvalidated.rgb_marker == "unvalidated"
+
+    set_matching_rgb_geometry(service, validated=1)
+    linked = service.preview_review_image_evidence("P1", "F1", root)
+    assert linked.rgb_marker == "marked"
+    assert linked.rgb_detail_png is not None
+    with Image.open(BytesIO(linked.rgb_detail_png)) as image:
+        assert image.size == (256, 256)
+        assert image.getpixel((128, 128)) == (57, 243, 189)
+
+    set_matching_rgb_geometry(service, size=(640, 480), validated=1)
+    changed = service.preview_review_image_evidence("P1", "F1", root)
+    assert changed.rgb_marker == "different_geometry"
+    assert changed.rgb_detail_png is None
+    assert changed.thermal_detail_png is not None
+    assert service.preview_review_image_evidence("P2", "F1", root).rgb_detail_png is None
+
+
+def test_invalid_original_or_rotation_must_never_generate_a_detail(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(10, 20, 30))
+    set_matching_thermal_geometry(service)
+    img = Image.new("RGB", (1200, 800), (10, 20, 30))
+    exif = Image.Exif()
+    exif[274] = 6
+    img.save(root / "T.JPG", format="JPEG", exif=exif)
+    rotated = service.preview_review_image_evidence("P1", "F1", root)
+    assert rotated.thermal_marker == "orientation"
+    assert rotated.thermal_detail_png is None
+    assert rotated.thermal_png is not None
+
+    with service.database.connect() as db:
+        db.execute(
+            "UPDATE findings SET pixel_x=1200 WHERE project_id='P1' "
+            "AND finding_id='F1'"
+        )
+    invalid = service.preview_review_image_evidence("P1", "F1", root)
+    assert invalid.thermal_detail_png is None
+    assert invalid.thermal_marker == "orientation"
+
+
+def test_failed_original_digest_suppresses_both_thumbnail_and_detail(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(40, 50, 60))
+    set_matching_thermal_geometry(service)
+    stored_checksum(service, "P1", "T1", "thermal", "f" * 64)
+    result = service.preview_review_image_evidence("P1", "F1", root)
+    assert result.thermal_png is None
+    assert result.thermal_detail_png is None
+    assert result.thermal_marker == "unavailable"
+    assert result.thermal_integrity == "mismatch"
+
+
+def test_small_source_never_upscales_or_reads_outside_image(tmp_path):
+    service, root = sample(tmp_path)
+    write_image(root / "T.JPG", color=(90, 80, 70), size=(80, 60))
+    set_matching_thermal_geometry(service, size=(80, 60), point=(39, 29))
+    result = service.preview_review_image_evidence("P1", "F1", root)
+    assert result.thermal_marker == "marked"
+    with Image.open(BytesIO(result.thermal_detail_png)) as image:
+        assert image.size == (80, 60)
+        assert image.getpixel((0, 0)) == (90, 80, 70)
+    assert result.thermal_integrity == "unverified"
