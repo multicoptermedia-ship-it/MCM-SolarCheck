@@ -445,11 +445,16 @@ class ProjectApplicationService:
 
 
 
-    def pending_review_findings(self, project_id: str, *, limit: int = 50):
-        """Return a bounded, project-scoped queue of persisted pending findings."""
+    def pending_review_findings(
+        self, project_id: str, *, limit: int = 50, offset: int = 0,
+    ):
+        """Read a bounded, stable-ordered page of the project's open findings."""
+        if type(offset) is not int or offset < 0:
+            raise ValueError("review queue offset must be a non-negative integer")
         self.import_summary(project_id)  # Reject unknown projects explicitly.
         return InspectionQueries(self.database).findings(
-            project_id, reviewer_status=ReviewStatus.UNREVIEWED.value, limit=limit,
+            project_id, reviewer_status=ReviewStatus.UNREVIEWED.value,
+            limit=limit, offset=offset,
         )
 
     def review_pending_finding(

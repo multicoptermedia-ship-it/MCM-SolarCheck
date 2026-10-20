@@ -217,10 +217,14 @@ class InspectionQueries:
         sql+=' ORDER BY physical_module_id,frame_id,local_module_id'
         with self.database.connect() as db:rows=db.execute(sql,tuple(params)).fetchall()
         return tuple(ModuleIdentityRecord(**dict(row)) for row in rows)
-    def findings(self,project_id:str,*,reviewer_status:str|None=None,confirmed_only:bool=False,limit:int|None=None)->tuple[FindingRecord,...]:
+    def findings(self,project_id:str,*,reviewer_status:str|None=None,confirmed_only:bool=False,limit:int|None=None,offset:int=0)->tuple[FindingRecord,...]:
         if confirmed_only and reviewer_status is not None:raise ValueError('Use either confirmed_only or reviewer_status, not both')
         if limit is not None and (type(limit) is not int or limit < 1):
             raise ValueError('findings limit must be a positive integer')
+        if type(offset) is not int or offset < 0:
+            raise ValueError('findings offset must be a non-negative integer')
+        if offset and limit is None:
+            raise ValueError('paged findings require a bounded limit')
         status='confirmed' if confirmed_only else reviewer_status
         sql='''SELECT f.finding_id,f.thermal_frame_id,f.module_id,f.pixel_x,f.pixel_y,
                       f.finding_type,f.confidence,f.raw_value,f.raw_delta_from_median,
@@ -235,8 +239,8 @@ class InspectionQueries:
         if status is not None:sql+=' AND f.reviewer_status=?';params.append(status)
         sql+=' ORDER BY f.thermal_frame_id,f.pixel_y,f.pixel_x,f.finding_id'
         if limit is not None:
-            sql+=' LIMIT ?'
-            params.append(limit)
+            sql+=' LIMIT ? OFFSET ?'
+            params.extend((limit, offset))
         with self.database.connect() as db:rows=db.execute(sql,tuple(params)).fetchall()
         records=[]
         for row in rows:
