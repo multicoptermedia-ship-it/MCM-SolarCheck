@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -134,6 +134,61 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
                 on_save_import_metrics(destination)
         export_metrics.clicked.connect(request_metrics_export)
     layout.addWidget(export_metrics)
+
+    # A locally selected cohort of separately generated benchmark reports is
+    # read only after a conscious user action. No import or upload is started.
+    compare_benchmarks = QPushButton(
+        "Anonyme Import-Benchmarks vergleichen (3–30 JSON-Dateien) …", page,
+    )
+    compare_benchmarks.setObjectName("compare_offline_benchmark_reports")
+    compare_benchmarks.setEnabled(
+        current_project_id is not None and on_compare_benchmark_reports is not None
+    )
+    if current_project_id is not None and on_compare_benchmark_reports is not None:
+        def request_benchmark_comparison():
+            select = choose_benchmark_reports or (
+                lambda: QFileDialog.getOpenFileNames(
+                    page, "Lokale Import-Benchmark-Berichte auswählen",
+                    "", "JSON-Dateien (*.json)",
+                )[0]
+            )
+            selected = select()
+            if selected:
+                on_compare_benchmark_reports(tuple(selected))
+        compare_benchmarks.clicked.connect(request_benchmark_comparison)
+    layout.addWidget(compare_benchmarks)
+
+    if benchmark_comparison_text is not None:
+        comparison_label = QLabel(benchmark_comparison_text, page)
+        comparison_label.setObjectName("offline_benchmark_comparison")
+        comparison_label.setTextFormat(Qt.TextFormat.PlainText)
+        comparison_label.setWordWrap(True)
+        comparison_label.setAccessibleDescription(
+            "Nur lokale Vergleichswerte. Gleiche Bildzahlen beweisen weder "
+            "denselben Flug noch dieselbe Windows-Hardware."
+        )
+        layout.addWidget(comparison_label)
+
+    save_benchmark = QPushButton(
+        "Anonymen Benchmark-Vergleich als JSON speichern …", page,
+    )
+    save_benchmark.setObjectName("save_offline_benchmark_comparison")
+    save_benchmark.setEnabled(
+        current_project_id is not None and on_save_benchmark_comparison is not None
+    )
+    if current_project_id is not None and on_save_benchmark_comparison is not None:
+        def request_benchmark_export():
+            select = choose_benchmark_comparison_destination or (
+                lambda: QFileDialog.getSaveFileName(
+                    page, "Anonymen Benchmark-Vergleich speichern",
+                    "SolarCheck-Benchmark-Vergleich.json", "JSON (*.json)",
+                )[0]
+            )
+            destination = select()
+            if destination:
+                on_save_benchmark_comparison(destination)
+        save_benchmark.clicked.connect(request_benchmark_export)
+    layout.addWidget(save_benchmark)
 
     preflight_start = QPushButton(
         "Großen DJI-Flugordner vorab prüfen (nur Dateinamen/Größen)", page,
