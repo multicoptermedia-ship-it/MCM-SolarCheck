@@ -155,6 +155,41 @@ def make_review_page(
         integrity_row.addWidget(label, 1)
     layout.addLayout(integrity_row)
 
+    locator_row = QHBoxLayout()
+    thermal_locator = QLabel("", page)
+    thermal_locator.setObjectName("review_preview_thermal_locator")
+    rgb_locator = QLabel("", page)
+    rgb_locator.setObjectName("review_preview_rgb_locator")
+    for label in (thermal_locator, rgb_locator):
+        label.setTextFormat(Qt.TextFormat.PlainText)
+        label.setWordWrap(True)
+        locator_row.addWidget(label, 1)
+    layout.addLayout(locator_row)
+
+    locator_messages = {
+        "marked": (
+            "Grüne Zielmarke: gespeicherte Pixelposition im unverdrehten "
+            "Sichtbild gleicher Abmessungen. Nur Positionshilfe, keine "
+            "radiometrische Zuordnung oder Defektdiagnose."
+        ),
+        "different_geometry": (
+            "Keine Zielmarke: Bild- und gespeicherte Pixelabmessungen "
+            "stimmen nicht exakt überein."
+        ),
+        "orientation": (
+            "Keine Zielmarke: Bild enthält eine EXIF-Drehorientierung."
+        ),
+        "outside": (
+            "Keine Zielmarke: gespeicherte Pixelposition ist ungültig "
+            "oder liegt außerhalb des Bildes."
+        ),
+        "unvalidated": (
+            "Keine RGB-Zielmarke: geometrische Bildverknüpfung "
+            "ist nicht als validiert gespeichert."
+        ),
+        "unavailable": "Keine Zielmarke ohne verfügbaren Bildnachweis.",
+    }
+
     integrity_messages = {
         "verified": (
             "SHA-256 stimmt mit der beim Import gespeicherten Datei-Prüfsumme "
@@ -176,6 +211,8 @@ def make_review_page(
         rgb_preview.setText("RGB: kein Bild geladen")
         thermal_integrity.setText("")
         rgb_integrity.setText("")
+        thermal_locator.setText("")
+        rgb_locator.setText("")
         preview_status.setText(
             "Für die Bildvorschau bitte ausdrücklich einen lokalen Flugordner wählen."
         )
@@ -202,6 +239,7 @@ def make_review_page(
         if isinstance(result, ReviewImageEvidence):
             payloads = (result.thermal_png, result.rgb_png)
             statuses = (result.thermal_integrity, result.rgb_integrity)
+            marker_statuses = (result.thermal_marker, result.rgb_marker)
         else:
             # Legacy/local test callbacks cannot claim a verified file hash.
             payloads = result
@@ -209,6 +247,7 @@ def make_review_page(
                 "unverified" if payload is not None else "unavailable"
                 for payload in payloads
             )
+            marker_statuses = ("unavailable", "unavailable")
         for payload, target, prefix in zip(
             payloads, (thermal_preview, rgb_preview), ("Thermal", "RGB"),
         ):
@@ -226,6 +265,12 @@ def make_review_page(
         ):
             integrity_label.setText(integrity_messages.get(
                 state, integrity_messages["unavailable"],
+            ))
+        for marker_label, state in zip(
+            (thermal_locator, rgb_locator), marker_statuses,
+        ):
+            marker_label.setText(locator_messages.get(
+                state, locator_messages["unavailable"],
             ))
         preview_status.setText(
             "Sichtbilder aus dem ausdrücklich ausgewählten lokalen Ordner. "
