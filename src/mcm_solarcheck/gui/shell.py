@@ -681,7 +681,8 @@ class SolarCheckMainWindow(QMainWindow):
                 if self._deployment is DeploymentMode.OFFLINE_DESKTOP
                 and self._current_project_id is not None
                 and self._import_performance_snapshot is not None
-                and self._import_thread is None else None
+                and self._import_thread is None
+                and not self._import_close_pending else None
             ),
             on_compare_benchmark_reports=(
                 (lambda paths, source=self._current_project_id:
@@ -1343,6 +1344,7 @@ class SolarCheckMainWindow(QMainWindow):
             or source_project != self._current_project_id
             or self._import_performance_snapshot is None
             or self._import_thread is not None
+            or self._import_close_pending
         ):
             return
         try:
