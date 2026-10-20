@@ -461,7 +461,11 @@ class SolarCheckMainWindow(QMainWindow):
             or format_name not in ("pdf", "odt", "docx")
         ):
             return
-        _, report_id, started_at = self._draft_request
+        # Remember the exact preview that was authorized before opening the
+        # modal save dialog (which may run a nested Qt event loop).
+        prepared_request = self._draft_request
+        prepared_snapshot = self._draft_report
+        _, report_id, started_at = prepared_request
         try:
             current = self._project_service.prepare_report(
                 source_project, report_id, started_at, release_status="draft",
@@ -490,8 +494,36 @@ class SolarCheckMainWindow(QMainWindow):
         )
         if not selected:
             return
+        # Qt's modal dialog may process a project change or another draft
+        # preparation. Never export using an obsolete page callback.
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or self._draft_request != prepared_request
+            or self._draft_report is not prepared_snapshot
+        ):
+            return
+        # A reviewer or another local writer may have changed SQLite while
+        # the file chooser was open. The original preview must still match.
         try:
-            destination = Path(selected).absolute()
+            latest = self._project_service.prepare_report(
+                source_project, report_id, started_at, release_status="draft",
+            )
+            if latest != prepared_snapshot:
+                raise ValueError("stale report snapshot")
+        except (ValueError, PermissionError, OSError, KeyError, TypeError):
+            self._clear_prepared_draft()
+            self._last_export_status = (
+                "Export gesperrt: gespeicherte Befunde oder Stammdaten haben "
+                "sich geändert. Bitte einen neuen Entwurf vorbereiten."
+            )
+            self._refresh_report_page()
+            self._refresh_export_page()
+            return
+        try:
+            destination = Path(selected)
+            if not destination.is_absolute():
+                raise ValueError("absolute local destination required")
             if destination.suffix.lower() != f".{format_name}":
                 raise ValueError("Dateiendung stimmt nicht mit dem Exportformat überein")
             saved = self._project_service.export_offline_draft(
