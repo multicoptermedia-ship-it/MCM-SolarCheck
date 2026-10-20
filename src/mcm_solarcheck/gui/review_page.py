@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 
 from mcm_solarcheck.review.findings import ReviewStatus
 from mcm_solarcheck.gui.review_evidence import review_evidence_text
+from mcm_solarcheck.services.review_image_preview import ReviewImageEvidence
 
 MAX_REVIEW_PAGE_FINDINGS = 50
 
@@ -143,11 +144,38 @@ def make_review_page(
         preview_row.addWidget(display, 1)
     layout.addLayout(preview_row)
 
+    integrity_row = QHBoxLayout()
+    thermal_integrity = QLabel("", page)
+    thermal_integrity.setObjectName("review_preview_thermal_integrity")
+    rgb_integrity = QLabel("", page)
+    rgb_integrity.setObjectName("review_preview_rgb_integrity")
+    for label in (thermal_integrity, rgb_integrity):
+        label.setTextFormat(Qt.TextFormat.PlainText)
+        label.setWordWrap(True)
+        integrity_row.addWidget(label, 1)
+    layout.addLayout(integrity_row)
+
+    integrity_messages = {
+        "verified": (
+            "SHA-256 stimmt mit der beim Import gespeicherten Datei-Prüfsumme "
+            "überein (keine Garantie für Bildherkunft oder Befund)."
+        ),
+        "unverified": (
+            "Keine Import-Prüfsumme vorhanden: Bildidentität nicht überprüfbar."
+        ),
+        "mismatch": (
+            "Abweichende Import-Prüfsumme: Bild wird nicht angezeigt."
+        ),
+        "unavailable": "Bildnachweis nicht verfügbar oder nicht verknüpft.",
+    }
+
     def reset_image_preview():
         thermal_preview.clear()
         thermal_preview.setText("Thermal: kein Bild geladen")
         rgb_preview.clear()
         rgb_preview.setText("RGB: kein Bild geladen")
+        thermal_integrity.setText("")
+        rgb_integrity.setText("")
         preview_status.setText(
             "Für die Bildvorschau bitte ausdrücklich einen lokalen Flugordner wählen."
         )
@@ -171,8 +199,18 @@ def make_review_page(
         result = on_preview_images(finding_id, folder)
         if result is None or finding_list.currentItem() is not selected:
             return
+        if isinstance(result, ReviewImageEvidence):
+            payloads = (result.thermal_png, result.rgb_png)
+            statuses = (result.thermal_integrity, result.rgb_integrity)
+        else:
+            # Legacy/local test callbacks cannot claim a verified file hash.
+            payloads = result
+            statuses = tuple(
+                "unverified" if payload is not None else "unavailable"
+                for payload in payloads
+            )
         for payload, target, prefix in zip(
-            result, (thermal_preview, rgb_preview), ("Thermal", "RGB"),
+            payloads, (thermal_preview, rgb_preview), ("Thermal", "RGB"),
         ):
             target.clear()
             frame = QPixmap()
@@ -183,6 +221,12 @@ def make_review_page(
                 ))
             else:
                 target.setText(prefix + ": Bild nicht verfügbar")
+        for integrity_label, state in zip(
+            (thermal_integrity, rgb_integrity), statuses,
+        ):
+            integrity_label.setText(integrity_messages.get(
+                state, integrity_messages["unavailable"],
+            ))
         preview_status.setText(
             "Sichtbilder aus dem ausdrücklich ausgewählten lokalen Ordner. "
             "RGB nur bei gespeicherter Verknüpfung; Thermal-JPEG ist kein "

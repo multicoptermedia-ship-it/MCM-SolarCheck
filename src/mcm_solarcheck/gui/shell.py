@@ -631,8 +631,8 @@ class SolarCheckMainWindow(QMainWindow):
 
     def _preview_review_images(
         self, source_project: str, finding_id: str, local_folder: str,
-    ) -> tuple[bytes | None, bytes | None] | None:
-        """Read thumbnails only for the active offline review page.
+    ):
+        """Read hashed thumbnails only for the active offline review page.
 
         Errors never echo selected or persisted customer paths into Qt.
         """
@@ -642,7 +642,9 @@ class SolarCheckMainWindow(QMainWindow):
             or source_project != self._current_project_id
         ):
             return None
-        provider = getattr(self._project_service, "preview_review_images", None)
+        provider = getattr(
+            self._project_service, "preview_review_image_evidence", None,
+        )
         if not callable(provider):
             return None
         try:
@@ -656,7 +658,8 @@ class SolarCheckMainWindow(QMainWindow):
                 return None
             images = provider(source_project, finding_id, local_folder)
         except (KeyError, PermissionError, ValueError, TypeError, OSError):
-            images = (None, None)
+            from mcm_solarcheck.services.review_image_preview import ReviewImageEvidence
+            images = ReviewImageEvidence(None, None, "unavailable", "unavailable")
         if source_project != self._current_project_id:
             return None
         return images
@@ -667,7 +670,9 @@ class SolarCheckMainWindow(QMainWindow):
         overview_provider = getattr(self._project_service, "processing_overview", None)
         queue_provider = getattr(self._project_service, "pending_review_findings", None)
         action_provider = getattr(self._project_service, "review_pending_finding", None)
-        preview_provider = getattr(self._project_service, "preview_review_images", None)
+        preview_provider = getattr(
+            self._project_service, "preview_review_image_evidence", None,
+        )
         # Online access requires a separate ownership-scoped adapter; do not
         # expose this local expert-review action through an online shell.
         offline = self._deployment is DeploymentMode.OFFLINE_DESKTOP
