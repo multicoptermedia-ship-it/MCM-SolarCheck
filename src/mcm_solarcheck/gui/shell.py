@@ -472,9 +472,12 @@ class SolarCheckMainWindow(QMainWindow):
                     "Gespeicherte Befunde/Stammdaten haben sich geändert; "
                     "den Entwurf bitte neu vorbereiten"
                 )
-        except (ValueError, PermissionError, OSError, KeyError, TypeError) as exc:
+        except (ValueError, PermissionError, OSError, KeyError, TypeError):
             self._clear_prepared_draft()
-            self._last_export_status = f"Export gesperrt: {exc}"
+            self._last_export_status = (
+                "Export gesperrt: Berichtsdaten oder Freigaben bitte erneut "
+                "prüfen und einen neuen Entwurf vorbereiten."
+            )
             self._refresh_report_page()
             self._refresh_export_page()
             return
@@ -495,12 +498,17 @@ class SolarCheckMainWindow(QMainWindow):
                 source_project, report_id, started_at, destination,
                 capabilities=OFFLINE_DESKTOP,
             )
-        except (ValueError, PermissionError, OSError, KeyError, TypeError) as exc:
-            self._last_export_status = f"Entwurf nicht gespeichert: {exc}"
+        except (ValueError, PermissionError, OSError, KeyError, TypeError):
+            self._last_export_status = (
+                "Entwurf nicht gespeichert. Bitte ein neues Ziel im vorhandenen, "
+                "beschreibbaren lokalen Ordner mit passender Dateiendung wählen. "
+                "Bestehende Dateien bleiben unverändert."
+            )
         else:
             self._last_export_status = (
-                f"Berichtsentwurf lokal gespeichert: {saved}. "
-                "Freigabestatus: draft; keine Veröffentlichung."
+                "Berichtsentwurf lokal gespeichert. Freigabestatus: draft; "
+                "keine Veröffentlichung. Speicherort wurde nur im "
+                "Dateidialog gewählt."
             )
         self._refresh_export_page()
 
