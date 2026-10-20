@@ -396,6 +396,15 @@ def make_review_page(
     note.setMaximumHeight(85)
     layout.addWidget(note)
 
+    selected_action = QLabel(
+        "Bitte für jeden Befund eine eigene fachliche Entscheidung auswählen.",
+        page,
+    )
+    selected_action.setObjectName("review_selected_action")
+    selected_action.setTextFormat(Qt.TextFormat.PlainText)
+    selected_action.setWordWrap(True)
+    layout.addWidget(selected_action)
+
     submit = QPushButton("Ausgewählte Entscheidung protokollieren", page)
     submit.setObjectName("submit_expert_review")
     layout.addWidget(submit)
@@ -427,7 +436,20 @@ def make_review_page(
             note.toPlainText().strip() or None,
         )
 
-    finding_list.itemSelectionChanged.connect(update_submit)
+    def clear_previous_candidate_decision():
+        """Never silently reuse a previous candidate's decision or note."""
+        decision.setCurrentIndex(0)
+        note.clear()
+        item = finding_list.currentItem()
+        selected_action.setText(
+            "Befund " + str(item.data(Qt.ItemDataRole.UserRole))
+            + " ausgewählt. Bitte Entscheidung und Prüfnotiz neu festlegen."
+            if item is not None
+            else "Bitte einen offenen Befund und eine eigene Entscheidung auswählen."
+        )
+        update_submit()
+
+    finding_list.itemSelectionChanged.connect(clear_previous_candidate_decision)
     reviewer.textChanged.connect(update_submit)
     decision.currentIndexChanged.connect(update_submit)
     if on_review is not None:

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 from mcm_solarcheck.domain.models import Finding, ThermalFrame
 from mcm_solarcheck.gui.review_page import make_review_page
 from mcm_solarcheck.offline.entrypoint import build_offline_window
+from mcm_solarcheck.review.findings import ReviewStatus
 from mcm_solarcheck.services.deployment import DeploymentMode
 from mcm_solarcheck.services.shell_commands import ShellCommandId
 from mcm_solarcheck.services.shell_navigation import ShellRoute
