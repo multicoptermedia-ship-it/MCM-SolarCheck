@@ -383,3 +383,133 @@ def test_qt_unverified_warnings_clear_on_finding_or_project_change(
         assert audit_count(window._project_service, "P2") == 0
     finally:
         window.close()
+
+
+def set_review_locator_geometry(window, *, thermal_size=(180, 130),
+                                rgb_size=(190, 140), rgb_validated=1):
+    service = window._project_service
+    with service.database.connect() as db:
+        db.execute(
+            "UPDATE thermal_frames SET width=?, height=? "
+            "WHERE project_id='P1' AND frame_id='T1'",
+            thermal_size,
+        )
+        db.execute(
+            "UPDATE findings SET pixel_x=90, pixel_y=65 "
+            "WHERE project_id='P1' AND finding_id='F1'"
+        )
+        db.execute(
+            "UPDATE image_frames SET width=?, height=? "
+            "WHERE project_id='P1' AND frame_id='V1'",
+            rgb_size,
+        )
+        db.execute(
+            "UPDATE finding_sensor_links SET rgb_pixel_x=95, rgb_pixel_y=70, "
+            "transform_validated=? WHERE project_id='P1' AND finding_id='F1'",
+            (rgb_validated,),
+        )
+
+
+def test_qt_local_inspection_shows_validated_pixel_position_hints(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    set_review_locator_geometry(window)
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        widget(window, QListWidget, "pending_review_findings").setCurrentRow(0)
+        for name in ("review_preview_thermal_locator", "review_preview_rgb_locator"):
+            assert widget(window, QLabel, name).text() == ""
+        widget(window, QPushButton, "review_preview_images_button").click()
+        for name in ("review_preview_thermal_locator", "review_preview_rgb_locator"):
+            text = widget(window, QLabel, name).text()
+            assert "Grüne Zielmarke" in text
+            assert "keine" in text.lower()
+            assert str(folder) not in text
+            assert "PRIVATE_CLIENT" not in text
+        for name in ("review_preview_thermal", "review_preview_rgb"):
+            pixmap = widget(window, QLabel, name).pixmap()
+            assert pixmap is not None and not pixmap.isNull()
+        assert audit_count(window._project_service, "P1") == 0
+        assert window._project_service.import_summary("P1").unreviewed_findings == 2
+    finally:
+        window.close()
+
+
+def test_qt_refuses_locator_on_wrong_thermal_frame_dimensions(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    set_review_locator_geometry(window, thermal_size=(640, 512))
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        widget(window, QListWidget, "pending_review_findings").setCurrentRow(0)
+        widget(window, QPushButton, "review_preview_images_button").click()
+        assert "stimmen nicht exakt überein" in widget(
+            window, QLabel, "review_preview_thermal_locator",
+        ).text()
+        assert "Grüne Zielmarke" in widget(
+            window, QLabel, "review_preview_rgb_locator",
+        ).text()
+        thermal = widget(window, QLabel, "review_preview_thermal").pixmap()
+        assert thermal is not None and not thermal.isNull()
+        assert audit_count(window._project_service, "P1") == 0
+    finally:
+        window.close()
+
+
+def test_qt_unvalidated_rgb_link_has_no_target_even_with_matching_image(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    set_review_locator_geometry(window, rgb_validated=0)
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        widget(window, QListWidget, "pending_review_findings").setCurrentRow(0)
+        widget(window, QPushButton, "review_preview_images_button").click()
+        assert "Grüne Zielmarke" in widget(
+            window, QLabel, "review_preview_thermal_locator",
+        ).text()
+        assert "nicht als validiert gespeichert" in widget(
+            window, QLabel, "review_preview_rgb_locator",
+        ).text()
+        assert widget(window, QLabel, "review_preview_rgb").pixmap() is not None
+    finally:
+        window.close()
+
+
+def test_qt_locator_status_clears_on_selection_and_project_switch(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    set_review_locator_geometry(window)
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        choices = widget(window, QListWidget, "pending_review_findings")
+        choices.setCurrentRow(0)
+        widget(window, QPushButton, "review_preview_images_button").click()
+        assert "Grüne Zielmarke" in widget(
+            window, QLabel, "review_preview_thermal_locator",
+        ).text()
+        choices.setCurrentRow(1)
+        for name in ("review_preview_thermal_locator", "review_preview_rgb_locator"):
+            assert widget(window, QLabel, name).text() == ""
+        widget(window, QPushButton, "review_preview_images_button").click()
+        assert "stimmen nicht exakt überein" not in widget(
+            window, QLabel, "review_preview_thermal_locator",
+        ).text()
+        window._open_project("P2")
+        for name in ("review_preview_thermal_locator", "review_preview_rgb_locator"):
+            assert widget(window, QLabel, name).text() == ""
+        assert audit_count(window._project_service, "P1") == 0
+        assert audit_count(window._project_service, "P2") == 0
+    finally:
+        window.close()
