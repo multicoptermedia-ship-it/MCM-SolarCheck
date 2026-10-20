@@ -262,3 +262,124 @@ def test_page_switch_makes_old_finding_preview_callback_invalid(
         assert audit_count(window._project_service, "P1") == 0
     finally:
         window.close()
+
+
+def add_original_sha(service, project, frame, modality, data):
+    from hashlib import sha256
+
+    digest = sha256(data).hexdigest()
+    with service.database.connect() as db:
+        db.execute(
+            "INSERT INTO training_samples "
+            "(sample_id, project_id, source_frame_id, source_file, modality, "
+            "content_sha256, label_status, rights_status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                project + ":" + modality + ":" + frame,
+                project, frame, "/synthetic/import/" + frame + ".JPG",
+                modality, digest, "unlabeled", "unverified",
+            ),
+        )
+
+
+def test_qt_labels_matching_import_hashes_without_automatic_review(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    service = window._project_service
+    add_original_sha(service, "P1", "T1", "thermal", (folder / "T.JPG").read_bytes())
+    add_original_sha(service, "P1", "V1", "rgb", (folder / "V.JPG").read_bytes())
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        items = widget(window, QListWidget, "pending_review_findings")
+        items.setCurrentRow(0)
+        widget(window, QPushButton, "review_preview_images_button").click()
+        for image_name, state_name in (
+            ("review_preview_thermal", "review_preview_thermal_integrity"),
+            ("review_preview_rgb", "review_preview_rgb_integrity"),
+        ):
+            image = widget(window, QLabel, image_name)
+            assert image.pixmap() is not None and not image.pixmap().isNull()
+            status = widget(window, QLabel, state_name).text()
+            assert "SHA-256 stimmt" in status
+            assert "keine Garantie" in status
+            assert "PRIVATE_CLIENT" not in status
+            assert str(folder) not in status
+        assert audit_count(service, "P1") == 0
+        assert service.import_summary("P1").unreviewed_findings == 2
+    finally:
+        window.close()
+
+
+def test_qt_blocks_modified_thermal_but_keeps_verified_rgb(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    service = window._project_service
+    add_original_sha(service, "P1", "T1", "thermal", (folder / "T.JPG").read_bytes())
+    add_original_sha(service, "P1", "V1", "rgb", (folder / "V.JPG").read_bytes())
+    Image.new("RGB", (180, 130), (100, 40, 20)).save(folder / "T.JPG")
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        widget(window, QListWidget, "pending_review_findings").setCurrentRow(0)
+        widget(window, QPushButton, "review_preview_images_button").click()
+        thermal = widget(window, QLabel, "review_preview_thermal")
+        rgb = widget(window, QLabel, "review_preview_rgb")
+        assert thermal.pixmap() is None or thermal.pixmap().isNull()
+        assert "nicht verfügbar" in thermal.text()
+        assert rgb.pixmap() is not None and not rgb.pixmap().isNull()
+        assert "Abweichende Import-Prüfsumme" in widget(
+            window, QLabel, "review_preview_thermal_integrity",
+        ).text()
+        assert "SHA-256 stimmt" in widget(
+            window, QLabel, "review_preview_rgb_integrity",
+        ).text()
+        assert audit_count(service, "P1") == 0
+        assert audit_count(service, "P2") == 0
+    finally:
+        window.close()
+
+
+def test_qt_unverified_warnings_clear_on_finding_or_project_change(
+    qt_app, tmp_path, monkeypatch,
+):
+    window, folder = seeded_window(tmp_path)
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *a, **kw: str(folder),
+    )
+    try:
+        findings = widget(window, QListWidget, "pending_review_findings")
+        findings.setCurrentRow(0)
+        widget(window, QPushButton, "review_preview_images_button").click()
+        assert "Bildidentität nicht überprüfbar" in widget(
+            window, QLabel, "review_preview_thermal_integrity",
+        ).text()
+        assert "Bildidentität nicht überprüfbar" in widget(
+            window, QLabel, "review_preview_rgb_integrity",
+        ).text()
+        findings.setCurrentRow(1)
+        assert widget(
+            window, QLabel, "review_preview_thermal_integrity",
+        ).text() == ""
+        assert widget(
+            window, QLabel, "review_preview_rgb_integrity",
+        ).text() == ""
+        widget(window, QPushButton, "review_preview_images_button").click()
+        assert "nicht verknüpft" in widget(
+            window, QLabel, "review_preview_rgb_integrity",
+        ).text()
+        window._open_project("P2")
+        assert widget(
+            window, QLabel, "review_preview_thermal_integrity",
+        ).text() == ""
+        assert widget(
+            window, QLabel, "review_preview_rgb_integrity",
+        ).text() == ""
+        assert audit_count(window._project_service, "P1") == 0
+        assert audit_count(window._project_service, "P2") == 0
+    finally:
+        window.close()
