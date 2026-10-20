@@ -149,6 +149,23 @@ class ProjectApplicationService:
         self.database.save_project_profile(project_id, profile)
         return profile
 
+    def update_project_profile_if_unchanged(
+        self, project_id: str, expected: ProjectProfile | None,
+        updated: ProjectProfile,
+    ) -> bool:
+        """Persist an explicit master-data edit only if its snapshot is current.
+
+        Return False for a no-op. Preserve the database's project-scoped
+        compare-and-set so concurrent dialogs cannot silently overwrite data.
+        """
+        if not isinstance(updated, ProjectProfile):
+            raise TypeError("updated profile must be ProjectProfile")
+        if expected is not None and not isinstance(expected, ProjectProfile):
+            raise TypeError("expected profile must be ProjectProfile or None")
+        return self.database.update_project_profile_if_unchanged(
+            project_id, expected, updated,
+        )
+
     def project_profile(self, project_id: str) -> ProjectProfile | None:
         """Expose persisted project master data without inventing missing values."""
         if not any(project.project_id == project_id for project in self.projects()):

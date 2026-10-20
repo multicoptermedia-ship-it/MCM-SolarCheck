@@ -230,6 +230,41 @@ class ProjectDatabase:
             self._save_project_profile(db,project_id,profile)
     def save_project_profile(self,project_id,profile)->None:
         with self.connect() as db:self._save_project_profile(db,project_id,profile)
+
+    def update_project_profile_if_unchanged(self, project_id, expected, updated) -> bool:
+        """Atomically compare all master-data fields before persisting an edit.
+
+        BEGIN IMMEDIATE prevents another SQLite writer from changing the
+        record between the comparison and the upsert.
+        """
+        from dataclasses import fields
+        from mcm_solarcheck.domain.project_profile import ProjectProfile
+
+        if not isinstance(updated, ProjectProfile):
+            raise TypeError("updated profile must be ProjectProfile")
+        if expected is not None and not isinstance(expected, ProjectProfile):
+            raise TypeError("expected profile must be ProjectProfile or None")
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if db.execute(
+                "SELECT 1 FROM projects WHERE project_id=?", (project_id,),
+            ).fetchone() is None:
+                raise KeyError("Unknown project")
+            row = db.execute(
+                "SELECT * FROM project_profiles WHERE project_id=?", (project_id,),
+            ).fetchone()
+            stored = (
+                ProjectProfile(**{
+                    field.name: row[field.name] for field in fields(ProjectProfile)
+                }) if row is not None else None
+            )
+            if stored != expected:
+                raise ValueError("Stammdaten zwischenzeitlich geändert; erneut öffnen")
+            if stored == updated:
+                return False
+            self._save_project_profile(db, project_id, updated)
+            return True
+
     def project_profile(self,project_id):
         from mcm_solarcheck.domain.project_profile import ProjectProfile
         with self.connect() as db:row=db.execute("SELECT * FROM project_profiles WHERE project_id=?",(project_id,)).fetchone()
