@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     layout = QVBoxLayout(page)
@@ -106,6 +106,34 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
         image_import_status_label.setTextFormat(Qt.TextFormat.PlainText)
         image_import_status_label.setWordWrap(True)
         layout.addWidget(image_import_status_label)
+
+    if import_metrics_text is not None:
+        metric_label = QLabel(import_metrics_text, page)
+        metric_label.setObjectName("offline_import_metrics")
+        metric_label.setTextFormat(Qt.TextFormat.PlainText)
+        metric_label.setWordWrap(True)
+        layout.addWidget(metric_label)
+
+    export_metrics = QPushButton(
+        "Anonymen Import-Messbericht als JSON speichern …", page,
+    )
+    export_metrics.setObjectName("save_offline_import_metrics")
+    export_metrics.setEnabled(
+        current_project_id is not None and on_save_import_metrics is not None
+    )
+    if on_save_import_metrics is not None and current_project_id is not None:
+        def request_metrics_export():
+            chooser = choose_import_metrics_destination or (
+                lambda: QFileDialog.getSaveFileName(
+                    page, "Anonymen Import-Messbericht speichern",
+                    "SolarCheck-Importmessung.json", "JSON (*.json)",
+                )[0]
+            )
+            destination = chooser()
+            if destination:
+                on_save_import_metrics(destination)
+        export_metrics.clicked.connect(request_metrics_export)
+    layout.addWidget(export_metrics)
 
     preflight_start = QPushButton(
         "Großen DJI-Flugordner vorab prüfen (nur Dateinamen/Größen)", page,
