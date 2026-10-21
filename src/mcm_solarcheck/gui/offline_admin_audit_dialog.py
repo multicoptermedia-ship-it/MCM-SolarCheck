@@ -9,7 +9,7 @@ from collections.abc import Callable
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QStackedWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -103,6 +103,38 @@ class OfflineAdminAuditDialog(QDialog):
         for button in (self.previous, self.next, self.reload, self.logout_button):
             navigation.addWidget(button)
         history_layout.addLayout(navigation)
+
+        security_group = QGroupBox("Lokales Administratorpasswort ändern", history)
+        security_group.setObjectName("admin_password_change_section")
+        change_layout = QVBoxLayout(security_group)
+        security_notice = QLabel(
+            "Nur mit bisherigem Passwort. Nach erfolgreicher Änderung werden "
+            "alle lokalen Administratorsitzungen beendet; erneute Anmeldung nötig.",
+            security_group,
+        )
+        security_notice.setWordWrap(True)
+        security_notice.setTextFormat(Qt.TextFormat.PlainText)
+        change_layout.addWidget(security_notice)
+        change_form = QFormLayout()
+        self.current_password = QLineEdit(security_group)
+        self.current_password.setObjectName("admin_password_current")
+        self.new_password = QLineEdit(security_group)
+        self.new_password.setObjectName("admin_password_new")
+        self.confirm_password = QLineEdit(security_group)
+        self.confirm_password.setObjectName("admin_password_confirm")
+        for field in (
+            self.current_password, self.new_password, self.confirm_password,
+        ):
+            field.setEchoMode(QLineEdit.EchoMode.Password)
+        change_form.addRow("Bisheriges Passwort", self.current_password)
+        change_form.addRow("Neues Passwort", self.new_password)
+        change_form.addRow("Neues Passwort wiederholen", self.confirm_password)
+        change_layout.addLayout(change_form)
+        self.change_password_button = QPushButton("Adminpasswort ändern", security_group)
+        self.change_password_button.setObjectName("admin_password_change")
+        self.change_password_button.clicked.connect(self._change_password)
+        change_layout.addWidget(self.change_password_button)
+        history_layout.addWidget(security_group)
         self.stack.addWidget(history)
 
     def _project_current(self) -> bool:
@@ -163,6 +195,41 @@ class OfflineAdminAuditDialog(QDialog):
             if data else "Für dieses Projekt sind auf dieser Seite keine Freigaben gespeichert."
         )
 
+    def _change_password(self) -> None:
+        if not self._project_current():
+            self._logout()
+            self.reject()
+            return
+        if self._token is None or self.stack.currentIndex() != 1:
+            return
+        current = self.current_password.text()
+        updated = self.new_password.text()
+        confirmed = self.confirm_password.text()
+        try:
+            if updated != confirmed:
+                self.status.setText("Die beiden neuen Passwörter stimmen nicht überein.")
+                return
+            self._sessions.change_password(self._token, current, updated)
+        except ValueError:
+            self.status.setText(
+                "Passwortwechsel nicht durchgeführt. Neues Passwort muss "
+                "mindestens 12 Zeichen lang und vom bisherigen verschieden sein."
+            )
+        except (PermissionError, OSError):
+            self._logout()
+            self.status.setText(
+                "Passwortwechsel verweigert. Erneute Administratoranmeldung erforderlich."
+            )
+        else:
+            self._logout()
+            self.status.setText(
+                "Adminpasswort geändert. Alle Sitzungen abgemeldet; bitte neu anmelden."
+            )
+        finally:
+            self.current_password.clear()
+            self.new_password.clear()
+            self.confirm_password.clear()
+
     def _logout(self) -> None:
         if self._token is not None:
             self._sessions.logout(self._token)
@@ -171,6 +238,9 @@ class OfflineAdminAuditDialog(QDialog):
         self._offset = 0
         self.password.clear()
         self.user.clear()
+        self.current_password.clear()
+        self.new_password.clear()
+        self.confirm_password.clear()
         self.stack.setCurrentIndex(0)
         self.status.setText("Administrator abgemeldet. Für erneuten Zugriff anmelden.")
 
