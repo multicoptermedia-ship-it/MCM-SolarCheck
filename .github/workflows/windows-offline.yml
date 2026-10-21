@@ -1,0 +1,39 @@
+name: windows-offline-validation
+on:
+  push:
+    branches:
+      - feature/offline-human-report-approval
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-native:
+    # Windows Server 2022 runner validates real Win32 APIs, NOT Windows 10 certification.
+    runs-on: windows-2022
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install runtime and test dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+          python -m pip install -r requirements.txt
+      - name: Test real Windows DPAPI and local desktop/admin boundaries
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m pytest -q tests/test_windows_admin_native.py tests/test_windows_admin_dpapi_boundary.py tests/test_windows_admin_credential_migration_lock.py tests/test_offline_admin_password_rotation_gui.py
