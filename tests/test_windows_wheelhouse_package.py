@@ -119,7 +119,6 @@ def test_target_install_script_does_not_offer_pip_index_fallback():
     )
     assert "--no-index" in install
     assert "PIP_NO_INDEX" in install
-    assert "wheelhouse verify" not in install  # uses the exact Python module CLI
     assert "offline.wheelhouse verify" in install
     assert "--only-binary=:all:" in install
     assert "offline.wheelhouse create" in prepare
