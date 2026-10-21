@@ -31,7 +31,7 @@ class AuthorizedReportPreviewAudit:
         self._database = database
 
     def inspect(self, identity: GrantAdministrator, project_id: str,
-                *, limit: int = 50) -> tuple[AdminReportPreviewAudit, ...]:
+                *, limit: int = 50, offset: int = 0) -> tuple[AdminReportPreviewAudit, ...]:
         if (
             not isinstance(identity, GrantAdministrator)
             or identity.authenticated is not True
@@ -45,6 +45,8 @@ class AuthorizedReportPreviewAudit:
             raise ValueError("project id required")
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError("audit limit must be between 1 and 100")
+        if type(offset) is not int or not 0 <= offset <= 10000:
+            raise ValueError("audit offset must be between 0 and 10000")
         with self._database.connect() as sql:
             if sql.execute(
                 "SELECT 1 FROM projects WHERE project_id=?", (project_id,)
@@ -57,8 +59,8 @@ class AuthorizedReportPreviewAudit:
                    LEFT JOIN report_release_read_audit AS a
                      ON a.approval_id=r.approval_id
                    WHERE r.project_id=?
-                   ORDER BY r.approval_id DESC LIMIT ?""",
-                (project_id, limit),
+                   ORDER BY r.approval_id DESC LIMIT ? OFFSET ?""",
+                (project_id, limit, offset),
             )
             return tuple(
                 AdminReportPreviewAudit(
