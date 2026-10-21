@@ -114,8 +114,12 @@ def test_admin_bootstrap_path_safety_and_no_plaintext(tmp_path):
         path.unlink()
     create_offline_admin_credentials(path, "admin", "long valid password")
     saved = json.loads(path.read_text(encoding="utf-8"))
-    assert set(saved) == {"version", "actor_id", "salt", "verifier"}
-    assert saved["verifier"] != "long valid password"
+    if os.name == "nt":
+        assert set(saved) == {"version", "scheme", "sealed"}
+        assert saved["version"] == 2
+    else:
+        assert set(saved) == {"version", "actor_id", "salt", "verifier"}
+        assert saved["verifier"] != "long valid password"
     if os.name == "posix":
         path.chmod(0o644)
         assert not verify_offline_admin_credentials(path, "admin", "long valid password")

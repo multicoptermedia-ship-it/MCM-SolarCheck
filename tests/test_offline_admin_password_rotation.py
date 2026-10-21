@@ -51,7 +51,10 @@ def test_reauthentication_rotates_scrypt_credentials_and_revokes_all_tokens(tmp_
         controller.login("owner", OLD)
     current = controller.login("owner", NEW)
     assert controller.inspect(current, "P1") == ()
-    assert json.loads(path.read_text())["actor_id"] == "owner"
+    if os.name == "nt":
+        assert json.loads(path.read_text())["version"] == 2
+    else:
+        assert json.loads(path.read_text())["actor_id"] == "owner"
     if os.name == "posix":
         assert path.stat().st_mode & 0o077 == 0
     assert list(tmp_path.glob(".offline-admin-rotate-*")) == []
