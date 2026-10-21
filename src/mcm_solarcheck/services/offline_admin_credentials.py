@@ -18,6 +18,7 @@ import sys
 import tempfile
 
 from mcm_solarcheck.services import windows_dpapi
+from mcm_solarcheck.services.offline_admin_lock import credential_mutation_lock
 
 _FILE_NAME = "offline-admin-credentials.json"
 _KDF_N = 1 << 14
@@ -111,15 +112,16 @@ def create_offline_admin_credentials(path: str | Path, actor_id: str, password: 
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
-    fd = os.open(path, flags, 0o600)
-    try:
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-    except BaseException:
-        path.unlink(missing_ok=True)
-        raise
+    with credential_mutation_lock(path):
+        fd = os.open(path, flags, 0o600)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+        except BaseException:
+            path.unlink(missing_ok=True)
+            raise
 
 
 def verify_offline_admin_credentials(
@@ -178,7 +180,7 @@ def credential_revision(path: str | Path) -> str | None:
         return None
 
 
-def rotate_offline_admin_password(
+def _rotate_unlocked(
     path: str | Path, actor_id: str, current_password: str, new_password: str,
 ) -> None:
     """Replace credentials atomically only after proving the previous password.
@@ -216,14 +218,16 @@ def rotate_offline_admin_password(
         r=_KDF_R, p=_KDF_P, dklen=32,
     )
     encoded = _encode_credential_record(actor_id, salt_new, verifier_new)
+    _atomic_replace_credentials(path, original, encoded)
+
+def _atomic_replace_credentials(path: Path, original: bytes, encoded: bytes) -> None:
+    """Called with stable per-credential mutation lock already held."""
     fd, temporary = tempfile.mkstemp(prefix=".offline-admin-rotate-", dir=path.parent)
     try:
         with os.fdopen(fd, "wb") as stream:
             stream.write(encoded)
             stream.flush()
             os.fsync(stream.fileno())
-        # Compare with the exact trusted version validated above. A concurrent
-        # rotator can still race this check on unsupported file-lock platforms.
         if _read_trusted_credentials(path) != original:
             raise PermissionError("administrator credentials changed concurrently")
         os.replace(temporary, path)
@@ -234,7 +238,50 @@ def rotate_offline_admin_password(
             finally:
                 os.close(directory_fd)
         except OSError:
-            pass  # Directory fsync may not be available on all platforms.
+            pass  # Directory fsync not supported on all Windows filesystems.
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+def rotate_offline_admin_password(
+    path: str | Path, actor_id: str, current_password: str, new_password: str,
+) -> None:
+    """Serialize password changes across cooperating local processes."""
+    with credential_mutation_lock(Path(path)):
+        _rotate_unlocked(path, actor_id, current_password, new_password)
+
+
+def migrate_legacy_windows_admin_credentials(
+    path: str | Path, actor_id: str, current_password: str,
+) -> None:
+    """Explicit one-way migration of the v1 Windows verifier to DPAPI v2.
+
+    Never migrates silently, never overwrites existing DPAPI records. The old
+    password is required and remains unchanged. No plaintext password is stored.
+    """
+    if not _windows_user_protection():
+        raise OSError("legacy Windows credential migration requires Windows")
+    if not isinstance(actor_id, str) or not isinstance(current_password, str):
+        raise PermissionError("administrator reauthentication required")
+    path = Path(path)
+    with credential_mutation_lock(path):
+        try:
+            original = _read_trusted_credentials(path)
+            record = _decode_credential_record(
+                original, legacy_windows_migration=True,
+            )
+            if record["actor_id"] != actor_id:
+                raise PermissionError("administrator reauthentication required")
+            salt = bytes.fromhex(record["salt"])
+            verifier = bytes.fromhex(record["verifier"])
+            actual = hashlib.scrypt(
+                current_password.encode("utf-8"), salt=salt,
+                n=_KDF_N, r=_KDF_R, p=_KDF_P, dklen=32,
+            )
+            if not hmac.compare_digest(actual, verifier):
+                raise PermissionError("administrator reauthentication required")
+        except (OSError, TypeError, KeyError, ValueError, UnicodeError) as exc:
+            raise PermissionError("administrator reauthentication required") from exc
+        protected = _encode_credential_record(actor_id, salt, verifier)
+        _atomic_replace_credentials(path, original, protected)
