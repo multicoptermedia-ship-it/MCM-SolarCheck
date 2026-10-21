@@ -73,6 +73,7 @@ def run_public_infrared_baseline(catalog: Path, result_file: Path) -> dict:
     counts = Counter()
     by_split = {"train": [], "validation": [], "test": []}
     seen = set()
+    content_hash_splits: dict[str, set[str]] = {}
     for row in rows:
         if not isinstance(row, dict) or set(row) != {
             "source_id", "image", "class", "sha256",
@@ -89,6 +90,7 @@ def run_public_infrared_baseline(catalog: Path, result_file: Path) -> dict:
         seen.add(source_id)
         pixels = _pixels(catalog.parent / filename, row["sha256"])
         split = exploratory_split(source_id)
+        content_hash_splits.setdefault(row["sha256"], set()).add(split)
         if split == "train":
             if label not in sums:
                 sums[label] = [0.0] * len(pixels)
@@ -106,9 +108,13 @@ def run_public_infrared_baseline(catalog: Path, result_file: Path) -> dict:
         for label, vector in sums.items()
     }
 
+    majority_class = max(sorted(counts), key=lambda name: counts[name])
+
     def measure(split):
         matrix = {}
-        correct = 0
+        correct = majority_correct = 0
+        support = Counter()
+        true_positive = Counter()
         for truth, pixels in by_split[split]:
             best = min(
                 centroids, key=lambda label: sum(
@@ -118,18 +124,47 @@ def run_public_infrared_baseline(catalog: Path, result_file: Path) -> dict:
             )
             line = matrix.setdefault(truth, {})
             line[best] = line.get(best, 0) + 1
+            support[truth] += 1
             correct += best == truth
+            true_positive[truth] += best == truth
+            majority_correct += truth == majority_class
         total = len(by_split[split])
-        return {"samples": total, "correct": correct,
-                "accuracy": round(correct / total, 6),
-                "confusion": {key: dict(sorted(val.items())) for key, val in sorted(matrix.items())}}
+        per_class_recall = {
+            name: round(true_positive[name] / size, 6)
+            for name, size in sorted(support.items())
+        }
+        return {
+            "samples": total, "correct": correct,
+            "accuracy": round(correct / total, 6),
+            "macro_recall_observed_classes": round(
+                sum(per_class_recall.values()) / len(per_class_recall), 6
+            ),
+            "class_support": dict(sorted(support.items())),
+            "per_class_recall": per_class_recall,
+            "majority_class_reference": majority_class,
+            "majority_class_reference_accuracy": round(
+                majority_correct / total, 6
+            ),
+            "confusion": {key: dict(sorted(val.items())) for key, val in sorted(matrix.items())},
+        }
 
+    cross_split_hashes = sum(
+        len(splits) > 1 for splits in content_hash_splits.values()
+    )
     evaluation = {
         "status": "experimental_no_report_or_model_approval",
         "method": "grayscale_nearest_class_centroid_baseline",
         "dataset_id": DATASET_ID,
         "source_archive_sha256": data.get("archive_sha256"),
         "split_warning": SPLIT_NOTICE,
+        "exact_image_duplicate_hashes_crossing_splits": cross_split_hashes,
+        "duplicate_warning": (
+            "Exact identical image bytes detected across different splits; "
+            "holdout is contaminated even at the byte level."
+            if cross_split_hashes else
+            "No exact byte-duplicate was observed between splits. "
+            "Correlated sites and perceptual near-duplicates remain unchecked."
+        ),
         "source_modality": "8-bit infrared JPEG visual values only",
         "train": {"samples": len(by_split["train"]),
                   "classes": dict(sorted(counts.items()))},

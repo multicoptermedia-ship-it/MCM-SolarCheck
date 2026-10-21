@@ -61,6 +61,14 @@ def test_baseline_on_synthetic_images_reports_holdout_but_never_release(tmp_path
     assert evaluation["test"]["samples"] == 4
     assert evaluation["validation"]["accuracy"] == 1.0
     assert evaluation["test"]["accuracy"] == 1.0
+    assert evaluation["test"]["macro_recall_observed_classes"] == 1.0
+    assert evaluation["test"]["majority_class_reference_accuracy"] == 0.5
+    assert evaluation["test"]["per_class_recall"] == {"Cell": 1.0, "No-Anomaly": 1.0}
+    assert evaluation["test"]["class_support"] == {"Cell": 2, "No-Anomaly": 2}
+    # Synthetic fixtures reuse exact JPEG bytes across IDs/splits:
+    # this must be prominently identified, not concealed by a high accuracy.
+    assert evaluation["exact_image_duplicate_hashes_crossing_splits"] == 2
+    assert "contaminated" in evaluation["duplicate_warning"]
     assert "no_site" not in evaluation["status"]
     assert evaluation["status"] == "experimental_no_report_or_model_approval"
     assert "site/physical-module" in evaluation["split_warning"]
