@@ -34,6 +34,13 @@ jobs:
             --output "$RUNNER_TEMP/2020-02-14_InfraredSolarModules.zip" \
             "https://raw.githubusercontent.com/RaptorMaps/InfraredSolarModules/88e2d1febbcefe401c17ec80b8973f36a02a1653/2020-02-14_InfraredSolarModules.zip"
           test "$(wc -c < "$RUNNER_TEMP/2020-02-14_InfraredSolarModules.zip")" -eq 15495990
+      - name: Inspect actual archive layout without extracting
+        shell: bash
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m mcm_solarcheck.offline.public_infrared_probe \
+            --archive "$RUNNER_TEMP/2020-02-14_InfraredSolarModules.zip"
       - name: Import all real images into a temporary isolated research directory
         shell: bash
         env:
