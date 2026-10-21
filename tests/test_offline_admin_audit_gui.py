@@ -64,10 +64,10 @@ def test_offline_admin_menu_is_not_an_online_or_review_route(tmp_path, qt_app):
         DeploymentMode.ONLINE, project_service=window._project_service,
     )
     try:
-        assert window.menuBar().findChild(
+        assert window.findChild(
             QAction, "open_report_admin_audit",
         ) is not None
-        assert online.menuBar().findChild(
+        assert online.findChild(
             QAction, "open_report_admin_audit",
         ) is None
         assert "admin" not in [route.value for route in window._pages]
