@@ -42,6 +42,7 @@ def storage(tmp_path):
 def test_migration_from_v17_creates_empty_approval_history(tmp_path):
     db = storage(tmp_path)
     with db.connect() as sql:
+        sql.execute("DROP TABLE report_release_read_audit")
         sql.execute("DROP TABLE report_release_decisions")
         sql.execute("UPDATE schema_info SET version=17")
     db.initialize()

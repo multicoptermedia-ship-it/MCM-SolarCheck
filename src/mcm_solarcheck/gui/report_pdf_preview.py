@@ -48,6 +48,9 @@ class ReportPdfPreviewDialog(QDialog):
             raise ValueError("cannot load preview bytes")
         self._document = QPdfDocument(self)
         self._document.load(self._pdf_buffer)
+        self._document.statusChanged.connect(
+            lambda *_: QTimer.singleShot(0, self._arm_after_layout)
+        )
         self.pdf_view.setDocument(self._document)
         self.pdf_view.verticalScrollBar().valueChanged.connect(self._track_end)
         QTimer.singleShot(0, self._arm_after_layout)

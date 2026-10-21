@@ -607,3 +607,134 @@ def test_online_release_buttons_disabled(tmp_path, qt_app):
         ).isEnabled()
     finally:
         online.close()
+
+def test_preview_pdf_is_real_and_only_scroll_to_bottom_marks_event(
+    tmp_path, qt_app,
+):
+    pytest.importorskip("PySide6.QtPdf")
+    pytest.importorskip("PySide6.QtPdfWidgets")
+    from mcm_solarcheck.gui.report_pdf_preview import ReportPdfPreviewDialog
+    from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP
+    window = seeded_window(tmp_path)
+    started = datetime(2026, 10, 19, 12, tzinfo=timezone.utc)
+    try:
+        window._prepare_report_draft("P1", "PDF-REVIEW", started)
+        content = window._project_service.render_offline_draft_preview(
+            "P1", "PDF-REVIEW", started, capabilities=OFFLINE_DESKTOP,
+            expected_draft=window._draft_report,
+        )
+        assert content.startswith(b"%PDF")
+        assert window._pages[ShellRoute.REPORT].findChild(
+            QPushButton, "view_report_pdf",
+        ).isEnabled()
+        preview = ReportPdfPreviewDialog(content)
+        try:
+            assert not preview.reached_end
+            preview.show()
+            qt_app.processEvents()
+            qt_app.processEvents()
+            bar = preview.pdf_view.verticalScrollBar()
+            assert preview._document.pageCount() >= 2
+            assert bar.maximum() > 0
+            assert not preview.reached_end
+            bar.setValue(bar.maximum())
+            qt_app.processEvents()
+            assert preview.reached_end
+        finally:
+            preview.close()
+    finally:
+        window.close()
+
+
+def test_unviewed_release_stays_false_in_admin_audit(
+    tmp_path, qt_app,
+):
+    from mcm_solarcheck.services.authorized_grant_administration import GrantAdministrator
+    from mcm_solarcheck.services.report_preview_audit_admin import AuthorizedReportPreviewAudit
+    window = seeded_window(tmp_path)
+    try:
+        window._prepare_report_draft(
+            "P1", "NO-PREVIEW", datetime(2026, 10, 19, 12, tzinfo=timezone.utc),
+        )
+        page = window._pages[ShellRoute.REPORT]
+        page.findChild(QLineEdit, "report_release_reviewer").setText("Expertin")
+        page.findChild(QPushButton, "approve_report_release").click()
+        admin = GrantAdministrator(
+            "admin", True, frozenset({"report_release:audit_read"}),
+        )
+        entries = AuthorizedReportPreviewAudit(window._project_service.database).inspect(
+            admin, "P1",
+        )
+        assert len(entries) == 1 and entries[0].reached_preview_end is False
+        assert "reached_preview_end" not in page.findChild(
+            QLabel, "report_release_status",
+        ).text()
+    finally:
+        window.close()
+
+
+def test_pdf_preview_scroll_captured_only_for_active_draft(
+    tmp_path, qt_app, monkeypatch,
+):
+    pytest.importorskip("PySide6.QtPdf")
+    pytest.importorskip("PySide6.QtPdfWidgets")
+    from mcm_solarcheck.gui.report_pdf_preview import ReportPdfPreviewDialog
+    from mcm_solarcheck.services.authorized_grant_administration import GrantAdministrator
+    from mcm_solarcheck.services.report_preview_audit_admin import AuthorizedReportPreviewAudit
+    window = seeded_window(tmp_path)
+    started = datetime(2026, 10, 19, 12, tzinfo=timezone.utc)
+    try:
+        window._prepare_report_draft("P1", "WITH-PREVIEW", started)
+        def preview_to_bottom(dialog):
+            dialog.show()
+            qt_app.processEvents()
+            qt_app.processEvents()
+            scrollbar = dialog.pdf_view.verticalScrollBar()
+            assert scrollbar.maximum() > 0
+            scrollbar.setValue(scrollbar.maximum())
+            qt_app.processEvents()
+            assert dialog.reached_end
+            return 1
+        monkeypatch.setattr(ReportPdfPreviewDialog, "exec", preview_to_bottom)
+        window._pages[ShellRoute.REPORT].findChild(
+            QPushButton, "view_report_pdf",
+        ).click()
+        assert window._report_end_seen
+        page = window._pages[ShellRoute.REPORT]
+        page.findChild(QLineEdit, "report_release_reviewer").setText("Expertin")
+        page.findChild(QPushButton, "approve_report_release").click()
+        admin = GrantAdministrator(
+            "admin", True, frozenset({"report_release:audit_read"}),
+        )
+        events = AuthorizedReportPreviewAudit(window._project_service.database).inspect(
+            admin, "P1",
+        )
+        assert len(events) == 1 and events[0].reached_preview_end is True
+        window._open_project("P2")
+        assert window._report_end_seen is False
+    finally:
+        window.close()
+
+
+def test_project_switch_during_pdf_viewer_discards_scroll_event(
+    tmp_path, qt_app, monkeypatch,
+):
+    pytest.importorskip("PySide6.QtPdf")
+    pytest.importorskip("PySide6.QtPdfWidgets")
+    from mcm_solarcheck.gui.report_pdf_preview import ReportPdfPreviewDialog
+    window = seeded_window(tmp_path)
+    try:
+        window._prepare_report_draft(
+            "P1", "STALE-VIEW", datetime(2026, 10, 19, 12, tzinfo=timezone.utc),
+        )
+        def switch_during_modal(dialog):
+            dialog.reached_end = True
+            window._open_project("P2")
+            return 1
+        monkeypatch.setattr(ReportPdfPreviewDialog, "exec", switch_during_modal)
+        window._preview_offline_report("P1")
+        assert window.current_project_id == "P2"
+        assert window._draft_report is None
+        assert not window._report_end_seen
+    finally:
+        window.close()

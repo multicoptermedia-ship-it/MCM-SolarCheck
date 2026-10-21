@@ -87,6 +87,7 @@ def test_schema_14_migration_does_not_invent_project_owners(tmp_path):
     with db.connect() as connection:
         connection.execute("DROP TABLE project_owners")
         # Rebuild a genuine pre-v18 fixture; the newer table must not exist.
+        connection.execute("DROP TABLE report_release_read_audit")
         connection.execute("DROP TABLE report_release_decisions")
         connection.execute("UPDATE schema_info SET version=14")
 
@@ -107,6 +108,7 @@ def test_schema_15_migration_preserves_owner_without_inventing_capacity(tmp_path
             customer_id TEXT NOT NULL
         )""")
         connection.execute("CREATE INDEX idx_project_owners_customer ON project_owners(customer_id,project_id)")
+        connection.execute("DROP TABLE report_release_read_audit")
         connection.execute("DROP TABLE report_release_decisions")
         connection.execute("INSERT INTO projects(project_id,name) VALUES (?,?)", ("P-legacy", "Legacy"))
         connection.execute("INSERT INTO project_owners(project_id,customer_id) VALUES (?,?)", ("P-legacy", "user-1"))
