@@ -25,6 +25,7 @@ def make_report_page(
     profile=None, draft=None, on_prepare=None, last_status=None,
     progress: ReviewProgress | None = None, approval=None, on_approve=None,
     on_preview=None, training_request=None, on_revoke_training=None,
+    on_refresh_training=None,
 ):
     page = QWidget(parent)
     page.setObjectName("report_page")
@@ -232,25 +233,47 @@ def make_report_page(
         update_approval()
 
         if training_request is not None:
-            status_text = (
-                "KI-Trainingsfreigabe widerrufen. Lokale bereitgestellte "
-                "Trainingskopien wurden zur Löschung angewiesen."
-                if training_request.status == "revoked"
-                else (
-                    "Trainingsfreigabe vermerkt: freigegebene Trainingsbeispiele "
-                    f"lokal bereitgestellt ({training_request.sample_count}). "
-                    "Es ist noch kein KI-Training gestartet; geprüfter Trainer fehlt."
-                    if training_request.status == "staged_waiting_for_trainer"
-                    else "Trainingsfreigabe vermerkt. Trainingsdaten oder nachgewiesene "
-                         "Nutzungsrechte noch nicht vollständig geprüft. "
-                         "Noch kein KI-Training gestartet."
-                )
-            )
+            status_text = {
+                "pending_training_data_review": (
+                    "Trainingswunsch gespeichert. Es fehlen geprüfte Trainingsbilder "
+                    "oder gültige Nutzungsrechte. Kein Training gestartet."
+                ),
+                "staged_waiting_for_trainer": (
+                    f"{training_request.sample_count} geprüfte Bilder lokal vorbereitet. "
+                    "Training wartet auf geeignete, geprüfte Trainingsdaten "
+                    "und einen zugelassenen lokalen Trainer."
+                ),
+                "training_running": (
+                    f"Lokaler Trainingslauf gestartet; zuletzt gemeldeter Fortschritt: "
+                    f"{training_request.progress_percent} %. Nach Programmneustart ist "
+                    "dies kein Beweis, dass ein früherer Lauf noch aktiv ist."
+                ),
+                "training_completed_not_deployed": (
+                    "Trainingslauf abgeschlossen. Gewichte lokal vorhanden und SHA-256 "
+                    "erfasst; Modell NICHT für die Berichtsauswertung freigegeben."
+                ),
+                "training_failed": (
+                    "Trainingslauf fehlgeschlagen oder Ausgabe ungültig. "
+                    "Keine automatische Modellfreigabe."
+                ),
+                "training_cancelled": (
+                    "Trainingslauf abgebrochen. Keine automatische Modellfreigabe."
+                ),
+                "revoked": (
+                    "KI-Trainingsfreigabe widerrufen. Ein eventuell aktiver Lauf wird "
+                    "zum Abbruch aufgefordert; Datenkopien werden danach gelöscht."
+                ),
+            }.get(training_request.status, "Trainingsstatus derzeit nicht verfügbar.")
             indicator = QLabel(status_text, page)
             indicator.setObjectName("report_training_status")
             indicator.setTextFormat(Qt.TextFormat.PlainText)
             indicator.setWordWrap(True)
             layout.addWidget(indicator)
+            if on_refresh_training is not None:
+                refresh = QPushButton("Trainingsstatus aktualisieren", page)
+                refresh.setObjectName("report_training_refresh")
+                refresh.clicked.connect(lambda _checked=False: on_refresh_training())
+                layout.addWidget(refresh)
             if training_request.status != "revoked" and on_revoke_training is not None:
                 revoke_button = QPushButton("KI-Trainingsfreigabe widerrufen", page)
                 revoke_button.setObjectName("report_training_revoke")

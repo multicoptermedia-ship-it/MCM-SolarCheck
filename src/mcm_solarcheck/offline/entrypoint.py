@@ -25,8 +25,15 @@ def default_database_path() -> Path:
     return Path.home() / "MCM-SolarCheck" / "solarcheck.sqlite3"
 
 
-def build_offline_window(database_path: str | Path) -> SolarCheckMainWindow:
-    """Compose the offline shell exclusively through the persisted project service."""
+def build_offline_window(
+    database_path: str | Path, *, training_configuration=None,
+    training_launcher=None,
+) -> SolarCheckMainWindow:
+    """Offline shell; a reviewed trainer must be explicitly injected by the operator.
+
+    The shipped desktop intentionally has neither model weights nor an
+    automatically trusted training executable. No implicit downloads.
+    """
     product = OfflineProduct()
     product.require_customer_entry()
     services = build_offline_services(database_path)
@@ -40,7 +47,11 @@ def build_offline_window(database_path: str | Path) -> SolarCheckMainWindow:
         DeploymentMode.OFFLINE_DESKTOP,
         project_service=services.projects,
         offline_admin_sessions=admin,
-        offline_report_training=OfflineReportTraining(services.projects),
+        offline_report_training=OfflineReportTraining(
+            services.projects,
+            training_configuration=training_configuration,
+            training_launcher=training_launcher,
+        ),
     )
 
 

@@ -29,6 +29,9 @@ class ReportTrainingRequest:
     approval_id: int
     status: str
     sample_count: int = 0
+    progress_percent: int = 0
+    weights_sha256: str | None = None
+    error_code: str | None = None
 
 
 class OfflineReportTraining:
@@ -160,7 +163,21 @@ class OfflineReportTraining:
                 "FROM report_training_requests WHERE project_id=? AND approval_id=?",
                 (project_id, approval_id),
             ).fetchone()
-            return ReportTrainingRequest(*row) if row else None
+            if row is None:
+                return None
+            progress = None
+            if db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='report_training_job_progress'"
+            ).fetchone():
+                progress = db.execute(
+                    "SELECT percent,weights_sha256,error_code "
+                    "FROM report_training_job_progress WHERE request_id=?",
+                    (row[0],),
+                ).fetchone()
+            return ReportTrainingRequest(
+                *row, *(tuple(progress) if progress else (0, None, None)),
+            )
         finally:
             db.close()
 

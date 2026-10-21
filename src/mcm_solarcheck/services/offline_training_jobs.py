@@ -132,6 +132,14 @@ class OfflineTrainingJobs:
         try:
             if event.is_set():
                 raise TrainingCancelled()
+            # The dataset can change after launch was authorized but before
+            # the background thread runs. Rehash it at the worker boundary.
+            current = verify_staged_classification_dataset(folder)
+            if current.fingerprint != verified.fingerprint:
+                raise PermissionError("local dataset changed after preflight")
+            self.config.verify_model()
+            if event.is_set():
+                raise TrainingCancelled()
             # A trainer receives only the reviewed private folder and config.
             # No customer IDs, contact details, source paths or network handles.
             output.mkdir(mode=0o700)
@@ -148,7 +156,11 @@ class OfflineTrainingJobs:
                     or result.resolve().parent != output.resolve()
                     or not 0 < result.stat().st_size <= 500_000_000):
                 raise ValueError("trainer output invalid")
-            weights_sha = sha256(result.read_bytes()).hexdigest()
+            digest = sha256()
+            with result.open("rb") as source:
+                for block in iter(lambda: source.read(1024 * 1024), b""):
+                    digest.update(block)
+            weights_sha = digest.hexdigest()
             # Commit only an actual artifact in a private local directory.
             outcome = "training_completed_not_deployed"
             error_code = None

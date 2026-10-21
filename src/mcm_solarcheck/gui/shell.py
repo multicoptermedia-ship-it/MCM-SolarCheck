@@ -502,6 +502,11 @@ class SolarCheckMainWindow(QMainWindow):
             if training_request is not None and training_request.status != "revoked"
             and approval is not None else None
         )
+        on_refresh_training = (
+            (lambda source=project_id: self._refresh_report_page()
+             if self._current_project_id == source else None)
+            if training_request is not None else None
+        )
         page = make_report_page(
             current_project_id=project_id if offline else None,
             availability=availability,
@@ -512,6 +517,7 @@ class SolarCheckMainWindow(QMainWindow):
             progress=progress, approval=approval, on_approve=on_approve,
             on_preview=on_preview, training_request=training_request,
             on_revoke_training=on_revoke_training,
+            on_refresh_training=on_refresh_training,
         )
         self._pages[ShellRoute.REPORT] = page
         index = self._stack.indexOf(old_page)
@@ -710,12 +716,18 @@ class SolarCheckMainWindow(QMainWindow):
                         self._last_report_status += (
                             " Trainingsfreigabe gesondert gespeichert. "
                             + (
-                                f"{result.sample_count} bereits geprüfte Bilder "
-                                "lokal für späteres Training bereitgestellt."
-                                if result.status == "staged_waiting_for_trainer"
-                                else "Trainingsbestand ist noch nicht bereit."
+                                "Lokaler Trainingslauf angestoßen. "
+                                "Fortschritt unter Trainingsstatus aktualisieren."
+                                if result.status == "training_running"
+                                else (
+                                    f"{result.sample_count} geprüfte Bilder "
+                                    "lokal zur Trainingsvorbereitung bereitgestellt. "
+                                    "Noch kein Training gestartet."
+                                    if result.status == "staged_waiting_for_trainer"
+                                    else "Trainingsbestand noch nicht bereit. "
+                                         "Noch kein Training gestartet."
+                                )
                             )
-                            + " Kein KI-Training gestartet."
                         )
         self._refresh_report_page()
         self._refresh_export_page()
