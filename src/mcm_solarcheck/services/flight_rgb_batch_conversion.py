@@ -10,8 +10,8 @@ from mcm_solarcheck.services.flight_rgb_resource_plan import estimate_rgb_conver
 
 
 def convert_jpeg_batch(sources, output_dir, *, max_total_disk_bytes,
-                       max_pixels=12_000_000, max_source_bytes=80_000_000,
-                       max_output_bytes=40_000_000):
+                       max_pixels=24_000_000, max_source_bytes=80_000_000,
+                       max_output_bytes=80_000_000):
     """Convert one JPEG at a time after validating the entire manifest and quota."""
     folder = Path(output_dir)
     if folder.is_symlink() or not folder.is_dir():

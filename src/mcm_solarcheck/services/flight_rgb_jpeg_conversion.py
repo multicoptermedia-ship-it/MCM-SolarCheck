@@ -14,9 +14,15 @@ import numpy as np
 from mcm_solarcheck.services.flight_rgb_jpeg_header import jpeg_dimensions
 
 
-def convert_jpeg_to_rgb_array(source, destination, *, max_pixels=12_000_000,
+def convert_jpeg_to_rgb_array(source, destination, *, max_pixels=24_000_000,
                               max_source_bytes=80_000_000,
-                              max_output_bytes=40_000_000):
+                              max_output_bytes=80_000_000):
+    """Convert 20-MP-class JPEGs sequentially with explicit memory/disk caps.
+
+    This JPEG decoder still expands the whole frame in RAM before creating a
+    memory-mapped, tile-readable .npy array. Larger sensors require callers to
+    raise bounds explicitly; never bypass the output/disk checks.
+    """
     """Publish a derived .npy source without modifying JPEG or replacing output."""
     source, destination = Path(source), Path(destination)
     if (source.is_symlink() or not source.is_file()
@@ -32,8 +38,14 @@ def convert_jpeg_to_rgb_array(source, destination, *, max_pixels=12_000_000,
     if source.stat().st_size > max_source_bytes:
         raise ValueError("JPEG exceeds source byte budget")
     expected_width, expected_height = jpeg_dimensions(source)
-    if expected_width * expected_height > max_pixels:
+    expected_pixels = expected_width * expected_height
+    if expected_pixels > max_pixels:
         raise ValueError("JPEG header exceeds pixel budget before decode")
+    estimated_output_bytes = expected_pixels * 3 + 4096
+    if estimated_output_bytes > max_output_bytes:
+        raise ValueError("RGB working array exceeds output byte budget")
+    if shutil.disk_usage(destination.parent).free < estimated_output_bytes:
+        raise ValueError("insufficient free disk space for RGB working array")
     encoded = source.read_bytes()
     if len(encoded) > max_source_bytes:
         raise ValueError("JPEG exceeds source byte budget")
@@ -45,11 +57,8 @@ def convert_jpeg_to_rgb_array(source, destination, *, max_pixels=12_000_000,
         raise ValueError("JPEG decoded dimensions differ from header")
     if height * width > max_pixels:
         raise ValueError("decoded JPEG exceeds pixel budget")
-    estimated_output_bytes = height * width * 3 + 4096
-    if estimated_output_bytes > max_output_bytes:
+    if width * height * 3 + 4096 > max_output_bytes:
         raise ValueError("RGB working array exceeds output byte budget")
-    if shutil.disk_usage(destination.parent).free < estimated_output_bytes:
-        raise ValueError("insufficient free disk space for RGB working array")
     rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     staged = None
     try:
