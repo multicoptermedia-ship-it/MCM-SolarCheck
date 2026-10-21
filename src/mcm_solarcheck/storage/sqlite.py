@@ -7,7 +7,7 @@ from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS module_identity_links(project_id TEXT NOT NULL REFERE
 CREATE INDEX IF NOT EXISTS idx_module_identity_physical ON module_identity_links(project_id,physical_module_id);
 CREATE TABLE IF NOT EXISTS findings(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,finding_id TEXT NOT NULL,thermal_frame_id TEXT NOT NULL,pixel_x INTEGER NOT NULL,pixel_y INTEGER NOT NULL,finding_type TEXT NOT NULL,confidence REAL,raw_value INTEGER,raw_delta_from_median REAL,temperature_c REAL,module_id TEXT,latitude REAL,longitude REAL,altitude_m REAL,reviewer_status TEXT NOT NULL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,finding_id),FOREIGN KEY(project_id,thermal_frame_id) REFERENCES thermal_frames(project_id,frame_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS finding_sensor_links(project_id TEXT NOT NULL,finding_id TEXT NOT NULL,rgb_frame_id TEXT NOT NULL,pair_id TEXT,pair_confidence REAL,rgb_pixel_x REAL,rgb_pixel_y REAL,transform_method TEXT NOT NULL,transform_validated INTEGER NOT NULL CHECK(transform_validated IN (0,1)),transform_error_px REAL,status TEXT NOT NULL,candidates_json TEXT NOT NULL DEFAULT '[]',PRIMARY KEY(project_id,finding_id),FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS finding_reviews(review_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL,finding_id TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('confirmed','rejected','unclear')),reviewer TEXT NOT NULL,reviewed_at_utc TEXT NOT NULL,note TEXT,FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS report_release_decisions(approval_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,report_id TEXT NOT NULL,inspection_started_utc TEXT NOT NULL,approved_by TEXT NOT NULL,approved_at_utc TEXT NOT NULL,review_digest TEXT NOT NULL,unclear_count INTEGER NOT NULL,followup_note TEXT NOT NULL);\nCREATE INDEX IF NOT EXISTS idx_report_release_decisions ON report_release_decisions(project_id,report_id,approval_id);\nCREATE TABLE IF NOT EXISTS finding_reviews(review_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL,finding_id TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('confirmed','rejected','unclear')),reviewer TEXT NOT NULL,reviewed_at_utc TEXT NOT NULL,note TEXT,FOREIGN KEY(project_id,finding_id) REFERENCES findings(project_id,finding_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS training_samples(sample_id TEXT NOT NULL,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,source_frame_id TEXT NOT NULL,source_file TEXT NOT NULL,modality TEXT NOT NULL CHECK(modality IN ('thermal','rgb')),content_sha256 TEXT NOT NULL,label_status TEXT NOT NULL,rights_status TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(project_id,source_frame_id,modality));
 CREATE TABLE IF NOT EXISTS training_labels(label_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,source_frame_id TEXT NOT NULL,module_id TEXT,finding_id TEXT,defect_class TEXT NOT NULL,reviewer TEXT NOT NULL,supersedes_label_id INTEGER REFERENCES training_labels(label_id),note TEXT,inspection_group_id TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS training_geometries(geometry_id INTEGER PRIMARY KEY AUTOINCREMENT,project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,label_id INTEGER NOT NULL UNIQUE REFERENCES training_labels(label_id) ON DELETE CASCADE,source_frame_id TEXT NOT NULL,reviewer TEXT NOT NULL,representation TEXT NOT NULL CHECK(representation IN ('rendered_rgb','grayscale_8bit')),box_json TEXT,polygon_json TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,CHECK(box_json IS NOT NULL OR polygon_json IS NOT NULL));
@@ -126,6 +126,24 @@ def _migrate_16_to_17(db:sqlite3.Connection)->None:
     db.execute("UPDATE schema_info SET version=17")
 
 
+def _migrate_17_to_18(db: sqlite3.Connection) -> None:
+    """Append-only human report decisions; existing projects remain unapproved."""
+    db.execute("""CREATE TABLE report_release_decisions(
+        approval_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+        report_id TEXT NOT NULL,
+        inspection_started_utc TEXT NOT NULL,
+        approved_by TEXT NOT NULL,
+        approved_at_utc TEXT NOT NULL,
+        review_digest TEXT NOT NULL,
+        unclear_count INTEGER NOT NULL,
+        followup_note TEXT NOT NULL
+    )""")
+    db.execute("""CREATE INDEX idx_report_release_decisions
+                  ON report_release_decisions(project_id, report_id, approval_id)""")
+    db.execute("UPDATE schema_info SET version=18")
+
+
 class ProjectDatabase:
     def __init__(self,path:str|Path)->None:self.path=Path(path)
     @contextmanager
@@ -162,6 +180,9 @@ class ProjectDatabase:
                 if version == 16:
                     _migrate_16_to_17(db)
                     version=17
+                if version == 17:
+                    _migrate_17_to_18(db)
+                    version = 18
                 if version != SCHEMA_VERSION:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
