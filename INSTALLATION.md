@@ -1,30 +1,65 @@
 # MCM-SolarCheck – Installation
 
-## Windows 10 Home
+## Windows 10 Home – Offline-Desktop (Entwicklungsstand)
 
-1. Install Python 3.11 (64-bit) from the official Python website and activate **Add Python to PATH** during setup.
-2. Download/clone this repository.
-3. Open PowerShell in the repository folder.
-4. Create the virtual environment:
+Diese Variante ist ausdrücklich für den bestehenden Windows-10-Auswertungsrechner
+vorgesehen. **Keine Windows-11-Voraussetzung**, kein Online-Kundenkonto und
+kein automatischer Download beim Start. Windows-10-Tests auf echter Hardware
+bleiben für die Freigabe nötig; GitHub testet die Win32-Schnittstellen zunächst
+unter Windows Server 2022.
+
+1. 64-Bit-Python 3.11 installieren, Projektquellcode lokal bereitstellen.
+2. Abhängigkeiten bei der Einrichtung einmalig installieren. Dazu ist ein
+   Paket-Download oder ein zuvor vorbereiteter, lokaler Wheel-Ordner nötig:
 
 ```powershell
 py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-5. Start the program:
+3. Die **Offline-Anwendung** ohne Kunden-Online-Shell starten:
 
 ```powershell
-python app.py
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_windows10_offline.ps1
 ```
 
-If PowerShell blocks activation, use:
+4. Den lokalen, nicht-schreibenden **Smoke-Test für die vorhandenen Projekte**
+   ausführen: Dieser verwendet ausschließlich eine temporäre Testdatenbank,
+   lädt nichts nach und prüft den GUI-Start und die offline gebundene Projektanlage.
 
 ```powershell
-.\.venv\Scripts\python.exe app.py
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate_windows10_offline.ps1
 ```
+
+   Mit `-IncludeTests` wird zusätzlich die native Administrator-/DPAPI-/
+   GUI-Testsuite ausgeführt; dazu muss `pytest` bereits in `.venv` installiert
+   sein. Das Skript verweigert ausdrücklich andere Betriebssysteme. Es verändert
+   nicht die globale PowerShell-Ausführungsrichtlinie.
+
+5. Separaten lokalen Administrator nur bei Bedarf einrichten, **ohne
+   Standardpasswort oder Kommandozeilen-Passwort**:
+
+```powershell
+$env:PYTHONPATH = "src"
+.\.venv\Scripts\python.exe -m mcm_solarcheck.offline.admin_setup
+```
+
+   Für alte Windows-v1-Anmeldedatensätze ist die Passwortbestätigung per
+   `--migrate-legacy-windows` erforderlich. Die neue v2-Datei wird mit der
+   Windows-DPAPI des aktuell angemeldeten Benutzerkontos geschützt. Ein anderer
+   Windows-Benutzer kann sie nicht ohne weiteres übernehmen.
+
+**Release-Grenzen:** Der aktuelle Programmstart erfolgt noch aus den Quellen.
+Ein freigegebener, signierter Offline-`.exe`-Installer wird erst in einer
+eigenen Packaging-Phase erstellt. Die CI testet echte Win32-APIs auf einem
+Windows-Server-2022-Runner, **nicht** die tatsächliche Windows-10-Maschine,
+nicht den Installer und nicht die DJI-Mavic-3T-Geräteintegration. Die
+Smoke-Prüfung verbietet Python-Netzwerkverbindungen im getesteten Startablauf;
+sie beweist **nicht**, dass das Windows-Betriebssystem oder jede Fremdbibliothek
+generell keine Telemetrie erzeugt. Lokale Windows-Dateirechte, Backup und
+Betriebssicherheit sind zusätzlich abzusichern. Windows 10 selbst erhält nicht
+mehr den regulären Herstellersupport; die Wahl des Systems wird dadurch nicht
+automatisch geändert.
 
 ## Ubuntu 22.04 / 24.04
 
