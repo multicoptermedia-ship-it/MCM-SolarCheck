@@ -37,6 +37,17 @@ def build_offline_window(
     product = OfflineProduct()
     product.require_customer_entry()
     services = build_offline_services(database_path)
+    # An operator may have explicitly provisioned locally generated OSS weights.
+    # No config means no trainer and no optional AI imports/downloads.
+    # A malformed existing config disables training without blocking inspections.
+    if training_configuration is None and training_launcher is None:
+        from mcm_solarcheck.offline.ai_setup import load_local_torchvision_training
+        try:
+            enabled = load_local_torchvision_training(database_path)
+        except (ValueError, PermissionError, OSError, TypeError):
+            enabled = None
+        if enabled is not None:
+            training_configuration, training_launcher = enabled
     # Credentials must be installed separately; no admin account is created
     # when the application or inspection database starts.
     admin = OfflineAdminAuditSessions(
