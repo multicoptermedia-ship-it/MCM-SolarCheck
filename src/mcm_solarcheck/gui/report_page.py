@@ -144,7 +144,7 @@ def make_report_page(
         preview.setObjectName("view_report_pdf")
         preview.setEnabled(on_preview is not None)
         if on_preview is not None:
-            preview.clicked.connect(on_preview)
+            preview.clicked.connect(lambda _checked=False: on_preview())
         layout.addWidget(preview)
 
         approver = QLineEdit(page)
