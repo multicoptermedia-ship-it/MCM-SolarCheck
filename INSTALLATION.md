@@ -61,6 +61,60 @@ Betriebssicherheit sind zusätzlich abzusichern. Windows 10 selbst erhält nicht
 mehr den regulären Herstellersupport; die Wahl des Systems wird dadurch nicht
 automatisch geändert.
 
+### Windows 10: Python-Abhängigkeiten ohne Internet auf dem Zielrechner installieren
+
+Die später geplante signierte `.exe` ist **noch nicht verfügbar**. Für den
+aktuellen Quellcode-Entwicklungsstand kann jedoch bereits ein lokales
+Wheel-Paket vorbereitet und auf den Windows-10-Rechner übertragen werden.
+
+1. Auf einem **separaten, internetverbundenen Windows-x64-Rechner** mit
+   **Python 3.11 (64 Bit)** denselben Quellcode und dieselbe
+   `requirements.txt` verwenden. Im Repositoryordner ausführen:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\prepare_windows10_wheelhouse.ps1 -Wheelhouse "C:\MCM-Offline-Wheels"
+```
+
+   **Nur dieses Vorbereitungsskript** lädt mit `pip download` Python-Wheels
+   samt Abhängigkeiten aus Paketquellen herunter. Es verweigert existierende
+   Zielverzeichnisse, überschreibt keine früheren Paketsammlungen und
+   erstellt `wheelhouse-manifest.json` mit Python-Zielkennung,
+   `requirements.txt`-SHA256 und SHA256/Größe jedes Wheels.
+   Den Paketordner **mitsamt Manifest** und exakt die passende
+   Quellcode-Version auf vertrauenswürdigem Datenträger übertragen.
+
+2. Auf dem **Windows-10-Zielrechner**, auf dem Python 3.11 (64 Bit) bereits
+   vorhanden sein muss, die `.venv` nur dann neu einrichten, wenn dort
+   **noch keine** `.venv` existiert:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_windows10_offline_venv.ps1 -Wheelhouse "D:\MCM-Offline-Wheels"
+```
+
+   Das Skript verifiziert vor Anlegen der `.venv` alle Dateien des
+   Wheel-Pakets, den Zielinterpreter und den exakten
+   `requirements.txt`-Inhalt. `pip` verwendet ausschließlich
+   `--no-index --find-links`, prüft anschließend per `pip check`
+   und startet einen temporären Offline-GUI-Smoke-Test. Es **löscht oder
+   ersetzt keine vorhandene `.venv`**. Bei Fehlern kann eine unvollständige
+   neue `.venv` verbleiben: nicht starten, sondern Ursache klären.
+
+3. Danach die Desktopanwendung wie oben über
+   `scripts/start_windows10_offline.ps1` starten. Ein Admin-Konto wird
+   **nicht** automatisch provisioniert; echte PV-Projekte werden beim
+   Installations-/Smoketest nicht verwendet.
+
+**Sicherheitsgrenzen:** Ein SHA256-Manifest bestätigt die Übereinstimmung
+mit dem vorbereiteten Ordner, ist jedoch **keine digitale Signatur**.
+Wird der Manifestersteller oder beides manipuliert, erkennt diese Prüfung
+den Angriff nicht. Download- und Quellcode-Herkunft müssen separat
+vertrauenswürdig sein; ein Herstellerzertifikat, ein geprüftes
+Abhängigkeits-Lockfile, eine Windows-10-Hardwareprüfung sowie die echte
+reproduzierbare `.exe`-Distribution folgen erst zur Releasefreigabe.
+Das bereits installierte Python 3.11 selbst gehört derzeit noch nicht
+zum Offline-Paket. Auch der Paket-Build auf dem verbundenen Vorbereitungsrechner
+ist keine Offline-Aktion.
+
 ## Ubuntu 22.04 / 24.04
 
 ```bash
