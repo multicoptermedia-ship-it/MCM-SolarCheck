@@ -138,8 +138,16 @@ def import_raptor_maps_zip(
             refs[full_name] = (source_id, name, details["anomaly_class"])
             counts[details["anomaly_class"]] += 1
         extras = set(members) - set(refs) - {manifest_file}
-        if extras:
+        # Confirmed against the pinned upstream ZIP on CI: Finder artifacts
+        # from the original 2020 macOS packager. Ignore exactly these paths;
+        # never extract them, never silently admit arbitrary non-image files.
+        known_macos_metadata = {
+            root + ".DS_Store",
+            "__MACOSX/" + root + "._.DS_Store",
+        }
+        if extras - known_macos_metadata:
             raise PermissionError("unindexed file in public dataset archive")
+        ignored_upstream_metadata = sorted(extras & known_macos_metadata)
         # Never publish some images if later ZIP members are corrupt.
         destination.mkdir(mode=0o700)
         try:
@@ -178,6 +186,7 @@ def import_raptor_maps_zip(
                 "archive_git_blob_sha1": expected_blob_sha1,
                 "archive_sha256": archive_sha256,
                 "image_modality": MODALITY,
+                "ignored_upstream_nonimage_metadata": ignored_upstream_metadata,
                 "status": "exploratory_only_not_approved_for_reports",
                 "site_grouping": "not_available_no_site_disjoint_validation",
                 "limitations": REVIEW_LIMIT,

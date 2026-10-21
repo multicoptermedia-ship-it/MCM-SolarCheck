@@ -193,3 +193,34 @@ def test_no_importer_requests_training_or_fetches_internet():
     assert "httpx." not in source
     assert "offline_training_jobs" not in source
     assert "approve_offline_report(" not in source
+
+
+def test_exact_original_macos_metadata_is_ignored_but_never_extracted(tmp_path):
+    archive, digest = _archive(
+        tmp_path,
+        extra={
+            "InfraredSolarModules/.DS_Store": b"macos folder index",
+            "__MACOSX/InfraredSolarModules/._.DS_Store": b"macos apple double",
+        },
+    )
+    result = _ingest(tmp_path, archive, digest)
+    assert result["images"] == 2
+    root = tmp_path / "private-research"
+    metadata = json.loads((root / "public-infrared-index.json").read_text())
+    assert metadata["ignored_upstream_nonimage_metadata"] == [
+        "InfraredSolarModules/.DS_Store",
+        "__MACOSX/InfraredSolarModules/._.DS_Store",
+    ]
+    assert not (root / "InfraredSolarModules").exists()
+    assert not (root / "__MACOSX").exists()
+    assert not (root / ".DS_Store").exists()
+
+
+def test_similar_but_unlisted_macos_metadata_is_refused(tmp_path):
+    archive, digest = _archive(
+        tmp_path,
+        extra={"__MACOSX/InfraredSolarModules/._unexpected.jpg": b"not approved"},
+    )
+    with pytest.raises(PermissionError, match="unindexed"):
+        _ingest(tmp_path, archive, digest)
+    assert not (tmp_path / "private-research").exists()
