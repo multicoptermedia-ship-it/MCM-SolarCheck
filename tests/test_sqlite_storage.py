@@ -3,7 +3,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from mcm_solarcheck.domain.models import Finding, Position, RTKQuality, ThermalFrame
-from mcm_solarcheck.storage.sqlite import ProjectDatabase
+from mcm_solarcheck.storage.sqlite import ProjectDatabase, SCHEMA_VERSION
 from mcm_solarcheck.thermal.analysis import RawThermalStatistics
 from mcm_solarcheck.thermal.quality import ThermalQualityGrade, ThermalQualityResult
 
@@ -86,12 +86,14 @@ def test_schema_14_migration_does_not_invent_project_owners(tmp_path):
     db.initialize()
     with db.connect() as connection:
         connection.execute("DROP TABLE project_owners")
+        # Rebuild a genuine pre-v18 fixture; the newer table must not exist.
+        connection.execute("DROP TABLE report_release_decisions")
         connection.execute("UPDATE schema_info SET version=14")
 
     db.initialize()
 
     with db.connect() as connection:
-        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == 18
+        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == SCHEMA_VERSION
         assert connection.execute("SELECT COUNT(*) FROM project_owners").fetchone()[0] == 0
 
 
@@ -105,6 +107,7 @@ def test_schema_15_migration_preserves_owner_without_inventing_capacity(tmp_path
             customer_id TEXT NOT NULL
         )""")
         connection.execute("CREATE INDEX idx_project_owners_customer ON project_owners(customer_id,project_id)")
+        connection.execute("DROP TABLE report_release_decisions")
         connection.execute("INSERT INTO projects(project_id,name) VALUES (?,?)", ("P-legacy", "Legacy"))
         connection.execute("INSERT INTO project_owners(project_id,customer_id) VALUES (?,?)", ("P-legacy", "user-1"))
         connection.execute("UPDATE schema_info SET version=15")
@@ -112,7 +115,7 @@ def test_schema_15_migration_preserves_owner_without_inventing_capacity(tmp_path
     db.initialize()
 
     with db.connect() as connection:
-        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == 18
+        assert connection.execute("SELECT version FROM schema_info").fetchone()[0] == SCHEMA_VERSION
         row = connection.execute(
             "SELECT customer_id,capacity_kwp FROM project_owners WHERE project_id=?",
             ("P-legacy",),

@@ -1,6 +1,6 @@
 import sqlite3
 from mcm_solarcheck.domain.project_profile import ProjectProfile
-from mcm_solarcheck.storage.sqlite import ProjectDatabase
+from mcm_solarcheck.storage.sqlite import ProjectDatabase, SCHEMA_VERSION
 
 
 def _profile():
@@ -25,7 +25,7 @@ def test_schema_v12_migrates_through_v14_with_profile_table(tmp_path):
         """)
     db=ProjectDatabase(path); db.initialize()
     with db.connect() as check:
-        assert check.execute("SELECT version FROM schema_info").fetchone()[0]==17
+        assert check.execute("SELECT version FROM schema_info").fetchone()[0] == SCHEMA_VERSION
         assert check.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='project_profiles'").fetchone() is not None
         columns={row[1] for row in check.execute("PRAGMA table_info(project_profiles)")}
         assert "site_timezone" in columns
@@ -53,6 +53,6 @@ def test_schema_v13_migrates_to_v14_with_nullable_site_timezone(tmp_path):
         """)
     db=ProjectDatabase(path); db.initialize()
     with db.connect() as check:
-        assert check.execute("SELECT version FROM schema_info").fetchone()[0]==17
+        assert check.execute("SELECT version FROM schema_info").fetchone()[0] == SCHEMA_VERSION
         columns={row[1] for row in check.execute("PRAGMA table_info(project_profiles)")}
         assert "site_timezone" in columns
