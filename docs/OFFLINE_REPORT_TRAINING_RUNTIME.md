@@ -101,3 +101,23 @@ Abbruch-/Wiederaufnahmesemantik, Nutzer-/Kundenrechte, Löschkonzept,
 unerwünschte Netzverbindungen und eine eigenständige Modellfreigabe zu prüfen.
 Ein bloßer Rückgabewert des Trainings-Backends darf kein reales Modell in die
 Berichtserstellung ausrollen.
+
+## 21.10.2026 – nachgelagerter Open-Source-Klassifikationsadapter
+
+Der hier ursprünglich nur injizierbare Trainingsrunner besitzt nun einen
+**optionalen echten PyTorch-/TorchVision-CPU-Adapter** ohne gekaufte
+Modelle und ohne externe vortrainierte Gewichte. Konkrete Bediener- und
+Lizenz-/Paketprüfungen: `docs/OFFLINE_OSS_AI_LICENSE_POLICY.md`.
+Nur ausdrücklich lokal initialisierte ResNet18-`state_dict`s samt
+passender lokaler SHA-256-/Herkunftsdatei werden vom Adapter
+akzeptiert. `weights=None` bei jeder Modellkonstruktion, Laden
+ausschließlich mit `weights_only=True`, separate Validierungs-/Test-
+Kennzahlen, niemals automatische Kundenmodell-Freigabe. Die normale
+Offlineinstallation enthält weder PyTorch noch einen aktiven KI-Trainer.
+
+Vorsicht: Eine lokale JSON-Provenance ist kein signierter Nachweis.
+Das Lizenzfeld bestätigt keinen geprüften fremden Vertrag. Der
+bereitstehende Adapter kann technisch trainieren, aber die
+optional installierten PyTorch-Wheels, echten Windows-10-Mavic-3T-Daten,
+Trainingskandidaten und PV-Fachleistung sind hiermit noch nicht
+produktseitig abgenommen.

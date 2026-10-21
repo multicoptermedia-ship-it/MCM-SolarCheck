@@ -115,6 +115,42 @@ Das bereits installierte Python 3.11 selbst gehört derzeit noch nicht
 zum Offline-Paket. Auch der Paket-Build auf dem verbundenen Vorbereitungsrechner
 ist keine Offline-Aktion.
 
+### Optionaler Open-Source-KI-Trainer ohne kommerzielle Modellgewichte
+
+Für die erste Klassifikationsstrecke unterstützt SolarCheck einen **opt-in**
+und vollständig lokalen PyTorch-/TorchVision-Trainer. PyTorch und
+TorchVision gehören **nicht** zur normalen `requirements.txt`.
+Die Projektlizenz ist primär BSD-3-Clause; tatsächliche Wheel-/Dritt-
+komponenten- und Modellgewichte-Lizenzen sind vor Weitergabe separat
+zu prüfen. Es ist kein externer vortrainierter Checkpoint nötig:
+`resnet18(weights=None)` initialisiert neue Modellgewichte lokal.
+
+Die optionale Abhängigkeitsliste heißt `requirements-offline-ai.txt`.
+Sie wird auf einem **verbundenen** Windows-3.11-x64-Vorbereitungsrechner
+mit `scripts/prepare_windows10_ai_wheels.ps1` in ein separates Wheelhouse
+geladen. Auf dem Offline-Windows-10-Zielrechner wird sie ausschließlich mit
+`scripts/install_windows10_ai_wheels.ps1` aus geprüften lokalen Wheels
+installiert. **Nie** diesen Download auf dem Auswertungsrechner starten.
+Das ändert nicht die bestehende Datenbank, führt kein KI-Training aus
+und ersetzt nicht den zukünftigen eigenständigen EXE-Installer.
+
+Der Bediener kann anschließend explizit mit
+`python -m mcm_solarcheck.offline.ai_setup initialize` (Parameter
+`--database`, `--classes`, `--seed`, `--epochs`) lokal neue Gewichte
+und die daneben liegende Model-Provenance sowie
+`offline-ai-config.json` erzeugen; der Datenbankpfad muss existieren.
+`verify` prüft anschließend die lokale Konfiguration.
+Beispielbefehle und Sicherheitsgrenzen stehen in
+`docs/OFFLINE_OSS_AI_LICENSE_POLICY.md`. `build_offline_window()`
+verwendet nur eine vorher ausdrücklich aktivierte, passende lokale
+Konfiguration; sonst bleibt Training aus.
+
+Die CPU-Trainingsfunktion führt echte lokale Optimierung und beschränkte
+Validation-/Testauswertung aus, **deployt das Ergebnis aber niemals
+automatisch**. Unter Windows 10 und mit echten legal nutzbaren
+PV-Bilddaten steht die Abnahme noch aus. Kein Recht zur
+Kundendatennutzung ergibt sich aus der bloßen Open-Source-Lizenz.
+
 ## Ubuntu 22.04 / 24.04
 
 ```bash

@@ -1,1 +1,5 @@
-# Optional local OSS image-classification backend. NOT installed by default.\n# Use a separately verified Windows-10 wheelhouse and confirm wheel/component licenses.\n# Version pairs must be resolved together on the Windows preparation machine.\ntorch>=2.5,<3\ntorchvision>=0.20,<1\n
+# Optional local OSS image-classification backend. NOT installed by default.
+# Use a separately verified Windows-10 wheelhouse and confirm wheel/component licenses.
+# Version pairs must be resolved together on the Windows preparation machine.
+torch>=2.5,<3
+torchvision>=0.20,<1
