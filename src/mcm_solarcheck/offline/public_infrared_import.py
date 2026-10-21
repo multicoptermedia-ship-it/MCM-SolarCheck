@@ -61,7 +61,8 @@ def _members(source: zipfile.ZipFile):
             raise ValueError("too many ZIP members")
         name = info.filename
         if (not isinstance(name, str) or not name or "\\" in name
-                or name.startswith("/") or any(p in ("", ".", "..") for p in name.split("/"))):
+                or name.startswith("/")
+                or any(p in ("", ".", "..") for p in name.rstrip("/").split("/"))):
             raise PermissionError("unsafe ZIP path")
         kind = stat.S_IFMT(info.external_attr >> 16)
         if kind not in (0, stat.S_IFREG, stat.S_IFDIR):
