@@ -471,6 +471,15 @@ class ProjectApplicationService:
             project_id, limit=limit, offset=offset,
         )
 
+    def review_progress(self, project_id: str):
+        """Show decision progress derived from this project's persisted counts.
+
+        Advisory only; the existing workflow/report/export gates remain
+        authoritative for actual permissions.
+        """
+        from mcm_solarcheck.services.review_progress import derive_review_progress
+        return derive_review_progress(self.import_summary(project_id))
+
     def pending_review_findings(
         self, project_id: str, *, limit: int = 50, offset: int = 0,
     ):
