@@ -11,6 +11,9 @@ from PySide6.QtWidgets import QApplication
 from mcm_solarcheck.gui.shell import SolarCheckMainWindow
 from mcm_solarcheck.offline.composition import build_offline_services
 from mcm_solarcheck.offline.product import OfflineProduct
+from mcm_solarcheck.services.offline_admin_credentials import default_admin_credential_path
+from mcm_solarcheck.services.offline_admin_audit_sessions import OfflineAdminAuditSessions
+from mcm_solarcheck.services.report_preview_audit_admin import AuthorizedReportPreviewAudit
 from mcm_solarcheck.services.deployment import DeploymentMode
 
 APP_NAME = "MCM-SolarCheck"
@@ -26,9 +29,16 @@ def build_offline_window(database_path: str | Path) -> SolarCheckMainWindow:
     product = OfflineProduct()
     product.require_customer_entry()
     services = build_offline_services(database_path)
+    # Credentials must be installed separately; no admin account is created
+    # when the application or inspection database starts.
+    admin = OfflineAdminAuditSessions(
+        default_admin_credential_path(database_path),
+        AuthorizedReportPreviewAudit(services.projects.database),
+    )
     return SolarCheckMainWindow(
         DeploymentMode.OFFLINE_DESKTOP,
         project_service=services.projects,
+        offline_admin_sessions=admin,
     )
 
 

@@ -42,6 +42,7 @@ class SolarCheckMainWindow(QMainWindow):
         customer_entry: CustomerEntry | None = None,
         on_register=None,
         on_email_verification=None,
+        offline_admin_sessions=None,
     ) -> None:
         super().__init__()
         self._deployment = deployment
@@ -49,6 +50,10 @@ class SolarCheckMainWindow(QMainWindow):
         self._customer_entry = customer_entry
         self._on_register = on_register
         self._on_email_verification = on_email_verification
+        self._offline_admin_sessions = (
+            offline_admin_sessions if deployment is DeploymentMode.OFFLINE_DESKTOP
+            else None
+        )
         self._navigation = shell_navigation(deployment)
         self._commands = shell_commands(deployment)
         self._actions: dict[ShellCommandId, QAction] = {}
@@ -189,6 +194,15 @@ class SolarCheckMainWindow(QMainWindow):
             ShellCommandId.EXPORT: "Export",
             ShellCommandId.USER_GUIDE: "Help",
         }
+        if (
+            self._deployment is DeploymentMode.OFFLINE_DESKTOP
+            and self._offline_admin_sessions is not None
+        ):
+            admin_menu = self.menuBar().addMenu("Administration")
+            admin_action = QAction("Vertrauliches Berichtsprotokoll …", self)
+            admin_action.setObjectName("open_report_admin_audit")
+            admin_action.triggered.connect(self._open_report_admin_audit)
+            admin_menu.addAction(admin_action)
         for command in self._commands:
             action = QAction(command.label, self)
             action.setObjectName(f"{command.command_id.value}_action")
@@ -199,6 +213,26 @@ class SolarCheckMainWindow(QMainWindow):
                     lambda checked=False, target=route: self.show_route(target)
                 )
             self._actions[command.command_id] = action
+
+    def _open_report_admin_audit(self) -> None:
+        """Open a credential-gated dialog, never a normal workflow route."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._offline_admin_sessions is None
+            or self._current_project_id is None
+        ):
+            return
+        from mcm_solarcheck.gui.offline_admin_audit_dialog import OfflineAdminAuditDialog
+        project = self._current_project_id
+        dialog = OfflineAdminAuditDialog(
+            self._offline_admin_sessions, project,
+            active_project=lambda: self._current_project_id,
+            parent=self,
+        )
+        try:
+            dialog.exec()
+        finally:
+            dialog.close()
 
     def _create_project(self, project_id: str, name: str, profile=None) -> None:
         """Persist a new project and its explicit master data before refreshing."""
