@@ -101,8 +101,11 @@ def latest_release_decision(sql: sqlite3.Connection, report: InspectionReport
 def record_release_decision(
     sql: sqlite3.Connection, report: InspectionReport, progress: ReviewProgress, *,
     approved_by: str, acknowledge_unclear: bool = False, followup_note: str = "",
+    reached_preview_end: bool = False,
 ) -> ReportReleaseDecision:
     """Call only within a BEGIN IMMEDIATE transaction after workflow checks."""
+    if type(reached_preview_end) is not bool:
+        raise TypeError("preview end event must be a boolean")
     if report.release_status != "draft" or report.project_id != progress.project_id:
         raise ValueError("draft/project mismatch")
     if not isinstance(approved_by, str) or not (1 <= len(approved_by.strip()) <= 120):
@@ -125,6 +128,11 @@ def record_release_decision(
         (report.project_id, report.report_id, _inspection_time(report),
          approved_by.strip(), approved_at, digest, progress.unclear_findings,
          followup_note.strip()),
+    )
+    sql.execute(
+        """INSERT INTO report_release_read_audit(approval_id,reached_preview_end)
+           VALUES (?,?)""",
+        (cursor.lastrowid, int(reached_preview_end)),
     )
     return ReportReleaseDecision(
         cursor.lastrowid, report.project_id, report.report_id,
