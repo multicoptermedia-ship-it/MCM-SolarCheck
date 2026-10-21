@@ -43,6 +43,7 @@ class SolarCheckMainWindow(QMainWindow):
         on_register=None,
         on_email_verification=None,
         offline_admin_sessions=None,
+        offline_report_training=None,
     ) -> None:
         super().__init__()
         self._deployment = deployment
@@ -52,6 +53,10 @@ class SolarCheckMainWindow(QMainWindow):
         self._on_email_verification = on_email_verification
         self._offline_admin_sessions = (
             offline_admin_sessions if deployment is DeploymentMode.OFFLINE_DESKTOP
+            else None
+        )
+        self._offline_report_training = (
+            offline_report_training if deployment is DeploymentMode.OFFLINE_DESKTOP
             else None
         )
         self._navigation = shell_navigation(deployment)
@@ -471,8 +476,11 @@ class SolarCheckMainWindow(QMainWindow):
             except (ValueError, PermissionError, OSError, KeyError, TypeError):
                 approval = None
         on_approve = (
-            (lambda approver, ack, note, source=project_id:
-             self._approve_offline_report(source, approver, ack, note))
+            (lambda approver, ack, note, train_opt_in=False, rights_reference="",
+             source=project_id:
+             self._approve_offline_report(
+                 source, approver, ack, note, train_opt_in, rights_reference,
+             ))
             if enabled and draft is not None
             and callable(getattr(service, "approve_offline_report", None))
             else None
@@ -483,6 +491,11 @@ class SolarCheckMainWindow(QMainWindow):
             and callable(getattr(service, "render_offline_draft_preview", None))
             else None
         )
+        training_request = None
+        if approval is not None and self._offline_report_training is not None:
+            training_request = self._offline_report_training.state(
+                project_id, approval.approval_id,
+            )
         page = make_report_page(
             current_project_id=project_id if offline else None,
             availability=availability,
@@ -491,7 +504,7 @@ class SolarCheckMainWindow(QMainWindow):
             on_prepare=on_prepare,
             last_status=self._last_report_status if offline else None,
             progress=progress, approval=approval, on_approve=on_approve,
-            on_preview=on_preview,
+            on_preview=on_preview, training_request=training_request,
         )
         self._pages[ShellRoute.REPORT] = page
         index = self._stack.indexOf(old_page)
@@ -635,9 +648,10 @@ class SolarCheckMainWindow(QMainWindow):
 
     def _approve_offline_report(
         self, source_project: str, reviewer: str, acknowledge_unclear: bool,
-        followup_note: str,
+        followup_note: str, train_opt_in: bool = False,
+        rights_reference: str = "",
     ) -> None:
-        """Only a deliberate action from the active offline draft may sign."""
+        """Sign the report separately from optional, local training opt-in."""
         from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP
         if (
             self._deployment is not DeploymentMode.OFFLINE_DESKTOP
@@ -664,6 +678,38 @@ class SolarCheckMainWindow(QMainWindow):
                 f"Explizite menschliche Freigabe dokumentiert "
                 f"(Audit {decision.approval_id}). Keine Normkonformitätszusage."
             )
+            if train_opt_in is True:
+                if self._offline_report_training is None:
+                    self._last_report_status += (
+                        " Trainingsfreigabe nicht gespeichert: lokale "
+                        "Trainingsverwaltung nicht verfügbar."
+                    )
+                else:
+                    try:
+                        result = self._offline_report_training.request(
+                            project_id=source_project,
+                            report=self._draft_report,
+                            approval=decision,
+                            authorized_by=reviewer,
+                            rights_reference=rights_reference,
+                            affirmative_opt_in=True,
+                        )
+                    except (ValueError, PermissionError, OSError, TypeError, KeyError):
+                        self._last_report_status += (
+                            " Trainingsfreigabe nicht übernommen; "
+                            "Nutzungsnachweis und Datenstand überprüfen."
+                        )
+                    else:
+                        self._last_report_status += (
+                            " Trainingsfreigabe gesondert gespeichert. "
+                            + (
+                                f"{result.sample_count} bereits geprüfte Bilder "
+                                "lokal für späteres Training bereitgestellt."
+                                if result.status == "staged_waiting_for_trainer"
+                                else "Trainingsbestand ist noch nicht bereit."
+                            )
+                            + " Kein KI-Training gestartet."
+                        )
         self._refresh_report_page()
         self._refresh_export_page()
 

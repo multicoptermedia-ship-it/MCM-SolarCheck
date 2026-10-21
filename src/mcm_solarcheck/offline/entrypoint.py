@@ -13,6 +13,7 @@ from mcm_solarcheck.offline.composition import build_offline_services
 from mcm_solarcheck.offline.product import OfflineProduct
 from mcm_solarcheck.services.offline_admin_credentials import default_admin_credential_path
 from mcm_solarcheck.services.offline_admin_audit_sessions import OfflineAdminAuditSessions
+from mcm_solarcheck.services.offline_report_training import OfflineReportTraining
 from mcm_solarcheck.services.report_preview_audit_admin import AuthorizedReportPreviewAudit
 from mcm_solarcheck.services.deployment import DeploymentMode
 
@@ -39,6 +40,7 @@ def build_offline_window(database_path: str | Path) -> SolarCheckMainWindow:
         DeploymentMode.OFFLINE_DESKTOP,
         project_service=services.projects,
         offline_admin_sessions=admin,
+        offline_report_training=OfflineReportTraining(services.projects),
     )
 
 

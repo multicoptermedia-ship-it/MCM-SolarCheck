@@ -24,7 +24,7 @@ def make_report_page(
     parent=None, *, current_project_id=None, availability=None,
     profile=None, draft=None, on_prepare=None, last_status=None,
     progress: ReviewProgress | None = None, approval=None, on_approve=None,
-    on_preview=None,
+    on_preview=None, training_request=None,
 ):
     page = QWidget(parent)
     page.setObjectName("report_page")
@@ -161,6 +161,30 @@ def make_report_page(
         followup.setObjectName("report_release_followup_note")
         followup.setPlaceholderText("Bei unklaren Befunden: dokumentierter Nachprüfungsbedarf")
         layout.addWidget(followup)
+        training_opt_in = QCheckBox(
+            "solarcheck-Datensatz für das KI-Training freigeben", page,
+        )
+        training_opt_in.setObjectName("report_training_opt_in")
+        training_opt_in.setChecked(False)
+        layout.addWidget(training_opt_in)
+        training_rights = QLineEdit(page)
+        training_rights.setObjectName("report_training_rights_reference")
+        training_rights.setPlaceholderText(
+            "Nachweis der Kunden-/Nutzungsfreigabe (Pflicht bei Trainingsfreigabe)"
+        )
+        training_rights.setEnabled(False)
+        layout.addWidget(training_rights)
+        training_notice = QLabel(
+            "Freiwillige zusätzliche Trainingsentscheidung. Nur bereits menschlich "
+            "geprüfte Bilder mit dokumentierten Nutzungsrechten dürfen lokal "
+            "übernommen werden. Ohne geprüfte Trainingskonfiguration startet "
+            "kein KI-Training. Die Berichtsfreigabe bleibt davon unabhängig.",
+            page,
+        )
+        training_notice.setObjectName("report_training_notice")
+        training_notice.setTextFormat(Qt.TextFormat.PlainText)
+        training_notice.setWordWrap(True)
+        layout.addWidget(training_notice)
         approve = QPushButton("Bericht ausdrücklich fachlich freigeben", page)
         approve.setObjectName("approve_report_release")
         layout.addWidget(approve)
@@ -181,16 +205,47 @@ def make_report_page(
                 current_project_id is not None and not blocked
                 and approval is None and on_approve is not None and review_ready
                 and unclear_ready and approver.text().strip()
+                and (not training_opt_in.isChecked()
+                     or len(training_rights.text().strip()) >= 3)
             ))
 
         approver.textChanged.connect(update_approval)
         unresolved_ack.toggled.connect(update_approval)
         followup.textChanged.connect(update_approval)
+        training_opt_in.toggled.connect(training_rights.setEnabled)
+        training_opt_in.toggled.connect(update_approval)
+        training_rights.textChanged.connect(update_approval)
         if on_approve is not None:
-            approve.clicked.connect(lambda: on_approve(
-                approver.text(), unresolved_ack.isChecked(), followup.text()
-            ) if approve.isEnabled() else None)
+            def confirm_report():
+                if not approve.isEnabled():
+                    return
+                if training_opt_in.isChecked():
+                    on_approve(
+                        approver.text(), unresolved_ack.isChecked(), followup.text(),
+                        True, training_rights.text().strip(),
+                    )
+                else:
+                    on_approve(
+                        approver.text(), unresolved_ack.isChecked(), followup.text(),
+                    )
+            approve.clicked.connect(confirm_report)
         update_approval()
+
+        if training_request is not None:
+            status_text = (
+                "Trainingsfreigabe vermerkt: freigegebene Trainingsbeispiele "
+                f"lokal bereitgestellt ({training_request.sample_count}). "
+                "Es ist noch kein KI-Training gestartet; geprüfter Trainer fehlt."
+                if training_request.status == "staged_waiting_for_trainer"
+                else "Trainingsfreigabe vermerkt. Trainingsdaten oder nachgewiesene "
+                     "Nutzungsrechte noch nicht vollständig geprüft. "
+                     "Noch kein KI-Training gestartet."
+            )
+            indicator = QLabel(status_text, page)
+            indicator.setObjectName("report_training_status")
+            indicator.setTextFormat(Qt.TextFormat.PlainText)
+            indicator.setWordWrap(True)
+            layout.addWidget(indicator)
 
     if last_status:
         result = QLabel(last_status, page)
