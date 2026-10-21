@@ -1,0 +1,73 @@
+name: public-infrared-upstream-acceptance
+# This job runs on GitHub's CONNECTED runner, never on the offline workstation.
+# All images are discarded with the ephemeral runner; no binary Git commits.
+on:
+  push:
+    branches:
+      - feature/offline-human-report-approval
+    paths:
+      - .github/workflows/public-infrared-upstream.yml
+      - src/mcm_solarcheck/offline/public_infrared_*.py
+      - src/mcm_solarcheck/services/pv_public_infrared_source.py
+      - tests/test_public_infrared_*.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-upstream-zip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install only the image decoder
+        run: python -m pip install 'Pillow>=10.4,<12'
+      - name: Download the immutable upstream archive on connected CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$RUNNER_TEMP/2020-02-14_InfraredSolarModules.zip" \
+            "https://raw.githubusercontent.com/RaptorMaps/InfraredSolarModules/88e2d1febbcefe401c17ec80b8973f36a02a1653/2020-02-14_InfraredSolarModules.zip"
+          test "$(wc -c < "$RUNNER_TEMP/2020-02-14_InfraredSolarModules.zip")" -eq 15495990
+      - name: Import all real images into a temporary isolated research directory
+        shell: bash
+        env:
+          PYTHONPATH: src
+        run: |
+          set -euo pipefail
+          python -m mcm_solarcheck.offline.public_infrared_import \
+            --archive "$RUNNER_TEMP/2020-02-14_InfraredSolarModules.zip" \
+            --destination "$RUNNER_TEMP/raptor-research" \
+            --reviewer "Automated CI research-only source check" \
+            --license-evidence "MIT upstream LICENSE at pinned commit; commercial image rights not independently adjudicated" \
+            --exploratory-only
+      - name: Run the first non-deployed research baseline on actual labels
+        shell: bash
+        env:
+          PYTHONPATH: src
+        run: |
+          set -euo pipefail
+          python -m mcm_solarcheck.offline.public_infrared_baseline \
+            --catalog "$RUNNER_TEMP/raptor-research/public-infrared-index.json" \
+            --results "$RUNNER_TEMP/first-experimental-baseline.json" \
+            --acknowledge-no-site-groups
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          folder = Path(os.environ['RUNNER_TEMP'])
+          catalog = json.loads((folder/'raptor-research'/'public-infrared-index.json').read_text())
+          report = json.loads((folder/'first-experimental-baseline.json').read_text())
+          assert catalog['status'] == 'exploratory_only_not_approved_for_reports'
+          assert len(catalog['samples']) >= 19000
+          assert report['status'] == 'experimental_no_report_or_model_approval'
+          assert not list(folder.glob('raptor-research/**/*.pt'))
+          print('REAL_PUBLIC_DATASET_ACCEPTANCE: OK; image count:',
+                len(catalog['samples']), 'class count:', len(catalog['class_counts']))
+          PY
+      - name: Ensure no source image archive is uploaded as an artifact
+        run: echo "No dataset or training outputs uploaded; all CI files are ephemeral."
