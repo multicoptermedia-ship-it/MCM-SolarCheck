@@ -21,7 +21,7 @@ def credential_mutation_lock(credential_path: Path) -> Iterator[None]:
         or not credential_path.parent.is_dir()
         or any(part.is_symlink() for part in (credential_path, *credential_path.parents))
     ):
-        raise ValueError("unsafe administrator credential path")
+        raise PermissionError("unsafe administrator credential path")
     path = credential_path.with_name(credential_path.name + ".lock")
     flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(path, flags, 0o600)
