@@ -10,12 +10,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 
 pytest.importorskip("PySide6")
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QLabel, QLineEdit, QListWidget, QPlainTextEdit,
     QPushButton,
 )
 
 from mcm_solarcheck.domain.models import Finding, ThermalFrame
+from mcm_solarcheck.review.findings import ReviewStatus
 from mcm_solarcheck.offline.entrypoint import build_offline_window
 from mcm_solarcheck.services.shell_navigation import ShellRoute
 from mcm_solarcheck.thermal.analysis import RawThermalStatistics
@@ -165,5 +167,149 @@ def test_project_change_cannot_keep_old_decision_or_note(qt_app, tmp_path):
         assert "eigen" in other[5].text() or "auswählen" in other[5].text()
         assert reviews(service, "P1") == ()
         assert reviews(service, "P2") == ()
+    finally:
+        window.close()
+
+
+def test_review_progress_tracks_qt_human_decisions_and_report_page(
+    qt_app, tmp_path,
+):
+    window = populated_window(tmp_path)
+    service = window._project_service
+    try:
+        initial = window._pages[ShellRoute.REVIEW].findChild(
+            QLabel, "review_progress_summary",
+        )
+        assert initial is not None
+        assert "0 von 2 (0 %)" in initial.text()
+        assert "Offen: 2" in initial.text()
+        guidance = window._pages[ShellRoute.REVIEW].findChild(
+            QLabel, "review_progress_next_steps",
+        )
+        assert guidance.textFormat() == Qt.TextFormat.PlainText
+        assert "2 offene Befunde" in guidance.text()
+        assert "keine automatische Diagnose" in guidance.text()
+        report = window._pages[ShellRoute.REPORT]
+        assert "0 von 2 (0 %)" in report.findChild(
+            QLabel, "report_review_progress",
+        ).text()
+        assert not report.findChild(
+            QPushButton, "prepare_report_draft",
+        ).isEnabled()
+
+        candidates, decision, note, reviewer, submit, hint = parts(window)
+        candidates.setCurrentRow(0)
+        reviewer.setText("Fachprueferin")
+        decision.setCurrentIndex(1)
+        assert submit.isEnabled()
+        submit.click()
+        assert "1 von 2 (50 %)" in window._pages[
+            ShellRoute.REVIEW
+        ].findChild(QLabel, "review_progress_summary").text()
+        assert "Offen: 1" in window._pages[
+            ShellRoute.REVIEW
+        ].findChild(QLabel, "review_progress_summary").text()
+        assert "1 von 2 (50 %)" in window._pages[
+            ShellRoute.REPORT
+        ].findChild(QLabel, "report_review_progress").text()
+
+        candidates, decision, note, reviewer, submit, hint = parts(window)
+        candidates.setCurrentRow(0)
+        reviewer.setText("Fachprueferin")
+        decision.setCurrentIndex(3)
+        note.setPlainText("Muss fachlich nachgeprüft werden")
+        assert submit.isEnabled()
+        submit.click()
+        final = window._pages[ShellRoute.REVIEW].findChild(
+            QLabel, "review_progress_summary",
+        )
+        assert "2 von 2 (100 %)" in final.text()
+        assert "Offen: 0" in final.text()
+        assert "Bestätigt: 1" in final.text()
+        assert "Unklar: 1" in final.text()
+        next_steps = window._pages[ShellRoute.REVIEW].findChild(
+            QLabel, "review_progress_next_steps",
+        )
+        assert "Nachprüfung" in next_steps.text()
+        assert "keine automatische Diagnose" in next_steps.text()
+        assert "2 von 2 (100 %)" in window._pages[
+            ShellRoute.REPORT
+        ].findChild(QLabel, "report_review_progress").text()
+        assert not window._pages[ShellRoute.REPORT].findChild(
+            QPushButton, "prepare_report_draft",
+        ).isEnabled()
+        assert len(reviews(service, "P1")) == 2
+        assert reviews(service, "P2") == ()
+        assert service.review_progress("P1").all_findings_decided is True
+        assert service.review_progress("P2").open_findings == 2
+    finally:
+        window.close()
+
+
+def test_review_progress_project_switch_uses_new_sqlite_project_only(
+    qt_app, tmp_path,
+):
+    window = populated_window(tmp_path)
+    service = window._project_service
+    try:
+        service.review_pending_finding(
+            "P1", "F1", status=ReviewStatus.CONFIRMED,
+            reviewer="Prueferin", note="Eigene fachliche Entscheidung",
+        )
+        window._refresh_review_page()
+        window._refresh_report_page()
+        assert "1 von 2 (50 %)" in window._pages[
+            ShellRoute.REVIEW
+        ].findChild(QLabel, "review_progress_summary").text()
+
+        window._open_project("P2")
+        assert "0 von 2 (0 %)" in window._pages[
+            ShellRoute.REVIEW
+        ].findChild(QLabel, "review_progress_summary").text()
+        assert "0 von 2 (0 %)" in window._pages[
+            ShellRoute.REPORT
+        ].findChild(QLabel, "report_review_progress").text()
+        assert service.review_progress("P1").decided_findings == 1
+        assert service.review_progress("P2").decided_findings == 0
+        assert reviews(service, "P2") == ()
+        window._open_project(None)
+        assert window._pages[ShellRoute.REVIEW].findChild(
+            QLabel, "review_progress_summary",
+        ) is None
+        assert window._pages[ShellRoute.REPORT].findChild(
+            QLabel, "report_review_progress",
+        ) is None
+    finally:
+        window.close()
+
+
+def test_progress_display_is_only_advisory_not_a_new_report_permission(
+    qt_app, tmp_path,
+):
+    window = populated_window(tmp_path)
+    service = window._project_service
+    try:
+        service.review_pending_finding(
+            "P1", "F1", status=ReviewStatus.REJECTED,
+            reviewer="Prueferin", note="Abgewiesen",
+        )
+        service.review_pending_finding(
+            "P1", "F2", status=ReviewStatus.REJECTED,
+            reviewer="Prueferin", note="Abgewiesen",
+        )
+        window._refresh_review_page()
+        window._refresh_report_page()
+        assert "2 von 2 (100 %)" in window._pages[
+            ShellRoute.REPORT
+        ].findChild(QLabel, "report_review_progress").text()
+        readiness = window._pages[ShellRoute.REPORT].findChild(
+            QLabel, "report_readiness_status",
+        )
+        assert "Projektstammdaten fehlen" in readiness.text()
+        assert not window._pages[ShellRoute.REPORT].findChild(
+            QPushButton, "prepare_report_draft",
+        ).isEnabled()
+        assert service.review_progress("P1").all_findings_decided
+        assert len(reviews(service, "P1")) == 2
     finally:
         window.close()

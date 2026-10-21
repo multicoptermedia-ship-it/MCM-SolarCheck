@@ -55,7 +55,7 @@ def make_review_page(
         progress_summary.setTextFormat(Qt.TextFormat.PlainText)
         progress_summary.setWordWrap(True)
         layout.addWidget(progress_summary)
-        guidance = QLabel("\\n".join(progress.guidance), page)
+        guidance = QLabel("\n".join(progress.guidance), page)
         guidance.setObjectName("review_progress_next_steps")
         guidance.setTextFormat(Qt.TextFormat.PlainText)
         guidance.setWordWrap(True)
