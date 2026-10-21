@@ -6,6 +6,7 @@ owner-only permissions are checked; Windows ACL deployment still needs review.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -13,7 +14,10 @@ import os
 from pathlib import Path
 import secrets
 import stat
+import sys
 import tempfile
+
+from mcm_solarcheck.services import windows_dpapi
 
 _FILE_NAME = "offline-admin-credentials.json"
 _KDF_N = 1 << 14
@@ -39,6 +43,56 @@ def _password(value: str) -> str:
     return value
 
 
+
+def _windows_user_protection() -> bool:
+    return sys.platform == "win32"
+
+
+def _encode_credential_record(actor_id: str, salt: bytes, verifier: bytes) -> bytes:
+    payload = {
+        "version": 1, "actor_id": actor_id,
+        "salt": salt.hex(), "verifier": verifier.hex(),
+    }
+    if _windows_user_protection():
+        # Protect the entire verifier plus identity against other Windows users.
+        inner = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        protected = windows_dpapi.protect_for_current_user(inner)
+        if not 0 < len(protected) <= 3000:
+            raise PermissionError("Windows credential protection unavailable")
+        payload = {
+            "version": 2, "scheme": "dpapi-current-user-scrypt",
+            "sealed": base64.b64encode(protected).decode("ascii"),
+        }
+    return json.dumps(payload, separators=(",", ":")).encode("utf-8")
+
+
+def _decode_credential_record(
+    raw: bytes, *, legacy_windows_migration: bool = False,
+) -> dict:
+    record = json.loads(raw)
+    if not isinstance(record, dict):
+        raise ValueError("invalid credential record")
+    if _windows_user_protection() and not legacy_windows_migration:
+        if set(record) != {"version", "scheme", "sealed"}:
+            raise PermissionError("Windows admin credentials require explicit migration")
+        if record["version"] != 2 or record["scheme"] != "dpapi-current-user-scrypt":
+            raise PermissionError("unsupported protected credential record")
+        sealed = base64.b64decode(record["sealed"], validate=True)
+        if not 0 < len(sealed) <= 3000:
+            raise ValueError("invalid sealed credential")
+        record = json.loads(windows_dpapi.unprotect_for_current_user(sealed))
+    if (
+        not isinstance(record, dict)
+        or set(record) != {"version", "actor_id", "salt", "verifier"}
+        or record["version"] != 1 or not isinstance(record["actor_id"], str)
+        or not isinstance(record["salt"], str) or not isinstance(record["verifier"], str)
+        or len(bytes.fromhex(record["salt"])) != 32
+        or len(bytes.fromhex(record["verifier"])) != 32
+    ):
+        raise ValueError("invalid administrator credential record")
+    return record
+
+
 def create_offline_admin_credentials(path: str | Path, actor_id: str, password: str) -> None:
     """Opt-in bootstrap; never overwrite an existing verifier, including links."""
     path = Path(path)
@@ -53,10 +107,7 @@ def create_offline_admin_credentials(path: str | Path, actor_id: str, password: 
         password.encode("utf-8"), salt=salt, n=_KDF_N, r=_KDF_R, p=_KDF_P,
         dklen=32,
     )
-    data = json.dumps({
-        "version": 1, "actor_id": actor_id, "salt": salt.hex(),
-        "verifier": verifier.hex(),
-    }, separators=(",", ":")).encode("utf-8")
+    data = _encode_credential_record(actor_id, salt, verifier)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
@@ -83,16 +134,8 @@ def verify_offline_admin_credentials(
             part.is_symlink() for part in (path, *path.parents)
         ):
             return False
-        info = path.stat()
-        if not stat.S_ISREG(info.st_mode) or info.st_size > 4096:
-            return False
-        if os.name == "posix" and (info.st_mode & 0o077):
-            return False
-        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-        fd = os.open(path, flags)
-        with os.fdopen(fd, "rb") as file:
-            record = json.loads(file.read(4097))
-        if record.get("version") != 1 or record.get("actor_id") != actor_id:
+        record = _decode_credential_record(_read_trusted_credentials(path))
+        if record["actor_id"] != actor_id:
             return False
         salt = bytes.fromhex(record["salt"])
         verifier = bytes.fromhex(record["verifier"])
@@ -103,7 +146,7 @@ def verify_offline_admin_credentials(
             dklen=32,
         )
         return hmac.compare_digest(actual, verifier)
-    except (OSError, ValueError, TypeError, KeyError, UnicodeError, AttributeError):
+    except (OSError, ValueError, TypeError, KeyError, UnicodeError, AttributeError, PermissionError):
         return False
 
 
@@ -129,13 +172,7 @@ def credential_revision(path: str | Path) -> str | None:
     """Internal fingerprint used to revoke sessions after external file changes."""
     try:
         raw = _read_trusted_credentials(Path(path))
-        record = json.loads(raw)
-        if not isinstance(record, dict) or set(record) != {
-            "version", "actor_id", "salt", "verifier",
-        } or record["version"] != 1 or not isinstance(record["actor_id"], str):
-            return None
-        if len(bytes.fromhex(record["salt"])) != 32 or len(bytes.fromhex(record["verifier"])) != 32:
-            return None
+        _decode_credential_record(raw)
         return hashlib.sha256(raw).hexdigest()
     except (OSError, ValueError, TypeError, KeyError, PermissionError, AttributeError):
         return None
@@ -157,12 +194,8 @@ def rotate_offline_admin_password(
         raise ValueError("new administrator password must differ")
     try:
         original = _read_trusted_credentials(path)
-        record = json.loads(original)
-        if (
-            not isinstance(record, dict) or set(record) != {
-                "version", "actor_id", "salt", "verifier",
-            } or record["version"] != 1 or record["actor_id"] != actor_id
-        ):
+        record = _decode_credential_record(original)
+        if record["actor_id"] != actor_id:
             raise PermissionError("administrator reauthentication required")
         salt = bytes.fromhex(record["salt"])
         old = bytes.fromhex(record["verifier"])
@@ -182,10 +215,7 @@ def rotate_offline_admin_password(
         new_password.encode("utf-8"), salt=salt_new, n=_KDF_N,
         r=_KDF_R, p=_KDF_P, dklen=32,
     )
-    encoded = json.dumps({
-        "version": 1, "actor_id": actor_id, "salt": salt_new.hex(),
-        "verifier": verifier_new.hex(),
-    }, separators=(",", ":")).encode("utf-8")
+    encoded = _encode_credential_record(actor_id, salt_new, verifier_new)
     fd, temporary = tempfile.mkstemp(prefix=".offline-admin-rotate-", dir=path.parent)
     try:
         with os.fdopen(fd, "wb") as stream:
