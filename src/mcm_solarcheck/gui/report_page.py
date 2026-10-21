@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
+from mcm_solarcheck.services.review_progress import ReviewProgress
+
 
 def parse_inspection_start_utc(text: str) -> datetime:
     """Require an explicitly recorded, offset-aware UTC inspection timestamp."""
@@ -21,6 +23,7 @@ def parse_inspection_start_utc(text: str) -> datetime:
 def make_report_page(
     parent=None, *, current_project_id=None, availability=None,
     profile=None, draft=None, on_prepare=None, last_status=None,
+    progress: ReviewProgress | None = None,
 ):
     page = QWidget(parent)
     page.setObjectName("report_page")
@@ -37,6 +40,21 @@ def make_report_page(
     context.setObjectName("report_project_context")
     context.setTextFormat(Qt.TextFormat.PlainText)
     layout.addWidget(context)
+
+    if progress is not None:
+        decision_progress = QLabel(
+            f"Befundentscheidungen laut SQLite: "
+            f"{progress.decided_findings} von {progress.total_findings} "
+            f"({progress.decision_percent} %) · "
+            f"Offen: {progress.open_findings} · "
+            f"Unklar: {progress.unclear_findings}. "
+            "Dies ist keine Berichtfreigabe.",
+            page,
+        )
+        decision_progress.setObjectName("report_review_progress")
+        decision_progress.setTextFormat(Qt.TextFormat.PlainText)
+        decision_progress.setWordWrap(True)
+        layout.addWidget(decision_progress)
 
     blocked = []
     if availability is None:

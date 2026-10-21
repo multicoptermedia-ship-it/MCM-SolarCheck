@@ -12,6 +12,7 @@ from mcm_solarcheck.review.findings import ReviewStatus
 from mcm_solarcheck.gui.review_evidence import review_evidence_text
 from mcm_solarcheck.gui.review_history_panel import make_review_history_panel
 from mcm_solarcheck.services.review_image_preview import ReviewImageEvidence
+from mcm_solarcheck.services.review_progress import ReviewProgress
 
 MAX_REVIEW_PAGE_FINDINGS = 50
 
@@ -21,6 +22,7 @@ def make_review_page(
     on_review=None, on_refresh=None, last_review_status=None,
     offset=0, on_page_requested=None, on_preview_images=None,
     history=None, on_history_page_requested=None,
+    progress: ReviewProgress | None = None,
 ):
     """Present expert choices; never classify or approve a report automatically."""
     page = QWidget(parent)
@@ -38,6 +40,26 @@ def make_review_page(
     project.setObjectName("review_project_context")
     project.setTextFormat(Qt.TextFormat.PlainText)
     layout.addWidget(project)
+
+    if progress is not None:
+        progress_summary = QLabel(
+            f"Fachentscheidungen: {progress.decided_findings} von "
+            f"{progress.total_findings} ({progress.decision_percent} %) · "
+            f"Offen: {progress.open_findings} · "
+            f"Bestätigt: {progress.confirmed_findings} · "
+            f"Verworfen: {progress.rejected_findings} · "
+            f"Unklar: {progress.unclear_findings}",
+            page,
+        )
+        progress_summary.setObjectName("review_progress_summary")
+        progress_summary.setTextFormat(Qt.TextFormat.PlainText)
+        progress_summary.setWordWrap(True)
+        layout.addWidget(progress_summary)
+        guidance = QLabel("\\n".join(progress.guidance), page)
+        guidance.setObjectName("review_progress_next_steps")
+        guidance.setTextFormat(Qt.TextFormat.PlainText)
+        guidance.setWordWrap(True)
+        layout.addWidget(guidance)
 
     if overview is None:
         state_label = QLabel(

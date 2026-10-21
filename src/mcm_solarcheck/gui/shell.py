@@ -410,6 +410,11 @@ class SolarCheckMainWindow(QMainWindow):
             ) if enabled else None
         )
         profile = service.project_profile(project_id) if enabled else None
+        progress_provider = getattr(service, "review_progress", None)
+        progress = (
+            progress_provider(project_id)
+            if enabled and callable(progress_provider) else None
+        )
         draft = (
             self._draft_report
             if enabled and self._draft_request is not None
@@ -427,6 +432,7 @@ class SolarCheckMainWindow(QMainWindow):
             draft=draft,
             on_prepare=on_prepare,
             last_status=self._last_report_status if offline else None,
+            progress=progress,
         )
         self._pages[ShellRoute.REPORT] = page
         index = self._stack.indexOf(old_page)
@@ -703,6 +709,7 @@ class SolarCheckMainWindow(QMainWindow):
         overview_provider = getattr(self._project_service, "processing_overview", None)
         queue_provider = getattr(self._project_service, "pending_review_findings", None)
         history_provider = getattr(self._project_service, "expert_review_history", None)
+        progress_provider = getattr(self._project_service, "review_progress", None)
         action_provider = getattr(self._project_service, "review_pending_finding", None)
         preview_provider = getattr(
             self._project_service, "preview_review_image_evidence", None,
@@ -716,6 +723,10 @@ class SolarCheckMainWindow(QMainWindow):
             and callable(overview_provider) and callable(queue_provider)
         )
         overview = overview_provider(project_id) if enabled else None
+        progress = (
+            progress_provider(project_id)
+            if enabled and callable(progress_provider) else None
+        )
         # Reviews shrink the queue. Do not leave the reviewer on an empty page.
         total = overview.summary.unreviewed_findings if overview is not None else 0
         if total == 0:
@@ -782,6 +793,7 @@ class SolarCheckMainWindow(QMainWindow):
             ),
             last_review_status=self._last_review_status if offline else None,
             history=history,
+            progress=progress,
             on_history_page_requested=(
                 (lambda offset, source=project_id, generation=generation:
                  self._load_review_history_page(source, offset, generation))
