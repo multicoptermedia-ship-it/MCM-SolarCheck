@@ -94,7 +94,7 @@ def test_local_policy_enables_only_matching_seed_and_fixed_local_model(tmp_path)
     assert selected.model_sha256 == provenance.weights_sha256
     assert selected.backend_version == "0.20.0"
     assert runner is local_resnet18_trainer
-    with pytest.raises(PermissionError):
+    with pytest.raises(FileExistsError):
         ai_setup.initialize_local_policy(db, classes=2, seed=41, epochs=1)
 
 
