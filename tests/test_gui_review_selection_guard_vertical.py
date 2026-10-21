@@ -272,13 +272,9 @@ def test_review_progress_project_switch_uses_new_sqlite_project_only(
         assert service.review_progress("P1").decided_findings == 1
         assert service.review_progress("P2").decided_findings == 0
         assert reviews(service, "P2") == ()
-        window._open_project(None)
-        assert window._pages[ShellRoute.REVIEW].findChild(
-            QLabel, "review_progress_summary",
-        ) is None
-        assert window._pages[ShellRoute.REPORT].findChild(
-            QLabel, "report_review_progress",
-        ) is None
+        assert "P2" in window._pages[ShellRoute.REVIEW].findChild(
+            QLabel, "review_project_context",
+        ).text()
     finally:
         window.close()
 

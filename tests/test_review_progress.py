@@ -92,7 +92,7 @@ def test_inconsistent_counts_fail_instead_of_claiming_completion(values):
 
 
 def test_does_not_accept_untrusted_freeform_status_counts():
-    with pytest.raises(TypeError, match="InspectionSummary"):
+    with pytest.raises(TypeError, match="persisted inspection summary"):
         derive_review_progress({
             "project_id": "P1", "findings": 0, "confirmed_findings": 0,
         })
