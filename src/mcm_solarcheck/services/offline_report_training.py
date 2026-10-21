@@ -8,6 +8,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import hashlib
+import json
+import os
+import shutil
+import stat
 import sqlite3
 from uuid import uuid4
 
@@ -115,8 +120,14 @@ class OfflineReportTraining:
                      "pending_training_data_review"),
                 )
                 db.commit()
-        return ReportTrainingRequest(request_id, approval.approval_id,
-                                     "pending_training_data_review")
+        result = ReportTrainingRequest(request_id, approval.approval_id,
+                                       "pending_training_data_review")
+        # The report remains signed even if training intake is unavailable.
+        # A request is NOT a started training job.
+        try:
+            return self.stage_if_eligible(project_id, report, approval, result)
+        except (OSError, ValueError, PermissionError, KeyError, TypeError):
+            return result
 
     def state(self, project_id: str, approval_id: int) -> ReportTrainingRequest | None:
         """Non-creating read: inspection/release without opt-in leaves no ledger."""
@@ -132,3 +143,128 @@ class OfflineReportTraining:
             return ReportTrainingRequest(*row) if row else None
         finally:
             db.close()
+
+
+    def stage_if_eligible(self, project_id: str, report,
+                          approval: ReportReleaseDecision,
+                          request: ReportTrainingRequest) -> ReportTrainingRequest:
+        """Stage only *all* already-reviewed and rights-approved training samples.
+
+        No source file or customer identity is put into a public manifest. This
+        boundary deliberately does not launch Ultralytics absent a validated
+        offline model, version/weights/license, split and training policy.
+        """
+        from mcm_solarcheck.review.training_snapshot import build_training_snapshot
+        from mcm_solarcheck.review.dataset_build import build_dataset
+
+        if request.status != "pending_training_data_review":
+            return request
+        with self._service.database.connect() as sql:
+            sql.execute("BEGIN IMMEDIATE")
+            if latest_release_decision(sql, report) != approval:
+                raise PermissionError("report release is stale")
+            original = self._service.database.training_samples(project_id)
+            if not original or any(
+                x["rights_status"] != "approved" or x["label_status"] != "human_reviewed"
+                for x in original
+            ):
+                return request
+            snapshot = build_training_snapshot(self._service.database, project_id)
+            if snapshot.sample_count != len(original) or snapshot.label_count < 1:
+                return request
+            try:
+                dataset = build_dataset(snapshot)
+            except (ValueError, FileNotFoundError):
+                return request
+            if dataset.sample_count != snapshot.label_count:
+                # Unlabeled and partially reviewed samples cannot silently enter.
+                return request
+            rows = json.loads(dataset.manifest_json)["rows"]
+            if len(rows) > 1500:
+                raise ValueError("training request exceeds local file count cap")
+            folder = self._root / request.request_id
+            if folder.exists() or folder.is_symlink():
+                raise PermissionError("training snapshot destination already exists")
+            folder.mkdir(mode=0o700)
+            total = 0
+            manifest = []
+            try:
+                for index, row in enumerate(rows):
+                    source = Path(row["source_file"])
+                    if source.is_symlink() or not source.is_file():
+                        raise PermissionError("training source missing or linked")
+                    size = source.stat().st_size
+                    if not 0 < size <= 25_000_000 or total + size > 250_000_000:
+                        raise ValueError("training image size cap exceeded")
+                    extension = source.suffix.lower()
+                    if extension not in (".jpg", ".jpeg", ".png", ".tif", ".tiff"):
+                        raise ValueError("training image extension not supported")
+                    output = f"sample-{index:05d}{extension}"
+                    digest = hashlib.sha256()
+                    fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                    try:
+                        with os.fdopen(fd, "rb") as source_handle, (folder / output).open("xb") as dest:
+                            if not stat.S_ISREG(os.fstat(source_handle.fileno()).st_mode):
+                                raise PermissionError("training source is not regular")
+                            copied = 0
+                            while chunk := source_handle.read(1024 * 1024):
+                                copied += len(chunk)
+                                if copied > 25_000_000 or total + copied > 250_000_000:
+                                    raise ValueError("training image grew during copy")
+                                dest.write(chunk)
+                                digest.update(chunk)
+                            dest.flush()
+                            os.fsync(dest.fileno())
+                    finally:
+                        pass
+                    if copied != size or digest.hexdigest() != row["content_sha256"]:
+                        raise ValueError("training source changed since review")
+                    total += copied
+                    manifest.append({
+                        "image": output, "sha256": digest.hexdigest(),
+                        "modality": row["modality"],
+                        "defect_class": row["defect_class"],
+                        "split": row["split"],
+                    })
+                (folder / "training-index.json").write_text(
+                    json.dumps({"dataset_id": dataset.dataset_id,
+                                "samples": manifest}, sort_keys=True),
+                    encoding="utf-8",
+                )
+                if latest_release_decision(sql, report) != approval:
+                    raise PermissionError("report release changed while staging")
+                with self._connect() as ledger:
+                    ledger.execute("BEGIN IMMEDIATE")
+                    changed = ledger.execute(
+                        """UPDATE report_training_requests
+                        SET status='staged_waiting_for_trainer',sample_count=?
+                        WHERE project_id=? AND request_id=?
+                          AND status='pending_training_data_review'""",
+                        (len(manifest), project_id, request.request_id),
+                    ).rowcount
+                    if changed != 1:
+                        raise PermissionError("training request changed during staging")
+                    ledger.commit()
+                return ReportTrainingRequest(request.request_id, approval.approval_id,
+                                             "staged_waiting_for_trainer", len(manifest))
+            except BaseException:
+                shutil.rmtree(folder, ignore_errors=True)
+                raise
+
+    def revoke(self, project_id: str, approval_id: int) -> None:
+        """Stop future use and erase staged copies. Cannot untrain an existing model."""
+        current = self.state(project_id, approval_id)
+        if current is None:
+            return
+        with self._connect() as ledger:
+            ledger.execute("BEGIN IMMEDIATE")
+            changed = ledger.execute(
+                """UPDATE report_training_requests SET status='revoked'
+                WHERE project_id=? AND approval_id=? AND status != 'revoked'""",
+                (project_id, approval_id),
+            ).rowcount
+            ledger.commit()
+        if changed:
+            folder = self._root / current.request_id
+            if folder.is_dir() and not folder.is_symlink():
+                shutil.rmtree(folder)
