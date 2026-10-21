@@ -236,7 +236,7 @@ def make_report_page(
             status_text = {
                 "pending_training_data_review": (
                     "Trainingswunsch gespeichert. Es fehlen geprüfte Trainingsbilder "
-                    "oder gültige Nutzungsrechte. Kein Training gestartet."
+                    "oder gültige Nutzungsrechte. Noch kein KI-Training gestartet."
                 ),
                 "staged_waiting_for_trainer": (
                     f"{training_request.sample_count} geprüfte Bilder lokal vorbereitet. "
