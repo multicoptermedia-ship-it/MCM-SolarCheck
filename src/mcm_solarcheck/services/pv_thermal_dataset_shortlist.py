@@ -24,6 +24,17 @@ class ThermalDatasetCandidate:
 
 THERMAL_CANDIDATES = (
     ThermalDatasetCandidate(
+        "raptor_maps_infrared_solar_modules",
+        "https://github.com/RaptorMaps/InfraredSolarModules",
+        "MIT upstream repository including data archive; site/usage provenance "
+        "still requires separate review",
+        20000,
+        ("upstream MIT license notice preserved", "pinned Git blob verified",
+         "original aerial platform/camera provenance", "site-disjoint split unavailable",
+         "image-only screening research not radiometric DJI training",
+         "no commercial release without human rights review"),
+    ),
+    ThermalDatasetCandidate(
         "roboflow_solar_hotspot",
         "https://universe.roboflow.com/thermal-images-of-solar-panels/solar-hotspot-gu8ap",
         "MIT (provider claim; original image rights unverified)",
