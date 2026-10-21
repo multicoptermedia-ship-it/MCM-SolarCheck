@@ -22,5 +22,7 @@ def test_cli_creates_credential_only_after_matching_prompt(monkeypatch, tmp_path
     assert verify_offline_admin_credentials(
         path, "Audit-Leitung", "very long secure example pass",
     )
+    passwords = iter(["very long secure example pass"] * 2)
+    monkeypatch.setattr(admin_setup, "getpass", lambda *a: next(passwords))
     with pytest.raises(FileExistsError):
         admin_setup.main(["--database", str(database)])
