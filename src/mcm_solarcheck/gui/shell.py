@@ -83,6 +83,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._review_generation = 0
         self._draft_report = None
         self._draft_request = None
+        self._report_end_seen = False
         self._last_report_status = None
         self._last_export_status = None
         self._plant_overview_offset = 0
@@ -385,6 +386,7 @@ class SolarCheckMainWindow(QMainWindow):
         """Discard stale report previews and their export authorization context."""
         self._draft_report = None
         self._draft_request = None
+        self._report_end_seen = False
         self._last_report_status = None
         self._last_export_status = None
 
@@ -441,6 +443,12 @@ class SolarCheckMainWindow(QMainWindow):
             and callable(getattr(service, "approve_offline_report", None))
             else None
         )
+        on_preview = (
+            (lambda source=project_id: self._preview_offline_report(source))
+            if enabled and draft is not None
+            and callable(getattr(service, "render_offline_draft_preview", None))
+            else None
+        )
         page = make_report_page(
             current_project_id=project_id if offline else None,
             availability=availability,
@@ -449,6 +457,7 @@ class SolarCheckMainWindow(QMainWindow):
             on_prepare=on_prepare,
             last_status=self._last_report_status if offline else None,
             progress=progress, approval=approval, on_approve=on_approve,
+            on_preview=on_preview,
         )
         self._pages[ShellRoute.REPORT] = page
         index = self._stack.indexOf(old_page)
@@ -540,6 +549,7 @@ class SolarCheckMainWindow(QMainWindow):
         else:
             self._draft_report = report
             self._draft_request = (source_project, report_id, started_at)
+            self._report_end_seen = False
             self._last_report_status = (
                 f"Berichtsentwurf {report.report_id} vorbereitet (draft). "
                 "Noch keine Datei erzeugt oder freigegeben."
@@ -547,6 +557,47 @@ class SolarCheckMainWindow(QMainWindow):
             self._last_export_status = None
         self._refresh_report_page()
         self._refresh_export_page()
+
+    def _preview_offline_report(self, source_project: str) -> None:
+        """Show the actual draft PDF, never claim that it was read."""
+        from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or self._project_service is None or self._draft_request is None
+            or self._draft_request[0] != source_project
+            or self._draft_report is None
+        ):
+            return
+        request = self._draft_request
+        snapshot = self._draft_report
+        try:
+            content = self._project_service.render_offline_draft_preview(
+                source_project, request[1], request[2],
+                capabilities=OFFLINE_DESKTOP, expected_draft=snapshot,
+            )
+            from mcm_solarcheck.gui.report_pdf_preview import ReportPdfPreviewDialog
+            dialog = ReportPdfPreviewDialog(content, parent=self)
+            dialog.exec()
+            reached_end = dialog.reached_end
+            dialog.close()
+            if (
+                reached_end
+                and self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id == source_project
+                and self._draft_request == request
+                and self._draft_report is snapshot
+                and self._project_service.prepare_report(
+                    source_project, request[1], request[2], release_status="draft",
+                ) == snapshot
+            ):
+                self._report_end_seen = True
+        except (ValueError, PermissionError, OSError, KeyError, TypeError, ImportError):
+            self._last_report_status = (
+                "Berichtsvorschau nicht verfügbar. Die fachliche Freigabe bleibt "
+                "eine separate, ausdrückliche Handlung."
+            )
+            self._refresh_report_page()
 
     def _approve_offline_report(
         self, source_project: str, reviewer: str, acknowledge_unclear: bool,
@@ -567,6 +618,7 @@ class SolarCheckMainWindow(QMainWindow):
                 source_project, report_id, started, capabilities=OFFLINE_DESKTOP,
                 approved_by=reviewer, acknowledge_unclear=acknowledge_unclear,
                 followup_note=followup_note, expected_draft=self._draft_report,
+                reached_preview_end=self._report_end_seen,
             )
         except (ValueError, PermissionError, KeyError, TypeError, OSError):
             self._last_report_status = (

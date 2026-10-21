@@ -1,4 +1,4 @@
-"""Desktop report preparation view; no generated file and no release approval."""
+"""Desktop report preparation and explicit human approval; preview tracking is private."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -24,6 +24,7 @@ def make_report_page(
     parent=None, *, current_project_id=None, availability=None,
     profile=None, draft=None, on_prepare=None, last_status=None,
     progress: ReviewProgress | None = None, approval=None, on_approve=None,
+    on_preview=None,
 ):
     page = QWidget(parent)
     page.setObjectName("report_page")
@@ -138,6 +139,13 @@ def make_report_page(
         approval_status.setTextFormat(Qt.TextFormat.PlainText)
         approval_status.setWordWrap(True)
         layout.addWidget(approval_status)
+
+        preview = QPushButton("Berichtsentwurf vollständig ansehen …", page)
+        preview.setObjectName("view_report_pdf")
+        preview.setEnabled(on_preview is not None)
+        if on_preview is not None:
+            preview.clicked.connect(on_preview)
+        layout.addWidget(preview)
 
         approver = QLineEdit(page)
         approver.setObjectName("report_release_reviewer")

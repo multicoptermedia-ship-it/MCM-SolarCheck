@@ -601,6 +601,35 @@ class ProjectApplicationService:
         )
 
 
+    def render_offline_draft_preview(
+        self, project_id: str, report_id: str, inspection_started_at, *,
+        capabilities: ProductCapabilities, expected_draft,
+    ) -> bytes:
+        """Render the real local draft PDF in a private temporary workspace.
+
+        No report is published. Returned bytes are for an in-memory Qt viewer;
+        a preview does not authorize any report release.
+        """
+        if capabilities != OFFLINE_DESKTOP:
+            raise PermissionError("offline preview requires desktop entitlement")
+        current = self.prepare_report(
+            project_id, report_id, inspection_started_at, release_status="draft",
+        )
+        if expected_draft is None or current != expected_draft:
+            raise ValueError("draft changed since preparation")
+        with TemporaryDirectory(prefix=".solarcheck-preview-") as directory:
+            destination = Path(directory) / "draft.pdf"
+            self.export_report(project_id, capabilities, current, destination)
+            if destination.stat().st_size > 32 * 1024 * 1024:
+                raise ValueError("preview PDF exceeds bounded memory limit")
+            content = destination.read_bytes()
+        latest = self.prepare_report(
+            project_id, report_id, inspection_started_at, release_status="draft",
+        )
+        if latest != expected_draft or not content.startswith(b"%PDF"):
+            raise ValueError("preview no longer matches stored evidence")
+        return content
+
     def report_release_decision(
         self, project_id: str, report_id: str, inspection_started_at,
         *, expected_draft=None,
@@ -619,7 +648,7 @@ class ProjectApplicationService:
         self, project_id: str, report_id: str, inspection_started_at, *,
         capabilities: ProductCapabilities, approved_by: str,
         acknowledge_unclear: bool = False, followup_note: str = "",
-        expected_draft=None,
+        expected_draft=None, reached_preview_end: bool = False,
     ):
         """Persist an *explicit* human decision, never a report file."""
         if capabilities != OFFLINE_DESKTOP:
@@ -638,6 +667,7 @@ class ProjectApplicationService:
                 sql, draft, progress, approved_by=approved_by,
                 acknowledge_unclear=acknowledge_unclear,
                 followup_note=followup_note,
+                reached_preview_end=reached_preview_end,
             )
 
     def export_offline_released(
