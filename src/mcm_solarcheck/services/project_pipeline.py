@@ -581,6 +581,15 @@ class ProjectApplicationService:
             profile = self.project_profile(project_id)
             if profile is None or profile.site_timezone is None:
                 raise ValueError("released report requires explicit project site timezone")
+            from mcm_solarcheck.services.report_release import latest_release_decision
+            draft_snapshot = assemble_inspection_report(
+                self.database, project_id, report_id, inspection_started_at,
+                release_status="draft", asset_dir=asset_dir,
+                operator_profile=operator_profile,
+            )
+            with self.database.connect() as sql:
+                if latest_release_decision(sql, draft_snapshot) is None:
+                    raise PermissionError("explicit current human release decision required")
         return assemble_inspection_report(
             self.database,
             project_id,
@@ -591,6 +600,105 @@ class ProjectApplicationService:
             operator_profile=operator_profile,
         )
 
+
+    def report_release_decision(
+        self, project_id: str, report_id: str, inspection_started_at,
+        *, expected_draft=None,
+    ):
+        """Show only an active, matching local sign-off; never infer it from review."""
+        from mcm_solarcheck.services.report_release import latest_release_decision
+        draft = self.prepare_report(
+            project_id, report_id, inspection_started_at, release_status="draft",
+        )
+        if expected_draft is not None and draft != expected_draft:
+            return None
+        with self.database.connect() as sql:
+            return latest_release_decision(sql, draft)
+
+    def approve_offline_report(
+        self, project_id: str, report_id: str, inspection_started_at, *,
+        capabilities: ProductCapabilities, approved_by: str,
+        acknowledge_unclear: bool = False, followup_note: str = "",
+        expected_draft=None,
+    ):
+        """Persist an *explicit* human decision, never a report file."""
+        if capabilities != OFFLINE_DESKTOP:
+            raise PermissionError("local report approval requires offline desktop entitlement")
+        from mcm_solarcheck.services.report_release import record_release_decision
+        # Prevent a parallel SQLite writer from changing evidence while signing.
+        with self.database.connect() as sql:
+            sql.execute("BEGIN IMMEDIATE")
+            draft = self.prepare_report(
+                project_id, report_id, inspection_started_at, release_status="draft",
+            )
+            if expected_draft is not None and draft != expected_draft:
+                raise ValueError("stale report draft; prepare a new snapshot")
+            progress = self.review_progress(project_id)
+            return record_release_decision(
+                sql, draft, progress, approved_by=approved_by,
+                acknowledge_unclear=acknowledge_unclear,
+                followup_note=followup_note,
+            )
+
+    def export_offline_released(
+        self, project_id: str, report_id: str, inspection_started_at,
+        destination: str | Path, *, capabilities: ProductCapabilities,
+        expected_draft=None,
+    ) -> Path:
+        """Publish a revalidated, explicitly approved local report only.
+
+        The approval is bound to persisted project evidence. Do not overwrite
+        any existing destination. A SQLite writer lock closes the race between
+        evidence verification and report publication.
+        """
+        from mcm_solarcheck.services.report_release import latest_release_decision
+        if capabilities != OFFLINE_DESKTOP:
+            raise PermissionError("local released export requires offline desktop entitlement")
+        destination = Path(destination)
+        if destination.suffix.lower() not in (".pdf", ".odt", ".docx"):
+            raise ValueError("released report format must be PDF, ODT or DOCX")
+        if not destination.is_absolute():
+            raise ValueError("released report destination must be absolute")
+        if destination.exists() or destination.is_symlink():
+            raise FileExistsError("released report destination exists")
+        parent = destination.parent
+        if not parent.is_dir() or any(part.is_symlink() for part in (parent, *parent.parents)):
+            raise ValueError("released report destination directory not permitted")
+        with self.database.connect() as sql:
+            sql.execute("BEGIN IMMEDIATE")
+            availability = self.output_availability(
+                project_id, capabilities, ProductOperation.EXPORT,
+            )
+            if not availability.allowed:
+                raise PermissionError("workflow blocks released report export")
+            draft = self.prepare_report(
+                project_id, report_id, inspection_started_at, release_status="draft",
+            )
+            if expected_draft is not None and draft != expected_draft:
+                raise ValueError("report draft changed since preview")
+            if latest_release_decision(sql, draft) is None:
+                raise PermissionError("human approval absent or outdated")
+            report = self.prepare_report(
+                project_id, report_id, inspection_started_at, release_status="released",
+            )
+            if report.project_id != project_id or report.release_status != "released":
+                raise ValueError("invalid released report identity")
+            with TemporaryDirectory(prefix=".solarcheck-released-", dir=parent) as workspace:
+                staged = Path(workspace) / ("report" + destination.suffix.lower())
+                self.export_report(project_id, capabilities, report, staged)
+                if latest_release_decision(sql, draft) is None:
+                    raise PermissionError("report approval changed")
+                created = False
+                try:
+                    with staged.open("rb") as source:
+                        with destination.open("xb") as target:
+                            created = True
+                            shutil.copyfileobj(source, target, length=1024 * 1024)
+                except BaseException:
+                    if created:
+                        destination.unlink(missing_ok=True)
+                    raise
+        return destination
 
     def export_offline_draft(
         self,

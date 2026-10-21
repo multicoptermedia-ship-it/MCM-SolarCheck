@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QComboBox, QLabel, QPushButton, QVBoxLayout, QWidg
 def make_export_page(
     parent=None, *, current_project_id=None, availability=None,
     draft=None, on_export=None, last_status=None,
+    approval=None, on_export_released=None,
 ):
     page = QWidget(parent)
     page.setObjectName("export_page")
@@ -60,6 +61,29 @@ def make_export_page(
             lambda: on_export(formats.currentData()) if action.isEnabled() else None
         )
     layout.addWidget(action)
+
+    approval_text = QLabel(
+        "Freigabe dokumentiert; nur der erneut geprüfte Datenstand darf "
+        "als 'released' exportiert werden."
+        if approval is not None and draft is not None else
+        "Kein freigegebener Datenstand. Ein Entwurf bleibt ausschließlich 'draft'.",
+        page,
+    )
+    approval_text.setObjectName("export_release_status")
+    approval_text.setTextFormat(Qt.TextFormat.PlainText)
+    approval_text.setWordWrap(True)
+    layout.addWidget(approval_text)
+    released = QPushButton("Freigegebenen Bericht lokal speichern …", page)
+    released.setObjectName("export_report_released")
+    released.setEnabled(bool(
+        current_project_id is not None and not reasons
+        and approval is not None and on_export_released is not None
+    ))
+    if on_export_released is not None:
+        released.clicked.connect(
+            lambda: on_export_released(formats.currentData()) if released.isEnabled() else None
+        )
+    layout.addWidget(released)
 
     if last_status:
         status = QLabel(last_status, page)

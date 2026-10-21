@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from mcm_solarcheck.services.review_progress import ReviewProgress
 
@@ -23,7 +23,7 @@ def parse_inspection_start_utc(text: str) -> datetime:
 def make_report_page(
     parent=None, *, current_project_id=None, availability=None,
     profile=None, draft=None, on_prepare=None, last_status=None,
-    progress: ReviewProgress | None = None,
+    progress: ReviewProgress | None = None, approval=None, on_approve=None,
 ):
     page = QWidget(parent)
     page.setObjectName("report_page")
@@ -124,6 +124,66 @@ def make_report_page(
         summary.setTextFormat(Qt.TextFormat.PlainText)
         summary.setWordWrap(True)
         layout.addWidget(summary)
+    if draft is not None:
+        approval_status = QLabel(
+            "Fachliche Freigabe für diesen Datenstand dokumentiert: "
+            f"{approval.approved_by} · {approval.approved_at_utc}. "
+            "Keine automatische Normkonformität."
+            if approval is not None else
+            "Keine gültige menschliche Berichtsfreigabe für diesen Entwurf. "
+            "Entscheidungsfortschritt allein genügt nicht.",
+            page,
+        )
+        approval_status.setObjectName("report_release_status")
+        approval_status.setTextFormat(Qt.TextFormat.PlainText)
+        approval_status.setWordWrap(True)
+        layout.addWidget(approval_status)
+
+        approver = QLineEdit(page)
+        approver.setObjectName("report_release_reviewer")
+        approver.setPlaceholderText("Name der fachlich freigebenden Person")
+        layout.addWidget(approver)
+        unresolved_ack = QCheckBox(
+            "Unklare Befunde und möglichen Nachprüfungsbedarf ausdrücklich zur Kenntnis genommen",
+            page,
+        )
+        unresolved_ack.setObjectName("report_release_unclear_ack")
+        layout.addWidget(unresolved_ack)
+        followup = QLineEdit(page)
+        followup.setObjectName("report_release_followup_note")
+        followup.setPlaceholderText("Bei unklaren Befunden: dokumentierter Nachprüfungsbedarf")
+        layout.addWidget(followup)
+        approve = QPushButton("Bericht ausdrücklich fachlich freigeben", page)
+        approve.setObjectName("approve_report_release")
+        layout.addWidget(approve)
+
+        def update_approval():
+            review_ready = bool(
+                progress is not None and progress.total_findings > 0
+                and progress.all_findings_decided and not progress.other_status_findings
+            )
+            unclear_ready = bool(
+                progress is not None and (
+                    progress.unclear_findings == 0 or (
+                        unresolved_ack.isChecked() and followup.text().strip()
+                    )
+                )
+            )
+            approve.setEnabled(bool(
+                current_project_id is not None and not blocked
+                and approval is None and on_approve is not None and review_ready
+                and unclear_ready and approver.text().strip()
+            ))
+
+        approver.textChanged.connect(update_approval)
+        unresolved_ack.toggled.connect(update_approval)
+        followup.textChanged.connect(update_approval)
+        if on_approve is not None:
+            approve.clicked.connect(lambda: on_approve(
+                approver.text(), unresolved_ack.isChecked(), followup.text()
+            ) if approve.isEnabled() else None)
+        update_approval()
+
     if last_status:
         result = QLabel(last_status, page)
         result.setObjectName("report_draft_status")

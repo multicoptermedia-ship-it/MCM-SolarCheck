@@ -425,6 +425,22 @@ class SolarCheckMainWindow(QMainWindow):
              self._prepare_report_draft(source, report_id, started))
             if enabled else None
         )
+        approval = None
+        if draft is not None and callable(getattr(service, "report_release_decision", None)):
+            try:
+                approval = service.report_release_decision(
+                    project_id, self._draft_request[1], self._draft_request[2],
+                    expected_draft=draft,
+                )
+            except (ValueError, PermissionError, OSError, KeyError, TypeError):
+                approval = None
+        on_approve = (
+            (lambda approver, ack, note, source=project_id:
+             self._approve_offline_report(source, approver, ack, note))
+            if enabled and draft is not None
+            and callable(getattr(service, "approve_offline_report", None))
+            else None
+        )
         page = make_report_page(
             current_project_id=project_id if offline else None,
             availability=availability,
@@ -432,7 +448,7 @@ class SolarCheckMainWindow(QMainWindow):
             draft=draft,
             on_prepare=on_prepare,
             last_status=self._last_report_status if offline else None,
-            progress=progress,
+            progress=progress, approval=approval, on_approve=on_approve,
         )
         self._pages[ShellRoute.REPORT] = page
         index = self._stack.indexOf(old_page)
@@ -472,11 +488,27 @@ class SolarCheckMainWindow(QMainWindow):
              self._export_offline_draft(source, format_name))
             if enabled else None
         )
+        approval = None
+        if draft is not None and callable(getattr(service, "report_release_decision", None)):
+            try:
+                approval = service.report_release_decision(
+                    project_id, self._draft_request[1], self._draft_request[2],
+                    expected_draft=draft,
+                )
+            except (ValueError, PermissionError, OSError, KeyError, TypeError):
+                approval = None
+        on_export_released = (
+            (lambda format_name, source=project_id:
+             self._export_offline_released(source, format_name))
+            if enabled and callable(getattr(service, "export_offline_released", None))
+            else None
+        )
         page = make_export_page(
             current_project_id=project_id if offline else None,
             availability=availability, draft=draft,
             on_export=on_export,
             last_status=self._last_export_status if offline else None,
+            approval=approval, on_export_released=on_export_released,
         )
         self._pages[ShellRoute.EXPORT] = page
         index = self._stack.indexOf(old_page)
@@ -513,6 +545,101 @@ class SolarCheckMainWindow(QMainWindow):
                 "Noch keine Datei erzeugt oder freigegeben."
             )
             self._last_export_status = None
+        self._refresh_report_page()
+        self._refresh_export_page()
+
+    def _approve_offline_report(
+        self, source_project: str, reviewer: str, acknowledge_unclear: bool,
+        followup_note: str,
+    ) -> None:
+        """Only a deliberate action from the active offline draft may sign."""
+        from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or self._draft_request is None or self._draft_request[0] != source_project
+            or self._draft_report is None or self._project_service is None
+        ):
+            return
+        _, report_id, started = self._draft_request
+        try:
+            decision = self._project_service.approve_offline_report(
+                source_project, report_id, started, capabilities=OFFLINE_DESKTOP,
+                approved_by=reviewer, acknowledge_unclear=acknowledge_unclear,
+                followup_note=followup_note, expected_draft=self._draft_report,
+            )
+        except (ValueError, PermissionError, KeyError, TypeError, OSError):
+            self._last_report_status = (
+                "Freigabe nicht dokumentiert. Aktuellen Projektstand, "
+                "fachliche Entscheidungen und Nachprüfungsbedarf prüfen."
+            )
+        else:
+            self._last_report_status = (
+                f"Explizite menschliche Freigabe dokumentiert "
+                f"(Audit {decision.approval_id}). Keine Normkonformitätszusage."
+            )
+        self._refresh_report_page()
+        self._refresh_export_page()
+
+    def _export_offline_released(
+        self, source_project: str, format_name: str,
+    ) -> None:
+        """Recheck the matching explicit approval after the modal save dialog."""
+        from pathlib import Path
+        from PySide6.QtWidgets import QFileDialog
+        from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or self._draft_request is None or self._draft_request[0] != source_project
+            or self._draft_report is None or self._project_service is None
+            or format_name not in ("pdf", "odt", "docx")
+        ):
+            return
+        prepared_request = self._draft_request
+        prepared_snapshot = self._draft_report
+        if self._project_service.report_release_decision(
+            source_project, prepared_request[1], prepared_request[2],
+            expected_draft=prepared_snapshot,
+        ) is None:
+            self._last_export_status = (
+                "Freigabeexport gesperrt: keine zum Bericht passende, aktuelle Freigabe."
+            )
+            self._refresh_export_page()
+            return
+        chosen, _ = QFileDialog.getSaveFileName(
+            self, "Fachlich freigegebenen Bericht lokal speichern",
+            f"SolarCheck-freigegeben.{format_name}",
+            f"Freigegebener Bericht (*.{format_name})",
+        )
+        if not chosen:
+            return
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or source_project != self._current_project_id
+            or self._draft_request != prepared_request
+            or self._draft_report is not prepared_snapshot
+        ):
+            return
+        try:
+            destination = Path(chosen)
+            if not destination.is_absolute() or destination.suffix.lower() != f".{format_name}":
+                raise ValueError("invalid local release destination")
+            self._project_service.export_offline_released(
+                source_project, prepared_request[1], prepared_request[2],
+                destination, capabilities=OFFLINE_DESKTOP,
+                expected_draft=prepared_snapshot,
+            )
+        except (ValueError, PermissionError, OSError, KeyError, TypeError):
+            self._last_export_status = (
+                "Freigegebener Bericht nicht gespeichert. Freigabe, Projektstand "
+                "und lokalen Zielpfad erneut prüfen; vorhandene Dateien bleiben unverändert."
+            )
+        else:
+            self._last_export_status = (
+                "Fachlich freigegebener Bericht lokal gespeichert (released). "
+                "Keine automatische Normkonformität und keine externe Veröffentlichung."
+            )
         self._refresh_report_page()
         self._refresh_export_page()
 
