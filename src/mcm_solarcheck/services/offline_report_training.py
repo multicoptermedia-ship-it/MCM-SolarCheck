@@ -35,7 +35,7 @@ class OfflineReportTraining:
     """Append-only intent ledger, privately scoped to the offline database."""
 
     def __init__(self, project_service, *, directory: str | Path | None = None,
-                 training_launcher=None):
+                 training_launcher=None, training_configuration=None):
         from mcm_solarcheck.services.project_pipeline import ProjectApplicationService
         if not isinstance(project_service, ProjectApplicationService):
             raise TypeError("persisted offline project service required")
@@ -45,6 +45,12 @@ class OfflineReportTraining:
             else project_service.database.path.absolute().parent / "training-data"
         )
         self._launcher = training_launcher
+        self._training_jobs = None
+        if training_launcher is not None or training_configuration is not None:
+            from mcm_solarcheck.services.offline_training_jobs import OfflineTrainingJobs
+            self._training_jobs = OfflineTrainingJobs(
+                self._root, self._ledger, training_configuration, training_launcher,
+            )
 
     @property
     def _ledger(self) -> Path:
@@ -125,7 +131,21 @@ class OfflineReportTraining:
         # The report remains signed even if training intake is unavailable.
         # A request is NOT a started training job.
         try:
-            return self.stage_if_eligible(project_id, report, approval, result)
+            result = self.stage_if_eligible(project_id, report, approval, result)
+            if result.status == "staged_waiting_for_trainer" and self._training_jobs:
+                try:
+                    if self._training_jobs.launch(
+                        project_id=project_id, request_id=request_id,
+                    ):
+                        return ReportTrainingRequest(
+                            request_id, approval.approval_id, "training_running",
+                            result.sample_count,
+                        )
+                except (OSError, ValueError, PermissionError, TypeError):
+                    # Missing/invalid model or insufficient train/val/test
+                    # leaves the signed report untouched and the data waiting.
+                    pass
+            return result
         except (OSError, ValueError, PermissionError, KeyError, TypeError):
             return result
 
@@ -220,11 +240,19 @@ class OfflineReportTraining:
                     if copied != size or digest.hexdigest() != row["content_sha256"]:
                         raise ValueError("training source changed since review")
                     total += copied
+                    group = (row.get("inspection_group_id")
+                             or row.get("module_id") or row.get("finding_id"))
+                    if not isinstance(group, str) or not group.strip():
+                        raise ValueError("training image needs reviewed physical group")
+                    group_key = hashlib.sha256(
+                        (request.request_id + ":" + group).encode("utf-8")
+                    ).hexdigest()
                     manifest.append({
                         "image": output, "sha256": digest.hexdigest(),
                         "modality": row["modality"],
                         "defect_class": row["defect_class"],
                         "split": row["split"],
+                        "inspection_group_key": group_key,
                     })
                 (folder / "training-index.json").write_text(
                     json.dumps({"dataset_id": dataset.dataset_id,
@@ -264,7 +292,11 @@ class OfflineReportTraining:
                 (project_id, approval_id),
             ).rowcount
             ledger.commit()
-        if changed:
+        running = (
+            self._training_jobs.cancel(current.request_id)
+            if self._training_jobs is not None else False
+        )
+        if changed and not running:
             folder = self._root / current.request_id
             if folder.is_dir() and not folder.is_symlink():
                 shutil.rmtree(folder)
