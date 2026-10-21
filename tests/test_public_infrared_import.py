@@ -106,13 +106,13 @@ def test_tampered_github_archive_rejected_before_writing(tmp_path):
     archive, h = _archive(tmp_path)
     original = archive.read_bytes()
     archive.write_bytes(original + b"changed")
-    with pytest.raises(PermissionError, match="size"):
+    with pytest.raises(PermissionError, match="Git blob"):
         _ingest(tmp_path, archive, h)
     assert not (tmp_path / "private-research").exists()
-    with pytest.raises(PermissionError, match="Git blob"):
+    with pytest.raises(PermissionError, match="size"):
         import_raptor_maps_zip(
             archive, tmp_path / "private-research", _approval(),
-            expected_blob_sha1=h, expected_size=len(original) + len(b"changed"),
+            expected_blob_sha1=h, expected_size=len(original),
         )
 
 

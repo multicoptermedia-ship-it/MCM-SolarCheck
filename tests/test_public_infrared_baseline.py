@@ -63,7 +63,7 @@ def test_baseline_on_synthetic_images_reports_holdout_but_never_release(tmp_path
     assert evaluation["test"]["accuracy"] == 1.0
     assert "no_site" not in evaluation["status"]
     assert evaluation["status"] == "experimental_no_report_or_model_approval"
-    assert "physical-site" in evaluation["split_warning"]
+    assert "site/physical-module" in evaluation["split_warning"]
     assert not (tmp_path / "solarcheck.sqlite3").exists()
     with pytest.raises(PermissionError):
         run_public_infrared_baseline(cat, target)
