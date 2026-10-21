@@ -24,7 +24,7 @@ def make_report_page(
     parent=None, *, current_project_id=None, availability=None,
     profile=None, draft=None, on_prepare=None, last_status=None,
     progress: ReviewProgress | None = None, approval=None, on_approve=None,
-    on_preview=None, training_request=None,
+    on_preview=None, training_request=None, on_revoke_training=None,
 ):
     page = QWidget(parent)
     page.setObjectName("report_page")
@@ -233,19 +233,29 @@ def make_report_page(
 
         if training_request is not None:
             status_text = (
-                "Trainingsfreigabe vermerkt: freigegebene Trainingsbeispiele "
-                f"lokal bereitgestellt ({training_request.sample_count}). "
-                "Es ist noch kein KI-Training gestartet; geprüfter Trainer fehlt."
-                if training_request.status == "staged_waiting_for_trainer"
-                else "Trainingsfreigabe vermerkt. Trainingsdaten oder nachgewiesene "
-                     "Nutzungsrechte noch nicht vollständig geprüft. "
-                     "Noch kein KI-Training gestartet."
+                "KI-Trainingsfreigabe widerrufen. Lokale bereitgestellte "
+                "Trainingskopien wurden zur Löschung angewiesen."
+                if training_request.status == "revoked"
+                else (
+                    "Trainingsfreigabe vermerkt: freigegebene Trainingsbeispiele "
+                    f"lokal bereitgestellt ({training_request.sample_count}). "
+                    "Es ist noch kein KI-Training gestartet; geprüfter Trainer fehlt."
+                    if training_request.status == "staged_waiting_for_trainer"
+                    else "Trainingsfreigabe vermerkt. Trainingsdaten oder nachgewiesene "
+                         "Nutzungsrechte noch nicht vollständig geprüft. "
+                         "Noch kein KI-Training gestartet."
+                )
             )
             indicator = QLabel(status_text, page)
             indicator.setObjectName("report_training_status")
             indicator.setTextFormat(Qt.TextFormat.PlainText)
             indicator.setWordWrap(True)
             layout.addWidget(indicator)
+            if training_request.status != "revoked" and on_revoke_training is not None:
+                revoke_button = QPushButton("KI-Trainingsfreigabe widerrufen", page)
+                revoke_button.setObjectName("report_training_revoke")
+                revoke_button.clicked.connect(lambda _checked=False: on_revoke_training())
+                layout.addWidget(revoke_button)
 
     if last_status:
         result = QLabel(last_status, page)

@@ -496,6 +496,12 @@ class SolarCheckMainWindow(QMainWindow):
             training_request = self._offline_report_training.state(
                 project_id, approval.approval_id,
             )
+        on_revoke_training = (
+            (lambda source=project_id, target=approval.approval_id:
+             self._revoke_offline_report_training(source, target))
+            if training_request is not None and training_request.status != "revoked"
+            and approval is not None else None
+        )
         page = make_report_page(
             current_project_id=project_id if offline else None,
             availability=availability,
@@ -505,6 +511,7 @@ class SolarCheckMainWindow(QMainWindow):
             last_status=self._last_report_status if offline else None,
             progress=progress, approval=approval, on_approve=on_approve,
             on_preview=on_preview, training_request=training_request,
+            on_revoke_training=on_revoke_training,
         )
         self._pages[ShellRoute.REPORT] = page
         index = self._stack.indexOf(old_page)
@@ -712,6 +719,29 @@ class SolarCheckMainWindow(QMainWindow):
                         )
         self._refresh_report_page()
         self._refresh_export_page()
+
+    def _revoke_offline_report_training(
+        self, source_project: str, approval_id: int,
+    ) -> None:
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._offline_report_training is None
+            or source_project != self._current_project_id
+            or self._draft_request is None
+            or self._draft_request[0] != source_project
+        ):
+            return
+        try:
+            self._offline_report_training.revoke(source_project, approval_id)
+        except (OSError, ValueError, PermissionError, KeyError, TypeError):
+            self._last_report_status = "Trainingswiderruf fehlgeschlagen. Administrator prüfen lassen."
+        else:
+            self._last_report_status = (
+                "Trainingsfreigabe widerrufen; neue Trainingsläufe aus diesem "
+                "lokalen Datensatz bleiben gesperrt. Bereits trainierte Modelle "
+                "könnten dadurch nicht rückwirkend verändert werden."
+            )
+        self._refresh_report_page()
 
     def _export_offline_released(
         self, source_project: str, format_name: str,

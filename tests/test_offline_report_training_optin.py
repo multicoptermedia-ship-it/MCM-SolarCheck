@@ -221,3 +221,20 @@ def test_training_staging_does_not_use_unapproved_or_unreviewed_sample(
         assert image.read_bytes() == b"do not copy this"
     finally:
         window.close()
+
+
+def test_optin_revocation_is_accessible_from_report_page(tmp_path, app):
+    window = seeded_window(tmp_path)
+    try:
+        approval = _approve(window, use_training=True)
+        page = window._pages[ShellRoute.REPORT]
+        revoke = page.findChild(QPushButton, "report_training_revoke")
+        assert revoke is not None and revoke.isEnabled()
+        revoke.click()
+        state = window._offline_report_training.state("P1", approval.approval_id)
+        assert state is not None and state.status == "revoked"
+        page = window._pages[ShellRoute.REPORT]
+        assert page.findChild(QPushButton, "report_training_revoke") is None
+        assert "widerrufen" in page.findChild(QLabel, "report_training_status").text()
+    finally:
+        window.close()
