@@ -72,6 +72,15 @@ jobs:
           assert catalog['status'] == 'exploratory_only_not_approved_for_reports'
           assert len(catalog['samples']) >= 19000
           assert report['status'] == 'experimental_no_report_or_model_approval'
+          assert 'macro_recall_observed_classes' in report['test']
+          assert 'majority_class_reference_accuracy' in report['test']
+          assert 'exact_image_duplicate_hashes_crossing_splits' in report
+          print('PUBLIC_EXPLORATORY_METRICS:', 'validation=', report['validation']['accuracy'],
+                'test=', report['test']['accuracy'],
+                'test_macro_recall=', report['test']['macro_recall_observed_classes'],
+                'majority_test_accuracy=', report['test']['majority_class_reference_accuracy'],
+                'exact_duplicate_hashes_between_splits=',
+                report['exact_image_duplicate_hashes_crossing_splits'])
           assert not list(folder.glob('raptor-research/**/*.pt'))
           print('REAL_PUBLIC_DATASET_ACCEPTANCE: OK; image count:',
                 len(catalog['samples']), 'class count:', len(catalog['class_counts']))

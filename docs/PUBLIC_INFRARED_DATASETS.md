@@ -139,11 +139,67 @@ die lokale sichere Importfunktion, der unveränderliche
 Forschungsstatus, die lokale Baseline, synthetische ZIP-/Bildtests,
 Downloadanleitung und der verpflichtende MIT-Hinweis.
 
-**Nicht eingecheckt oder hier ausgeführt:** 15,5 MB Original-ZIP,
-20.000 Originalbilder, echte externe Download-/Importausführung,
-Windows-10-Hardwarevalidierung sowie echter PyTorch-Lauf mit den
-fremden Bildern. Die originalen Daten müssen explizit auf dem
-verbundenen Vorbereitungsrechner bezogen und separat auf dem
-Offline-Rechner importiert werden. Der getrennte TorchVision-Trainer
-wird **nicht** automatisch mit diesen noch nicht
-anlagengruppierten Bilddaten verbunden.
+**Nicht im GitHub-Quellcode eingecheckt:** das 15,5-MB-Original-ZIP,
+die 20.000 Bilddateien und die Auswertungsgewichte. Die originalen
+Daten müssen zur Nutzung auf dem **eigenen Windows-10-Offline-Rechner**
+noch explizit auf einem anderen, verbundenen Rechner bezogen und über
+einen vertrauenswürdigen Datenträger übertragen werden. Ein echter
+Windows-10-Endgerätestart und ein PyTorch-/TorchVision-Training mit den
+öffentlichen Bildern stehen weiterhin aus. Der getrennte
+TorchVision-Trainer darf ohne unabhängig gruppierbare PV-Daten
+nicht automatisch mit dieser Quelle verbunden werden.
+
+## Aktualisierung 21.10.2026 – vollständiger Originaldatensatz wirklich getestet
+
+Ab dem Entwicklungsstand `948c4823` wurde das **exakte veröffentlichte
+ZIP** (Commit `88e2d1...`, Git-Blob-Prüfsumme wie oben)
+auf einem gesonderten internetverbundenen **GitHub-Ubuntu-Runner**
+heruntergeladen, integritätsgeprüft und vollständig lokal importiert.
+Der erfolgreiche Lauf bestätigte **20.000 tatsächlich enthaltene Bilder
+und zwölf Originalklassen**. Der Quellinhalt enthält zusätzlich genau
+zwei harmlose macOS-Finder-Restdateien
+(`InfraredSolarModules/.DS_Store` und
+`__MACOSX/InfraredSolarModules/._.DS_Store`).
+Nur diese beiden exakten, am gepinnten Quellstand nachgewiesenen Namen
+werden beim Import ignoriert und nicht ausgepackt; beliebige weitere
+Zusatzdateien bleiben ein Fehler. Die read-only
+`public_infrared_probe.py`-Archivinspektion dokumentiert diese
+Entscheidung ohne Datenkopie.
+
+Die erste tatsächlich mit allen echten Bildern durchgeführte
+**Graustufen-Pixelmittelwert-/Nearest-Centroid-Forschungsbaseline**
+erreichte im ersten erfolgreichen Lauf etwa **11,84 %**
+Validierungsgenauigkeit und **11,60 %** Testgenauigkeit.
+Diese Werte zeigen, dass die einfache Methode für eine
+Solarfehlerdiagnose **nicht ausreichend** ist. Die Werte sind
+auch aus methodischen Gründen **keine anlagenunabhängige Messung**:
+die Quelle liefert keine eindeutig verifizierten Anlagen-/Modulgruppen.
+Eine hohe numerische Trefferquote hätte das nicht geheilt.
+
+Ab `3ac9e80` enthält die Ausgabe außerdem
+`per_class_recall`, `macro_recall_observed_classes`,
+`class_support`, `majority_class_reference_accuracy`
+und die Anzahl der **exakt identischen Bildinhalte, die in mehreren
+Bild-ID-Splits vorkommen**. Die Bestätigung „keine bytegleichen
+Duplikate“ wäre immer noch **kein Nachweis unabhängiger Anlagen**.
+Der erweiterte Versuchsbericht ist ausdrücklich
+`experimental_no_report_or_model_approval` und kann
+kein freigegebenes KI-Modell oder einen Kundenbefund auslösen.
+
+Die Quellarchive, Einzelbilder und Forschungsberichte werden in der
+eigenen **GitHub-Actions-CI nur in temporären Arbeitsverzeichnissen**
+bearbeitet und **nicht als Actions-Artefakte veröffentlicht**.
+Die zusätzlichen Workflow-Jobs
+`.github/workflows/public-infrared-upstream.yml` laufen
+bei Änderungen am öffentlichen Forschungs-Import auf einem bewusst
+verbundenen CI-Rechner, nicht im SolarCheck-Desktop.
+Keine Quellen-Binärdaten wurden in Git gespeichert.
+
+**Nächste fachliche Arbeit:** belastbare Anlagen-/Modulgruppen oder
+ein anderes unabhängiges, rechtssicheres Mavic-3T-Testarchiv beschaffen,
+die Klassenqualität und Verwechslungen prüfen und erst auf einer
+deutlich besser unterscheidenden Klassifikationsmethode (z.B. dem
+bereits optionalen, noch nicht real auf diesen Daten geprüften
+lokalen TorchVision-Trainer) aufbauen. Eine kommerzielle
+Weitergabe fremder Bilddaten benötigt zusätzlich eine dokumentierte
+Rechtefreigabe über das MIT-Repository hinaus.
