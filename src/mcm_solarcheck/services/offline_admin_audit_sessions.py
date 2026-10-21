@@ -13,7 +13,7 @@ from typing import Callable
 
 from mcm_solarcheck.services.authorized_grant_administration import GrantAdministrator
 from mcm_solarcheck.services.offline_admin_credentials import (
-    verify_offline_admin_credentials,
+    verify_offline_admin_credentials, credential_revision, rotate_offline_admin_password,
 )
 from mcm_solarcheck.services.report_preview_audit_admin import AuthorizedReportPreviewAudit
 
@@ -30,7 +30,7 @@ class OfflineAdminAuditSessions:
         self._path = Path(credential_path)
         self._audit = audit
         self._clock = clock or time.monotonic
-        self._sessions: dict[str, tuple[str, float]] = {}
+        self._sessions: dict[str, tuple[str, float, str]] = {}
         self._failed = 0
         self._locked_until = 0.0
 
@@ -44,9 +44,12 @@ class OfflineAdminAuditSessions:
                 self._locked_until = now + 60
                 self._failed = 0
             raise PermissionError("administrator login denied")
+        revision = credential_revision(self._path)
+        if revision is None:
+            raise PermissionError("administrator login denied")
         self._failed = 0
         token = secrets.token_urlsafe(32)
-        self._sessions[token] = (actor_id.strip(), now + 15 * 60)
+        self._sessions[token] = (actor_id.strip(), now + 15 * 60, revision)
         return token
 
     def _require(self, token: str) -> GrantAdministrator:
@@ -55,7 +58,10 @@ class OfflineAdminAuditSessions:
         session = self._sessions.get(token)
         if session is None:
             raise PermissionError("administrator session required")
-        actor_id, expiry = session
+        actor_id, expiry, revision = session
+        if credential_revision(self._path) != revision:
+            self._sessions.pop(token, None)
+            raise PermissionError("administrator session invalidated")
         if self._clock() >= expiry:
             self._sessions.pop(token, None)
             raise PermissionError("administrator session expired")
@@ -67,6 +73,19 @@ class OfflineAdminAuditSessions:
                 limit: int = 25, offset: int = 0):
         identity = self._require(token)
         return self._audit.inspect(identity, project_id, limit=limit, offset=offset)
+
+    def change_password(self, token: str, current_password: str,
+                        new_password: str) -> None:
+        """Reauthenticate, rotate atomically, and revoke every local session."""
+        identity = self._require(token)
+        try:
+            rotate_offline_admin_password(
+                self._path, identity.actor_id, current_password, new_password,
+            )
+        except PermissionError:
+            self.logout(token)
+            raise
+        self.revoke_all()
 
     def logout(self, token: str) -> None:
         if isinstance(token, str):
