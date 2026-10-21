@@ -8,7 +8,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 
 pytest.importorskip("PySide6")
-from PySide6.QtWidgets import QApplication, QComboBox, QFileDialog, QLabel, QLineEdit, QPushButton
+from PySide6.QtWidgets import QApplication, QCheckBox, QComboBox, QFileDialog, QLabel, QLineEdit, QPushButton
 
 from mcm_solarcheck.domain.models import Finding, PVModule, ThermalFrame
 from mcm_solarcheck.domain.project_profile import ProjectProfile
@@ -413,3 +413,197 @@ def test_relative_report_destination_fails_without_implicit_cwd_path(
         assert "PRIVATER_KUNDENNAME" not in message
     finally:
         window.close()
+
+
+def test_release_requires_separate_human_action_not_a_full_review(tmp_path, qt_app):
+    """100% stored decisions permit a draft, never an automatic released report."""
+    window = seeded_window(tmp_path)
+    try:
+        started = datetime(2026, 10, 19, 12, tzinfo=timezone.utc)
+        window._prepare_report_draft("P1", "R-EXPLICIT", started)
+        assert window._draft_report.release_status == "draft"
+        with pytest.raises(PermissionError, match="human release"):
+            window._project_service.prepare_report(
+                "P1", "R-EXPLICIT", started, release_status="released",
+            )
+        report = window._pages[ShellRoute.REPORT]
+        assert not report.findChild(QPushButton, "approve_report_release").isEnabled()
+        export = window._pages[ShellRoute.EXPORT]
+        assert not export.findChild(QPushButton, "export_report_released").isEnabled()
+        with window._project_service.database.connect() as sql:
+            assert sql.execute(
+                "SELECT COUNT(*) FROM report_release_decisions"
+            ).fetchone()[0] == 0
+    finally:
+        window.close()
+
+
+def test_explicit_offline_qt_signoff_and_released_pdf(tmp_path, qt_app, monkeypatch):
+    window = seeded_window(tmp_path)
+    output = tmp_path / "local-released.pdf"
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName",
+        lambda *_a, **_k: (str(output), "Freigegebener Bericht (*.pdf)"),
+    )
+    started = datetime(2026, 10, 19, 12, tzinfo=timezone.utc)
+    try:
+        window._prepare_report_draft("P1", "RELEASE-1", started)
+        page = window._pages[ShellRoute.REPORT]
+        page.findChild(QLineEdit, "report_release_reviewer").setText("Fachprüferin")
+        action = page.findChild(QPushButton, "approve_report_release")
+        assert action.isEnabled()
+        assert not output.exists()
+        action.click()
+        with window._project_service.database.connect() as sql:
+            record = sql.execute(
+                """SELECT project_id,report_id,approved_by,unclear_count
+                   FROM report_release_decisions"""
+            ).fetchone()
+            assert tuple(record) == ("P1", "RELEASE-1", "Fachprüferin", 0)
+        page = window._pages[ShellRoute.REPORT]
+        assert "Fachprüferin" in page.findChild(QLabel, "report_release_status").text()
+        assert not page.findChild(QPushButton, "approve_report_release").isEnabled()
+        report = window._project_service.prepare_report(
+            "P1", "RELEASE-1", started, release_status="released",
+        )
+        assert report.release_status == "released"
+        assert window._draft_report.release_status == "draft"
+        export = window._pages[ShellRoute.EXPORT]
+        publish = export.findChild(QPushButton, "export_report_released")
+        assert publish.isEnabled()
+        publish.click()
+        assert output.read_bytes().startswith(b"%PDF")
+        assert "released" in window._pages[ShellRoute.EXPORT].findChild(
+            QLabel, "report_export_status",
+        ).text()
+        assert str(tmp_path) not in window._pages[ShellRoute.EXPORT].findChild(
+            QLabel, "report_export_status",
+        ).text()
+        assert window._draft_report.release_status == "draft"
+
+        original = output.read_bytes()
+        window._export_offline_released("P1", "pdf")
+        assert output.read_bytes() == original
+        assert "nicht gespeichert" in window._pages[ShellRoute.EXPORT].findChild(
+            QLabel, "report_export_status",
+        ).text()
+    finally:
+        window.close()
+
+
+def test_unclear_report_needs_explicit_followup_and_stays_visible(tmp_path, qt_app):
+    window = seeded_window(tmp_path)
+    from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP
+    started = datetime(2026, 10, 19, 12, tzinfo=timezone.utc)
+    try:
+        window._project_service.database.save_findings(
+            "P1", (Finding("F2", "T1", 4, 5, module_id="M1",
+                           reviewer_status="unclear"),),
+        )
+        window._prepare_report_draft("P1", "RELEASE-UNCLEAR", started)
+        page = window._pages[ShellRoute.REPORT]
+        page.findChild(QLineEdit, "report_release_reviewer").setText("Prueferin")
+        action = page.findChild(QPushButton, "approve_report_release")
+        assert not action.isEnabled()
+        with pytest.raises(ValueError, match="follow-up"):
+            window._project_service.approve_offline_report(
+                "P1", "RELEASE-UNCLEAR", started, capabilities=OFFLINE_DESKTOP,
+                approved_by="Prueferin",
+            )
+        page.findChild(QCheckBox, "report_release_unclear_ack").setChecked(True)
+        assert not action.isEnabled()
+        page.findChild(QLineEdit, "report_release_followup_note").setText(
+            "Zweite Messung für M1 veranlassen",
+        )
+        assert action.isEnabled()
+        action.click()
+        decision = window._project_service.report_release_decision(
+            "P1", "RELEASE-UNCLEAR", started,
+        )
+        assert decision.unclear_count == 1
+        assert "Zweite Messung" in decision.followup_note
+        assert window._project_service.prepare_report(
+            "P1", "RELEASE-UNCLEAR", started, release_status="released",
+        ).manual_review_modules == 1
+    finally:
+        window.close()
+
+
+def test_changed_project_evidence_invalidates_release_and_blocks_export(
+    tmp_path, qt_app, monkeypatch,
+):
+    window = seeded_window(tmp_path)
+    from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP
+    started = datetime(2026, 10, 19, 12, tzinfo=timezone.utc)
+    try:
+        window._prepare_report_draft("P1", "R-STALE", started)
+        service = window._project_service
+        service.approve_offline_report(
+            "P1", "R-STALE", started, capabilities=OFFLINE_DESKTOP,
+            approved_by="Prueferin", expected_draft=window._draft_report,
+        )
+        service.database.save_project_profile("P1", ProjectProfile(
+            "Kunde", "Solarpark geaendert", "Strasse 1", "50667", "Koeln",
+            "Prueferin", site_timezone="Europe/Berlin",
+        ))
+        assert service.report_release_decision("P1", "R-STALE", started) is None
+        target = tmp_path / "should-not-be-written.pdf"
+        with pytest.raises((PermissionError, ValueError)):
+            service.export_offline_released(
+                "P1", "R-STALE", started, target,
+                capabilities=OFFLINE_DESKTOP,
+                expected_draft=window._draft_report,
+            )
+        assert not target.exists()
+        window._refresh_export_page()
+        assert not window._pages[ShellRoute.EXPORT].findChild(
+            QPushButton, "export_report_released",
+        ).isEnabled()
+        with service.database.connect() as sql:
+            assert sql.execute(
+                "SELECT COUNT(*) FROM report_release_decisions"
+            ).fetchone()[0] == 1
+    finally:
+        window.close()
+
+
+def test_project_change_in_release_save_dialog_never_exports(
+    tmp_path, qt_app, monkeypatch,
+):
+    window = seeded_window(tmp_path)
+    from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP
+    started = datetime(2026, 10, 19, 12, tzinfo=timezone.utc)
+    target = tmp_path / "do-not-export.pdf"
+    try:
+        window._prepare_report_draft("P1", "R-OLD", started)
+        window._project_service.approve_offline_report(
+            "P1", "R-OLD", started, capabilities=OFFLINE_DESKTOP,
+            approved_by="Prueferin", expected_draft=window._draft_report,
+        )
+        def switch(*_a, **_k):
+            window._open_project("P2")
+            return str(target), "*.pdf"
+        monkeypatch.setattr(QFileDialog, "getSaveFileName", switch)
+        window._export_offline_released("P1", "pdf")
+        assert not target.exists()
+        assert window.current_project_id == "P2"
+        assert window._draft_report is None
+    finally:
+        window.close()
+
+
+def test_online_release_buttons_disabled(tmp_path, qt_app):
+    offline = seeded_window(tmp_path)
+    service = offline._project_service
+    offline.close()
+    online = SolarCheckMainWindow(DeploymentMode.ONLINE, project_service=service)
+    try:
+        online._open_project("P1")
+        assert not online._pages[ShellRoute.REPORT].findChild(
+            QPushButton, "approve_report_release",
+        )  # no draft in online mode
+        assert not online._pages[ShellRoute.EXPORT].findChild(
+            QPushButton, "export_report_released",
+        ).isEnabled()
+    finally:
+        online.close()
