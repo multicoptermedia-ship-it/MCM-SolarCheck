@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 from mcm_solarcheck.importers.project import ProjectImportResult, import_m3t_project
 from mcm_solarcheck.storage.sqlite import ProjectDatabase
 from mcm_solarcheck.domain.project_profile import ProjectProfile
-from mcm_solarcheck.storage.queries import InspectionQueries, InspectionSummary, ModuleEvidenceRecord, ModuleIdentityReadiness, ProjectRecord
+from mcm_solarcheck.storage.queries import InspectionQueries, InspectionSummary, ModuleEvidenceRecord, ModuleIdentityReadiness, TechnicalPairAudit, ProjectRecord
 from mcm_solarcheck.services.workflow import ActionAvailability, ProjectWorkflowService, WorkflowAction, WorkflowAttempt, ProjectWorkflowState, action_availability, record_attempt, require_action
 from mcm_solarcheck.services.product_entitlements import OFFLINE_DESKTOP, ProductCapabilities, ProductOperation, effective_output_availability
 from mcm_solarcheck.reporting.export import export_report
@@ -51,6 +51,7 @@ class ProjectProcessingOverview:
     summary: InspectionSummary
     process: ActionAvailability
     review: ActionAvailability
+    pair_audit: TechnicalPairAudit | None = None
 
 
 def import_and_store_m3t_project(
@@ -312,6 +313,7 @@ class ProjectApplicationService:
             summary=summary,
             process=action_availability(state, WorkflowAction.PROCESS),
             review=action_availability(state, WorkflowAction.REVIEW),
+            pair_audit=InspectionQueries(self.database).technical_pair_audit(project_id),
         )
 
     def import_verification(self, project_id: str):

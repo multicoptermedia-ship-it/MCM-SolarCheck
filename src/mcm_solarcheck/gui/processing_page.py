@@ -54,6 +54,44 @@ def make_processing_page(
         )
         layout.addWidget(evidence)
 
+        pair_audit = getattr(overview, "pair_audit", None)
+        if pair_audit is not None:
+            evidence_label = QLabel(
+                "Technische Bildpaar-Prüfung (nur Aufnahmemetadaten):\n"
+                f"Gespeicherte Bildpaare: {pair_audit.pairs_recorded} · "
+                f"Mit aktueller Zuordnungsregel nachvollziehbar: "
+                f"{pair_audit.supported_by_current_rules}\n"
+                f"Erneut zu prüfen: {pair_audit.require_review} · "
+                f"RGB ohne Paar: {pair_audit.unmatched_rgb} · "
+                f"Thermal ohne Paar: {pair_audit.unmatched_thermal}\n"
+                f"Übereinstimmende Bildnummer: {pair_audit.with_matching_sequence} · "
+                f"Zeitnähe: {pair_audit.with_close_time} · "
+                f"GPS-Nähe: {pair_audit.with_close_position}",
+                page,
+            )
+            evidence_label.setObjectName("processing_pair_evidence")
+            evidence_label.setTextFormat(Qt.TextFormat.PlainText)
+            evidence_label.setWordWrap(True)
+            evidence_label.setAccessibleDescription(
+                "Schreibgeschützte technische Prüfsummen aus gespeicherten "
+                "Paaren, ohne Dateinamen, Zeitstempel oder GPS-Koordinaten."
+            )
+            layout.addWidget(evidence_label)
+            status_text = (
+                "Mindestens eine gespeicherte Zuordnung erfüllt die aktuellen "
+                "Metadatenkriterien nicht. Bitte technisch prüfen; keine "
+                "automatische Reparatur."
+                if pair_audit.require_review else
+                "Die gespeicherten Paarungen sind anhand der "
+                "Aufnahmemetadaten nachvollziehbar. Das beweist keine "
+                "pixelgenaue RGB-/Thermalüberlagerung."
+            )
+            status = QLabel(status_text, page)
+            status.setObjectName("processing_pair_evidence_status")
+            status.setTextFormat(Qt.TextFormat.PlainText)
+            status.setWordWrap(True)
+            layout.addWidget(status)
+
         processing_status = QLabel(
             "Verarbeitung gemäß Projektstatus grundsätzlich zulässig; "
             "hier noch kein automatischer Verarbeitungsstart."
