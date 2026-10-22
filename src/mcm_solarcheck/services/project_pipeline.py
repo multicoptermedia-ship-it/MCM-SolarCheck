@@ -301,6 +301,22 @@ class ProjectApplicationService:
             limit=limit,
         )
 
+    def check_offline_pair_control_points(
+        self, project_id: str, control_file: str | Path,
+    ):
+        """Opt-in, read-only experimental control-point check for existing pair.
+
+        Output is ephemeral and not a released project registration or report.
+        """
+        if not any(p.project_id == project_id for p in self.projects()):
+            raise KeyError("Unknown project")
+        from mcm_solarcheck.services.offline_pair_control_points import (
+            check_project_pair_control_points,
+        )
+        return check_project_pair_control_points(
+            self.database, project_id, control_file,
+        )
+
     def pair_evidence_overview(self, project_id: str) -> TechnicalPairAudit:
         """Only aggregated metadata-pair evidence for the active project."""
         return InspectionQueries(self.database).technical_pair_audit(project_id)
