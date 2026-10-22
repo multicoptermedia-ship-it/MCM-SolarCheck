@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
 def make_processing_page(
     parent=None, *, current_project_id=None, overview=None, on_refresh=None,
+    on_check_registration=None, registration_check_status=None, choose_control_file=None,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -115,6 +116,54 @@ def make_processing_page(
         review_status.setWordWrap(True)
         review_status.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(review_status)
+
+    # The expert tool is deliberately separate from the introductory workflow.
+    # It consumes a small local control-point JSON, NOT original image files.
+    advanced = QPushButton("Erweitert: Kontrollpunktprüfung anzeigen", page)
+    advanced.setObjectName("processing_registration_toggle")
+    advanced.setCheckable(True)
+    layout.addWidget(advanced)
+    expert = QWidget(page)
+    expert.setObjectName("processing_registration_panel")
+    expert_layout = QVBoxLayout(expert)
+    registration_help = QLabel(
+        "Nur für fachkundig erstellte RGB-/Thermal-Kontrollpunkte. "
+        "Die Homografie wird mit getrennten Anpassungs- und Kontrollpunkten "
+        "bewertet. Keine automatische Bildüberlagerung, Modulzuordnung, "
+        "Kunden- oder Berichtsfreigabe.",
+        expert,
+    )
+    registration_help.setWordWrap(True)
+    expert_layout.addWidget(registration_help)
+    action = QPushButton("Lokale Kontrollpunkt-Datei prüfen (JSON)", expert)
+    action.setObjectName("processing_check_registration_button")
+    action.setEnabled(
+        on_check_registration is not None
+        and overview is not None
+        and overview.summary.image_pairs > 0
+    )
+    if action.isEnabled():
+        def request_control_file():
+            path = (
+                choose_control_file() if choose_control_file is not None else
+                QFileDialog.getOpenFileName(
+                    page, "Lokale RGB-/Thermal-Kontrollpunkte wählen",
+                    "", "JSON (*.json)",
+                )[0]
+            )
+            if path:
+                on_check_registration(path)
+        action.clicked.connect(request_control_file)
+    expert_layout.addWidget(action)
+    if registration_check_status is not None:
+        status = QLabel(registration_check_status, expert)
+        status.setObjectName("processing_registration_result")
+        status.setWordWrap(True)
+        status.setTextFormat(Qt.TextFormat.PlainText)
+        expert_layout.addWidget(status)
+    layout.addWidget(expert)
+    advanced.toggled.connect(expert.setVisible)
+    expert.setVisible(registration_check_status is not None)
 
     disclaimer = QLabel(
         "Importierte Bilder bedeuten keine abgeschlossene Analyse. "

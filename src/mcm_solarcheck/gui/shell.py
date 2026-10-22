@@ -97,6 +97,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._last_report_status = None
         self._last_export_status = None
         self._plant_overview_offset = 0
+        self._pair_control_status = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -361,6 +362,7 @@ class SolarCheckMainWindow(QMainWindow):
             self._review_offset = 0
             self._review_history_offset = 0
             self._plant_overview_offset = 0
+            self._pair_control_status = None
             self._clear_prepared_draft()
             self._geotiff_result = None
             self._orthophoto_comparison = None
@@ -402,6 +404,15 @@ class SolarCheckMainWindow(QMainWindow):
         new_page = make_plant_overview_page(
             current_project_id=project_id if self._deployment is DeploymentMode.OFFLINE_DESKTOP else None,
             overview=overview,
+            registration_check_status=self._pair_control_status,
+            on_check_registration=(
+                self._check_pair_control_points
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and callable(getattr(
+                    self._project_service, "check_offline_pair_control_points", None
+                ))
+                else None
+            ),
             on_refresh=(
                 (lambda checked=False, source=project_id:
                     self._load_plant_overview_page(source, self._plant_overview_offset))
@@ -1167,6 +1178,45 @@ class SolarCheckMainWindow(QMainWindow):
         self._refresh_processing_page()
         if state is not None:
             self.apply_workflow_state(state)
+
+    def _check_pair_control_points(self, control_file: str) -> None:
+        """Only inspect a local expert file for the active offline project.
+
+        Result stays ephemeral: no calibration, report, approval or stored
+        pixel transform is changed. Never display private filenames/coordinates.
+        """
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._current_project_id is None
+            or not callable(getattr(
+                self._project_service, "check_offline_pair_control_points", None
+            ))
+        ):
+            return
+        try:
+            result = self._project_service.check_offline_pair_control_points(
+                self._current_project_id, control_file,
+            )
+        except (ValueError, TypeError, OSError, KeyError, PermissionError):
+            self._pair_control_status = (
+                "Kontrollpunktprüfung abgelehnt: Datei, Projektzuordnung oder "
+                "Eingabewerte ungültig. Keine Daten verändert."
+            )
+        else:
+            if result.status == "holdout_passed_unapproved":
+                self._pair_control_status = (
+                    f"Kontrollpunkt-Holdout bestanden: {result.fit_inliers} "
+                    f"Anpassungs-Inlier, {result.holdout_points} Kontrollpunkte, "
+                    f"RMS {result.holdout_rms_px:.2f} Pixel. "
+                    "Nur technischer, nicht freigegebener Kandidat; "
+                    "keine automatische Überlagerung."
+                )
+            else:
+                self._pair_control_status = (
+                    "Kontrollpunkt-Holdout nicht bestanden "
+                    f"({result.reason}). Keine Überlagerung oder Freigabe."
+                )
+        self._refresh_processing_page()
 
     def _refresh_processing_page(self) -> None:
         """Render the selected project's persisted evidence through its service."""
