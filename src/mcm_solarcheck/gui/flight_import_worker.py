@@ -17,12 +17,15 @@ class FlightImportThread(QThread):
     metrics_ready = Signal(object)
 
     def __init__(self, project_service, project_id: str, source_folder: str, parent=None,
-                 *, original_zips=None, include_unpaired_thermal=False):
+                 *, original_zips=None, original_files=None, include_unpaired_thermal=False):
         super().__init__(parent)
         self.project_service = project_service
         self.project_id = project_id
         self.source_folder = source_folder
+        if original_zips is not None and original_files is not None:
+            raise ValueError('Choose loose originals or ZIP archives, not both')
         self.original_zips = original_zips
+        self.original_files = original_files
         self.include_unpaired_thermal = include_unpaired_thermal
         self._cancel = threading.Event()
 
@@ -38,7 +41,13 @@ class FlightImportThread(QThread):
             self.progress.emit(phase, count)
 
         try:
-            if self.original_zips is not None:
+            if self.original_files is not None:
+                outcome = self.project_service.import_project_original_files_cancellable(
+                    self.project_id, self.original_files,
+                    should_cancel=self._cancel.is_set,
+                    on_progress=on_progress,
+                )
+            elif self.original_zips is not None:
                 outcome = self.project_service.import_project_original_zips_cancellable(
                     self.project_id,
                     self.original_zips[0],

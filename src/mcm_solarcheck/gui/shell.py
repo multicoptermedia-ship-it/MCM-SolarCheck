@@ -1224,6 +1224,14 @@ class SolarCheckMainWindow(QMainWindow):
         )
         new_page = make_import_page(
             current_project_id=self._current_project_id,
+            on_import_original_files=(
+                self._request_original_files_import
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._project_service is not None
+                and self._import_thread is None
+                and not self._import_close_pending
+                else None
+            ),
             on_import_original_zips=(
                 self._request_original_zip_import
                 if self._deployment is DeploymentMode.OFFLINE_DESKTOP
@@ -1839,7 +1847,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._refresh_import_page()
 
     def _start_background_image_import(self, source_directory: str, *, original_zips=None,
-                                       include_unpaired_thermal=False) -> None:
+                                       original_files=None, include_unpaired_thermal=False) -> None:
         """Run guarded DJI import off-thread, with no Qt objects in its worker."""
         from mcm_solarcheck.gui.flight_import_worker import FlightImportThread
 
@@ -1853,6 +1861,7 @@ class SolarCheckMainWindow(QMainWindow):
         worker = FlightImportThread(
             self._project_service, self._current_project_id, source_directory, self,
             original_zips=original_zips,
+            original_files=original_files,
             include_unpaired_thermal=include_unpaired_thermal,
         )
         self._import_thread = worker
@@ -2111,6 +2120,19 @@ class SolarCheckMainWindow(QMainWindow):
         worker = self._import_thread
         if worker is not None:
             worker.request_cancel()
+
+    def _request_original_files_import(self, original_files: tuple[str, ...]) -> None:
+        """Primary operator path: selected unpacked DJI images, no ZIP required."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._project_service is None
+            or self._current_project_id is None
+            or self._import_thread is not None
+            or self._import_close_pending
+            or not original_files
+        ):
+            return
+        self._start_background_image_import("", original_files=tuple(original_files))
 
     def _request_original_zip_import(
         self, thermal_zip: str, rgb_zip: str, include_unpaired_thermal: bool,
