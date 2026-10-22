@@ -189,3 +189,33 @@ def test_cancel_before_read_and_unknown_project_do_not_invoke_import(monkeypatch
         app.import_project_images_cancellable("missing", "flight")
     assert invoked == []
     assert_empty(app)
+
+
+def test_legacy_sync_import_reuses_existing_project_and_atomic_commit(monkeypatch, tmp_path):
+    app = service(tmp_path)
+    calls = []
+    def importer(directory, **kwargs):
+        calls.append((str(directory), kwargs["retain_rasters"]))
+        return sample_import()
+    monkeypatch.setattr(pipeline, "import_m3t_project", importer)
+    attempt, imported, state = app.import_project_images("P1", "legacy-flight")
+    assert attempt.succeeded
+    assert imported[1].rgb_frames == 3
+    assert imported[1].thermal_frames == 1
+    assert calls == [("legacy-flight", False)]
+    assert [(project.project_id, project.name) for project in app.projects()] == [
+        ("P1", "Dach Nord"), ("P2", "Dach Sued"),
+    ]
+    assert app.import_summary("P1").image_pairs == 1
+    assert app.import_summary("P2").image_pairs == 0
+
+
+def test_legacy_sync_import_failure_does_not_write_partial_evidence(monkeypatch, tmp_path):
+    app = service(tmp_path)
+    def importer(directory, **kwargs):
+        return sample_import(broken_thermal=True)
+    monkeypatch.setattr(pipeline, "import_m3t_project", importer)
+    attempt, imported, _state = app.import_project_images("P1", "legacy-flight")
+    assert not attempt.succeeded
+    assert imported is None
+    assert_empty(app)

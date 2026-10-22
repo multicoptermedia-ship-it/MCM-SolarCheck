@@ -327,26 +327,17 @@ class ProjectApplicationService:
         candidate_percentile: float = 99.9,
         candidate_limit: int = 100,
     ):
-        """Import imagery only through the guarded application boundary."""
-        project = next(
-            (item for item in self.projects() if item.project_id == project_id),
-            None,
-        )
-        if project is None:
-            raise KeyError(f"Unknown project: {project_id}")
+        """Use the SAME atomic existing-project import as the offline worker.
 
-        return self.execute(
-            project_id,
-            WorkflowAction.IMPORT,
-            lambda: import_and_store_m3t_project(
-                source_directory,
-                self.database.path,
-                project_id=project.project_id,
-                project_name=project.name,
-                minimum_pair_confidence=minimum_pair_confidence,
-                candidate_percentile=candidate_percentile,
-                candidate_limit=candidate_limit,
-            ),
+        The old path called import_and_store_m3t_project(), which tried to
+        create an already existing project and could leave partial evidence.
+        Synchronous callers must use the guarded SQLite transaction too.
+        """
+        return self.import_project_images_cancellable(
+            project_id, source_directory,
+            minimum_pair_confidence=minimum_pair_confidence,
+            candidate_percentile=candidate_percentile,
+            candidate_limit=candidate_limit,
         )
 
     def import_project_images_cancellable(
