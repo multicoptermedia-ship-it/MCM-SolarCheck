@@ -37,18 +37,39 @@ werden.
 
 ## 3. Bilder importieren
 
-Nach dem Speichern **Bilder importieren** wählen. RGB- und Thermalbilder können
-gemeinsam ausgewählt werden; eine vorherige Trennung durch den Nutzer ist nicht
-erforderlich.
+Nach dem Anlegen eines lokalen Projekts den Bereich **Import** öffnen.
+Der normale DJI-M3T-Ablauf benötigt **keine ZIP-Datei**:
 
-Je nach Plattform stehen Mehrfachauswahl, Ordnerauswahl und gegebenenfalls
-Drag-and-drop zur Verfügung. Nach dem Import zeigt SolarCheck eine
-Zusammenfassung der erkannten RGB-/Thermalbilder, Bildpaare und prüfbedürftigen
-Dateien.
+1. **„DJI-Originaldateien auswählen (ohne ZIP)“** anklicken.
+   Thermal- und RGB-Originaldateien (JPG/MPO aus der DJI-Kamera)
+   gemeinsam per Mehrfachauswahl auswählen, ohne sie zu verändern.
+2. Die Anwendung prüft Dateinamen, DJI-Kameramodell, Bildformat,
+   Bildgröße und Aufnahmezeitpunkt. Es werden nur die tatsächlich
+   ausgewählten Originale in eine private lokale Ablage kopiert.
+3. Die bestehende Projekt-Datenbank speichert die erkannten Bildbezüge
+   und Analyseergebnisse atomar. Die Projektübersicht zeigt nur
+   tatsächlich persistierte Thermal-, RGB- und Paarzahlen.
+4. Bilder ohne passendes Gegenstück werden nicht als Paar ausgegeben.
+   Aus der Dateinummer folgt weder eine pixelgenaue RGB/Thermal-
+   Überlagerung noch eine verlässliche Temperatur in Grad Celsius.
 
-Aufnahmedatum, Aufnahmezeit und GPS-Informationen werden soweit möglich aus den
-Bildmetadaten gewonnen und anschließend zur Kontrolle angezeigt. Fehlende oder
-widersprüchliche Metadaten werden kenntlich gemacht und nicht erfunden.
+Alternativ kann ein **kompletter DJI-Bildordner** über
+**„Bildordner auswählen (ohne ZIP)“** mit dem vorhandenen
+Ordner-Import eingelesen werden. Dort erkennt die bestehende Pipeline
+die unterstützten DJI-Dateien im gewählten Verzeichnis.
+
+Die Schaltfläche **„Optional: übertragene DJI-ZIPs auswählen“** ist nur
+für Archive vorgesehen, die bereits aus Versand/Datentransfer
+vorliegen. Sie ist **kein notwendiger Schritt** und verlangt bei ZIPs
+gesondert die Thermal- und RGB-Archivdatei.
+
+Bei neuem Originaldateiimport werden die unveränderten lokalen Kopien
+dauerhaft neben der SQLite-Projektdatenbank unter
+`private-m3t-originals/` gesichert. Die ursprünglich ausgewählten
+Dateien bleiben unangetastet. Ein zweiter vollständiger Import in ein
+bereits mit Bilddaten gefülltes Projekt wird zum Schutz der
+vorhandenen Daten abgewiesen. Eine gesonderte menschliche Freigabe
+bleibt für Diagnose, Bericht und KI-Training notwendig.
 
 ## 4. Verarbeitung starten und überwachen
 

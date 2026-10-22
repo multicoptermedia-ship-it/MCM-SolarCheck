@@ -213,3 +213,40 @@ Die Durchführung mit den tatsächlichen 160/33 Originaldateien auf dem
 Windows-10-Rechner, Bedienabnahme, Neustart und manuelle Rückmeldung
 stehen weiterhin aus. Der private Projekt- und Originalordner benötigt
 vor der Kundenverwendung einen angemessenen lokalen Backup-/Recovery-Plan.
+
+## Vorrangige Importentscheidung 22.10.2026 – Originaldateien statt ZIP-Pflicht
+
+Der normale Anwender importiert **unverpackte DJI-M3T-Originaldateien** direkt
+über **„DJI-Originaldateien auswählen (ohne ZIP)“** oder verwendet den bisherigen
+**Bildordnerimport**. Vorherige Dokumentationsformulierungen, die ZIP als
+Regelfall erscheinen lassen, sind historische Test-/Transferbeschreibung.
+Die privaten ZIPs entstanden für den komprimierten Datentransfer an die
+Entwicklung und sind **kein Produktzwang**.
+
+Die neue Mehrfachdateiauswahl übergibt genau die gewählten Originale an den
+vorhandenen QThread, validiert DJI-Dateiname, Sensorformat, EXIF-Kamera und
+Aufnahmezeit sowie doppelte Identitäten, erstellt unveränderte private Kopien
+mit SHA-256-Provenienz und benutzt dann **denselben atomaren
+`ProjectApplicationService.import_project_images_cancellable`** zum
+Speichern. Ohne vorherige ZIP-Erstellung und ohne zweite Projektdatenbank.
+Ausdrücklich angewählte reine Thermaldateien werden mitgenommen und
+nicht in scheinbare RGB/Thermal-Paare umgerechnet. Fehlende Paare
+bleiben ersichtlich; Bildzähler-Zuordnung ist noch keine
+pixelgenaue Registrierung. Dateikopie/Fehler/Abbruch vor SQLite-Commit
+hinterlassen keine neue fachliche Projektpersistenz. Der etablierte
+Ordnerimport wird nicht deaktiviert; sein Verhalten wurde in diesem
+Block nicht stillschweigend umgeschrieben.
+
+Die ZIP-Auswahl existiert nur noch als **optionale Sonderfunktion** für
+bereits archivierte/übertragene Originale. Der ältere
+Windows-10-Original-**ZIP**-Vor-/Nachprüfer ist entsprechend **nur**
+für diese Sonderprüfung gedacht; er ist kein notwendiger Schritt
+beim normalen Dateien- oder Ordnerimport.
+
+**Abnahme noch ausstehend:** Das reale Windows-10-Gerät mit 160 originalen
+Thermaldateien + 33 RGB-Dateien, reale EXIF-/MPO-Kompatibilität,
+persistierte Mengen/Quellreferenzen, Abbruchfall, GUI-Neustart und
+Bedienprüfung. Keine Aussage zu kalibrierten °C, physischer Modul-ID,
+kundentauglichem Bericht, KI-Training oder allgemeiner Freigabe.
+
+Die Dateiimport-Bilder bleiben lokal und werden über den bestehenden Import-Worker gespeichert. Für diese primäre Mehrfachdateiauswahl gibt es **keinen** vorherigen ZIP-Audit-Aufruf. Testdaten aus privaten ZIPs sind nach dem Entpacken unverpackte Originale, sofern der Nutzer sie selbst in seinen lokalen Ordnern aufbewahrt. ZIP-Entpacken ist für den Standardimport nicht vorgesehen.
