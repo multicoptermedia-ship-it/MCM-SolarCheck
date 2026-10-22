@@ -1,4 +1,5 @@
 from dataclasses import replace
+from zoneinfo import available_timezones
 
 from mcm_solarcheck.domain.project_profile import ProjectProfile
 
@@ -11,7 +12,38 @@ creation/opening operations will be supplied by application services rather
 than invented in Qt widget state.
 """
 
-from PySide6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget
+
+
+
+def _timezone_picker(field: QLineEdit, *, allow_empty: bool, object_name: str) -> QComboBox:
+    """Use explicit IANA choices while keeping the validated data field intact.
+
+    The hidden QLineEdit is retained for backward-compatible form bindings;
+    operators do not have to guess the spelling of a timezone.
+    """
+    choice = QComboBox(field.parentWidget())
+    choice.setObjectName(object_name)
+    choice.setAccessibleName("Standort-Zeitzone auswählen")
+    choice.setToolTip("Zeitzone der Anlage wählen, z. B. Europe/Berlin.")
+    choice.setMaxVisibleItems(18)
+    choice.addItem("Zeitzone auswählen …" if not allow_empty else "Keine Zeitzone", "")
+    popular = ("Europe/Berlin", "Europe/Vienna", "Europe/Zurich", "Europe/London", "Etc/UTC")
+    known = set(available_timezones()) | set(popular)
+    for name in (*popular, *sorted(known.difference(popular))):
+        choice.addItem(name, name)
+    existing = field.text().strip()
+    if existing and existing not in known:
+        choice.addItem(existing, existing)
+    if existing:
+        index = choice.findData(existing)
+        if index >= 0:
+            choice.setCurrentIndex(index)
+    choice.currentIndexChanged.connect(
+        lambda _index: field.setText(choice.currentData() or "")
+    )
+    field.hide()
+    return choice
 
 
 class NewProjectDialog(QDialog):
@@ -35,8 +67,14 @@ class NewProjectDialog(QDialog):
         self.site_timezone = QLineEdit(self); self.site_timezone.setObjectName("new_project_site_timezone")
         self.site_timezone.setPlaceholderText("z. B. Europe/Berlin")
         self.inspector = QLineEdit(self); self.inspector.setObjectName("new_project_inspector")
-        for label, field in (("Kunde",self.customer_name),("Anlage",self.site_name),("Standort Straße",self.site_street),("Standort PLZ",self.site_postal_code),("Standort Ort",self.site_city),("Standort-Zeitzone (IANA)",self.site_timezone),("Prüfer",self.inspector)):
+        for label, field in (("Kunde",self.customer_name),("Anlage",self.site_name),("Standort Straße",self.site_street),("Standort PLZ",self.site_postal_code),("Standort Ort",self.site_city)):
             layout.addRow(label, field)
+        self.site_timezone_choice = _timezone_picker(
+            self.site_timezone, allow_empty=False,
+            object_name="new_project_site_timezone_choice",
+        )
+        layout.addRow("Standort-Zeitzone (IANA)", self.site_timezone_choice)
+        layout.addRow("Prüfer", self.inspector)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
             parent=self,
@@ -93,7 +131,13 @@ class EditProjectProfileDialog(QDialog):
             field.setText(getattr(original, key, None) or "")
             if key == "site_timezone":
                 field.setPlaceholderText("z. B. Europe/Berlin")
-            layout.addRow(label, field)
+                self.site_timezone_choice = _timezone_picker(
+                    field, allow_empty=True,
+                    object_name="edit_profile_site_timezone_choice",
+                )
+                layout.addRow(label, self.site_timezone_choice)
+            else:
+                layout.addRow(label, field)
             self.fields[key] = field
 
         info = QLabel(
