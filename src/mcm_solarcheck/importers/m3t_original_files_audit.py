@@ -78,6 +78,10 @@ def audit_original_m3t_files(original_files, *, should_cancel=None) -> OriginalF
         if match is None:
             raise ValueError("Unexpected DJI original image filename")
         stamp, counter, kind = match.group(1), match.group(2), match.group(3).upper()
+        # The existing importers scan canonical '*_T.JPG'/'*_V.JPG' names.
+        # Reject noncanonical case instead of silently omitting frames.
+        if path.name != f"DJI_{stamp}_{counter}_{kind}.JPG":
+            raise ValueError("Selected DJI filename is not canonical for importer")
         datetime.strptime(stamp, "%Y%m%d%H%M%S")
         if path.name.casefold() in seen_names or (kind, counter) in seen_keys:
             raise ValueError("Duplicated original DJI image identity")
