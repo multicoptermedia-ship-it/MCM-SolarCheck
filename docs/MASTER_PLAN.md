@@ -199,3 +199,80 @@ Online und Offline teilen ab dem eigentlichen SolarCheck-Projektworkflow denselb
 Zeitinvariante für Berichte: technische Persistenz und Verarbeitung verwenden timezone-aware Zeitpunkte; UTC bleibt die kanonische interne Referenz. Kunden-/Prüfberichte geben Auswertungs- und Prüfzeiten in der explizit gespeicherten IANA-Zeitzone des jeweiligen Projektstandorts aus. Es werden weder feste UTC-Offsets noch allein aus Ortsnamen oder Ländern geratene Zeitzonen verwendet; Sommer-/Winterzeit muss durch die Zeitzonendaten korrekt abgebildet werden. Bestehende Projekte ohne bekannte Standort-Zeitzone bleiben explizit unvollständig, bis die Zeitzone erfasst ist.
 
 Die menschliche Fachprüfung bleibt maßgeblich. Fehlende Evidenz darf nicht künstlich erzeugt werden. Unklare Freigabezustände werden fail-closed behandelt. Technische Softwarefreigabe, wissenschaftliche Modellvalidierung, Normprüfung und kommerzielle Produktfreigabe bleiben getrennte Gates.
+
+## Statusfortschreibung 22. Oktober 2026 – Integrationslücke vor Phase A
+
+Diese Aktualisierung hat Vorrang vor der älteren pauschalen Phasenübersicht,
+ohne die historischen Abläufe 1–11 oder die getrennte Online-Roadmap
+rückwirkend umzubenennen. Für die aktuell zu pilotierende **Windows-10-
+Offline-Inspektionssoftware** ist entscheidend, was wirklich
+durchgehend funktioniert und was noch Fachabnahme braucht.
+
+### Jetzt verbunden: DJI M3T Original-ZIPs → bestehendes lokales Projekt
+
+- Der bisherige synchrone `ProjectApplicationService.import_project_images`
+  legte beim Import in ein **bereits existierendes** Projekt erneut
+  dieselbe Projektkennung an; er wird nun über denselben
+  `import_project_images_cancellable`-Dienst und dessen atomare
+  SQLite-Transaktion wie der bewährte Hintergrundimport geführt.
+- Neu: `import_project_original_zips_cancellable` prüft ausdrücklich
+  ausgewählte Thermal-/RGB-Original-ZIPs, sichert unveränderte
+  Dateien in einer **privaten, dauerhaften und nur lokal vorhandenen**
+  Ablage neben der Offline-Datenbank und übergibt deren Ordner
+  an den bestehenden geschützten Import. Dadurch sind
+  Bildreferenzen nach der Transaktion nicht auf einen gelöschten
+  temporären Ordner gerichtet. Bereits importierte Projekte werden
+  nicht versehentlich mit neuen ZIP-Inhalten überlagert.
+- Der Staging-Prozess ist kooperativ abbrechbar. Bei fehlgeschlagener
+  Validierung, Datenbankfehler oder Abbruch vor Commit werden
+  ausschließlich die neu angelegten Kopien dieses Versuchs entfernt.
+  Die Original-ZIPs, andere Projekte und bestehende Prüfentscheidungen
+  werden nicht gelöscht. Keine Cloud, kein Trainingsstart.
+- Die Offline-GUI hat eine eigene Bedienoption
+  **„DJI-Original-ZIPs (Thermal + RGB) auswählen“**.
+  Sie nutzt den vorhandenen QThread/Projektimport-Status und
+  verlangt Thermal- und RGB-ZIP manuell. Der zusätzliche Import
+  ungepaarter Thermalbilder ist standardmäßig **abgewählt**.
+- Synthetische Integrationstests prüfen sichere Ablage, rückverfolgbare
+  Quellen, sichtbare Bildpaarzahlen, Abbruch, fehlerhafte ZIPs,
+  Schutz bestehender Projekte und UI-Auswahl. Ein nativer
+  **Windows-10-Praxistest** mit 160/33 Originalbildern ist
+  weiterhin offen; GitHub Windows CI läuft auf Server 2022.
+- Das schließt **eine konkrete Projektimport-Integrationslücke**.
+  Es ersetzt keine vollständige Anlagenanalyse. Weder Bildnummer
+  noch Aufnahmedatum belegen pixelgenaue Sensorregistrierung.
+  Die radiometrische APP3-Struktur ist verfügbar, aber
+  produktive °C-Werte bleiben an die unabhängige DJI-
+  Referenzvalidierung gebunden.
+
+### Verbindliche Reihenfolge der weiteren Offline-Reife
+
+1. **Integrationslücken und Phase A:** Den gesamten Ablauf auf einem
+   realen Windows-10-Rechner mit privatem lokalem Testprojekt
+   beobachten. Alle noch fehlenden Bedienübergänge und
+   nichtpersistierten Zwischenresultate dokumentieren und
+   gezielt schließen.
+2. **Phase B:** Stabile Modulgeometrie, eindeutige Modulnummern,
+   RGB/Thermal-Registrierung, Orthofoto bzw. fachlich validierter
+   externer GIS-Fallback an der realen 600-kWp-Anlage abnehmen.
+3. **Phase C:** Bestehende DJI-M3T-APP3/APP4/APP5-Forschung
+   wiederverwenden; eine autoritative °C-Referenzvergleichs-
+   und Temperaturprovenienzprüfung abschließen; beobachtbare
+   Anomalie von nur vermuteter elektrischer Ursache trennen.
+4. **Phase D:** Lizenzgeprüfte OSS-Daten, Standort-/Modul-
+   disjunkte Testgruppen, menschlich überprüfte Fehlerlabels
+   und reale Open-Source-Modelloptimierung; kein automatisches
+   Deploy eines unvalidierten Modells.
+5. **Phase E:** Fachkundige Freigabe, tatsächliche Bildbelege,
+   prüfbares Modul/Anlagenlayout, Bericht als PDF/ODT/DOCX
+   mit Pilotanwender abnehmen; keine PDF-Vorschau als Lesebestätigung.
+6. **Phase F:** Echte Windows-10-End-to-End-Abnahme, reproduzierbare
+   offline installierbare Laufzeit samt Wheelhouse/Lizenzen,
+   Datensicherung, Backups, Updates und signierten EXE-Installer
+   auf gesonderter späterer Release-Schiene.
+
+**Stoppregel:** Kein Block wird als produktiv fertig bezeichnet,
+nur weil beide CI-Testmatrizen grün sind. Release, fachliche
+Temperaturvalidierung, Kundenrechte und Modellvalidierung sind
+eigenständige Gates. An `main` und PR #3/#4 nichts verändern,
+bevor eine gesonderte Integrationsfreigabe vorliegt.

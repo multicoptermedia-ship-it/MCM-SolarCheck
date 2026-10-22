@@ -19,3 +19,21 @@ Keine Online-Demo-Freischaltung durch `mode=offline` aus dem Browser. Der Offlin
 
 ## Status
 Dies ist ein Integrationsvertrag und Arbeitsplan; noch keine vollständig verdrahtete End-to-End-Pipeline.
+
+## Priorität 22.10.2026 – konkreter Offline-Projektimport verbunden
+
+Die alte Anweisung, einen neuen Projektlisten-Adapter zu erstellen,
+ist nur noch historischer Kontext: `ProjectApplicationService`
+verwaltet persistierte Offline-Projekte bereits. Der echte
+Lückenschluss in dieser Etappe ist die direkte Bedienfolge
+**bestehendes Projekt → zwei private Original-ZIPs → geprüfte
+Paarbildung → dauerhafte lokale Originalkopien → atomare SQLite-
+Bildspeicherung → echte Projektübersicht**. Die GUI verwendet
+den vorhandenen Import-QThread, nicht eine zweite Datenbank.
+
+Die Fortschrittsanzeige misst Prüf- und Kopierschritte, nicht
+eine fachlich abgeschlossene PV-Anlagenanalyse. Kein automatischer
+KI-Trainingsaufruf oder Bericht. Nächster End-to-End-Praxistest
+auf Windows 10 und danach die Phasen A–F aus
+`docs/MASTER_PLAN.md`. Online-HTTP-/Payment-Integrationen
+dürfen diese lokale Abnahme nicht überspringen.

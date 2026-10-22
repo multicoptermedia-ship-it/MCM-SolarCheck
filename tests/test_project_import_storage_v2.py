@@ -117,26 +117,25 @@ def test_project_image_import_rejects_unknown_project_before_operation(tmp_path,
     assert called==[]
 
 
-def test_project_image_import_uses_guarded_execute_boundary(tmp_path, monkeypatch):
+def test_project_image_import_reuses_atomic_cancellable_boundary(tmp_path, monkeypatch):
     db=ProjectDatabase(tmp_path/'guarded-import.sqlite');db.initialize()
     db.create_project('P-IMPORT','Persisted')
     service=ProjectApplicationService(db)
     captured={}
 
-    def fake_execute(project_id, action, operation):
+    def atomic_import(project_id, directory, **options):
         captured['project_id']=project_id
-        captured['action']=action
-        captured['operation']=operation
+        captured['directory']=directory
+        captured['options']=options
         return 'guarded'
 
-    monkeypatch.setattr(service, 'execute', fake_execute)
-
+    monkeypatch.setattr(service, 'import_project_images_cancellable', atomic_import)
     result=service.import_project_images('P-IMPORT', tmp_path/'images')
-
     assert result=='guarded'
     assert captured['project_id']=='P-IMPORT'
-    assert captured['action'] is WorkflowAction.IMPORT
-    assert callable(captured['operation'])
+    assert captured['directory']==tmp_path/'images'
+    assert captured['options']['minimum_pair_confidence']==0.70
+    assert captured['options']['candidate_limit']==100
 
 
 def test_application_service_import_summary_uses_persisted_counts(tmp_path):

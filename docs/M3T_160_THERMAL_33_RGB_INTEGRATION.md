@@ -129,3 +129,36 @@ Windows Server 2022, nicht auf deinem echten Windows-10-Rechner.
 Die hier genannten Originaldatei-Analysen stammen aus einer
 privaten Sitzung; die Originaldaten wurden **nicht** auf GitHub-CI
 hochgeladen. Die CI verwendet nur synthetische Bilder.
+
+## 22.10.2026 – Original-ZIP-Import jetzt direkt im Offline-Programm
+
+Die vorherigen manuellen CLI-Prüfungen bleiben verfügbar, sind aber
+für die normale erste Projekterfassung nicht mehr der einzige Weg.
+Im **Offline-SolarCheck**:
+
+1. Ein **neues leeres Projekt** anlegen und öffnen.
+2. **Import → „DJI-Original-ZIPs (Thermal + RGB) auswählen“**.
+3. Private originale Thermal-ZIP und passende RGB-ZIP auswählen.
+4. Die Checkbox für zusätzliche **ungepaarte Thermalbilder** bleibt
+   standardmäßig aus. Auf Wunsch bewusst einschalten, damit außer
+   den 33 Bildpaaren auch die weiteren 127 Thermalaufnahmen
+   importiert werden. Nicht als 160 Bildpaare interpretieren.
+5. Der Import prüft Dateiformat, DJI-M3T-Kamera, Größe,
+   Doppelnummern und Zeitstempel, legt sichere lokale Kopien in
+   `private-m3t-originals/<zufaelliger-name>` neben der
+   Offline-SQLite-Datenbank ab und importiert Bildmetadaten,
+   erkennbare thermische Kandidaten und Paare über die
+   bestehende atomare SQLite-Grenze.
+6. Der Bereich **Import** zeigt anschließend nur tatsächlich
+   persistierte Bildzahlen. Bilder bleiben lokal; Review,
+   validierte Temperaturen, fachliche Fehlerfreigabe und
+   KI-Trainingsfreigabe erfolgen **nicht automatisch**.
+
+Ein bereits mit Bildern gefülltes Projekt weist einen erneuten
+automatischen ZIP-Gesamtimport ab. Das schützt vor Vermischung
+zweier Datensätze und unbeabsichtigter Änderung bereits
+geprüfter Befunde. Bei einem fehlgeschlagenen Import werden
+neue Kopien entfernt; Original-ZIPs bleiben unverändert.
+Ein echter Durchlauf mit den 160 privaten Bildern auf Windows 10
+ist noch nicht erfolgt. Synthetische Regressionstests in CI
+ersetzen diese lokale Abnahme nicht.
