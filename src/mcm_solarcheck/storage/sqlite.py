@@ -387,6 +387,74 @@ class ProjectDatabase:
         with self.connect() as db:
             db.executemany(sql,[(project_id,f.frame_id,str(f.source_file),f.timestamp_utc.isoformat() if f.timestamp_utc else None,f.camera_make,f.camera_model,f.width,f.height,f.position.latitude if f.position else None,f.position.longitude if f.position else None,f.position.altitude_m if f.position else None,json.dumps(f.metadata,ensure_ascii=False)) for f in frames])
             for frame in frames:self._save_training_frame(db,project_id,frame,'rgb')
+    def reconcile_persisted_image_pairs(self, project_id, *,
+                                        minimum_confidence=0.70) -> int:
+        """Explicit, project-only metadata pairing across prior import batches.
+
+        No file reads or overwrite of existing pairing rows. This provides
+        technical acquisition linkage, never verified sensor registration.
+        """
+        from datetime import datetime
+        from mcm_solarcheck.domain.models import ImageFrame, ThermalFrame, Position
+        from mcm_solarcheck.pairing.rgb_thermal import pair_rgb_thermal_frames
+
+        if not 0.70 <= minimum_confidence <= 1.0:
+            raise ValueError("Pairing confidence must remain conservative")
+        with self.connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute(
+                "SELECT 1 FROM projects WHERE project_id=?", (project_id,)
+            ).fetchone() is None:
+                raise KeyError("Unknown project")
+
+            existing = conn.execute(
+                "SELECT rgb_frame_id,thermal_frame_id FROM image_pairs "
+                "WHERE project_id=?", (project_id,)
+            ).fetchall()
+            used_rgb = {row["rgb_frame_id"] for row in existing}
+            used_thermal = {row["thermal_frame_id"] for row in existing}
+
+            def load(table, kind, used):
+                rows = conn.execute(
+                    f"SELECT frame_id,source_file,timestamp_utc,latitude,"
+                    f"longitude,altitude_m FROM {table} WHERE project_id=? "
+                    "ORDER BY frame_id", (project_id,)
+                ).fetchall()
+                frames = []
+                for row in rows:
+                    if row["frame_id"] in used:
+                        continue
+                    position = (
+                        Position(row["latitude"], row["longitude"], row["altitude_m"])
+                        if row["latitude"] is not None and row["longitude"] is not None
+                        else None
+                    )
+                    stamp = (
+                        datetime.fromisoformat(row["timestamp_utc"])
+                        if row["timestamp_utc"] else None
+                    )
+                    frames.append(kind(
+                        frame_id=row["frame_id"], source_file=Path(row["source_file"]),
+                        timestamp_utc=stamp, position=position,
+                    ))
+                return tuple(frames)
+
+            rgb = load("image_frames", ImageFrame, used_rgb)
+            thermal = load("thermal_frames", ThermalFrame, used_thermal)
+            proposals = pair_rgb_thermal_frames(
+                rgb, thermal, minimum_confidence=minimum_confidence,
+            )
+            for pair in proposals:
+                conn.execute(
+                    "INSERT INTO image_pairs "
+                    "(project_id,pair_id,rgb_frame_id,thermal_frame_id,"
+                    "confidence,method,distance_m,time_delta_s) "
+                    "VALUES (?,?,?,?,?,?,?,?)",
+                    (project_id,pair.pair_id,pair.rgb_frame_id,pair.thermal_frame_id,
+                     pair.confidence,pair.method,pair.distance_m,pair.time_delta_s),
+                )
+            return len(proposals)
+
     def save_pairs(self,project_id,pairs):
         cols=('project_id','pair_id','rgb_frame_id','thermal_frame_id','confidence','method','distance_m','time_delta_s');sql=_upsert('image_pairs',cols,('project_id','pair_id'))
         with self.connect() as db:db.executemany(sql,[(project_id,p.pair_id,p.rgb_frame_id,p.thermal_frame_id,p.confidence,p.method,p.distance_m,p.time_delta_s) for p in pairs])

@@ -342,6 +342,15 @@ class ProjectApplicationService:
             candidate_limit=candidate_limit,
         )
 
+    def reconcile_imported_pairs(self, project_id: str) -> int:
+        """Explicitly score still-unpaired persisted frames from multiple imports.
+
+        The standard threshold and project workflow remain mandatory; no
+        image bytes, expert decisions or report releases are modified.
+        """
+        self.require(project_id, WorkflowAction.IMPORT)
+        return self.database.reconcile_persisted_image_pairs(project_id)
+
     def import_project_original_files_cancellable(
         self,
         project_id: str,

@@ -1240,6 +1240,14 @@ class SolarCheckMainWindow(QMainWindow):
                 and not self._import_close_pending
                 else None
             ),
+            on_reconcile_pairs=(
+                self._reconcile_stored_pairs
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._project_service is not None
+                and self._import_thread is None
+                and callable(getattr(self._project_service, "reconcile_imported_pairs", None))
+                else None
+            ),
             on_import_images=(
                 self._request_image_import
                 if self._deployment is DeploymentMode.OFFLINE_DESKTOP
@@ -2120,6 +2128,34 @@ class SolarCheckMainWindow(QMainWindow):
         worker = self._import_thread
         if worker is not None:
             worker.request_cancel()
+
+    def _reconcile_stored_pairs(self) -> None:
+        """Apply only the operator-requested metadata association for this project."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._project_service is None
+            or self._current_project_id is None
+            or self._import_thread is not None
+            or self._import_close_pending
+        ):
+            return
+        project = self._current_project_id
+        try:
+            created = self._project_service.reconcile_imported_pairs(project)
+        except (ValueError, RuntimeError, PermissionError, KeyError) as exc:
+            self._import_status = f"Technische Zuordnung nicht möglich: {exc}"
+        else:
+            self._import_status = (
+                f"{created} zusätzliche Bildpaare technisch zugeordnet. "
+                "Keine geometrische Registrierung oder Fachfreigabe."
+            )
+            if created:
+                self._clear_prepared_draft()
+        self._refresh_import_page()
+        self._refresh_processing_page()
+        self._refresh_plant_overview_page()
+        self._refresh_review_page()
+        self._refresh_report_page()
 
     def _request_original_files_import(self, original_files: tuple[str, ...]) -> None:
         """Primary operator path: selected unpacked DJI images, no ZIP required."""

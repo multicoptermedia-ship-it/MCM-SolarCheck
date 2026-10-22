@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QCheckBox, QFileDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None, on_reconcile_pairs=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     root_layout = QVBoxLayout(page)
@@ -58,6 +58,18 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
             pair_note.setObjectName("import_pair_review_hint")
             pair_note.setWordWrap(True)
             layout.addWidget(pair_note)
+            reconcile = QPushButton(
+                "Vorhandene RGB-/Thermalbilder technisch zuordnen", page,
+            )
+            reconcile.setObjectName("import_reconcile_pairs_button")
+            reconcile.setToolTip(
+                "Ordnet gespeicherte Bilder anhand von Nummer, XMP-Zeit und "
+                "GPS neu zu. Keine pixelgenaue Sensorregistrierung."
+            )
+            reconcile.setEnabled(on_reconcile_pairs is not None)
+            if on_reconcile_pairs is not None:
+                reconcile.clicked.connect(on_reconcile_pairs)
+            layout.addWidget(reconcile)
 
     if import_verification is not None:
         verification_heading = QLabel("Importprüfung", page)
