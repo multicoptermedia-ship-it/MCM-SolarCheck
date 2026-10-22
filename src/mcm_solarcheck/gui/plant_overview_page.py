@@ -73,6 +73,59 @@ def make_plant_overview_page(
         review.setObjectName("plant_review_summary")
         layout.addWidget(review)
 
+        readiness = getattr(overview, "identity_readiness", None)
+        if readiness is not None:
+            proposal_state = QLabel(
+                f"ID-Zuordnung (nur algorithmische Vorschläge): "
+                f"{readiness.linked_observations} von "
+                f"{readiness.observed_modules} Modulbeobachtungen mit Vorschlag · "
+                f"{readiness.unresolved_observations} ohne belastbaren Vorschlag · "
+                f"{readiness.distinct_candidate_labels} unterschiedliche "
+                "Vorschlagskennungen (keine geprüfte Modulanzahl)",
+                page,
+            )
+            proposal_state.setObjectName("plant_identity_readiness")
+            proposal_state.setTextFormat(Qt.TextFormat.PlainText)
+            proposal_state.setWordWrap(True)
+            layout.addWidget(proposal_state)
+
+            if readiness.orphaned_identity_links:
+                inconsistent = QLabel(
+                    f"Achtung: {readiness.orphaned_identity_links} gespeicherte "
+                    "ID-Verweise ohne passende Modulbeobachtung. "
+                    "Bitte die Modulzuordnung fachlich prüfen.",
+                    page,
+                )
+                inconsistent.setObjectName("plant_identity_data_warning")
+                inconsistent.setTextFormat(Qt.TextFormat.PlainText)
+                inconsistent.setWordWrap(True)
+                layout.addWidget(inconsistent)
+
+        if overview.summary.pv_modules == 0:
+            no_modules = QLabel(
+                "Noch keine Modulbeobachtungen gespeichert. Importierte Bilder "
+                "und thermische Befundkandidaten erzeugen allein keine "
+                "Modulgeometrie. Die Anlagenansicht bleibt eine "
+                "Evidenzübersicht ohne erfundene Modulpositionen.",
+                page,
+            )
+            no_modules.setObjectName("plant_no_module_geometry")
+            no_modules.setTextFormat(Qt.TextFormat.PlainText)
+            no_modules.setWordWrap(True)
+            layout.addWidget(no_modules)
+
+        frame_evidence = QLabel(
+            f"Persistierte Bilder: {overview.summary.rgb_frames} RGB · "
+            f"{overview.summary.thermal_frames} Thermal · "
+            f"{overview.summary.image_pairs} Analysepaare. "
+            "Diese Paarzahl belegt keine pixelgenaue Sensorregistrierung.",
+            page,
+        )
+        frame_evidence.setObjectName("plant_image_evidence_summary")
+        frame_evidence.setTextFormat(Qt.TextFormat.PlainText)
+        frame_evidence.setWordWrap(True)
+        layout.addWidget(frame_evidence)
+
     table = QTableWidget(page)
     table.setObjectName("plant_modules_table")
     table.setColumnCount(len(COLUMN_HEADINGS))
