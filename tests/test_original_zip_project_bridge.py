@@ -69,7 +69,11 @@ def fake_import_in_durable_folder(folder, **kwargs):
         for frame in original.rgb_frames
     )
     thermal = tuple(
-        replace(item, frame=replace(item.frame, source_file=base / expected[0]))
+        SimpleNamespace(
+            frame=replace(item.frame, source_file=base / expected[0]),
+            quality=item.quality,
+            findings=item.findings,
+        )
         for item in original.thermal_batch.results
     )
     batch = SimpleNamespace(results=thermal, failures=())
