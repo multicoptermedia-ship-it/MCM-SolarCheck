@@ -404,15 +404,6 @@ class SolarCheckMainWindow(QMainWindow):
         new_page = make_plant_overview_page(
             current_project_id=project_id if self._deployment is DeploymentMode.OFFLINE_DESKTOP else None,
             overview=overview,
-            registration_check_status=self._pair_control_status,
-            on_check_registration=(
-                self._check_pair_control_points
-                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
-                and callable(getattr(
-                    self._project_service, "check_offline_pair_control_points", None
-                ))
-                else None
-            ),
             on_refresh=(
                 (lambda checked=False, source=project_id:
                     self._load_plant_overview_page(source, self._plant_overview_offset))
@@ -1230,6 +1221,15 @@ class SolarCheckMainWindow(QMainWindow):
         new_page = make_processing_page(
             current_project_id=self._current_project_id,
             overview=overview,
+            registration_check_status=self._pair_control_status,
+            on_check_registration=(
+                self._check_pair_control_points
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and callable(getattr(
+                    self._project_service, "check_offline_pair_control_points", None
+                ))
+                else None
+            ),
             on_refresh=(
                 self._reload_processing_page
                 if callable(overview_provider) else None
