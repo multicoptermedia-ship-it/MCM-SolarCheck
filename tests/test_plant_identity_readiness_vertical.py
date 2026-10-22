@@ -9,7 +9,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtWidgets import QApplication, QLabel, QTableWidget
+from PySide6.QtWidgets import QApplication, QLabel, QTableWidget, QPushButton
 
 from mcm_solarcheck.services.shell_navigation import ShellRoute
 from mcm_solarcheck.offline.entrypoint import build_offline_window
@@ -113,10 +113,7 @@ def test_many_modules_keep_project_wide_readiness_across_pages(qt_app, tmp_path)
         assert "1 von 105 Modulbeobachtungen" in first.findChild(
             QLabel, "plant_identity_readiness"
         ).text()
-        first.findChild(
-            __import__("PySide6.QtWidgets", fromlist=["QPushButton"]).QPushButton,
-            "plant_next_page"
-        ).click()
+        first.findChild(QPushButton, "plant_next_page").click()
         second = window._pages[ShellRoute.PLANT_OVERVIEW]
         assert "1 von 105 Modulbeobachtungen" in second.findChild(
             QLabel, "plant_identity_readiness"

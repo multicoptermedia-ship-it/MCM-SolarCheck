@@ -338,3 +338,27 @@ Bei abweichenden Paarzahlen bleibt eine menschliche Prüfung notwendig.
 Ein technisch erfolgreicher Abgleich validiert weder Temperaturwerte
 in Grad Celsius noch RGB/Thermal-Registrierung, Modulidentität,
 PV-Defekte oder die Berichtsfreigabe.
+
+## 20. Lokale Anlagenübersicht: Stand der Modulzuordnung
+
+Unter **Anlage** zeigt SolarCheck gespeicherte Modulbeobachtungen
+und deren zugehörige Befund-/Prüfstände. Neu ist eine ausdrücklich
+vorläufige Übersicht zur algorithmischen Modul-ID-Zuordnung:
+
+- Anzahl der Modulbeobachtungen mit ID-Vorschlag sowie noch
+  offene Beobachtungen;
+- Anzahl unterschiedlicher ID-**Vorschlagskennungen**;
+- Hinweise auf gespeicherte, nicht mehr zuordenbare ID-Verweise;
+- gespeicherte RGB-/Thermalbildzahlen und Analysepaarzahl.
+
+Alle Summen gelten für das geöffnete Projekt und bleiben beim
+Blättern gleich; die Modultabelle zeigt jeweils eine begrenzte
+Seite. Die Zähler beschreiben **Beobachtungen**, keine sicher
+gezählten physisch unterschiedlichen PV-Module. Ohne gespeicherte
+Detektor-/Geometrieergebnisse wird ausdrücklich erklärt,
+warum es noch keine vermessene Anlagenkarte gibt.
+
+Die Ansicht ändert keine Modul-IDs, Reviewentscheidungen oder
+Kundenbilder. Erst eine gesonderte, geometrisch geprüfte
+Registrierung und fachliche Identitätskontrolle darf daraus
+eine echte Anlagenkarte mit sicheren Modulnummern machen.

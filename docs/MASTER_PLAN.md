@@ -360,3 +360,44 @@ geschütztes neues Testprojekt, Nachkontrolle, App-Neustart, stichprobenhafte
 Bild-/Reviewanzeige, Abbruchfall und lokaler Backup-/Recovery-Nachweis.
 CI nutzt ausschließlich synthetische DJI-Testbilder und Windows Server 2022.
 
+
+
+## Phase-B-Vorbereitung 22.10.2026 – lokale Anlagenübersicht mit transparentem ID-Status
+
+Die bestehende Anlagenübersicht zeigt bereits aus SQLite gelesene,
+projektbezogene Modulbeobachtungen, Befunde und getrennte Review-Status.
+Dieser neue, **bewusst rein lesende** Vertikalblock macht nun den
+Fortschritt der algorithmischen Modul-ID-Zuordnung sichtbar:
+
+- `InspectionQueries.module_identity_readiness(project_id)` zählt
+  **alle** vorhandenen Modulbeobachtungen unabhängig von der gewählten
+  UI-Seite (bis 100 Beobachtungen pro Seite), beobachtungsbezogene
+  `new`/`matched`-Vorschläge mit tatsächlicher ID, offene
+  Beobachtungen ohne passenden Vorschlag und unterschiedliche
+  Vorschlagskennungen. Diese Kennungen sind **keine gezählten,
+  validierten physischen PV-Module**.
+- Nicht zu einer gespeicherten Modulbeobachtung passende
+  `module_identity_links` werden als Datenkonsistenz-Warnung
+  gezählt; sie werden weder gelöscht noch als Modul mitgerechnet.
+- `ProjectApplicationService.plant_overview` bindet die
+  projektweiten Zähler in dieselbe bestehende UI-Datenquelle ein;
+  `gui/plant_overview_page.py` zeigt die ID-Abdeckung,
+  gespeicherte RGB-/Thermalbilder und Analysepaare, bei Nullmodulen
+  eine **explizite fehlende Geometrie**. Keine Kartenpunkte,
+  Satellitenfotos, Modulnummern oder metrischen Positionen werden
+  aus Dateinummern erfunden. Bisherige Paginierung und
+  schreibgeschützte UI bleiben erhalten.
+- Synthetische Regressionstests decken Projektscope, eine
+  105-Beobachtungen-Paginierung, uneindeutige/fehlende Vorschläge,
+  verwaiste Links, die ehrliche Nullmodulansicht und den
+  unveränderten SQLite-Read-only-Zustand ab.
+
+**Abnahmegrenze:** Dieser Schritt realisiert weder echte
+Vollflug-Orthofoto-Rekonstruktion noch externe GIS-Vermessung,
+RGB/Thermal-Registrierung, aus Fotos abgeleitete eindeutige
+Anlagennummerierung oder die fachliche Freigabe erkannter Schäden.
+Die echte Windows-10-Abnahme mit den originalen 160 Thermal-
+und 33 RGB-Aufnahmen bleibt weiterhin offen, ebenso die
+physische Modulzuordnung anhand unabhängig geprüfter
+Referenzen. Vollständig freigegebene Phase B erst nach
+Geometrie- und Kundenfachabnahme behaupten.
