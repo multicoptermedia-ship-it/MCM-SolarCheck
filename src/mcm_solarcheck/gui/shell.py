@@ -1296,6 +1296,13 @@ class SolarCheckMainWindow(QMainWindow):
             ),
             import_summary=import_summary,
             import_verification=import_verification,
+            pair_audit=(
+                self._project_service.pair_evidence_overview(self._current_project_id)
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and callable(getattr(self._project_service, "pair_evidence_overview", None))
+                else None
+            ),
             import_attempt=self._last_import_attempt,
             on_preview_rgb_files=self._preview_selected_rgb_files,
             on_preview_rgb_folder=self._preview_rgb_folder,

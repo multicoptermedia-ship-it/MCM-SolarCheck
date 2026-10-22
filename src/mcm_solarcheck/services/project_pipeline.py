@@ -301,6 +301,10 @@ class ProjectApplicationService:
             limit=limit,
         )
 
+    def pair_evidence_overview(self, project_id: str) -> TechnicalPairAudit:
+        """Only aggregated metadata-pair evidence for the active project."""
+        return InspectionQueries(self.database).technical_pair_audit(project_id)
+
     def processing_overview(self, project_id: str) -> ProjectProcessingOverview:
         """Read the authoritative SQLite evidence and existing workflow gates.
 
