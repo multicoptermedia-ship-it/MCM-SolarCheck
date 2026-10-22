@@ -23,6 +23,7 @@ MAX_TOTAL_STAGED_BYTES = 6_000_000_000
 def stage_original_m3t_archives(
     thermal_zip: str | Path, rgb_zip: str | Path, destination: str | Path, *,
     include_unpaired_thermal: bool = False,
+    should_cancel=None, on_file_copied=None,
 ) -> dict:
     """Copy intact sources with checksums, without editing/decoding the images.
 
@@ -68,6 +69,8 @@ def stage_original_m3t_archives(
         for archive_path, entries in ((thermal_zip, ordered_t), (rgb_zip, ordered_v)):
             with ZipFile(archive_path) as archive:
                 for item in entries:
+                    if should_cancel is not None and should_cancel():
+                        raise InterruptedError("local image staging cancelled")
                     info = archive.getinfo(item.name)
                     if info.file_size != item.size_bytes:
                         raise ValueError("source archive changed during staging")
@@ -76,6 +79,8 @@ def stage_original_m3t_archives(
                     total = 0
                     with archive.open(info) as incoming, result.open("xb") as outgoing:
                         while chunk := incoming.read(1024 * 1024):
+                            if should_cancel is not None and should_cancel():
+                                raise InterruptedError("local image staging cancelled")
                             total += len(chunk)
                             if total > item.size_bytes:
                                 raise ValueError("source bytes grew during copy")
@@ -94,6 +99,10 @@ def stage_original_m3t_archives(
                         "human_reviewed": False,
                         "training_rights_approved": False,
                     })
+                    if on_file_copied is not None:
+                        on_file_copied(len(manifest["files"]))
+        if should_cancel is not None and should_cancel():
+            raise InterruptedError("local image staging cancelled")
         with (target / "m3t-original-provenance.json").open(
             "x", encoding="utf-8",
         ) as output:

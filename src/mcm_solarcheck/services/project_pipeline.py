@@ -340,6 +340,77 @@ class ProjectApplicationService:
             candidate_limit=candidate_limit,
         )
 
+    def import_project_original_zips_cancellable(
+        self,
+        project_id: str,
+        thermal_zip: str | Path,
+        rgb_zip: str | Path,
+        *,
+        include_unpaired_thermal: bool = False,
+        should_cancel=None,
+        on_progress=None,
+    ):
+        """Bridge reviewed local ZIPs into an existing project's atomic import.
+
+        Preserve staged originals in a private durable sibling of the SQLite
+        database, because persisted source paths must remain valid after import.
+        Failed/cancelled imports remove only newly staged copies, not ZIPs or
+        existing project evidence. This does NOT approve reports or training.
+        """
+        import secrets
+        if type(include_unpaired_thermal) is not bool:
+            raise TypeError("explicit Boolean required for thermal-only images")
+        self.require(project_id, WorkflowAction.IMPORT)
+        if not any(item.project_id == project_id for item in self.projects()):
+            raise KeyError(f"Unknown project: {project_id}")
+        if should_cancel is not None and should_cancel():
+            raise ProjectImportCancelled("ZIP import cancelled before staging")
+
+        summary = self.import_summary(project_id)
+        if any((
+            summary.rgb_frames, summary.thermal_frames, summary.image_pairs,
+            summary.findings, summary.pv_modules,
+        )):
+            raise PermissionError("original ZIP import requires an empty existing project")
+
+        from mcm_solarcheck.importers.m3t_original_zip_staging import (
+            stage_original_m3t_archives,
+        )
+        parent = Path(self.database.path).absolute().parent / "private-m3t-originals"
+        if parent.is_symlink() or (parent.exists() and not parent.is_dir()):
+            raise PermissionError("untrusted original-image storage root")
+        parent.mkdir(mode=0o700, exist_ok=True)
+        folder = parent / secrets.token_hex(16)
+        committed = False
+        try:
+            if on_progress is not None:
+                on_progress("Original-ZIPs lokal prüfen", 0)
+            stage_original_m3t_archives(
+                Path(thermal_zip), Path(rgb_zip), folder,
+                include_unpaired_thermal=include_unpaired_thermal,
+                should_cancel=should_cancel,
+                on_file_copied=(
+                    (lambda number: on_progress("Unveränderte Originale sichern", number))
+                    if on_progress is not None else None
+                ),
+            )
+            if should_cancel is not None and should_cancel():
+                raise ProjectImportCancelled("ZIP import cancelled before SQLite persistence")
+            outcome = self.import_project_images_cancellable(
+                project_id, folder,
+                should_cancel=should_cancel, on_progress=on_progress,
+            )
+            attempt, data, _state = outcome
+            committed = bool(attempt.succeeded)
+            return outcome
+        except InterruptedError as exc:
+            raise ProjectImportCancelled("ZIP staging cancelled without database changes") from exc
+        finally:
+            if not committed:
+                # Only the fresh folder belongs to this operation; existing
+                # private originals or reports must never be deleted.
+                shutil.rmtree(folder, ignore_errors=True)
+
     def import_project_images_cancellable(
         self,
         project_id: str,
