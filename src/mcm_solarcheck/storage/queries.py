@@ -106,6 +106,16 @@ class ModuleEvidenceRecord:
 
 
 @dataclass(frozen=True)
+class ModuleIdentityReadiness:
+    """Project-wide counts of *candidate* links, never proven physical modules."""
+    observed_modules: int
+    linked_observations: int
+    unresolved_observations: int
+    distinct_candidate_labels: int
+    orphaned_identity_links: int
+
+
+@dataclass(frozen=True)
 class ModuleIdentityRecord:
     frame_id:str
     local_module_id:str
@@ -229,6 +239,54 @@ class InspectionQueries:
                    )
             """, (project_id,)).fetchone()
         return int(row[0])
+
+    def module_identity_readiness(self, project_id: str) -> ModuleIdentityReadiness:
+        """Aggregate project-scoped identity readiness without paging or writes.
+
+        Only 'new'/'matched' candidate links with a nonblank ID qualify.
+        Counts of candidate IDs are NOT counts of real physical PV modules.
+        """
+        with self.database.connect() as db:
+            counts = db.execute("""
+                SELECT COUNT(*) AS observed_modules,
+                       COALESCE(SUM(CASE
+                           WHEN i.status IN ('new', 'matched')
+                            AND i.physical_module_id IS NOT NULL
+                            AND TRIM(i.physical_module_id) <> ''
+                           THEN 1 ELSE 0 END), 0) AS linked_observations,
+                       COUNT(DISTINCT CASE
+                           WHEN i.status IN ('new', 'matched')
+                            AND i.physical_module_id IS NOT NULL
+                            AND TRIM(i.physical_module_id) <> ''
+                           THEN i.physical_module_id ELSE NULL END)
+                           AS distinct_candidate_labels
+                  FROM pv_modules AS m
+                  LEFT JOIN module_identity_links AS i
+                    ON i.project_id=m.project_id
+                   AND i.frame_id=m.frame_id
+                   AND i.local_module_id=m.module_id
+                 WHERE m.project_id=?
+            """, (project_id,)).fetchone()
+            orphaned = int(db.execute("""
+                SELECT COUNT(*)
+                  FROM module_identity_links AS i
+                 WHERE i.project_id=?
+                   AND NOT EXISTS (
+                       SELECT 1 FROM pv_modules AS m
+                        WHERE m.project_id=i.project_id
+                          AND m.frame_id=i.frame_id
+                          AND m.module_id=i.local_module_id
+                   )
+            """, (project_id,)).fetchone()[0])
+        observed = int(counts["observed_modules"])
+        linked = int(counts["linked_observations"])
+        return ModuleIdentityReadiness(
+            observed_modules=observed,
+            linked_observations=linked,
+            unresolved_observations=observed - linked,
+            distinct_candidate_labels=int(counts["distinct_candidate_labels"]),
+            orphaned_identity_links=orphaned,
+        )
 
     def module_identities(self,project_id:str,*,physical_module_id:str|None=None)->tuple[ModuleIdentityRecord,...]:
         sql='SELECT frame_id,local_module_id,physical_module_id,status,normalized_distance FROM module_identity_links WHERE project_id=?'
