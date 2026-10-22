@@ -84,6 +84,7 @@ def check_project_pair_control_points(
         raise ValueError("Recorded sensor dimensions unavailable")
     estimate = estimate_homography(
         fit, holdout, thermal_size=sizes[:2], rgb_size=sizes[2:],
+        require_in_bounds=True,
     )
     accepted = bool(estimate.quality.validated)
     return PairControlPointCheck(

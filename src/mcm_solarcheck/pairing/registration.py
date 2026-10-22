@@ -40,7 +40,7 @@ def assess_registration(matrix:tuple[float,...],points:tuple[ControlPoint,...],*
     rms=sqrt(sum(v*v for v in errors)/len(errors));mx=max(errors);valid=rms<=maximum_rms_error_px and mx<=maximum_error_px
     return RegistrationQuality(len(points),rms,mx,valid,'accepted' if valid else 'reprojection_error_too_high')
 
-def estimate_homography(fit_points:tuple[ControlPoint,...],validation_points:tuple[ControlPoint,...],*,thermal_size:tuple[int,int]=(640,512),rgb_size:tuple[int,int]=(4000,3000),ransac_threshold_px:float=8.0,minimum_fit_points:int=6,minimum_validation_points:int=4,maximum_rms_error_px:float=12.0,maximum_error_px:float=30.0)->HomographyEstimate:
+def estimate_homography(fit_points:tuple[ControlPoint,...],validation_points:tuple[ControlPoint,...],*,thermal_size:tuple[int,int]=(640,512),rgb_size:tuple[int,int]=(4000,3000),ransac_threshold_px:float=8.0,minimum_fit_points:int=6,minimum_validation_points:int=4,maximum_rms_error_px:float=12.0,maximum_error_px:float=30.0,require_in_bounds:bool=False)->HomographyEstimate:
     """Fit RANSAC only on bounded, independent, non-degenerate correspondences.
 
     The returned transform is a technical holdout-gated pixel hypothesis only.
@@ -84,7 +84,9 @@ def estimate_homography(fit_points:tuple[ControlPoint,...],validation_points:tup
             and (arr[:, 2] >= 0).all() and (arr[:, 2] < rgb_size[0]).all()
             and (arr[:, 3] >= 0).all() and (arr[:, 3] < rgb_size[1]).all()
         )
-    if not bounded(all_fit) or not bounded(all_holdout):
+    # Automatic PV grid intersections may lie outside raster edges. Only
+    # explicitly supplied *manual* controls enforce native sensor bounds.
+    if require_in_bounds and (not bounded(all_fit) or not bounded(all_holdout)):
         return refused("control_points_out_of_bounds")
 
     src = all_fit[:, :2]
