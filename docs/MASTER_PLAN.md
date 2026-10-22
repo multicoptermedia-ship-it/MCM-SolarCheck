@@ -401,3 +401,12 @@ und 33 RGB-Aufnahmen bleibt weiterhin offen, ebenso die
 physische Modulzuordnung anhand unabhängig geprüfter
 Referenzen. Vollständig freigegebene Phase B erst nach
 Geometrie- und Kundenfachabnahme behaupten.
+
+
+## Windows-10-Praxistest und Bedienoberfläche (22.10.2026)
+
+Der echte Offline-Pilot mit 160 originalen DJI-M3T-Thermalaufnahmen und 33 RGB-Bildern bestand den gemeinsamen Import (33 technische Bildpaare), die vollständige lokale SHA-256-Originalkopien-Nachprüfung und den GUI-Neustart. 127 Thermalbilder haben kein RGB-Gegenstück; das ist für diesen Datensatz erwartet.
+
+In der neuen Version sind die Navigationseinträge ohne Hover lesbar. Bei neuen und bearbeiteten Projektstammdaten wird die IANA-Zeitzone über eine Auswahl angeboten. Die Importseite stellt unverpackte DJI-JPG-Originale an erste Stelle; seltene ZIP-/Ordner-/GIS-Werkzeuge sind über „Weitere Importwege und Werkzeuge anzeigen“ erreichbar. Eine Sonderoption für ungepaarte Thermaldateien betrifft nur ZIP-Importe.
+
+Für zuvor **getrennt** importierte RGB- und Thermalbilder mit noch fehlenden technischen Paaren: Über „Vorhandene RGB-/Thermalbilder technisch zuordnen“ wird die vorhandene Aufnahme-Metadatenzuordnung ausdrücklich ausgelöst. Bestehende Paare bleiben unangetastet; dieselbe Vertrauensschwelle (mindestens 0,70) wird verwendet. Diese Nachzuordnung ist **keine** geometrische RGB-/Thermalregistrierung, keine Temperaturkalibrierung und keine Expertenfreigabe. Bereits befüllte Projekte nicht erneut über den Gesamt-Originaldateiimport überschreiben.
