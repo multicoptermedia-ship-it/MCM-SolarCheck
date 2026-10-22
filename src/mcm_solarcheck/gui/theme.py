@@ -42,6 +42,24 @@ QLabel#provider_attribution {{
     color: {ANTHRACITE_HOVER};
     font-size: 11px;
 }}
+/* Keep every normal button legible without mouse hover on Windows 10.
+   The disabled state is visible but cannot be mistaken for an active action. */
+QPushButton {{
+    background: #e2e8e3;
+    color: {TEXT_PRIMARY};
+    border: 1px solid #87968c;
+    border-radius: 4px;
+    padding: 7px 11px;
+}}
+QPushButton:hover, QPushButton:focus {{
+    background: #d1dfd5;
+    color: {TEXT_PRIMARY};
+}}
+QPushButton:disabled {{
+    background: #e7eae7;
+    color: #565f59;
+    border: 1px solid #a5afa8;
+}}
 QWidget#workflow_navigation {{
     background: {ANTHRACITE};
 }}
@@ -52,6 +70,11 @@ QWidget#workflow_navigation QPushButton {{
     border-radius: 4px;
     padding: 9px 12px;
     text-align: left;
+}}
+QWidget#workflow_navigation QPushButton:disabled {{
+    background: {ANTHRACITE_RAISED};
+    color: #d3dad5;
+    border: 1px solid #77847b;
 }}
 QWidget#workflow_navigation QPushButton:hover,
 QWidget#workflow_navigation QPushButton:focus {{
