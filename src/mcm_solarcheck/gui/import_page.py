@@ -2,13 +2,21 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QCheckBox, QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QFileDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 
 def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
-    layout = QVBoxLayout(page)
+    root_layout = QVBoxLayout(page)
+    scroll = QScrollArea(page)
+    scroll.setObjectName("import_workspace_scroll")
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    content = QWidget(scroll)
+    layout = QVBoxLayout(content)
+    scroll.setWidget(content)
+    root_layout.addWidget(scroll)
 
     heading = QLabel("Bilddaten importieren", page)
     heading.setObjectName("page_heading")
@@ -39,6 +47,17 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
             "Persistierte Bild- und Paarzahlen des aktiven Projekts."
         )
         layout.addWidget(summary)
+        if import_summary.image_pairs < min(
+            import_summary.rgb_frames, import_summary.thermal_frames
+        ):
+            pair_note = QLabel(
+                "Ein Teil der RGB-/Thermalaufnahmen ist noch nicht technisch "
+                "zugeordnet. Bildanzahl und gespeicherte Bildpaare sind "
+                "unterschiedliche Prüfschritte.", page,
+            )
+            pair_note.setObjectName("import_pair_review_hint")
+            pair_note.setWordWrap(True)
+            layout.addWidget(pair_note)
 
     if import_verification is not None:
         verification_heading = QLabel("Importprüfung", page)
@@ -83,7 +102,7 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     )
     direct_help.setWordWrap(True)
     layout.addWidget(direct_help)
-    select_files_button = QPushButton("DJI-Originaldateien auswählen (ohne ZIP)", page)
+    select_files_button = QPushButton("1. DJI-Originalbilder auswählen (JPG, ohne ZIP)", page)
     select_files_button.setObjectName("import_original_files_button")
     if current_project_id is not None and on_import_original_files is not None:
         def request_original_files():
@@ -103,6 +122,36 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     else:
         select_files_button.setEnabled(False)
     layout.addWidget(select_files_button)
+
+    cancel_import = QPushButton("Laufenden DJI-Bildimport abbrechen", page)
+    cancel_import.setObjectName("cancel_image_import_button")
+    cancel_import.setEnabled(on_cancel_image_import is not None)
+    if on_cancel_image_import is not None:
+        cancel_import.clicked.connect(on_cancel_image_import)
+    layout.addWidget(cancel_import)
+    cancel_import.setVisible(on_cancel_image_import is not None)
+    if image_import_status is not None:
+        image_import_status_label = QLabel(image_import_status, page)
+        image_import_status_label.setObjectName("image_import_worker_status")
+        image_import_status_label.setTextFormat(Qt.TextFormat.PlainText)
+        image_import_status_label.setWordWrap(True)
+        layout.addWidget(image_import_status_label)
+
+
+    advanced_toggle = QPushButton("Weitere Importwege und Werkzeuge anzeigen", page)
+    advanced_toggle.setObjectName("import_advanced_toggle")
+    advanced_toggle.setCheckable(True)
+    advanced_toggle.setAccessibleDescription(
+        "Optional: Ordner-/ZIP-Import, Diagnose, Orthofotos und Expertenwerkzeuge."
+    )
+    layout.addWidget(advanced_toggle)
+    advanced_panel = QWidget(page)
+    advanced_panel.setObjectName("import_advanced_panel")
+    advanced_layout = QVBoxLayout(advanced_panel)
+    layout.addWidget(advanced_panel)
+    advanced_toggle.toggled.connect(advanced_panel.setVisible)
+    advanced_panel.setVisible(False)
+    layout = advanced_layout
 
     import_images = QPushButton("Bildordner auswählen (ohne ZIP)", page)
     import_images.setObjectName("import_images_button")
@@ -126,7 +175,7 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     layout.addWidget(import_images)
 
     original_help = QLabel(
-        "Optional nur für bereits als ZIP gelieferte Originale: Thermal- und "
+        "Nur bei bereits als ZIP gelieferten Dateien: Thermal- und "
         "RGB-ZIP auswählen. Im normalen Betrieb sind ZIPs nicht erforderlich. "
         "Keine automatische Fehler- oder Trainingsfreigabe.",
         page,
@@ -134,7 +183,7 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     original_help.setWordWrap(True)
     layout.addWidget(original_help)
     thermal_only = QCheckBox(
-        "Thermalbilder ohne RGB zusätzlich ausdrücklich übernehmen", page,
+        "Nur für ZIP-Import: zusätzliche Thermalbilder ohne RGB übernehmen", page,
     )
     thermal_only.setObjectName("import_original_thermal_only_choice")
     layout.addWidget(thermal_only)
@@ -165,19 +214,6 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
                 on_import_original_zips(thermal, rgb, thermal_only.isChecked())
         original_button.clicked.connect(select_originals)
     layout.addWidget(original_button)
-
-    cancel_import = QPushButton("Laufenden DJI-Bildimport abbrechen", page)
-    cancel_import.setObjectName("cancel_image_import_button")
-    cancel_import.setEnabled(on_cancel_image_import is not None)
-    if on_cancel_image_import is not None:
-        cancel_import.clicked.connect(on_cancel_image_import)
-    layout.addWidget(cancel_import)
-    if image_import_status is not None:
-        image_import_status_label = QLabel(image_import_status, page)
-        image_import_status_label.setObjectName("image_import_worker_status")
-        image_import_status_label.setTextFormat(Qt.TextFormat.PlainText)
-        image_import_status_label.setWordWrap(True)
-        layout.addWidget(image_import_status_label)
 
     if import_metrics_text is not None:
         metric_label = QLabel(import_metrics_text, page)
