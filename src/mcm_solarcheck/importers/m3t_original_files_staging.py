@@ -5,20 +5,13 @@ training rights nor temperature accuracy nor sensor registration are granted.
 """
 from __future__ import annotations
 
-from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
-from PIL import Image
 import json
 import os
-import re
 import shutil
 
-from mcm_solarcheck.importers.m3t_original_zip_staging import MAX_TOTAL_STAGED_BYTES
-
-DJI_ORIGINAL = re.compile(r"DJI_(\d{14})_(\d{4})_([TV])\.JPG\Z", re.IGNORECASE)
-MAX_FILE_BYTES = {"T": 30_000_000, "V": 40_000_000}
-MAX_FILES = 15_000
+from mcm_solarcheck.importers.m3t_original_files_audit import audit_original_m3t_files
 
 
 def stage_original_m3t_files(original_files, destination, *,
@@ -29,63 +22,19 @@ def stage_original_m3t_files(original_files, destination, *,
     local manifest. All files are validated before any staging directory
     is created, and new copies are deleted if any later step fails.
     """
-    if not isinstance(original_files, (list, tuple)):
-        raise TypeError("A selected sequence of original files is required")
-    if not 1 <= len(original_files) <= MAX_FILES:
-        raise ValueError("Select at least one and at most 15000 DJI originals")
     target = Path(destination)
     if (not target.is_absolute() or target.exists() or target.is_symlink()
             or not target.parent.is_dir() or target.parent.is_symlink()):
         raise PermissionError("A new private destination in an existing directory is required")
-    checked: list[tuple[Path, str, str, str, int]] = []
-    used_names: set[str] = set()
-    used_counters: set[tuple[str, str]] = set()
-    timestamps: dict[str, dict[str, str]] = {}
-    total = 0
-    for selected in original_files:
-        if should_cancel is not None and should_cancel():
-            raise InterruptedError("Original image staging cancelled")
-        path = Path(selected)
-        if (not path.is_absolute() or path.is_symlink() or not path.is_file()
-                or path.parent.is_symlink()):
-            raise PermissionError("Only selected local regular image files are allowed")
-        match = DJI_ORIGINAL.fullmatch(path.name)
-        if match is None:
-            raise ValueError("Invalid original DJI M3T filename")
-        stamp, seq, kind = match.group(1), match.group(2), match.group(3).upper()
-        datetime.strptime(stamp, "%Y%m%d%H%M%S")
-        if path.name.casefold() in used_names or (kind, seq) in used_counters:
-            raise ValueError("Duplicated original DJI image identity")
-        used_names.add(path.name.casefold())
-        used_counters.add((kind, seq))
-        size = path.stat().st_size
-        if not 0 < size <= MAX_FILE_BYTES[kind]:
-            raise ValueError("Invalid DJI original byte size")
-        total += size
-        if total > MAX_TOTAL_STAGED_BYTES:
-            raise ValueError("Selected original files exceed local resource limit")
-        with Image.open(path) as image:
-            if image.format not in ("MPO", "JPEG"):
-                raise ValueError("Unsupported DJI image container")
-            if image.size != ((640, 512) if kind == "T" else (4000, 3000)):
-                raise ValueError("Unexpected DJI image dimensions")
-            tags = image.getexif()
-            expected_time = (
-                f"{stamp[:4]}:{stamp[4:6]}:{stamp[6:8]} "
-                f"{stamp[8:10]}:{stamp[10:12]}:{stamp[12:14]}"
-            )
-            if (tags.get(271) != "DJI" or tags.get(272) != "M3T"
-                    or tags.get(306) != expected_time):
-                raise ValueError("Original DJI EXIF identity or capture time mismatch")
-        timestamps.setdefault(seq, {})[kind] = stamp
-        checked.append((path, kind, seq, stamp, size))
-    if any(len(both) == 2 and both["T"] != both["V"]
-           for both in timestamps.values()):
-        raise ValueError("RGB/Thermal counters with conflicting exposure timestamps")
-    matched = sum(len(both) == 2 for both in timestamps.values())
-    count_t = sum(kind == "T" for _, kind, _, _, _ in checked)
-    count_v = len(checked) - count_t
-    unpaired_t = sum("T" in both and "V" not in both for both in timestamps.values())
+    audit = audit_original_m3t_files(original_files, should_cancel=should_cancel)
+    checked = [
+        (item.path, item.modality, item.sequence, item.exposure, item.size_bytes)
+        for item in audit.files
+    ]
+    matched, count_t, count_v, unpaired_t = (
+        audit.matched_pairs, audit.thermal_images, audit.rgb_images,
+        audit.thermal_only,
+    )
     # The operator explicitly selected these individual originals; do not
     # silently exclude thermal-only images or manufacture missing RGB partners.
     manifest = {
