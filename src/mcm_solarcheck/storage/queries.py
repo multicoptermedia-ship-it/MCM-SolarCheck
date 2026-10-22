@@ -6,6 +6,9 @@ silently converted or estimated.
 """
 from __future__ import annotations
 from dataclasses import dataclass
+from datetime import datetime
+from math import isfinite
+from pathlib import Path
 import json
 from .sqlite import ProjectDatabase
 from mcm_solarcheck.thermal.temperature_provenance import has_validated_celsius
@@ -34,6 +37,19 @@ class ImportVerificationSummary:
     missing_timestamp: int
     missing_position: int
     missing_camera_identity: int
+
+
+@dataclass(frozen=True)
+class TechnicalPairAudit:
+    """Anonymous aggregates of persisted metadata pairing, not registration."""
+    pairs_recorded: int
+    supported_by_current_rules: int
+    require_review: int
+    with_matching_sequence: int
+    with_close_time: int
+    with_close_position: int
+    unmatched_rgb: int
+    unmatched_thermal: int
 
 @dataclass(frozen=True)
 class ProjectRecord:
@@ -152,6 +168,96 @@ class InspectionQueries:
                 if isinstance(metadata,dict) and has_validated_celsius(row['temperature_c'],metadata.get('temperature_status'),metadata.get('temperature_provider')):
                     calibrated+=1
             return InspectionSummary(project_id,count('image_frames'),count('thermal_frames'),count('image_pairs'),count('pv_modules'),count('findings'),statuses.get('unreviewed',0),statuses.get('confirmed',0),statuses.get('rejected',0),statuses.get('unclear',0),calibrated)
+    def technical_pair_audit(self, project_id: str) -> TechnicalPairAudit:
+        """Independently re-score saved pairs without opening pictures or writing.
+
+        Stored numbers, metadata and coordinates stay inside the query.
+        No geometric registration, Celsius calibration or expert approval.
+        """
+        from mcm_solarcheck.domain.models import ImageFrame, ThermalFrame, Position
+        from mcm_solarcheck.pairing.rgb_thermal import pair_score
+
+        with self.database.connect() as db:
+            if db.execute(
+                "SELECT 1 FROM projects WHERE project_id=?", (project_id,)
+            ).fetchone() is None:
+                raise KeyError("Unknown project")
+            rgb_total = int(db.execute(
+                "SELECT COUNT(*) FROM image_frames WHERE project_id=?", (project_id,)
+            ).fetchone()[0])
+            thermal_total = int(db.execute(
+                "SELECT COUNT(*) FROM thermal_frames WHERE project_id=?", (project_id,)
+            ).fetchone()[0])
+            rows = db.execute("""
+                SELECT p.confidence, p.method, p.rgb_frame_id, p.thermal_frame_id,
+                       r.source_file AS rgb_source,
+                       r.timestamp_utc AS rgb_time,
+                       r.latitude AS rgb_lat, r.longitude AS rgb_lon,
+                       t.source_file AS thermal_source,
+                       t.timestamp_utc AS thermal_time,
+                       t.latitude AS thermal_lat, t.longitude AS thermal_lon
+                  FROM image_pairs AS p
+                  LEFT JOIN image_frames AS r
+                    ON r.project_id=p.project_id AND r.frame_id=p.rgb_frame_id
+                  LEFT JOIN thermal_frames AS t
+                    ON t.project_id=p.project_id AND t.frame_id=p.thermal_frame_id
+                 WHERE p.project_id=?
+                 ORDER BY p.pair_id
+            """, (project_id,)).fetchall()
+
+        count_sequence = count_time = count_position = supported = 0
+        used_rgb, used_thermal = set(), set()
+        for row in rows:
+            if row["rgb_frame_id"] in used_rgb or row["thermal_frame_id"] in used_thermal:
+                continue  # One acquisition cannot establish several unique pairs.
+            used_rgb.add(row["rgb_frame_id"])
+            used_thermal.add(row["thermal_frame_id"])
+            if row["rgb_source"] is None or row["thermal_source"] is None:
+                continue
+
+            def to_frame(prefix: str, kind):
+                stamp = row[prefix + "_time"]
+                lat, lon = row[prefix + "_lat"], row[prefix + "_lon"]
+                date = datetime.fromisoformat(stamp) if stamp else None
+                location = None
+                if lat is not None and lon is not None:
+                    if not (isfinite(lat) and isfinite(lon)
+                            and -90 <= lat <= 90 and -180 <= lon <= 180):
+                        raise ValueError("invalid stored position")
+                    location = Position(lat, lon)
+                return kind(
+                    frame_id=row["rgb_frame_id"] if prefix == "rgb"
+                             else row["thermal_frame_id"],
+                    source_file=Path(row[prefix + "_source"]),
+                    timestamp_utc=date, position=location,
+                )
+
+            try:
+                confidence, method, _distance, _delta = pair_score(
+                    to_frame("rgb", ImageFrame),
+                    to_frame("thermal", ThermalFrame),
+                )
+            except (ValueError, TypeError, OverflowError):
+                continue
+            factors = set(method.split("+"))
+            count_sequence += "sequence" in factors
+            count_time += "time" in factors
+            count_position += "position" in factors
+            if (confidence >= 0.70 and isfinite(row["confidence"])
+                    and abs(row["confidence"] - confidence) < 0.00001
+                    and row["method"] == method):
+                supported += 1
+        return TechnicalPairAudit(
+            pairs_recorded=len(rows),
+            supported_by_current_rules=supported,
+            require_review=len(rows) - supported,
+            with_matching_sequence=count_sequence,
+            with_close_time=count_time,
+            with_close_position=count_position,
+            unmatched_rgb=max(0, rgb_total - len(used_rgb)),
+            unmatched_thermal=max(0, thermal_total - len(used_thermal)),
+        )
+
     def import_verification(self,project_id:str)->ImportVerificationSummary:
         """Summarize persisted thermal metadata and quality without inferring validity."""
         with self.database.connect() as db:
