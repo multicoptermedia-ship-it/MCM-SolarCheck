@@ -27,7 +27,7 @@ try {
         & $python -m mcm_solarcheck.offline.windows_smoke --headless
         if ($LASTEXITCODE -ne 0) { throw 'Offline Windows 10 smoke check failed.' }
         if ($IncludeTests) {
-            & $python -m pytest -q tests/test_windows_admin_native.py tests/test_windows_offline_startup.py tests/test_offline_admin_password_rotation_gui.py
+            & $python -m pytest -q tests/test_windows_admin_native.py tests/test_windows_offline_startup.py tests/test_offline_admin_password_rotation_gui.py tests/test_windows10_original_zip_acceptance.py
             if ($LASTEXITCODE -ne 0) { throw 'Windows 10 regression tests failed.' }
         }
     } finally {

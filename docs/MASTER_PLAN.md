@@ -276,3 +276,20 @@ nur weil beide CI-Testmatrizen grün sind. Release, fachliche
 Temperaturvalidierung, Kundenrechte und Modellvalidierung sind
 eigenständige Gates. An `main` und PR #3/#4 nichts verändern,
 bevor eine gesonderte Integrationsfreigabe vorliegt.
+
+## Statusfortschreibung 22. Oktober 2026 – Windows-10-Abnahmehilfen (noch keine Fachabnahme)
+
+- Ein opt-in, ausschließlich schreibgeschützter Vor-/Nachprüfer für den realen
+  160/33-DJI-Original-ZIP-Import ist auf dem Offline-Featurebranch vorbereitet.
+  Vorprüfung: ZIP-DJI-Identität und 33 Metadatenpaare; Nachprüfung: bestehendes
+  Testprojekt und dessen SQLite-Framereferenzen im Read-only-Modus, private
+  Provenienz und SHA-256-Originalvergleich. Fehlende Analysepaare werden nicht
+  zu vollständiger Registrierung umgedeutet.
+- Ausführung: `scripts/check_windows10_original_zips.ps1` auf **echtem
+  Windows 10**, vor und nach dem ausdrücklich über die GUI gestarteten Import.
+  Kein automatischer Import oder Zugriff auf alte Kundenprojekte.
+- Die sechs lokalen/CI-Testarten bleiben von der echten Abnahme getrennt:
+  Erst die 160/33-Originalbilder, ein frisches Offline-Testprojekt, der
+  UI-Durchlauf, SQLite-Read-only-Nachweis und Neustart auf Windows 10
+  können Phase A weiter freigeben. Test- und CI-Ergebnisse des neuen Blocks
+  müssen nach dessen fünftem Commit gesondert bestätigt werden.

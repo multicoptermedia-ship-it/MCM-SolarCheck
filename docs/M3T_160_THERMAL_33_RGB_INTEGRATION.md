@@ -162,3 +162,54 @@ neue Kopien entfernt; Original-ZIPs bleiben unverändert.
 Ein echter Durchlauf mit den 160 privaten Bildern auf Windows 10
 ist noch nicht erfolgt. Synthetische Regressionstests in CI
 ersetzen diese lokale Abnahme nicht.
+
+## 22.10.2026 – Lesbare technische Windows-10-Abnahme vor/nach dem GUI-Import
+
+Die neue **optionale, reine Leseprüfung** in `scripts/check_windows10_original_zips.ps1`
+arbeitet ohne Downloads, ohne Import-Schreibzugriff, ohne Datenbankmigration, ohne
+Berichtsfreigabe und ohne Modelltraining. Das Script läuft bewusst nur auf
+einer echten Windows-10-Workstation, **nicht** auf Windows Server 2022.
+Es protokolliert nur Summenzähler bzw. einen generischen Fehlertyp, niemals
+Aufnahmedaten, Dateinamen, Pfade, GPS oder private Prüfsummen.
+
+Vor dem GUI-Import in einer lokalen PowerShell im Quellbaum ausführen:
+
+```powershell
+.\scripts\check_windows10_original_zips.ps1 -ThermalZip "D:\Private-M3T\Thermal1.zip" -RgbZip "D:\Private-M3T\RGB1.zip"
+```
+
+Erwartete Metadaten: **160 Thermal / 33 RGB / 33 anhand Dateinummer und
+Zeitstempel zugeordnete Paare / 127 Thermal ohne RGB**. Bei Abweichung
+meldet der Prüfaufruf einen Fehler, ohne ZIPs zu verändern.
+
+Dann in der Offline-GUI **ein neues leeres Testprojekt** erstellen und
+„DJI-Original-ZIPs (Thermal + RGB) auswählen“. Erst nach einer erkennbar
+erfolgreichen Projektimport-Anzeige die **schreibgeschützte Nachprüfung** mit
+der echten Projektkennung ausführen (hier `M3T-PILOT` nur als Beispiel):
+
+```powershell
+.\scripts\check_windows10_original_zips.ps1 -ThermalZip "D:\Private-M3T\Thermal1.zip" -RgbZip "D:\Private-M3T\RGB1.zip" -Database "$HOME\MCM-SolarCheck\solarcheck.sqlite3" -ProjectId "M3T-PILOT"
+```
+
+Hat man beim **GUI-Import ausdrücklich die zusätzlichen 127 Thermalbilder**
+aktiviert, muss man für **genau dieselbe Auswahl** beim zweiten Aufruf
+`-IncludeUnpairedThermal` ergänzen. Der Nachtest liest ausschließlich das
+gewählte Projekt aus der existierenden SQLite mit `mode=ro`, prüft die
+persistierten Quellverweise und den privaten Herkunftsindex und vergleicht
+die gesicherten Bildbytes per SHA-256 mit den aktuellen ZIP-Inhalten.
+Unstimmigkeiten brechen fehlersicher ab; vorherige Projekte werden nicht
+berührt. Die Prüfroutine erzeugt keine Berichte oder Kopien.
+
+**Unterscheidung:** `filename_timestamp_matched_pairs` bezeichnet nur die
+33 zusammengehörigen Aufnahmezeitpunkte. `persistent_analysis_pair_records`
+kommt separat aus der SQLite-Zuordnung. Falls diese Zahl niedriger ist,
+zeigt `analysis_pair_review_required: true` noch offenen Fachprüfbedarf
+an; es ist **keine** pixelgenaue Registrierung. Weder eine gültige APP3-
+Struktur noch der hier geprüfte SHA-256-Vergleich validieren Celsius,
+physische Modulidentität, Defekte oder Trainingsrechte.
+
+Diese Skripte und synthetischen Tests sind nur die **Vorbereitung**.
+Die Durchführung mit den tatsächlichen 160/33 Originaldateien auf dem
+Windows-10-Rechner, Bedienabnahme, Neustart und manuelle Rückmeldung
+stehen weiterhin aus. Der private Projekt- und Originalordner benötigt
+vor der Kundenverwendung einen angemessenen lokalen Backup-/Recovery-Plan.
