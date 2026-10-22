@@ -321,3 +321,20 @@ Diese Anleitung wird parallel zur SolarCheck-Oberfläche gepflegt. Abbildungen
 der tatsächlichen Anwendung werden ergänzt, sobald die implementierten
 Bildschirme ausreichend stabil sind. Konzeptgrafiken werden nicht als
 Screenshots der fertigen Anwendung ausgegeben.
+
+## 19. Lokaler Pilot-Abnahmecheck nach Originaldateiimport
+
+Für technische Pilotprüfungen steht zusätzlich zur normalen
+Bedienoberfläche `scripts/check_windows10_original_files.ps1` bereit.
+Ein oder mehrere Ordner mit den unverpackten DJI-JPGs werden nur gelesen.
+Nach ausdrücklichem Import über „DJI-Originaldateien auswählen (ohne ZIP)“
+können die dauerhaft gesicherten Bildkopien mit den Originalbytes und
+dem Projektzustand abgeglichen werden.
+
+Der Abnahmecheck ist kein Import-Assistent und für normale Anwender
+nicht verpflichtend. In der Ausgabe werden Dateizähler für
+Metadatenpaare und persistierte Analysepaare ausdrücklich unterschieden.
+Bei abweichenden Paarzahlen bleibt eine menschliche Prüfung notwendig.
+Ein technisch erfolgreicher Abgleich validiert weder Temperaturwerte
+in Grad Celsius noch RGB/Thermal-Registrierung, Modulidentität,
+PV-Defekte oder die Berichtsfreigabe.

@@ -250,3 +250,55 @@ Bedienprüfung. Keine Aussage zu kalibrierten °C, physischer Modul-ID,
 kundentauglichem Bericht, KI-Training oder allgemeiner Freigabe.
 
 Die Dateiimport-Bilder bleiben lokal und werden über den bestehenden Import-Worker gespeichert. Für diese primäre Mehrfachdateiauswahl gibt es **keinen** vorherigen ZIP-Audit-Aufruf. Testdaten aus privaten ZIPs sind nach dem Entpacken unverpackte Originale, sofern der Nutzer sie selbst in seinen lokalen Ordnern aufbewahrt. ZIP-Entpacken ist für den Standardimport nicht vorgesehen.
+
+## Windows-10-Abnahmerezept für unverpackte Originaldateien (22.10.2026)
+
+Der Standardfall ist jetzt **Originaldatei- oder Ordnerauswahl**, nicht ZIP.
+Die beiden komprimierten Archive waren nur zum Datentransfer gedacht.
+
+1. Bei bereits eingerichteter lokaler `.venv` aus dem Projektordner die
+   **lesende Vorprüfung** auf einem echten Windows-10-Rechner starten.
+   Für einen gemischten DJI-Originalordner:
+
+   ```powershell
+   .\scripts\check_windows10_original_files.ps1 -SourceFolders @("D:\Privat\DJI-Originale")
+   ```
+
+   Für zwei separate Ordner mit Thermal- und RGB-Originaldateien:
+
+   ```powershell
+   .\scripts\check_windows10_original_files.ps1 -SourceFolders @("D:\Privat\Thermal", "D:\Privat\RGB")
+   ```
+
+   Das Skript liest alle JPG-Dateien **nur auf oberster Ebene** der
+   angegebenen Ordner. Es speichert keine ZIPs, ändert keine Originaldateien
+   und protokolliert keine geheimen GPS-/Bildmetadaten. Die erwarteten
+   Werte für diesen Datensatz sind 160 Thermal, 33 RGB und 33 anhand
+   Dateinamen und Aufnahmezeit zugeordnete Paare.
+2. Den regulären Offline-SolarCheck starten; **neues leeres
+   lokales Testprojekt** erstellen; in **Import** über
+   „DJI-Originaldateien auswählen (ohne ZIP)“ die 193 Originaldateien
+   direkt auswählen. Alternativ den bestehenden Bildordnerimport
+   verwenden; der neue Nachprüfer ist derzeit an den expliziten
+   Original-**Mehrfachdatei**-Pfad und dessen Herkunftsmanifest gebunden.
+3. Nach sichtbarem erfolgreichem Import die **lesende Nachprüfung**
+   mit denselben Quellverzeichnissen und der realen Projekt-ID:
+
+   ```powershell
+   .\scripts\check_windows10_original_files.ps1 -SourceFolders @("D:\Privat\Thermal", "D:\Privat\RGB") -Database "$HOME\MCM-SolarCheck\solarcheck.sqlite3" -ProjectId "M3T-PILOT"
+   ```
+
+   `M3T-PILOT` ist eine Beispielkennung und muss durch die
+   tatsächliche Testprojektkennung ersetzt werden.
+4. Das Offline-Programm vollständig schließen, erneut starten und
+   die gespeicherten Bildzahlen, Bildverweise, Projektzuordnung und
+   Reviewanzeige manuell verifizieren. Bei Problemen keine alten
+   Kundenprojekte verändern, sondern den Fehler im privaten
+   Testprojekt dokumentieren (nur anonyme Zähler/Fehlertypen teilen).
+
+**Stoppregel:** Eine rein lesende Prüfung oder grünes CI ersetzt keinen
+vollständigen Windows-10-Originalbilder-Praxislauf. Für die spätere
+Anlagenübersicht sind reale Modulgeometrie, Modulidentifikation und
+bildübergreifende Registrierung eigene, fachlich zu bestätigende Gates.
+ZIP-Prüfscripts bleiben nur Zusatzwerkzeuge für den Sonderfall.
+

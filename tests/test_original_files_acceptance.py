@@ -123,7 +123,7 @@ def test_source_folders_can_be_separate_and_not_zip(tmp_path):
     assert {p.name for p in chosen} == {p.name for p in selected}
     assert report(chosen)["filename_timestamp_matched_pairs"] == 1
     with pytest.raises(ValueError):
-        report(chosen, expected_thermal=999)
+        evaluate(chosen, expected_thermal=999, expected_rgb=1, expected_metadata_pairs=1)
 
 
 def test_noncanonical_jpg_cannot_be_silently_skipped_by_importer(tmp_path):

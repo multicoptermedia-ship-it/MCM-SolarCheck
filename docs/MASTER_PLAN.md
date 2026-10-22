@@ -329,3 +329,34 @@ persistierte Mengen/Quellreferenzen, Abbruchfall, GUI-Neustart und
 Bedienprüfung. Keine Aussage zu kalibrierten °C, physischer Modul-ID,
 kundentauglichem Bericht, KI-Training oder allgemeiner Freigabe.
 
+
+## Stand 22.10.2026 – Read-only Windows-10-Abnahme für normale DJI-Originaldateien
+
+Der Standardimport **benötigt keine ZIP-Archive**. Neu ist eine gezielt
+aufrufbare, schreibgeschützte technische Vor-/Nachprüfung der explizit
+ausgewählten Original-JPG-/MPO-Dateien: `scripts/check_windows10_original_files.ps1`.
+Der Anwender kann ein oder mehrere Verzeichnisse mit unverpackten DJI-Bildern
+angeben, alternativ einzelne Dateipfade. Es erfolgt **keine automatische
+Dateiübernahme durch das Prüftool** und keine Datenbankmigration.
+
+Die neue Prüfung verwendet die gleichen DJI-Dateinamen-, EXIF-, Zeit-,
+Kamera- und Bildgrößenbedingungen wie der eigentliche sichere Originaldatei-
+Staging-Service. Nichtkanonische Schreibweisen werden derzeit ausdrücklich
+abgewiesen, statt Dateien stillschweigend aus dem vorhandenen Importer
+auszulassen. Quelle und private Kopie werden nach dem bewussten GUI-Import
+per SHA-256 mit den gespeicherten Provenienzangaben abgeglichen. SQLite
+wird mit `mode=ro` und `query_only` geöffnet. Die Ausgabe enthält nur
+zusammengefasste Zahlen, keine Pfade, GPS, Dateinamen oder Hashwerte.
+
+Die **33 Metadatenpaare** werden explizit von den **persistierten
+Analyse-Paaren** unterschieden: Eine kleinere Zahl an Analysepaaren zeigt
+`analysis_pair_review_required: true` und bleibt Fachprüfbedarf.
+Importkontrolle bedeutet weiterhin **nicht** validierte RGB/Thermal-
+Geometrie, absolute °C, physische Modul-ID oder fertigen PV-Bericht.
+
+Für reale Abnahme weiterhin offen: Python-Laufzeit/Windows-10-Hardware,
+alle 160 Thermal-/33 RGB-Originalbilder, echter MPO-/APP3-Import über die GUI,
+geschütztes neues Testprojekt, Nachkontrolle, App-Neustart, stichprobenhafte
+Bild-/Reviewanzeige, Abbruchfall und lokaler Backup-/Recovery-Nachweis.
+CI nutzt ausschließlich synthetische DJI-Testbilder und Windows Server 2022.
+
