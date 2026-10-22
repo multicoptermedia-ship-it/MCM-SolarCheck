@@ -16,11 +16,14 @@ class FlightImportThread(QThread):
     cancelled = Signal()
     metrics_ready = Signal(object)
 
-    def __init__(self, project_service, project_id: str, source_folder: str, parent=None):
+    def __init__(self, project_service, project_id: str, source_folder: str, parent=None,
+                 *, original_zips=None, include_unpaired_thermal=False):
         super().__init__(parent)
         self.project_service = project_service
         self.project_id = project_id
         self.source_folder = source_folder
+        self.original_zips = original_zips
+        self.include_unpaired_thermal = include_unpaired_thermal
         self._cancel = threading.Event()
 
     def request_cancel(self) -> None:
@@ -35,12 +38,22 @@ class FlightImportThread(QThread):
             self.progress.emit(phase, count)
 
         try:
-            outcome = self.project_service.import_project_images_cancellable(
-                self.project_id,
-                self.source_folder,
-                should_cancel=self._cancel.is_set,
-                on_progress=on_progress,
-            )
+            if self.original_zips is not None:
+                outcome = self.project_service.import_project_original_zips_cancellable(
+                    self.project_id,
+                    self.original_zips[0],
+                    self.original_zips[1],
+                    include_unpaired_thermal=self.include_unpaired_thermal,
+                    should_cancel=self._cancel.is_set,
+                    on_progress=on_progress,
+                )
+            else:
+                outcome = self.project_service.import_project_images_cancellable(
+                    self.project_id,
+                    self.source_folder,
+                    should_cancel=self._cancel.is_set,
+                    on_progress=on_progress,
+                )
         except ProjectImportCancelled:
             self.metrics_ready.emit(probe.finish("cancelled"))
             self.cancelled.emit()

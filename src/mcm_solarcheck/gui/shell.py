@@ -1224,6 +1224,14 @@ class SolarCheckMainWindow(QMainWindow):
         )
         new_page = make_import_page(
             current_project_id=self._current_project_id,
+            on_import_original_zips=(
+                self._request_original_zip_import
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._project_service is not None
+                and self._import_thread is None
+                and not self._import_close_pending
+                else None
+            ),
             on_import_images=(
                 self._request_image_import
                 if self._deployment is DeploymentMode.OFFLINE_DESKTOP
@@ -1830,7 +1838,8 @@ class SolarCheckMainWindow(QMainWindow):
             self._orthophoto_comparison_error = f"Orthofoto-Vergleich fehlgeschlagen: {error}"
         self._refresh_import_page()
 
-    def _start_background_image_import(self, source_directory: str) -> None:
+    def _start_background_image_import(self, source_directory: str, *, original_zips=None,
+                                       include_unpaired_thermal=False) -> None:
         """Run guarded DJI import off-thread, with no Qt objects in its worker."""
         from mcm_solarcheck.gui.flight_import_worker import FlightImportThread
 
@@ -1843,6 +1852,8 @@ class SolarCheckMainWindow(QMainWindow):
             return
         worker = FlightImportThread(
             self._project_service, self._current_project_id, source_directory, self,
+            original_zips=original_zips,
+            include_unpaired_thermal=include_unpaired_thermal,
         )
         self._import_thread = worker
         self._import_project_id = self._current_project_id
@@ -2100,6 +2111,23 @@ class SolarCheckMainWindow(QMainWindow):
         worker = self._import_thread
         if worker is not None:
             worker.request_cancel()
+
+    def _request_original_zip_import(
+        self, thermal_zip: str, rgb_zip: str, include_unpaired_thermal: bool,
+    ) -> None:
+        """Only an explicit operator choice may open and stage private ZIPs."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._project_service is None
+            or self._current_project_id is None
+            or self._import_thread is not None
+            or self._import_close_pending
+        ):
+            return
+        self._start_background_image_import(
+            "", original_zips=(thermal_zip, rgb_zip),
+            include_unpaired_thermal=include_unpaired_thermal,
+        )
 
     def _request_image_import(self, source_directory: str) -> None:
         """Route a selected directory through the guarded application import boundary."""
