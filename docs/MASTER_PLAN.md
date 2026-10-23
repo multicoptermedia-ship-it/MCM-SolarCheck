@@ -428,3 +428,12 @@ Das neue Werkzeug unter **Verarbeitung → Erweitert: Kontrollpunktprüfung anze
 Die Anwendung prüft Bildbezüge, Quellabmessungen, gültige Koordinaten, doppelte/überlappende Punkte, RANSAC-Inlier und unabhängige Holdout-Abweichungen. Nur zusammengefasste Qualitätszahlen oder generische Ablehnungsgründe werden angezeigt; private Bildnamen, GPS oder Bildinhalte nicht. **Die eigentliche Bildüberlagerung wird nicht ausgeführt.** Ein bestandenes Holdout liefert eine technische, **nicht freigegebene Hypothese**, keinen gültigen Bericht, keine radiometrische Temperatur, keine bestätigte physische Modulidentität und keinen Nachweis der Normkonformität. Ergebnisse werden nicht als registrierter Transformationsdatensatz gespeichert.
 
 Für PV-Rastertests erlauben vorhandene Algorithmen weiterhin mathematisch extrapolierte Gitterkreuzungen. **Manuell eingegebene Kontrollpunkte** müssen dagegen innerhalb der aufgezeichneten Sensorbildabmessungen liegen. Die Kontrollpunkt-Auswahl und die Verständlichkeit dieser Expertenfunktion werden bei einer späteren realen Windows-10-Abnahme überprüft.
+
+
+## Online-/Offline-Projektanlage (23.10.2026)
+
+Die Eingabe ist jetzt einfacher: Bei neuen Projekten wird **„Anlage“** (3 bis 80 Zeichen) eingegeben; daraus wird der Projektname. **Projekt-ID/Nummer werden beim Speichern automatisch vergeben.** Beispielsweise `SC-0001` für das erste Projekt eines Nutzers, `SC-0002` für das nächste. Diese Nummer ist nur innerhalb des jeweiligen Nutzerkontos beziehungsweise lokalen Offline-Datenbestands eindeutig. Intern verwendet SolarCheck neue unveränderliche UUID-Projekt-IDs für Datenbankrelationen. Eine Änderung der registrierten E-Mail-Adresse beeinflusst das Projekt nicht.
+
+Online benötigt das Formular zusätzlich die **Anlagenleistung in kWp**. Die Kontoidentität wird ausschließlich aus der gültigen Online-Sitzung genommen. Bestehende Projekte und private DJI-Bilddateien müssen weder umbenannt noch erneut importiert werden. Auch ältere, bewusst manuell angelegte IDs bleiben durch Rückwärtskompatibilität erhalten.
+
+Für bessere Lesbarkeit sind Qt-Standardschriften 16px und Web-Standardschriften 17px; die Eingabe- und Auswahlfelder sind größer. Die endgültige Zugänglichkeit und angenehme Abstände werden im nächsten echten Windows-10-Test gemeinsam geprüft; optionale Hintergrundbilder und rein optische Elemente folgen in späteren Designschritten.

@@ -166,11 +166,11 @@ def _migrate_19_to_20(db: sqlite3.Connection) -> None:
     Scope is online customer ID or the local offline database. Backfill
     includes all existing projects, even older manually entered ones.
     """
-    db.execute("""CREATE TABLE project_number_counters(
+    db.execute("""CREATE TABLE IF NOT EXISTS project_number_counters(
         scope_key TEXT PRIMARY KEY,
         last_number INTEGER NOT NULL CHECK(last_number>=0)
     )""")
-    db.execute("""CREATE TABLE project_display_numbers(
+    db.execute("""CREATE TABLE IF NOT EXISTS project_display_numbers(
         project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,
         scope_key TEXT NOT NULL,
         sequence INTEGER NOT NULL CHECK(sequence>0),
@@ -195,7 +195,7 @@ def _migrate_19_to_20(db: sqlite3.Connection) -> None:
             (scope, seq),
         )
         db.execute(
-            "INSERT INTO project_display_numbers(project_id,scope_key,sequence) "
+            "INSERT OR IGNORE INTO project_display_numbers(project_id,scope_key,sequence) "
             "VALUES (?,?,?)", (row["project_id"], scope, seq),
         )
     db.execute("UPDATE schema_info SET version=20")

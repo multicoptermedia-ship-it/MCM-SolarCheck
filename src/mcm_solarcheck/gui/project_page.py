@@ -242,7 +242,8 @@ def make_project_page(
     for project in projects:
         number = getattr(project, "display_number", None)
         item = QListWidgetItem(
-            f"{project.name} · {number or 'Bestandsprojekt'} · {project.created_at}"
+            f"{project.name} · {number} · {project.created_at}"
+            if number else f"{project.name} · {project.created_at}"
         )
         item.setData(256, project.project_id)
         project_list.addItem(item)
