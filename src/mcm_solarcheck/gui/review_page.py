@@ -23,7 +23,7 @@ def make_review_page(
     on_review=None, on_refresh=None, last_review_status=None,
     offset=0, on_page_requested=None, on_preview_images=None,
     history=None, on_history_page_requested=None,
-    progress: ReviewProgress | None = None,
+    progress: ReviewProgress | None = None, project_label=None,
 ):
     """Present expert choices; never classify or approve a report automatically."""
     page = QWidget(parent)
@@ -49,7 +49,7 @@ def make_review_page(
     title.setObjectName("page_heading")
     layout.addWidget(title)
     project = QLabel(
-        f"Aktives Projekt: {current_project_id}"
+        f"Aktives Projekt: {project_label or current_project_id}"
         if current_project_id is not None else "Kein aktives Projekt ausgewählt.",
         page,
     )
