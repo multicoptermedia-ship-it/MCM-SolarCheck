@@ -587,7 +587,8 @@ class ProjectApplicationService:
                 raise ValueError("Keine importierbaren DJI-Bilder im Verzeichnis")
             set_phase("Atomare SQLite-Speicherung")
             self.database.save_project_import(
-                project_id, result, checkpoint=heartbeat, append_only=append_only,
+                project_id, result, checkpoint=heartbeat,
+                **({"append_only": True} if append_only else {}),
             )
         except ProjectImportCancelled:
             raise

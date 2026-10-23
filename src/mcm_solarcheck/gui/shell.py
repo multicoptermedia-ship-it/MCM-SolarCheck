@@ -2264,6 +2264,9 @@ class SolarCheckMainWindow(QMainWindow):
                 item for item in folder.iterdir()
                 if item.is_file() and item.suffix.lower() == ".jpg"
             ), key=lambda item: item.name)
+            if any(item.is_symlink() and item.suffix.lower() == ".jpg"
+                   for item in folder.iterdir()):
+                raise ValueError("Verknüpfte JPG-Dateien werden nicht automatisch eingelesen")
             if not files:
                 raise ValueError("Im ausgewählten Ordner wurden keine JPG-Dateien gefunden")
             thermal = sum(p.name.upper().endswith("_T.JPG") for p in files)
@@ -2279,9 +2282,9 @@ class SolarCheckMainWindow(QMainWindow):
         answer = QMessageBox.question(
             self, "DJI-Flugordner importieren",
             f"Gefunden: {thermal} Thermalbilder und {rgb} RGB-Bilder "
-            f"({len(files)} JPG-Dateien).\\n"
-            "Nur die oberste Ordnerebene wird berücksichtigt.\\n"
-            "Originale bleiben unverändert; SolarCheck legt lokale Kopien an.\\n"
+            f"({len(files)} JPG-Dateien).\n"
+            "Nur die oberste Ordnerebene wird berücksichtigt.\n"
+            "Originale bleiben unverändert; SolarCheck legt lokale Kopien an.\n"
             "Jetzt importieren?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
