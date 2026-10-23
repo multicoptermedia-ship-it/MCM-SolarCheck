@@ -1084,8 +1084,21 @@ class SolarCheckMainWindow(QMainWindow):
              ))
             if enabled and callable(action_provider) else None
         )
+        # Numbered offline projects use a human-readable label. For legacy
+        # projects retain the old opaque identifier without exposing a name.
+        project_record = next((
+            p for p in self._project_service.projects()
+            if p.project_id == project_id
+        ), None) if enabled else None
+        project_label = (
+            f"{project_record.display_number} · {project_record.name}"
+            if project_record is not None
+            and getattr(project_record, "display_number", None)
+            else None
+        )
         new_page = make_review_page(
             current_project_id=project_id if offline else None,
+            project_label=project_label,
             overview=overview, pending=pending,
             on_review=on_review,
             on_refresh=self._reload_review_page if enabled else None,
