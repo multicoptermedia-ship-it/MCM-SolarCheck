@@ -94,7 +94,7 @@ def test_offline_processing_page_tracks_persisted_project_and_reload(tmp_path, q
         assert "Ungeprüft: 1" in evidence
         assert "Fachlich bestätigt: 0" in evidence
         assert "Validierte Celsiusbefunde: 0" in evidence
-        assert "Fachprüfung gemäß Projektstatus zugänglich" in page.findChild(
+        assert "ein vollständiger Verarbeitungslauf wurde hier noch nicht nachgewiesen" in page.findChild(
             QLabel, "processing_review_status",
         ).text()
         assert not window.action(ShellCommandId.REPORT).isEnabled()
