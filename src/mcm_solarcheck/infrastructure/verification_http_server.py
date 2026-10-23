@@ -111,6 +111,9 @@ def verification_handler(
             if parsed.path == "/logout" and session_service is not None:
                 self._handle_logout()
                 return
+            if parsed.path == "/api/projects" and session_service is not None and customer_entry is not None and project_creation_service is not None:
+                self._handle_create_project(automatic=True)
+                return
             if parsed.path == "/projects" and session_service is not None and customer_entry is not None and project_creation_service is not None:
                 self._handle_create_project()
                 return
@@ -483,7 +486,7 @@ def verification_handler(
                 headers={"Cache-Control": "no-store"},
             )
 
-        def _handle_create_project(self) -> None:
+        def _handle_create_project(self, *, automatic: bool = False) -> None:
             try:
                 user_id = self._require_customer_user()
             except PermissionError:
@@ -515,29 +518,46 @@ def verification_handler(
                     keep_blank_values=True,
                     strict_parsing=True,
                 )
-                if any(len(form.get(name, [])) != 1 for name in PROJECT_FIELDS):
-                    raise ValueError("project fields must occur exactly once")
-                from mcm_solarcheck.services.project_creation import CreateProjectRequest
-
-                project = project_creation_service.create(
-                    CreateProjectRequest(
+                if automatic:
+                    if (set(form) != {"anlage", "capacity_kwp"}
+                            or any(len(form.get(k, [])) != 1 for k in ("anlage", "capacity_kwp"))):
+                        raise ValueError("Only Anlage and capacity are accepted")
+                    project = project_creation_service.create_from_anlage(
                         customer_id=user_id,
-                        project_id=form["project_id"][0],
-                        name=form["name"][0],
+                        anlage=form["anlage"][0],
                         capacity_kwp=Decimal(form["capacity_kwp"][0]),
                     )
-                )
+                else:
+                    # Compatibility route for existing trusted API clients.
+                    if any(len(form.get(name, [])) != 1 for name in PROJECT_FIELDS):
+                        raise ValueError("project fields must occur exactly once")
+                    from mcm_solarcheck.services.project_creation import CreateProjectRequest
+                    project = project_creation_service.create(
+                        CreateProjectRequest(
+                            customer_id=user_id,
+                            project_id=form["project_id"][0],
+                            name=form["name"][0],
+                            capacity_kwp=Decimal(form["capacity_kwp"][0]),
+                        )
+                    )
             except (UnicodeDecodeError, InvalidOperation, ValueError):
                 self._respond(400, "project data is invalid")
                 return
             except (PermissionError, RuntimeError):
                 self._respond(503, "online project could not be created")
                 return
-            self._respond(
-                201,
-                f"Projekt erstellt: {project.project_id}: {project.name}",
-                headers={"Cache-Control": "no-store"},
-            )
+            if automatic:
+                self._json_response(
+                    201,
+                    {"id": project.project_id, "name": project.name,
+                     "number": project.display_number},
+                )
+            else:
+                self._respond(
+                    201,
+                    f"Projekt erstellt: {project.project_id}: {project.name}",
+                    headers={"Cache-Control": "no-store"},
+                )
 
         def _require_customer_user(self) -> str:
             cookies = SimpleCookie()

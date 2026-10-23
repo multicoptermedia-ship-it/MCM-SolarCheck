@@ -21,11 +21,37 @@ class CustomerProject:
     project_id: str
     name: str
     capacity_kwp: Decimal
+    display_number: str | None = None
 
 
 class ProjectCreationService:
-    def __init__(self, store_project: Callable[[CustomerProject], None]) -> None:
+    def __init__(
+        self, store_project: Callable[[CustomerProject], None],
+        *, create_numbered=None,
+    ) -> None:
         self._store_project = store_project
+        self._create_numbered = create_numbered
+
+    def create_from_anlage(
+        self, *, customer_id: str, anlage: str, capacity_kwp: Decimal,
+    ) -> CustomerProject:
+        """Authenticated server assigns both reference and immutable ID."""
+        if not isinstance(customer_id, str) or not customer_id.strip():
+            raise PermissionError("Authenticated customer required")
+        if not isinstance(anlage, str) or not 3 <= len(anlage.strip()) <= 80:
+            raise ValueError("Anlage must have 3 to 80 characters")
+        if not isinstance(capacity_kwp, Decimal) or not capacity_kwp.is_finite() or capacity_kwp <= 0:
+            raise ValueError("Positive finite installed capacity required")
+        if self._create_numbered is None:
+            raise RuntimeError("Automatic project numbering is not configured")
+        project_id, reference = self._create_numbered(
+            customer_id.strip(), anlage.strip(), capacity_kwp,
+        )
+        return CustomerProject(
+            customer_id.strip(), project_id, anlage.strip(), capacity_kwp,
+            reference,
+        )
+
 
     def create(self, request: CreateProjectRequest) -> CustomerProject:
         customer_id = request.customer_id.strip()

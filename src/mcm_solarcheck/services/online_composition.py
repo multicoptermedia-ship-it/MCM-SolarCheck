@@ -363,7 +363,12 @@ def build_online_services(
                 project.project_id,
                 project.name,
                 project.capacity_kwp,
-            )
+            ),
+            create_numbered=lambda customer_id, anlage, capacity: (
+                persistence.projects.create_numbered_project(
+                    anlage, customer_id=customer_id, capacity_kwp=capacity,
+                )
+            ),
         ),
         registration=registration,
         login=login,
