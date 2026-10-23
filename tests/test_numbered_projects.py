@@ -43,16 +43,16 @@ def test_online_owner_isolation_and_concurrent_numbering(tmp_path):
 
     with ThreadPoolExecutor(max_workers=5) as pool:
         result = list(pool.map(save, ["A", "A", "B", "A", "B"]))
-    assert [v[1] for v in result if db.project_belongs_to_customer("A", v[0])] == [
+    assert sorted(v[1] for v in result if db.project_belongs_to_customer("A", v[0])) == [
         "SC-0001", "SC-0002", "SC-0003",
     ]
-    assert [v[1] for v in result if db.project_belongs_to_customer("B", v[0])] == [
+    assert sorted(v[1] for v in result if db.project_belongs_to_customer("B", v[0])) == [
         "SC-0001", "SC-0002",
     ]
     for internal_id, _label in result:
         assert not internal_id.startswith("SC-")
         assert db.project_display_number(internal_id, customer_id="not-owner") is None
-    assert [p.display_number for p in db.projects_for_customer("A")] == [
+    assert sorted(p.display_number for p in db.projects_for_customer("A")) == [
         "SC-0001", "SC-0002", "SC-0003",
     ]
 
