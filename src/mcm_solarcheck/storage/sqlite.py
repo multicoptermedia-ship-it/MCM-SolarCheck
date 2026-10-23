@@ -1,18 +1,21 @@
 """SQLite persistence for MCM-SolarCheck inspection projects."""
 from __future__ import annotations
 from contextlib import contextmanager
+from uuid import uuid4
 from pathlib import Path
 import json, sqlite3
 from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS project_geotiffs(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,source_path TEXT NOT NULL,source_kind TEXT NOT NULL,content_sha256 TEXT NOT NULL,crs TEXT NOT NULL,transform_json TEXT NOT NULL,width INTEGER NOT NULL,height INTEGER NOT NULL,nodata REAL,inspection_status TEXT NOT NULL DEFAULT 'metadata_only' CHECK(inspection_status = 'metadata_only'),created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(project_id,source_path));
-CREATE TABLE IF NOT EXISTS projects(project_id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);\nCREATE TABLE IF NOT EXISTS project_owners(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,customer_id TEXT NOT NULL,capacity_kwp TEXT NOT NULL);\nCREATE INDEX IF NOT EXISTS idx_project_owners_customer ON project_owners(customer_id,project_id);\nCREATE TABLE IF NOT EXISTS project_profiles(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,customer_name TEXT NOT NULL,site_name TEXT NOT NULL,site_street TEXT NOT NULL,site_postal_code TEXT NOT NULL,site_city TEXT NOT NULL,inspector TEXT NOT NULL,customer_contact TEXT,customer_street TEXT,customer_postal_code TEXT,customer_city TEXT,customer_email TEXT,customer_phone TEXT,customer_reference TEXT,order_reference TEXT,site_timezone TEXT);
+CREATE TABLE IF NOT EXISTS projects(project_id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS project_number_counters(scope_key TEXT PRIMARY KEY,last_number INTEGER NOT NULL CHECK(last_number>=0));
+CREATE TABLE IF NOT EXISTS project_display_numbers(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,scope_key TEXT NOT NULL,sequence INTEGER NOT NULL CHECK(sequence>0),UNIQUE(scope_key,sequence));\nCREATE TABLE IF NOT EXISTS project_owners(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,customer_id TEXT NOT NULL,capacity_kwp TEXT NOT NULL);\nCREATE INDEX IF NOT EXISTS idx_project_owners_customer ON project_owners(customer_id,project_id);\nCREATE TABLE IF NOT EXISTS project_profiles(project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,customer_name TEXT NOT NULL,site_name TEXT NOT NULL,site_street TEXT NOT NULL,site_postal_code TEXT NOT NULL,site_city TEXT NOT NULL,inspector TEXT NOT NULL,customer_contact TEXT,customer_street TEXT,customer_postal_code TEXT,customer_city TEXT,customer_email TEXT,customer_phone TEXT,customer_reference TEXT,order_reference TEXT,site_timezone TEXT);
 CREATE TABLE IF NOT EXISTS image_frames(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,frame_id TEXT NOT NULL,source_file TEXT NOT NULL,timestamp_utc TEXT,camera_make TEXT,camera_model TEXT,width INTEGER,height INTEGER,latitude REAL,longitude REAL,altitude_m REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,frame_id));
 CREATE TABLE IF NOT EXISTS thermal_frames(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,frame_id TEXT NOT NULL,source_file TEXT NOT NULL,timestamp_utc TEXT,camera_make TEXT,camera_model TEXT,width INTEGER,height INTEGER,latitude REAL,longitude REAL,altitude_m REAL,rtk_status TEXT,rtk_std_lat_m REAL,rtk_std_lon_m REAL,rtk_std_height_m REAL,rtk_correction_age_s REAL,rtk_altitude_type TEXT,thermal_source TEXT NOT NULL,quality_grade TEXT,raw_min INTEGER,raw_max INTEGER,raw_mean REAL,raw_median REAL,raw_p95 REAL,raw_p99 REAL,metadata_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(project_id,frame_id));
 CREATE TABLE IF NOT EXISTS image_pairs(project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,pair_id TEXT NOT NULL,rgb_frame_id TEXT NOT NULL,thermal_frame_id TEXT NOT NULL,confidence REAL NOT NULL,method TEXT NOT NULL,distance_m REAL,time_delta_s REAL,PRIMARY KEY(project_id,pair_id),FOREIGN KEY(project_id,rgb_frame_id) REFERENCES image_frames(project_id,frame_id) ON DELETE CASCADE,FOREIGN KEY(project_id,thermal_frame_id) REFERENCES thermal_frames(project_id,frame_id) ON DELETE CASCADE);
@@ -157,6 +160,47 @@ def _migrate_18_to_19(db: sqlite3.Connection) -> None:
     db.execute("UPDATE schema_info SET version=19")
 
 
+def _migrate_19_to_20(db: sqlite3.Connection) -> None:
+    """Assign display numbers without changing a single legacy project ID.
+
+    Scope is online customer ID or the local offline database. Backfill
+    includes all existing projects, even older manually entered ones.
+    """
+    db.execute("""CREATE TABLE project_number_counters(
+        scope_key TEXT PRIMARY KEY,
+        last_number INTEGER NOT NULL CHECK(last_number>=0)
+    )""")
+    db.execute("""CREATE TABLE project_display_numbers(
+        project_id TEXT PRIMARY KEY REFERENCES projects(project_id) ON DELETE CASCADE,
+        scope_key TEXT NOT NULL,
+        sequence INTEGER NOT NULL CHECK(sequence>0),
+        UNIQUE(scope_key,sequence)
+    )""")
+    for row in db.execute("""
+        SELECT p.project_id, o.customer_id
+          FROM projects AS p
+          LEFT JOIN project_owners AS o ON o.project_id=p.project_id
+         ORDER BY p.created_at, p.project_id
+    """).fetchall():
+        scope = "online:" + row["customer_id"] if row["customer_id"] else "offline"
+        current = db.execute(
+            "SELECT last_number FROM project_number_counters WHERE scope_key=?",
+            (scope,),
+        ).fetchone()
+        seq = int(current[0]) + 1 if current else 1
+        db.execute(
+            "INSERT INTO project_number_counters(scope_key,last_number) "
+            "VALUES (?,?) ON CONFLICT(scope_key) "
+            "DO UPDATE SET last_number=excluded.last_number",
+            (scope, seq),
+        )
+        db.execute(
+            "INSERT INTO project_display_numbers(project_id,scope_key,sequence) "
+            "VALUES (?,?,?)", (row["project_id"], scope, seq),
+        )
+    db.execute("UPDATE schema_info SET version=20")
+
+
 class ProjectDatabase:
     def __init__(self,path:str|Path)->None:self.path=Path(path)
     @contextmanager
@@ -199,6 +243,9 @@ class ProjectDatabase:
                 if version == 18:
                     _migrate_18_to_19(db)
                     version = 19
+                if version == 19:
+                    _migrate_19_to_20(db)
+                    version = 20
                 if version != SCHEMA_VERSION:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
@@ -222,6 +269,86 @@ class ProjectDatabase:
                 "SELECT * FROM project_geotiffs WHERE project_id=? ORDER BY created_at,source_path",
                 (project_id,),
             ))
+
+    @staticmethod
+    def _reserve_number(db, scope: str, project_id: str) -> str:
+        """Allocate a gap-free per-owner sequence while holding SQLite write lock."""
+        previous = db.execute(
+            "SELECT last_number FROM project_number_counters WHERE scope_key=?",
+            (scope,),
+        ).fetchone()
+        sequence = 1 if previous is None else int(previous[0]) + 1
+        db.execute(
+            "INSERT INTO project_number_counters(scope_key,last_number) VALUES (?,?) "
+            "ON CONFLICT(scope_key) DO UPDATE SET last_number=excluded.last_number",
+            (scope, sequence),
+        )
+        db.execute(
+            "INSERT INTO project_display_numbers(project_id,scope_key,sequence) "
+            "VALUES (?,?,?)", (project_id, scope, sequence),
+        )
+        return f"SC-{sequence:04d}"
+
+    def project_display_number(self, project_id: str, *, customer_id=None) -> str | None:
+        """Never expose an online reference to another authenticated customer."""
+        with self.connect() as db:
+            if customer_id is None:
+                row = db.execute(
+                    "SELECT d.sequence FROM project_display_numbers AS d "
+                    "WHERE d.project_id=? AND d.scope_key='offline'",
+                    (project_id,),
+                ).fetchone()
+            else:
+                row = db.execute(
+                    "SELECT d.sequence FROM project_display_numbers AS d "
+                    "JOIN project_owners AS o ON o.project_id=d.project_id "
+                    "WHERE d.project_id=? AND o.customer_id=? AND d.scope_key=?",
+                    (project_id, customer_id, "online:" + customer_id),
+                ).fetchone()
+        return f"SC-{int(row[0]):04d}" if row else None
+
+    def create_numbered_project(self, name: str, *, profile=None,
+                                customer_id: str | None = None,
+                                capacity_kwp=None) -> tuple[str, str]:
+        """Create one project, ownership and display number in a transaction.
+
+        IDs remain immutable and opaque. No email is used as identifier.
+        """
+        from mcm_solarcheck.domain.project_profile import ProjectProfile
+
+        name = name.strip()
+        if not 3 <= len(name) <= 80:
+            raise ValueError("Anlage must contain 3 to 80 characters")
+        if customer_id is None:
+            if not isinstance(profile, ProjectProfile):
+                raise ValueError("A valid offline project profile is required")
+            if profile.site_name.strip() != name:
+                raise ValueError("Project name must equal Anlage")
+            scope = "offline"
+        else:
+            if not isinstance(customer_id, str) or not customer_id.strip():
+                raise ValueError("Authenticated customer is required")
+            if capacity_kwp is None or capacity_kwp <= 0:
+                raise ValueError("Positive project capacity is required")
+            customer_id = customer_id.strip()
+            scope = "online:" + customer_id
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            project_id = "sc-" + uuid4().hex
+            db.execute(
+                "INSERT INTO projects(project_id,name) VALUES (?,?)",
+                (project_id, name),
+            )
+            if customer_id is None:
+                self._save_project_profile(db, project_id, profile)
+            else:
+                db.execute(
+                    "INSERT INTO project_owners(project_id,customer_id,capacity_kwp) "
+                    "VALUES (?,?,?)",
+                    (project_id, customer_id, str(capacity_kwp)),
+                )
+            label = self._reserve_number(db, scope, project_id)
+        return project_id, label
 
     def create_project(self,project_id:str,name:str)->None:
         with self.connect() as db:db.execute("INSERT INTO projects(project_id,name) VALUES (?,?) ON CONFLICT(project_id) DO UPDATE SET name=excluded.name",(project_id,name))
