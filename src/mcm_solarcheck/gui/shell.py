@@ -1240,8 +1240,19 @@ class SolarCheckMainWindow(QMainWindow):
             if callable(overview_provider) and self._current_project_id is not None
             else None
         )
+        project_record = next((
+            p for p in self._project_service.projects()
+            if p.project_id == self._current_project_id
+        ), None) if self._project_service is not None else None
+        project_label = (
+            f"{project_record.display_number} · {project_record.name}"
+            if project_record is not None
+            and getattr(project_record, "display_number", None)
+            else None
+        )
         new_page = make_processing_page(
             current_project_id=self._current_project_id,
+            project_label=project_label,
             overview=overview,
             registration_check_status=self._pair_control_status,
             on_check_registration=(
