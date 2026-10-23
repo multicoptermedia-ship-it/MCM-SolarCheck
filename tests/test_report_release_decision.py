@@ -47,7 +47,7 @@ def test_migration_from_v17_creates_empty_approval_history(tmp_path):
         sql.execute("UPDATE schema_info SET version=17")
     db.initialize()
     with db.connect() as sql:
-        assert sql.execute("SELECT version FROM schema_info").fetchone()[0] == SCHEMA_VERSION == 19
+        assert sql.execute("SELECT version FROM schema_info").fetchone()[0] == SCHEMA_VERSION == 20
         assert sql.execute("SELECT COUNT(*) FROM projects").fetchone()[0] == 2
         assert sql.execute("SELECT COUNT(*) FROM report_release_decisions").fetchone()[0] == 0
 
@@ -146,7 +146,7 @@ def test_v18_migration_preserves_legacy_approval_without_claiming_preview(tmp_pa
         sql.execute("UPDATE schema_info SET version=18")
     db.initialize()
     with db.connect() as sql:
-        assert sql.execute("SELECT version FROM schema_info").fetchone()[0] == 19
+        assert sql.execute("SELECT version FROM schema_info").fetchone()[0] == 20
         assert latest_release_decision(sql, draft()) == old
         assert sql.execute("SELECT COUNT(*) FROM report_release_read_audit").fetchone()[0] == 0
 
