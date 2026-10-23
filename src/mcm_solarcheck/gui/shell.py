@@ -1285,9 +1285,14 @@ class SolarCheckMainWindow(QMainWindow):
             p for p in self._project_service.projects()
             if p.project_id == self._current_project_id
         ), None) if self._project_service is not None else None
+        # Legacy projects without a SC display number retain the previous
+        # internal-ID context. Do not accidentally show customer data just
+        # because an older project record has no user-facing number.
         project_label = (
-            f"{project_record.display_number or project_record.name} · {project_record.name}"
-            if project_record is not None else None
+            f"{project_record.display_number} · {project_record.name}"
+            if project_record is not None
+            and getattr(project_record, "display_number", None)
+            else None
         )
         new_page = make_import_page(
             current_project_id=self._current_project_id,
