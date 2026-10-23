@@ -88,8 +88,8 @@ def make_processing_page(
         progress = QLabel(
             ("✓ Bilder importiert" if counts.thermal_frames or counts.rgb_frames
              else "○ Bilder importieren")
-            + "\\n○ Vollständige Bildverarbeitung: Abschluss nicht nachgewiesen"
-            + "\\n○ Fachprüfung erst nach abgeschlossener Verarbeitung",
+            + "\n○ Vollständige Bildverarbeitung: Abschluss nicht nachgewiesen"
+            + "\n○ Fachprüfung erst nach abgeschlossener Verarbeitung",
             page,
         )
         progress.setObjectName("processing_next_steps")
