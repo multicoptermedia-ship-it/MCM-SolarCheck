@@ -2,24 +2,41 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton,
+    QScrollArea, QVBoxLayout, QWidget,
+)
 
 
 def make_processing_page(
     parent=None, *, current_project_id=None, overview=None, on_refresh=None,
     on_check_registration=None, registration_check_status=None, choose_control_file=None,
+    project_label=None,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
     page.setObjectName("processing_page")
-    layout = QVBoxLayout(page)
+    root = QVBoxLayout(page)
+    root.setContentsMargins(0, 0, 0, 0)
+    scroll = QScrollArea(page)
+    scroll.setObjectName("processing_workspace_scroll")
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    content = QWidget(scroll)
+    layout = QVBoxLayout(content)
+    layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+    layout.setContentsMargins(14, 14, 14, 22)
+    layout.setSpacing(12)
+    scroll.setWidget(content)
+    root.addWidget(scroll)
 
-    heading = QLabel("Verarbeitung – gespeicherter Projektstand", page)
+    heading = QLabel("Verarbeitung", page)
     heading.setObjectName("page_heading")
     layout.addWidget(heading)
 
     project = QLabel(
-        f"Aktives Projekt: {current_project_id}"
+        f"Aktives Projekt: {project_label or current_project_id}"
         if current_project_id is not None else "Kein aktives Projekt ausgewählt.",
         page,
     )
@@ -38,6 +55,57 @@ def make_processing_page(
         layout.addWidget(empty)
     else:
         counts = overview.summary
+        # Three readable headline counters; only SQLite values, no inferred
+        # processing completion or fabricated module detections.
+        metrics = QHBoxLayout()
+        for value, title in (
+            (counts.thermal_frames, "Thermalbilder"),
+            (counts.rgb_frames, "RGB-Bilder"),
+            (counts.image_pairs, "Bildpaare"),
+        ):
+            card = QFrame(content)
+            card.setObjectName("processing_metric_card")
+            card.setStyleSheet(
+                "QFrame#processing_metric_card { background: #e2e8e3;"
+                " border: 1px solid #b9c8bc; border-radius: 6px; }"
+            )
+            card_layout = QVBoxLayout(card)
+            number = QLabel(str(value), card)
+            number.setObjectName("processing_metric_value")
+            number.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            number.setStyleSheet("font-size: 27px; font-weight: 600;")
+            label = QLabel(title, card)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setWordWrap(True)
+            card_layout.addWidget(number)
+            card_layout.addWidget(label)
+            metrics.addWidget(card, 1)
+        layout.addLayout(metrics)
+
+        progress_heading = QLabel("Nächste Schritte", page)
+        progress_heading.setObjectName("processing_next_steps_heading")
+        layout.addWidget(progress_heading)
+        progress = QLabel(
+            ("✓ Bilder importiert" if counts.thermal_frames or counts.rgb_frames
+             else "○ Bilder importieren")
+            + "\\n○ Vollständige Bildverarbeitung: Abschluss nicht nachgewiesen"
+            + "\\n○ Fachprüfung erst nach abgeschlossener Verarbeitung",
+            page,
+        )
+        progress.setObjectName("processing_next_steps")
+        progress.setWordWrap(True)
+        progress.setTextFormat(Qt.TextFormat.PlainText)
+        layout.addWidget(progress)
+
+        details_toggle = QPushButton("Technische Details anzeigen", page)
+        details_toggle.setObjectName("processing_details_toggle")
+        details_toggle.setCheckable(True)
+        layout.addWidget(details_toggle)
+        details = QWidget(content)
+        details.setObjectName("processing_details_panel")
+        details_layout = QVBoxLayout(details)
+        details_layout.setContentsMargins(0, 0, 0, 0)
+        details_layout.setSpacing(10)
         evidence = QLabel(
             "Gespeicherte Daten (nur lesend):\n"
             f"RGB-Bilder: {counts.rgb_frames} · Thermalbilder: {counts.thermal_frames}\n"
@@ -53,7 +121,7 @@ def make_processing_page(
         evidence.setAccessibleDescription(
             "Zahlen aus SQLite; keine Aussage über fertig verarbeitete Bilder."
         )
-        layout.addWidget(evidence)
+        details_layout.addWidget(evidence)
 
         pair_audit = getattr(overview, "pair_audit", None)
         if pair_audit is not None:
@@ -77,7 +145,7 @@ def make_processing_page(
                 "Schreibgeschützte technische Prüfsummen aus gespeicherten "
                 "Paaren, ohne Dateinamen, Zeitstempel oder GPS-Koordinaten."
             )
-            layout.addWidget(evidence_label)
+            details_layout.addWidget(evidence_label)
             status_text = (
                 "Mindestens eine gespeicherte Zuordnung erfüllt die aktuellen "
                 "Metadatenkriterien nicht. Bitte technisch prüfen; keine "
@@ -91,7 +159,7 @@ def make_processing_page(
             status.setObjectName("processing_pair_evidence_status")
             status.setTextFormat(Qt.TextFormat.PlainText)
             status.setWordWrap(True)
-            layout.addWidget(status)
+            details_layout.addWidget(status)
 
         processing_status = QLabel(
             "Verarbeitung gemäß Projektstatus grundsätzlich zulässig; "
@@ -103,11 +171,11 @@ def make_processing_page(
         processing_status.setObjectName("processing_workflow_status")
         processing_status.setWordWrap(True)
         processing_status.setTextFormat(Qt.TextFormat.PlainText)
-        layout.addWidget(processing_status)
+        details_layout.addWidget(processing_status)
 
         review_status = QLabel(
-            "Fachprüfung gemäß Projektstatus zugänglich; "
-            "Befunde bleiben bis zur Einzelentscheidung ungeprüft."
+            "Fachprüfung laut bisherigem Workflow technisch erreichbar; "
+            "ein vollständiger Verarbeitungslauf wurde hier noch nicht nachgewiesen."
             if overview.review.allowed
             else "Fachprüfung gesperrt: " + "; ".join(overview.review.blockers),
             page,
@@ -115,7 +183,10 @@ def make_processing_page(
         review_status.setObjectName("processing_review_status")
         review_status.setWordWrap(True)
         review_status.setTextFormat(Qt.TextFormat.PlainText)
-        layout.addWidget(review_status)
+        details_layout.addWidget(review_status)
+        layout.addWidget(details)
+        details_toggle.toggled.connect(details.setVisible)
+        details.setVisible(False)
 
     # The expert tool is deliberately separate from the introductory workflow.
     # It consumes a small local control-point JSON, NOT original image files.
