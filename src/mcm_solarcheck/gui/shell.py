@@ -2316,6 +2316,7 @@ class SolarCheckMainWindow(QMainWindow):
             button.setAccessibleDescription(
                 "" if availability.allowed else f"Blockiert: {blocker_text}"
             )
+            self._workflow_navigation.set_availability(route, availability.allowed)
         self._workflow_availability = state
 
     @property

@@ -6,6 +6,7 @@ state separately; this widget never invents completion or readiness.
 
 from collections.abc import Callable
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from mcm_solarcheck.services.shell_navigation import ShellRoute
@@ -30,12 +31,18 @@ class WorkflowNavigation(QWidget):
     ) -> None:
         super().__init__(parent)
         self.setObjectName("workflow_navigation")
+        # Windows 10 must actually paint the dark sidebar background.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setMinimumWidth(240)
+        self._statuses: dict[ShellRoute, QLabel] = {}
         self._buttons: dict[ShellRoute, QPushButton] = {}
         self._blocker_label = QLabel(self)
         self._blocker_label.setObjectName("workflow_blocker_explanation")
         self._blocker_label.setWordWrap(True)
         self._blocker_label.hide()
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(3)
         for route in routes:
             button = QPushButton(_ROUTE_LABELS[route], self)
             button.setObjectName(f"{route.value}_navigation")
@@ -44,6 +51,12 @@ class WorkflowNavigation(QWidget):
             )
             layout.addWidget(button)
             self._buttons[route] = button
+            status = QLabel("Schritt anzeigen", self)
+            status.setObjectName(f"{route.value}_navigation_status")
+            status.setProperty("navigationStatus", True)
+            status.setWordWrap(True)
+            layout.addWidget(status)
+            self._statuses[route] = status
         layout.addWidget(self._blocker_label)
         layout.addStretch(1)
 
@@ -60,7 +73,21 @@ class WorkflowNavigation(QWidget):
             )
             button.style().unpolish(button)
             button.style().polish(button)
+            self._statuses[candidate].setText(
+                "Aktueller Bereich" if is_current
+                else "Noch nicht bereit – für Erklärung anklicken"
+                if button.property("blocked") is True
+                else "Bereit zur Auswahl"
+            )
 
+    def set_availability(self, route: ShellRoute, available: bool) -> None:
+        # Buttons remain clickable so blocked steps can explain prerequisites.
+        button = self._buttons[route]
+        self._statuses[route].setText(
+            "Aktueller Bereich" if button.property("current") is True
+            else "Bereit zur Auswahl" if available
+            else "Noch nicht bereit – für Erklärung anklicken"
+        )
 
     def clear_blocker_explanation(self) -> None:
         self._blocker_label.clear()

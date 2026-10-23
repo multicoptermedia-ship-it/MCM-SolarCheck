@@ -16,7 +16,7 @@ ACCENT_GREEN = "#3f8f5b"
 APP_STYLE_SHEET = f"""
 /* Shared readable baseline. Native Qt scales pixels by the OS DPI factor. */
 QWidget {{
-    font-size: 16px;
+    font-size: 18px;
 }}
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QListWidget {{
     min-height: 27px;
@@ -25,6 +25,7 @@ QMainWindow {{
     background: {WORK_SURFACE};
 }}
 QMenuBar {{
+    font-size: 17px;
     background: {ANTHRACITE};
     color: {TEXT_ON_DARK};
     padding: 4px;
@@ -68,14 +69,15 @@ QPushButton:disabled {{
     border: 1px solid #a5afa8;
 }}
 QWidget#workflow_navigation {{
-    background: {ANTHRACITE};
+    background-color: {ANTHRACITE};
 }}
 QWidget#workflow_navigation QPushButton {{
-    background: transparent;
+    background-color: #39423d;
     color: {TEXT_ON_DARK};
     border: 0;
     border-radius: 4px;
-    padding: 9px 12px;
+    padding: 10px 12px;
+    min-height: 32px;
     text-align: left;
 }}
 QWidget#workflow_navigation QPushButton:disabled {{
@@ -92,7 +94,13 @@ QWidget#workflow_navigation QPushButton[current="true"] {{
     font-weight: 600;
 }}
 QWidget#workflow_navigation QPushButton[blocked="true"] {{
-    border-left: 3px solid {ANTHRACITE_HOVER};
+    border-left: 4px solid #b7c5b9;
+}}
+QWidget#workflow_navigation QLabel[navigationStatus="true"] {{
+    color: #e0e7e1;
+    background: {ANTHRACITE};
+    font-size: 13px;
+    padding: 0 10px 6px 10px;
 }}
 QLabel#workflow_blocker_explanation {{
     background: {ANTHRACITE_RAISED};
