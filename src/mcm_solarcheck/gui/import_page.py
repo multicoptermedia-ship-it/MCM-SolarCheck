@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QCheckBox, QFileDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None, on_reconcile_pairs=None, pair_audit=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, on_import_flight_folder=None, choose_flight_folder=None, on_import_additional_original_files=None, choose_additional_original_files=None, project_label=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None, on_reconcile_pairs=None, pair_audit=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     root_layout = QVBoxLayout(page)
@@ -23,7 +23,7 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     layout.addWidget(heading)
 
     project = QLabel(
-        f"Aktives Projekt: {current_project_id}"
+        f"Aktives Projekt: {project_label or current_project_id}"
         if current_project_id
         else "Kein aktives Projekt ausgewählt.",
         page,
@@ -125,14 +125,36 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     # Primary operator flow: select unpacked DJI originals directly. No ZIP
     # preparation or cloud transfer is required; only selected files are staged.
     direct_help = QLabel(
-        "Standard: DJI-Originalbilder direkt auswählen (RGB und/oder Thermal). "
-        "Alle gewählten Dateien werden geprüft und lokal unverändert gesichert; "
-        "Bilder ohne Gegenstück bleiben als solche erkennbar. Keine KI-Freigabe.",
+        "Standard: gesamten DJI-Flugordner mit RGB- und Thermalbildern "
+        "gemeinsam auswählen. Für die Erstübernahme muss das Projekt leer sein. "
+        "Die Bilder werden geprüft und lokal unverändert gesichert; "
+        "fehlende RGB-Gegenstücke bleiben sichtbar. Keine KI-Freigabe.",
         page,
     )
     direct_help.setWordWrap(True)
     layout.addWidget(direct_help)
-    select_files_button = QPushButton("1. DJI-Originalbilder auswählen (JPG, ohne ZIP)", page)
+    flight_folder = QPushButton("1. Gesamten DJI-Flugordner importieren (RGB + Thermal)", page)
+    flight_folder.setObjectName("import_flight_folder_button")
+    flight_folder.setAccessibleDescription(
+        "Liest sämtliche JPG-Dateien der obersten Ordnerebene; "
+        "vor dem Import werden RGB- und Thermalzahlen angezeigt."
+    )
+    if current_project_id is not None and on_import_flight_folder is not None:
+        def request_flight_folder():
+            chooser = choose_flight_folder or (
+                lambda: QFileDialog.getExistingDirectory(
+                    page, "DJI-Flugordner mit RGB- und Thermalbildern auswählen",
+                )
+            )
+            folder = chooser()
+            if folder:
+                on_import_flight_folder(folder)
+        flight_folder.clicked.connect(request_flight_folder)
+    else:
+        flight_folder.setEnabled(False)
+    layout.addWidget(flight_folder)
+
+    select_files_button = QPushButton("Alternativ: DJI-Originalbilder auswählen (JPG, ohne ZIP)", page)
     select_files_button.setObjectName("import_original_files_button")
     if current_project_id is not None and on_import_original_files is not None:
         def request_original_files():
@@ -152,6 +174,35 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     else:
         select_files_button.setEnabled(False)
     layout.addWidget(select_files_button)
+
+    if import_summary is not None and (
+        import_summary.rgb_frames or import_summary.thermal_frames
+    ):
+        append_help = QLabel(
+            "Bereits importierte Bilder bleiben erhalten. Für fehlende DJI-Bilder "
+            "den gesonderten Nachladeweg wählen; doppelte oder bereits "
+            "fachlich freigegebene Daten dürfen nicht überschrieben werden.",
+            page,
+        )
+        append_help.setWordWrap(True)
+        append_help.setObjectName("import_append_help")
+        layout.addWidget(append_help)
+        append_button = QPushButton("Fehlende DJI-Originalbilder nachladen", page)
+        append_button.setObjectName("import_append_original_files_button")
+        append_button.setEnabled(on_import_additional_original_files is not None)
+        if on_import_additional_original_files is not None:
+            def request_additional_files():
+                chooser = choose_additional_original_files or (
+                    lambda: QFileDialog.getOpenFileNames(
+                        page, "Nur fehlende DJI-Originalbilder auswählen",
+                        "", "DJI-Originaldateien (*.JPG *.jpg)",
+                    )[0]
+                )
+                paths = chooser()
+                if paths:
+                    on_import_additional_original_files(tuple(paths))
+            append_button.clicked.connect(request_additional_files)
+        layout.addWidget(append_button)
 
     cancel_import = QPushButton("Laufenden DJI-Bildimport abbrechen", page)
     cancel_import.setObjectName("cancel_image_import_button")
@@ -183,7 +234,7 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     advanced_panel.setVisible(False)
     layout = advanced_layout
 
-    import_images = QPushButton("Bildordner auswählen (ohne ZIP)", page)
+    import_images = QPushButton("Expertenweg: vorhandenen Bildordner einlesen (ohne Sicherungskopie)", page)
     import_images.setObjectName("import_images_button")
     if current_project_id is not None and on_import_images is not None:
         def request_import():

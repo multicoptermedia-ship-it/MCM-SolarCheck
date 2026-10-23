@@ -7,10 +7,11 @@ by service-layer contracts rather than reimplemented in Qt.
 from __future__ import annotations
 
 from typing import Protocol
+from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, QTimer, Slot
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QLabel, QHBoxLayout, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QHBoxLayout, QMainWindow, QMessageBox, QStackedWidget, QVBoxLayout, QWidget
 
 from mcm_solarcheck.gui.entry_page import make_entry_page
 from mcm_solarcheck.gui.import_page import make_import_page
@@ -1280,8 +1281,33 @@ class SolarCheckMainWindow(QMainWindow):
             if callable(artifacts_provider) and self._current_project_id is not None
             else ()
         )
+        project_record = next((
+            p for p in self._project_service.projects()
+            if p.project_id == self._current_project_id
+        ), None) if self._project_service is not None else None
+        project_label = (
+            f"{project_record.display_number or project_record.name} · {project_record.name}"
+            if project_record is not None else None
+        )
         new_page = make_import_page(
             current_project_id=self._current_project_id,
+            project_label=project_label,
+            on_import_flight_folder=(
+                self._request_flight_folder_import
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._project_service is not None
+                and self._current_project_id is not None
+                and self._import_thread is None
+                and not self._import_close_pending else None
+            ),
+            on_import_additional_original_files=(
+                self._request_additional_files_import
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._project_service is not None
+                and self._current_project_id is not None
+                and self._import_thread is None
+                and not self._import_close_pending else None
+            ),
             on_import_original_files=(
                 self._request_original_files_import
                 if self._deployment is DeploymentMode.OFFLINE_DESKTOP
@@ -2221,6 +2247,56 @@ class SolarCheckMainWindow(QMainWindow):
         self._refresh_plant_overview_page()
         self._refresh_review_page()
         self._refresh_report_page()
+
+    def _request_flight_folder_import(self, source_folder: str) -> None:
+        """Stage loose JPG originals from one DJI flight folder, with preview."""
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or self._project_service is None or self._current_project_id is None
+                or self._import_thread is not None or self._import_close_pending):
+            return
+        try:
+            folder = Path(source_folder)
+            if not folder.is_dir() or folder.is_symlink():
+                raise ValueError("Kein gültiger lokaler DJI-Ordner")
+            files = sorted((
+                item for item in folder.iterdir()
+                if item.is_file() and item.suffix.lower() == ".jpg"
+            ), key=lambda item: item.name)
+            if not files:
+                raise ValueError("Im ausgewählten Ordner wurden keine JPG-Dateien gefunden")
+            thermal = sum(p.name.upper().endswith("_T.JPG") for p in files)
+            rgb = sum(p.name.upper().endswith("_V.JPG") for p in files)
+            if thermal + rgb != len(files):
+                raise ValueError(
+                    "Der Ordner enthält JPG-Dateien ohne DJI-Thermal-/RGB-Kennung"
+                )
+        except (OSError, ValueError) as exc:
+            self._import_status = f"Flugordner nicht übernommen: {exc}"
+            self._refresh_import_page()
+            return
+        answer = QMessageBox.question(
+            self, "DJI-Flugordner importieren",
+            f"Gefunden: {thermal} Thermalbilder und {rgb} RGB-Bilder "
+            f"({len(files)} JPG-Dateien).\\n"
+            "Nur die oberste Ordnerebene wird berücksichtigt.\\n"
+            "Originale bleiben unverändert; SolarCheck legt lokale Kopien an.\\n"
+            "Jetzt importieren?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer is QMessageBox.StandardButton.Yes:
+            self._request_original_files_import(tuple(str(p) for p in files))
+
+    def _request_additional_files_import(self, original_files: tuple[str, ...]) -> None:
+        """Explicit additive path; normal first import keeps its empty-project gate."""
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or self._project_service is None or self._current_project_id is None
+                or self._import_thread is not None or self._import_close_pending
+                or not original_files):
+            return
+        self._start_background_image_import(
+            "", original_files=tuple(original_files), append_original_files=True,
+        )
 
     def _request_original_files_import(self, original_files: tuple[str, ...]) -> None:
         """Primary operator path: selected unpacked DJI images, no ZIP required."""
