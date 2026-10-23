@@ -56,6 +56,7 @@ class ProjectRecord:
     project_id: str
     name: str
     created_at: str
+    display_number: str | None = None
 
 @dataclass(frozen=True)
 class FindingRecord:
@@ -146,8 +147,12 @@ class InspectionQueries:
         """Return persisted projects for selection without synthesizing GUI state."""
         with self.database.connect() as db:
             rows=db.execute(
-                "SELECT project_id,name,created_at FROM projects "
-                "ORDER BY created_at DESC, project_id"
+                "SELECT p.project_id,p.name,p.created_at, "
+                "CASE WHEN d.sequence IS NULL THEN NULL "
+                "ELSE printf('SC-%04d',d.sequence) END AS display_number "
+                "FROM projects p LEFT JOIN project_display_numbers d "
+                "ON d.project_id=p.project_id "
+                "ORDER BY p.created_at DESC, p.project_id"
             ).fetchall()
         return tuple(ProjectRecord(**dict(row)) for row in rows)
 

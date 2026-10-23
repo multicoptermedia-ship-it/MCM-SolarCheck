@@ -244,9 +244,17 @@ class SolarCheckMainWindow(QMainWindow):
         """Persist a new project and its explicit master data before refreshing."""
         if self._project_service is None:
             return
-        if profile is None:
+        if not project_id and profile is not None:
+            creator = getattr(
+                self._project_service, "create_numbered_offline_project", None
+            )
+            if not callable(creator):
+                raise ValueError("Automatic project numbering unavailable")
+            project = creator(profile)
+        elif profile is None:
             project = self._project_service.create_project(project_id, name)
         else:
+            # Backward-compatible service API for existing integration clients.
             project = self._project_service.create_project_with_profile(
                 project_id, name, profile
             )

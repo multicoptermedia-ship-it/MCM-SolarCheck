@@ -123,6 +123,15 @@ class ProjectApplicationService:
             project for project in self.projects() if project.project_id == project_id
         )
 
+    def create_numbered_offline_project(self, profile: ProjectProfile) -> ProjectRecord:
+        """Use Anlage as name; never accept a user-entered database ID."""
+        if not isinstance(profile, ProjectProfile):
+            raise TypeError("Valid project master data required")
+        project_id, _number = self.database.create_numbered_project(
+            profile.site_name.strip(), profile=profile,
+        )
+        return next(p for p in self.projects() if p.project_id == project_id)
+
     def create_project_with_profile(
         self, project_id: str, name: str, profile: ProjectProfile
     ) -> ProjectRecord:

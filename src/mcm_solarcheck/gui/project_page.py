@@ -57,10 +57,25 @@ class NewProjectDialog(QDialog):
         self.project_id.setObjectName("new_project_id")
         self.name = QLineEdit(self)
         self.name.setObjectName("new_project_name")
-        layout.addRow("Projekt-ID", self.project_id)
-        layout.addRow("Projektname", self.name)
+        # Legacy fields remain as internal compatibility slots, not inputs.
+        self.project_id.hide()
+        self.name.hide()
+        info = QLabel(
+            "Die Projektnummer wird beim Speichern automatisch vergeben. "
+            "Als Projektname verwenden wir die Bezeichnung der Anlage.",
+            self,
+        )
+        info.setObjectName("auto_project_number_hint")
+        info.setWordWrap(True)
+        layout.addRow(info)
         self.customer_name = QLineEdit(self); self.customer_name.setObjectName("new_project_customer_name")
         self.site_name = QLineEdit(self); self.site_name.setObjectName("new_project_site_name")
+        self.site_name.setMaxLength(80)
+        self.site_name.setPlaceholderText("3–80 Zeichen, z. B. PV-Anlage Norddach")
+        self.site_name.setAccessibleDescription(
+            "Anlagenbezeichnung: mindestens 3, höchstens 80 Zeichen."
+        )
+
         self.site_street = QLineEdit(self); self.site_street.setObjectName("new_project_site_street")
         self.site_postal_code = QLineEdit(self); self.site_postal_code.setObjectName("new_project_site_postal_code")
         self.site_city = QLineEdit(self); self.site_city.setObjectName("new_project_site_city")
@@ -90,8 +105,10 @@ class NewProjectDialog(QDialog):
         layout.addRow(buttons)
 
     def _update_acceptance(self) -> None:
-        required=(self.project_id,self.name,self.customer_name,self.site_name,self.site_street,self.site_postal_code,self.site_city,self.site_timezone,self.inspector)
+        required=(self.customer_name,self.site_name,self.site_street,self.site_postal_code,self.site_city,self.site_timezone,self.inspector)
         if not all(field.text().strip() for field in required):
+            self._ok_button.setEnabled(False); return
+        if not 3 <= len(self.site_name.text().strip()) <= 80:
             self._ok_button.setEnabled(False); return
         try:
             self.profile()
@@ -103,7 +120,7 @@ class NewProjectDialog(QDialog):
         return ProjectProfile(customer_name=self.customer_name.text(),site_name=self.site_name.text(),site_street=self.site_street.text(),site_postal_code=self.site_postal_code.text(),site_city=self.site_city.text(),inspector=self.inspector.text(),site_timezone=self.site_timezone.text())
 
     def values(self) -> tuple[str, str, ProjectProfile]:
-        return self.project_id.text(), self.name.text(), self.profile()
+        return "", self.site_name.text().strip(), self.profile()
 
 
 class EditProjectProfileDialog(QDialog):
@@ -223,7 +240,10 @@ def make_project_page(
     project_list = QListWidget(page)
     project_list.setObjectName("project_list")
     for project in projects:
-        item = QListWidgetItem(f"{project.name} · {project.created_at}")
+        number = getattr(project, "display_number", None)
+        item = QListWidgetItem(
+            f"{project.name} · {number or 'Bestandsprojekt'} · {project.created_at}"
+        )
         item.setData(256, project.project_id)
         project_list.addItem(item)
     project_list.setVisible(project_list.count() > 0)
@@ -260,8 +280,12 @@ def make_project_page(
         )
     layout.addWidget(open_project)
 
+    active_number = next(
+        (getattr(p, "display_number", None) for p in projects
+         if p.project_id == current_project_id), None,
+    )
     current = QLabel(
-        f"Aktives Projekt: {current_project_id}"
+        f"Aktives Projekt: {active_number or current_project_id}"
         if current_project_id is not None else "Kein aktives Projekt geöffnet.",
         page,
     )

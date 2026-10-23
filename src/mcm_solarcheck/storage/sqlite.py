@@ -365,12 +365,17 @@ class ProjectDatabase:
         if not customer_id:raise ValueError('customer_id is required')
         with self.connect() as db:
             rows=db.execute(
-                "SELECT p.project_id,p.name,p.created_at FROM projects p "
+                "SELECT p.project_id,p.name,p.created_at, "
+                "CASE WHEN d.sequence IS NULL THEN NULL "
+                "ELSE printf('SC-%04d',d.sequence) END AS display_number "
+                "FROM projects p "
                 "JOIN project_owners o ON o.project_id=p.project_id "
+                "LEFT JOIN project_display_numbers d "
+                "ON d.project_id=p.project_id "
                 "WHERE o.customer_id=? ORDER BY p.project_id",
                 (customer_id,),
             ).fetchall()
-        return tuple(ProjectRecord(row["project_id"],row["name"],row["created_at"]) for row in rows)
+        return tuple(ProjectRecord(row["project_id"],row["name"],row["created_at"],row["display_number"]) for row in rows)
     def project_belongs_to_customer(self,customer_id:str,project_id:str)->bool:
         with self.connect() as db:
             row=db.execute("SELECT 1 FROM project_owners WHERE customer_id=? AND project_id=?",(customer_id.strip(),project_id.strip())).fetchone()
