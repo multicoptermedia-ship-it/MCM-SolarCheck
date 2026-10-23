@@ -547,7 +547,7 @@ def verification_handler(
                 self._respond(503, "online project could not be created")
                 return
             if automatic:
-                self._json_response(
+                self._respond_json(
                     201,
                     {"id": project.project_id, "name": project.name,
                      "number": project.display_number},

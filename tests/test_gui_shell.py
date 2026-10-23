@@ -631,16 +631,9 @@ def test_new_project_dialog_requires_nonblank_identity(app: QApplication) -> Non
 
     assert not ok.isEnabled()
 
-    dialog.project_id.setText("   ")
-    dialog.name.setText("Solarpark")
-    assert not ok.isEnabled()
-
-    dialog.project_id.setText("P-1")
-    dialog.name.setText("   ")
-    assert not ok.isEnabled()
-
-    dialog.name.setText("Solarpark")
-    assert not ok.isEnabled()
+    assert not dialog.project_id.isVisible()
+    assert not dialog.name.isVisible()
+    assert dialog.findChild(QLabel, "auto_project_number_hint") is not None
     dialog.customer_name.setText("Solar GmbH")
     dialog.site_name.setText("Anlage Nord")
     dialog.site_street.setText("Solarweg 1")
@@ -652,7 +645,7 @@ def test_new_project_dialog_requires_nonblank_identity(app: QApplication) -> Non
     dialog.site_timezone.setText("Europe/Berlin")
     assert ok.isEnabled()
     project_id, name, profile = dialog.values()
-    assert (project_id, name) == ("P-1", "Solarpark")
+    assert (project_id, name) == ("", "Anlage Nord")
     assert profile.site_timezone == "Europe/Berlin"
 
 

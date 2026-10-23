@@ -14,6 +14,13 @@ TEXT_PRIMARY = "#252a28"
 ACCENT_GREEN = "#3f8f5b"
 
 APP_STYLE_SHEET = f"""
+/* Shared readable baseline. Native Qt scales pixels by the OS DPI factor. */
+QWidget {{
+    font-size: 16px;
+}}
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QListWidget {{
+    min-height: 27px;
+}}
 QMainWindow {{
     background: {WORK_SURFACE};
 }}
