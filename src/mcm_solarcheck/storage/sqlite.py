@@ -487,12 +487,47 @@ class ProjectDatabase:
                 self._save_training_frame(db,project_id,result.frame,'thermal')
                 self._save_findings(db,project_id,findings)
                 self._save_sensor_links(db,project_id,findings)
-    def save_project_import(self,project_id,imported,*,heartbeat=None,checkpoint=None):
+    def save_project_import(self,project_id,imported,*,heartbeat=None,checkpoint=None,append_only=False):
         rgb_frames=tuple(imported.rgb_frames);thermal_results=tuple(imported.thermal_batch.results);pairs=tuple(imported.pairs)
         image_cols=('project_id','frame_id','source_file','timestamp_utc','camera_make','camera_model','width','height','latitude','longitude','altitude_m','metadata_json');image_sql=_upsert('image_frames',image_cols,('project_id','frame_id'))
         pair_cols=('project_id','pair_id','rgb_frame_id','thermal_frame_id','confidence','method','distance_m','time_delta_s');pair_sql=_upsert('image_pairs',pair_cols,('project_id','pair_id'))
         if heartbeat is not None:heartbeat()
         with self.connect() as db:
+            if append_only:
+                # Lock before verifying identity; a concurrent writer cannot
+                # introduce duplicate evidence between this check and commit.
+                db.execute("BEGIN IMMEDIATE")
+                for table in ("finding_reviews", "report_release_decisions",
+                              "training_labels"):
+                    if db.execute(
+                        f"SELECT 1 FROM {table} WHERE project_id=? LIMIT 1",
+                        (project_id,),
+                    ).fetchone():
+                        raise PermissionError(
+                            "Nachladen bei bereits fachlich geprüften oder "
+                            "freigegebenen Projekten nicht erlaubt"
+                        )
+                for table, column, ids in (
+                    ("image_frames", "frame_id", [f.frame_id for f in rgb_frames]),
+                    ("thermal_frames", "frame_id", [r.frame.frame_id for r in thermal_results]),
+                    ("image_pairs", "pair_id", [p.pair_id for p in pairs]),
+                    ("findings", "finding_id", [
+                        f.finding_id for r in thermal_results for f in r.findings
+                    ]),
+                ):
+                    if len(ids) != len(set(ids)):
+                        raise ValueError("Doppelte Bild- oder Befundkennung im Nachladepaket")
+                    for identity in ids:
+                        if db.execute(
+                            f"SELECT 1 FROM {table} WHERE project_id=? "
+                            f"AND {column}=? LIMIT 1", (project_id, identity),
+                        ).fetchone():
+                            raise ValueError(
+                                "Bild oder Befund bereits im Projekt vorhanden; "
+                                "Nachladen ohne Überschreiben abgebrochen"
+                            )
+                if not rgb_frames and not thermal_results:
+                    raise ValueError("Keine zusätzlichen DJI-Aufnahmen vorhanden")
             for frame in rgb_frames:
                 if checkpoint is not None:checkpoint()
                 db.execute(image_sql,(project_id,frame.frame_id,str(frame.source_file),frame.timestamp_utc.isoformat() if frame.timestamp_utc else None,frame.camera_make,frame.camera_model,frame.width,frame.height,frame.position.latitude if frame.position else None,frame.position.longitude if frame.position else None,frame.position.altitude_m if frame.position else None,json.dumps(frame.metadata,ensure_ascii=False)))

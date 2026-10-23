@@ -1946,7 +1946,8 @@ class SolarCheckMainWindow(QMainWindow):
         self._refresh_import_page()
 
     def _start_background_image_import(self, source_directory: str, *, original_zips=None,
-                                       original_files=None, include_unpaired_thermal=False) -> None:
+                                       original_files=None, include_unpaired_thermal=False,
+                                       append_original_files=False) -> None:
         """Run guarded DJI import off-thread, with no Qt objects in its worker."""
         from mcm_solarcheck.gui.flight_import_worker import FlightImportThread
 
@@ -1962,6 +1963,7 @@ class SolarCheckMainWindow(QMainWindow):
             original_zips=original_zips,
             original_files=original_files,
             include_unpaired_thermal=include_unpaired_thermal,
+            append_original_files=append_original_files,
         )
         self._import_thread = worker
         self._import_project_id = self._current_project_id

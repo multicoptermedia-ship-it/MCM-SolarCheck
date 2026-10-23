@@ -389,6 +389,7 @@ class ProjectApplicationService:
         *,
         should_cancel=None,
         on_progress=None,
+        append_only: bool = False,
     ):
         """Primary offline path: explicit loose DJI files -> durable originals -> SQLite.
 
@@ -403,11 +404,17 @@ class ProjectApplicationService:
         if should_cancel is not None and should_cancel():
             raise ProjectImportCancelled("Originalbildimport vor der Prüfung abgebrochen")
         summary = self.import_summary(project_id)
-        if any((
+        already_imported = any((
             summary.rgb_frames, summary.thermal_frames, summary.image_pairs,
             summary.findings, summary.pv_modules,
-        )):
-            raise PermissionError("Originalbildimport benötigt ein leeres Projekt")
+        ))
+        if already_imported and not append_only:
+            raise PermissionError(
+                "Originalbildimport benötigt ein leeres Projekt. "
+                "Für fehlende DJI-Bilder bitte 'Nachladen' verwenden."
+            )
+        if append_only and not already_imported:
+            raise ValueError("Noch kein Erstimport vorhanden; normalen Import verwenden")
 
         from mcm_solarcheck.importers.m3t_original_files_staging import (
             stage_original_m3t_files,
@@ -432,7 +439,7 @@ class ProjectApplicationService:
                 raise ProjectImportCancelled("Originaldateien vor SQLite-Speicherung abgebrochen")
             outcome = self.import_project_images_cancellable(
                 project_id, folder, should_cancel=should_cancel,
-                on_progress=on_progress,
+                on_progress=on_progress, append_only=append_only,
             )
             attempt, _data, _state = outcome
             committed = bool(attempt.succeeded)
@@ -524,6 +531,7 @@ class ProjectApplicationService:
         minimum_pair_confidence: float = 0.70,
         candidate_percentile: float = 99.9,
         candidate_limit: int = 100,
+        append_only: bool = False,
     ):
         """Offline worker entry: import first, then atomically persist all evidence.
 
@@ -579,7 +587,7 @@ class ProjectApplicationService:
                 raise ValueError("Keine importierbaren DJI-Bilder im Verzeichnis")
             set_phase("Atomare SQLite-Speicherung")
             self.database.save_project_import(
-                project_id, result, checkpoint=heartbeat,
+                project_id, result, checkpoint=heartbeat, append_only=append_only,
             )
         except ProjectImportCancelled:
             raise

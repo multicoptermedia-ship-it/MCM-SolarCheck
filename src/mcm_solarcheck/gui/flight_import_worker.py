@@ -17,7 +17,8 @@ class FlightImportThread(QThread):
     metrics_ready = Signal(object)
 
     def __init__(self, project_service, project_id: str, source_folder: str, parent=None,
-                 *, original_zips=None, original_files=None, include_unpaired_thermal=False):
+                 *, original_zips=None, original_files=None, include_unpaired_thermal=False,
+                 append_original_files=False):
         super().__init__(parent)
         self.project_service = project_service
         self.project_id = project_id
@@ -27,6 +28,9 @@ class FlightImportThread(QThread):
         self.original_zips = original_zips
         self.original_files = original_files
         self.include_unpaired_thermal = include_unpaired_thermal
+        if append_original_files and original_files is None:
+            raise ValueError("Nachladen erfordert ausgewählte Originalbilder")
+        self.append_original_files = append_original_files
         self._cancel = threading.Event()
 
     def request_cancel(self) -> None:
@@ -46,6 +50,7 @@ class FlightImportThread(QThread):
                     self.project_id, self.original_files,
                     should_cancel=self._cancel.is_set,
                     on_progress=on_progress,
+                    **({"append_only": True} if self.append_original_files else {}),
                 )
             elif self.original_zips is not None:
                 outcome = self.project_service.import_project_original_zips_cancellable(
