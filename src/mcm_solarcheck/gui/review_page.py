@@ -5,7 +5,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QPlainTextEdit, QPushButton, QVBoxLayout, QWidget,
+    QFrame, QLayout, QPlainTextEdit, QPushButton, QScrollArea,
+    QVBoxLayout, QWidget,
 )
 
 from mcm_solarcheck.review.findings import ReviewStatus
@@ -27,7 +28,22 @@ def make_review_page(
     """Present expert choices; never classify or approve a report automatically."""
     page = QWidget(parent)
     page.setObjectName("review_page")
-    layout = QVBoxLayout(page)
+    root_layout = QVBoxLayout(page)
+    root_layout.setContentsMargins(0, 0, 0, 0)
+    scroll = QScrollArea(page)
+    scroll.setObjectName("review_workspace_scroll")
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    content = QWidget(scroll)
+    layout = QVBoxLayout(content)
+    # Allow the content to grow vertically rather than squeezing labels,
+    # previews, and the human-decision form into the available window height.
+    layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+    layout.setContentsMargins(14, 14, 14, 20)
+    layout.setSpacing(12)
+    scroll.setWidget(content)
+    root_layout.addWidget(scroll)
 
     title = QLabel("Fachprüfung – ungeprüfte Befunde", page)
     title.setObjectName("page_heading")
@@ -102,6 +118,9 @@ def make_review_page(
         )
         item.setData(Qt.ItemDataRole.UserRole, finding.finding_id)
         finding_list.addItem(item)
+    # Fifty findings must remain browseable without collapsing to one line.
+    finding_list.setMinimumHeight(150)
+    finding_list.setMaximumHeight(200)
     layout.addWidget(finding_list)
 
     evidence = QLabel(
