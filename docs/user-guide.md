@@ -398,3 +398,14 @@ Die Eingabe ist jetzt einfacher: Bei neuen Projekten wird **„Anlage“** (3 bi
 Online benötigt das Formular zusätzlich die **Anlagenleistung in kWp**. Die Kontoidentität wird ausschließlich aus der gültigen Online-Sitzung genommen. Bestehende Projekte und private DJI-Bilddateien müssen weder umbenannt noch erneut importiert werden. Auch ältere, bewusst manuell angelegte IDs bleiben durch Rückwärtskompatibilität erhalten.
 
 Für bessere Lesbarkeit sind Qt-Standardschriften 16px und Web-Standardschriften 17px; die Eingabe- und Auswahlfelder sind größer. Die endgültige Zugänglichkeit und angenehme Abstände werden im nächsten echten Windows-10-Test gemeinsam geprüft; optionale Hintergrundbilder und rein optische Elemente folgen in späteren Designschritten.
+
+
+## Windows 10: gemeinsamer DJI-Flugordner und fehlende Bilder nachladen (Pilot)
+
+In der neuen **Offline-Testversion** beim ersten Import die Schaltfläche **„Gesamten DJI-Flugordner importieren (RGB + Thermal)“** benutzen. Der gewünschte Ordner sollte alle DJI-M3T-RGB- (`_V.JPG`) und Thermalbilder (`_T.JPG`) auf seiner obersten Ebene enthalten. Eine ZIP-Datei oder getrennte Ordner sind nicht nötig. Vor dem Import werden die erkannten Stückzahlen angezeigt; erst nach Bestätigung beginnt der lokale Import mit unveränderten gesicherten Originalkopien. Nicht erkannte JPGs oder Verknüpfungen werden nicht stillschweigend übernommen. Unterordner werden nicht automatisch durchlaufen.
+
+Ein bereits befülltes Projekt erlaubt aus Sicherheitsgründen **keinen zweiten normalen Erstimport**. Dafür erscheint die gesonderte Schaltfläche **„Fehlende DJI-Originalbilder nachladen“**. Hier ausschließlich die noch fehlenden Original-JPGs auswählen. Die Anwendung lehnt vorhandene Frame-, Paar- oder Befundkennungen statt eines Überschreibens ab. Bei bereits menschlich geprüften Befunden, genehmigten Berichten oder manuellen Trainingslabels ist Nachladen gesperrt. Bestehende Projekte und private Originalquellen dürfen nicht gelöscht oder überschrieben werden.
+
+Nach getrennten Thermal- und RGB-Importen ggf. auf **„Vorhandene RGB-/Thermalbilder technisch zuordnen“** klicken; der Button wird angeboten, wenn beide Modalitäten vorhanden sind, aber noch keine vollständige technische Paarzuordnung vorliegt. Paarung ist keine pixelgenaue Registrierung oder radiometrische Kalibrierung. Nach jedem Schritt gespeicherte Bildzähler und Projektanzeige kontrollieren. Im Test nur mit einer separaten SQLite-Datenbankkopie arbeiten. Die aktive Datenbank aus `%USERPROFILE%\MCM-SolarCheck\solarcheck.sqlite3` nicht zum Migrations-/Probedurchlauf verwenden.
+
+Die Workflow-Schritte in der linken Navigation bleiben auch vor Freigabe lesbar; ein nicht bereiter Schritt zeigt bei Auswahl seinen Blockierungsgrund. Der Desktop-Basisschriftgrad wurde auf 18 px angehoben. Ob Kontrast, Skalierung und Bedienbarkeit am echten Windows-10-Rechner ausreichen, ist ausdrücklich noch durch den Anwender zu bestätigen.
