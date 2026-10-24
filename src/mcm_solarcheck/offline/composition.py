@@ -18,4 +18,7 @@ def build_offline_services(database_path: str | Path) -> OfflineServices:
     """Compose offline services without importing online infrastructure."""
     database = ProjectDatabase(database_path)
     database.initialize()
-    return OfflineServices(projects=ProjectApplicationService(database))
+    return OfflineServices(projects=ProjectApplicationService(
+        database,
+        require_verified_offline_processing=True,
+    ))
