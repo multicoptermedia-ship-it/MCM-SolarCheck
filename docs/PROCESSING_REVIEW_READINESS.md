@@ -112,3 +112,36 @@ jetzt als eigener Entwicklungsabschnitt implementiert:
 - Eine dritte Schaltfläche auf der Seite `Verarbeitung`: **„Thermal-Sensorrohwerte statistisch auswerten (nur lesend)“**; Qt-Hintergrundthread mit Fortschritt, Abbruch und Schutz vor parallelen Prüfungen, Projektwechsel und Programmende.
 - Das bestehende `offline_processing_runs`-Journal wird **nicht** verändert. Es gibt keinen fingierten Verarbeitungsabschluss. Fachprüfung, Bericht und Export bleiben gesperrt, auch wenn alle Rohstatistiken berechnet werden konnten. Noch fehlen insbesondere verifizierte RGB/Thermal-Pixelregistrierung, PV-Modulsegmentierung, Kalibrierung, Expertenkontext und persistierter atomarer Vollständigkeitsnachweis.
 - Synthetische Tests sichern echte Statistikberechnung, konstante Rohwerte, Hash-Mismatch, fehlenden Hash, beschädigte bzw. fehlende Quelldatei, Größenlimit, Abbruch, Projektänderung und Qt-Gates ab. Vor Windows-Test **alle vier** CI-Jobs auf dem neuen Commit kontrollieren. Produktionsinstallation und DJI-Originale nie ändern.
+
+
+## 24.10.2026 – Begrenzte, lesende RGB-Modulerkennungsstichprobe
+
+Nach realen Windows-Tests mit 193/193 unveränderten Bilddateien, 160/160
+auslesbaren Thermalrastern und 160/160 erfolgreich berechneten
+Rohwertstatistiken beginnt die nächste **diagnostische** PV-Modulstufe:
+
+- Nur **maximal drei** nach Frame-ID sortierte, importierte RGB-Bilder pro
+  Aufruf; nicht alle 33 bzw. das gesamte Projekt. Die Anzahl wird in der UI
+  ausdrücklich als Stichprobe ausgewiesen.
+- Die neue Servicefunktion liest jedes RGB-Bild ausschließlich lokal mit
+  Größen-/Pixelgrenzen, gespeicherter Import-SHA-256-Prüfsumme, kontrollierter
+  Bildgröße und Dateiidentität. DJI-MPO/JPG wird über Pillow als erstes RGB-Bild
+  dekodiert; keine veränderten Quelldaten akzeptieren.
+- Der vorhandene Strukturdetektor und die unabhängige OpenCV-Inhaltsprüfung
+  rechnen **auf genau denselben verifizierten Pixelbytes**, ohne die private
+  Datei zur Erkennung noch einmal zu öffnen. Nur geometrisch plausible
+  räumliche Überlappungen nach Polygon-/Duplikatfilter werden als
+  **unbestätigte, räumlich gestützte Modulvorschläge** gezählt. Null
+  Vorschläge ist ein zulässiges Ergebnis; Präzision/Vollständigkeit nicht
+  nachgewiesen, da noch keine unabhängig annotierte Ground Truth vorliegt.
+- Neue Schaltfläche auf der Seite Verarbeitung mit projektgebundenem Qt-
+  Hintergrundthread, Fortschritt, Abbruch und neutralen Fehlertexten.
+  Die übrigen Prüfungen werden währenddessen deaktiviert.
+- Keine Speicherung von Polygonen, Modulen, Befunden, Reviews,
+  Berichtfreigaben oder Verarbeitungslaufstatus; keine Änderung der
+  importierten Bilder oder der produktiven Datenbank. Review, Bericht und
+  Export bleiben gesperrt, selbst falls Modulvorschläge angezeigt werden.
+- Synthetische Tests für fehlende/falsche SHA-Prüfsummen, fehlende Dateien,
+  falsche Bildmaße, Projektisolation, maximal drei Bilder, Abbruch,
+  Eingabeänderung und Qt-Sperren. Vor dem echten Windows-Pilot alle vier
+  CI-Ergebnisse prüfen und neue Version in eigenem Ordner auf F: testen.
