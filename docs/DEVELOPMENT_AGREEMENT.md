@@ -1167,3 +1167,14 @@ Branch feature/rgb-all-segments-export; vorheriger HEAD bdb8ebb mit erfolgreiche
 - Verbindlicher nächster Entwicklungsblock: echten, fälschungs- und stale-geschützten Abschlussnachweis für den **aktuellen** Quelldatensatz und die komplette Pipeline planen und implementieren; Review-`WorkflowAction` und sämtliche Fachentscheidungs-APIs einschließlich Berichts-/Exportgates zentral und fail-closed daran binden. Kein fingierter `completed`-Wert für Altprojekte; kein UI-only-Schutz. Danach asynchronen Verarbeitungslauf mit echten Pro-Schritt-/Fehl-/Abbruchstatus vertikal anbinden.
 - Architektur-/Sicherheitsvertrag und genaue Negativfälle: `docs/PROCESSING_REVIEW_READINESS.md`.
 - Aktueller CI-Stand nach dieser neuen Entwicklungsrunde muss noch anhand GitHub Actions überprüft werden. Keine neue Windows-Testversion vor bestätigtem Grün und frischer isolierter Testdatenbank bereitstellen.
+
+
+## Übergabe 24. Oktober 2026 – Projektspezifischer Verarbeitungslauf (Vorstufe)
+
+- Entwicklungsbranch `feature/offline-human-report-approval`; vorheriger HEAD `7d8dcc3` CI auf Windows/Ubuntu 3.11/3.12 vollständig grün bestätigt. Neuer HEAD siehe GitHub.
+- Erneute Nutzerfreigabe zur Fortsetzung. Kein Merge zu `main`; keinerlei Zugriff auf lokale DJI-Fotos und aktive Windows-Datenbanken.
+- Neue Bausteine: `services/offline_processing_inventory.py` (privater, projektspezifischer Hash über in SQLite gespeicherte Eingabeverweise und vorhandene Importchecksummen); `storage/sqlite.py` Schema v21 mit rückwärtskompatibler Migration ohne erfundene Altverarbeitungen; `services/offline_processing_runs.py` atomarer Laufstart, Fail/Cancel, maximal ein aktiver Lauf je Projekt, kein Completion-API.
+- `ProjectApplicationService` exponiert nur Lesestatus; Windows-Verarbeitungsseite zeigt fehlenden, laufenden, abgebrochenen, fehlgeschlagenen oder gegenüber veränderten Eingaben veralteten Lauf. Keine automatische Verarbeitung, keine radiometrische oder geometrische Qualitätsbehauptung.
+- Neue Tests: `tests/test_offline_processing_runs.py` und Ergänzungen in `tests/test_gui_processing_layout.py`. GitHub-CI für neuen HEAD abzuwarten.
+- **Noch offen:** geschützter echter Offline-Worker für den vollständigen Verarbeitungslauf, robustes pro-Datei-/Batch-Ergebnis samt Integritätsprüfung und Versionen; atomare überprüfte Abschlussmarkierung; danach zentrales `WorkflowAction.REVIEW`-Backend-Gate und alle Reports/Exports. Existierende aktuelle Review-Logik ist noch zu offen und darf nicht als sicher gesperrt gelten.
+- Für den nächsten lokalen Test **separate Quelle und Datenbankkopie** erstellen; Schema v21 migriert alte Test-DB, deshalb keine alte/aktive DB direkt damit starten. Erst nach allen vier grünen Tests. Der Benutzer erhält weiter stets nur einen Schritt auf einmal.
