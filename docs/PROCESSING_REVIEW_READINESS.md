@@ -154,3 +154,19 @@ Rohwertstatistiken beginnt die nächste **diagnostische** PV-Modulstufe:
 - Ergebnis enthält keine persönlichen Pfade, Bildnamen oder Sensordaten. Die GUI löscht Anzeigeergebnisse beim Projektwechsel, verwirft Aufrufe aus alten Projekten und zeigt bei SQL-Fehlern nur generische, pfadfreie Meldungen.
 - Die Prüfung verändert weder Originaldaten noch die SQLite-Einträge für Module, Rohkandidaten, Trainingsbeispiele, Läufe oder Reviews. Auch vorhandene Vorschläge aus dem höchstens Drei-RGB-Stichprobentest sind **keine validierten Module** und kein Nachweis vollständiger Verarbeitung.
 - Eine **produktionsvalidierte vollumfängliche PV-Modulsegmentierung** fehlt weiter. `Review`, `Bericht` und `Export` bleiben zentral gesperrt. Zusätzliche synthetische Offscreen-Qt-Tests sichern Projekttrennung, fehlende Quelldateien, keinen persistierten Modulnachweis und die Sperren ab. Echte Pilotdaten SC-0003 bleiben ausschließlich lokal.
+
+
+## 24.10.2026 – Bestehenden Cadence-PV-Detektor in die Offline-RGB-Stichprobe integrieren
+
+**Befund aus echtem Windows-Pilot mit SC-0003**: 33 RGB-Eingabedatensätze mit eingetragenen Import-Prüfsummen und plausiblen Abmessungen; bei einer ausschließlich lesenden **3-RGB-Stichprobe** wurden 12 Strukturvorschläge, 32 Bildinhalt-Vorschläge, jedoch **0 räumliche Übereinstimmungen** gefunden. Dies ist **kein** Beleg, dass keine PV-Module vorhanden sind; die Verfahren wurden noch nicht fachlich mit annotierten Bilddaten validiert.
+
+Die weiterentwickelte, bereits vorhandene Komponente `vision/cadence_module_detector.py` (Rasterabstandsprüfung, unabhängige Pixelhinweise, eindeutige Phasenauswahl, endliche Linienunterstützung und IoU-Abgleich) war bisher **nicht** Teil dieser Offline-Stichprobe; der bisherige `offline_module_sample.py` benutzte nur die einfache Raster- und Bildinhaltserkennung.
+
+**Behobene Integrationslücke:**
+
+- `CadenceConfirmedModuleDetector.detect_array_with_status(bgr)` verwendet die **gleiche bestehende Detektions- und Freigabelogik**, arbeitet aber auf **bereits SHA-256-verifizierten und begrenzt dekodierten RGB-Bilddaten im Arbeitsspeicher**. Die ältere pfadbasierte `detect(Path)`-API bleibt für bestehende Test- und Entwickleraufrufe erhalten. Kein erneutes ungesichertes Öffnen der Aufnahme für die Cadence-Stufe.
+- Der **höchstens Drei-Bilder-Test** vergleicht jetzt die bisherigen beiden Vorschlagsmengen **zusätzlich** mit dem vorhandenen Cadence-Detektor. Er berichtet dessen Vorschlagsanzahl, Anzahl betroffener Bilder sowie **gruppierte Ablehnungsursachen** (fehlende unabhängige Bildhinweise / Raster nicht bestätigt / Phase uneindeutig / andere technische Kriterien). Die Gründe sind diagnostisch, **keine** Erfolgs- oder Defektlabels.
+- Strikt unverändert: In dieser Stichprobe erfolgt **keine** Persistierung in `pv_modules`, `findings`, `finding_reviews`, `offline_processing_runs`, `report` oder `export`. Auch ein erfolgreicher Cadence-Vorschlag belegt weder tatsächliche PV-Module noch vollständige Verarbeitung, RGB/Thermal-Registrierung, Kalibrierung oder eine Fachfreigabe.
+- Synthetische Regressionstests schützen den unveränderten Dateipfad-API-Vertrag, den geprüften Array-Zugang ohne erneutes Öffnen der Originaldatei, Schutz vor fehlenden/überschriebenen Dateien, IoU-Anforderungen, Rastergate, isolierte Ergebniszählung und weiter gesperrte Review-/Berichts-/Exportaktionen. **Keine DJI-Originale gelangen auf GitHub**.
+
+**Nächster echter Abnahmetest:** neue isolierte Windows-Version **erst nach vier erfolgreichen CI-Prüfungen**. Mit SC-0003 denselben begrenzten Drei-RGB-Test wiederholen; zusätzliche Cadence-Zahlen und Ablehnungsgründe beurteilen. Erst danach planen, welche Originale mit lokalen Bildüberlagerungen und unabhängig geprüften Annotationen fachlich beurteilt werden sollen. Keine Speicher-/Produktionsdaten ändern.
