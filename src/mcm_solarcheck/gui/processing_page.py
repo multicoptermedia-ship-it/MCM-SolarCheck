@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 def make_processing_page(
     parent=None, *, current_project_id=None, overview=None, on_refresh=None,
     on_check_registration=None, registration_check_status=None, choose_control_file=None,
-    project_label=None,
+    project_label=None, processing_run=None,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -96,6 +96,32 @@ def make_processing_page(
         progress.setWordWrap(True)
         progress.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(progress)
+
+        if processing_run is None:
+            run_text = "Noch kein vollständiger Verarbeitungslauf dokumentiert."
+        elif processing_run.stale_inputs:
+            run_text = (
+                "Der Datenbestand wurde seit dem letzten Verarbeitungslauf geändert. "
+                "Eine erneute vollständige Verarbeitung ist erforderlich."
+            )
+        elif processing_run.status == "running":
+            run_text = (
+                "Verarbeitungslauf begonnen; ein vollständiges Ergebnis "
+                "ist noch nicht nachgewiesen."
+            )
+        elif processing_run.status == "cancelled":
+            run_text = "Letzte Verarbeitung abgebrochen; kein vollständiges Ergebnis."
+        elif processing_run.status == "failed":
+            run_text = "Letzte Verarbeitung fehlgeschlagen; kein vollständiges Ergebnis."
+        else:
+            # A completed marker without worker-backed verification is not
+            # sufficient evidence to enable the expert review.
+            run_text = "Ein Abschlussmarker allein belegt keine geprüfte Verarbeitung."
+        run_label = QLabel(run_text, page)
+        run_label.setObjectName("processing_run_status")
+        run_label.setWordWrap(True)
+        run_label.setTextFormat(Qt.TextFormat.PlainText)
+        layout.addWidget(run_label)
 
         details_toggle = QPushButton("Technische Details anzeigen", page)
         details_toggle.setObjectName("processing_details_toggle")
