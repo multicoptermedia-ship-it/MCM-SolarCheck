@@ -43,7 +43,7 @@ def test_offline_staged_candidates_never_grant_review_report_or_export(tmp_path)
         state = service.state(project)
         for stage in (WorkflowStage.REVIEW, WorkflowStage.REPORT, WorkflowStage.EXPORT):
             assert not state.readiness(stage).ready
-            assert "no verified complete offline processing run" in (
+            assert "Vollständiger Verarbeitungslauf noch nicht nachgewiesen" in (
                 state.readiness(stage).blockers
             )
         for action in (
@@ -103,7 +103,7 @@ def test_forged_completed_marker_is_not_worker_proof(tmp_path):
         )
     blocked = service.state("P1").readiness(WorkflowStage.REVIEW)
     assert blocked.ready is False
-    assert "processing completion lacks worker-verified evidence" in blocked.blockers
+    assert "Abschluss des vollständigen Verarbeitungslaufs nicht verifiziert" in blocked.blockers
     with pytest.raises(ValueError, match="review action is blocked"):
         service.review_pending_finding(
             "P1", "F1", status=ReviewStatus.REJECTED, reviewer="Expert",
@@ -136,7 +136,7 @@ def test_changed_inputs_cannot_restore_review_and_old_audits_are_preserved(tmp_p
             "INSERT INTO image_frames(project_id,frame_id,source_file) "
             "VALUES (?,?,?)", ("P1", "R2", "unreadable-unverified.jpg"),
         )
-    assert "processing inputs changed since the last run" in (
+    assert "Bilddaten seit dem letzten Verarbeitungslauf geändert" in (
         service.state("P1").readiness(WorkflowStage.REVIEW).blockers
     )
     with service.database.connect() as sql:

@@ -20,15 +20,15 @@ def verified_offline_processing_blockers(database, project_id: str) -> tuple[str
 
     run = latest_offline_processing_run(database, project_id)
     if run is None:
-        return ("no verified complete offline processing run",)
+        return ("Vollständiger Verarbeitungslauf noch nicht nachgewiesen",)
     if run.stale_inputs:
-        return ("processing inputs changed since the last run",)
+        return ("Bilddaten seit dem letzten Verarbeitungslauf geändert",)
     if run.status == "running":
-        return ("offline processing run is still running",)
+        return ("Verarbeitungslauf läuft noch",)
     if run.status == "failed":
-        return ("offline processing run failed",)
+        return ("Verarbeitungslauf fehlgeschlagen",)
     if run.status == "cancelled":
-        return ("offline processing run was cancelled",)
+        return ("Verarbeitungslauf abgebrochen",)
     # IMPORTANT: there is intentionally no trusted completion-writer yet.
     # A manually inserted or old 'completed' ledger row cannot grant Review.
-    return ("processing completion lacks worker-verified evidence",)
+    return ("Abschluss des vollständigen Verarbeitungslaufs nicht verifiziert",)
