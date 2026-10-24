@@ -1691,6 +1691,9 @@ class SolarCheckMainWindow(QMainWindow):
     def _rgb_module_sample_finished(self, result) -> None:
         if not self._rgb_module_sample_current():
             return
+        from mcm_solarcheck.gui.offline_cadence_diagnostic_text import (
+            describe_cadence_rejections,
+        )
         self._rgb_module_sample_status = (
             f"RGB-Erkennungsstichprobe beendet: {result.analyzed}/"
             f"{result.sample_size} ausgewertet (von {result.available_rgb} "
@@ -1708,6 +1711,12 @@ class SolarCheckMainWindow(QMainWindow):
             f"{result.cadence_rejected_phase} ohne eindeutige Rasterphase, "
             f"{result.cadence_rejected_other} aus anderen Qualitätsgründen "
             f"ohne Cadence-Vorschlag."
+            + (
+                " Detaillierte Cadence-Gründe: "
+                + describe_cadence_rejections(result.cadence_rejection_details)
+                + "."
+                if result.cadence_rejection_details else ""
+            )
             + (" Eingaben geändert; Ergebnis veraltet."
                if result.changed_inputs else "")
             + " Keine bestätigten PV-Module, kein Verarbeitungsabschluss "
