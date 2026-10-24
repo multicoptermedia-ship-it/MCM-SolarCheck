@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton,
+    QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton,
     QScrollArea, QVBoxLayout, QWidget,
 )
 
@@ -21,6 +21,8 @@ def make_processing_page(
     on_sample_rgb_modules=None, on_cancel_rgb_modules=None,
     rgb_sample_status=None, rgb_sample_running=False,
     on_check_module_readiness=None, module_readiness_status=None,
+    on_preview_rgb_overlay=None, on_cancel_rgb_overlay=None,
+    rgb_overlay_status=None, rgb_overlay_running=False,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -139,7 +141,7 @@ def make_processing_page(
         check_images.setEnabled(
             callable(on_check_imported_files) and not image_check_running
             and not thermal_check_running and not thermal_stats_running
-            and not rgb_sample_running and counts.thermal_frames > 0
+            and not rgb_sample_running and not rgb_overlay_running and counts.thermal_frames > 0
         )
         if check_images.isEnabled():
             check_images.clicked.connect(on_check_imported_files)
@@ -173,7 +175,7 @@ def make_processing_page(
         check_raw.setEnabled(
             callable(on_check_thermal_raw) and not thermal_check_running
             and not image_check_running and not thermal_stats_running
-            and not rgb_sample_running and counts.thermal_frames > 0
+            and not rgb_sample_running and not rgb_overlay_running and counts.thermal_frames > 0
         )
         if check_raw.isEnabled():
             check_raw.clicked.connect(on_check_thermal_raw)
@@ -267,7 +269,8 @@ def make_processing_page(
         sample.setEnabled(
             callable(on_sample_rgb_modules) and not rgb_sample_running
             and not image_check_running and not thermal_check_running
-            and not thermal_stats_running and counts.rgb_frames > 0
+            and not thermal_stats_running and not rgb_overlay_running
+            and counts.rgb_frames > 0
         )
         if sample.isEnabled():
             sample.clicked.connect(on_sample_rgb_modules)
@@ -291,6 +294,52 @@ def make_processing_page(
         sample_info.setTextFormat(Qt.TextFormat.PlainText)
         sample_info.setWordWrap(True)
         layout.addWidget(sample_info)
+
+        # Explicit local preview of only the first three SHA-verified RGB frames.
+        # The selector is just a 0-based sample index, never a user file path.
+        overlay_selector = QComboBox(page)
+        overlay_selector.setObjectName("processing_rgb_overlay_selector")
+        for idx in range(min(3, counts.rgb_frames)):
+            overlay_selector.addItem(f"RGB-Testbild {idx + 1}", idx)
+        overlay_selector.setEnabled(not rgb_overlay_running)
+        layout.addWidget(overlay_selector)
+
+        overlay_button = QPushButton(
+            "RGB-Modulvorschläge farbig anzeigen (nur lesend)", page,
+        )
+        overlay_button.setObjectName("processing_preview_rgb_overlay")
+        overlay_button.setEnabled(
+            callable(on_preview_rgb_overlay)
+            and counts.rgb_frames > 0
+            and not rgb_overlay_running and not rgb_sample_running
+            and not image_check_running and not thermal_check_running
+            and not thermal_stats_running
+        )
+        if overlay_button.isEnabled():
+            overlay_button.clicked.connect(
+                lambda checked=False: on_preview_rgb_overlay(
+                    overlay_selector.currentIndex(),
+                )
+            )
+        layout.addWidget(overlay_button)
+        if rgb_overlay_running:
+            cancel_overlay = QPushButton("RGB-Bildvorschau abbrechen", page)
+            cancel_overlay.setObjectName("processing_cancel_rgb_overlay")
+            cancel_overlay.setEnabled(callable(on_cancel_rgb_overlay))
+            if cancel_overlay.isEnabled():
+                cancel_overlay.clicked.connect(on_cancel_rgb_overlay)
+            layout.addWidget(cancel_overlay)
+        overlay_info = QLabel(
+            rgb_overlay_status or (
+                "Farbliche Überlagerung auf einem der ersten drei importierten "
+                "RGB-Bilder. Zeigt nur unverbindliche Detektorvorschläge in "
+                "einem lokalen Fenster, ohne Originale oder Datenbank zu ändern."
+            ), page,
+        )
+        overlay_info.setObjectName("processing_rgb_overlay_status")
+        overlay_info.setTextFormat(Qt.TextFormat.PlainText)
+        overlay_info.setWordWrap(True)
+        layout.addWidget(overlay_info)
 
         details_toggle = QPushButton("Technische Details anzeigen", page)
         details_toggle.setObjectName("processing_details_toggle")
