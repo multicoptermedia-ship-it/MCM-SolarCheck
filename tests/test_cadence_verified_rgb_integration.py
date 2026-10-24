@@ -56,7 +56,12 @@ def test_in_memory_cadence_still_requires_spatial_image_support(monkeypatch):
     support = ModuleDetection(((12, 11), (38, 11), (38, 29), (12, 29)), .8)
     image = np.zeros((80, 100, 3), dtype=np.uint8)
     monkeypatch.setattr(module, "detect_structural_lines", lambda *a, **k: ())
-    monkeypatch.setattr(module, "extract_grid_line_families", lambda lines: ())
+    # The simulated accepted cadence must have two independent grid axes.
+    # An empty-family fixture would correctly fail the detector's axis gate.
+    monkeypatch.setattr(
+        module, "extract_grid_line_families",
+        lambda lines: (object(), object()),
+    )
     axes = (
         GridCadence(True, "synthetic", 10.0, 2),
         GridCadence(True, "synthetic", 10.0, 2),
