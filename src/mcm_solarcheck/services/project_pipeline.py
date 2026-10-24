@@ -326,6 +326,20 @@ class ProjectApplicationService:
             self.database, project_id, control_file,
         )
 
+    def offline_processing_input_inventory(self, project_id: str):
+        """Read-only fingerprint of imported inputs, not original-file proof."""
+        from mcm_solarcheck.services.offline_processing_inventory import (
+            capture_offline_processing_inventory,
+        )
+        return capture_offline_processing_inventory(self.database, project_id)
+
+    def latest_offline_processing_run(self, project_id: str):
+        """Show persisted run history without claiming analysis completion."""
+        from mcm_solarcheck.services.offline_processing_runs import (
+            latest_offline_processing_run,
+        )
+        return latest_offline_processing_run(self.database, project_id)
+
     def pair_evidence_overview(self, project_id: str) -> TechnicalPairAudit:
         """Only aggregated metadata-pair evidence for the active project."""
         return InspectionQueries(self.database).technical_pair_audit(project_id)
