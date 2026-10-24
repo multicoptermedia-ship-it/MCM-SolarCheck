@@ -63,8 +63,13 @@ def _inspect_raw(
     expected_hash: str | None, *,
     parser: M3TRadiometricParser, should_cancel: Callable[[], bool],
     maximum_bytes: int,
+    on_verified_raster=None,
 ) -> tuple[bool, bool]:
-    """Validate raw raster + original import digest; never persist decoded samples."""
+    """Validate raw raster + import digest; optional verified-raster consumer.
+
+    The callback is invoked only after a matching SHA-256; this preserves the
+    original two-boolean contract and prevents processing altered input bytes.
+    """
     path = Path(source_path)
     if path.is_symlink() or not path.is_file():
         return False, False
@@ -117,6 +122,10 @@ def _inspect_raw(
         ):
             return False, False
         verified = digest.hexdigest() == expected_hash.lower()
+        if verified and on_verified_raster is not None:
+            if should_cancel():
+                raise ThermalRawCheckCancelled()
+            on_verified_raster(raster)
         return verified, verified
     except ThermalRawCheckCancelled:
         raise
