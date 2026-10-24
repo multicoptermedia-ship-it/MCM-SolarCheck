@@ -99,6 +99,10 @@ class SolarCheckMainWindow(QMainWindow):
         self._last_export_status = None
         self._plant_overview_offset = 0
         self._pair_control_status = None
+        self._image_check_thread = None
+        self._image_check_project_id = None
+        self._image_check_status = None
+        self._image_check_close_pending = False
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -372,6 +376,9 @@ class SolarCheckMainWindow(QMainWindow):
             self._review_history_offset = 0
             self._plant_overview_offset = 0
             self._pair_control_status = None
+            if self._image_check_thread is not None:
+                self._image_check_thread.request_cancel()
+            self._image_check_status = None
             self._clear_prepared_draft()
             self._geotiff_result = None
             self._orthophoto_comparison = None
@@ -1231,6 +1238,122 @@ class SolarCheckMainWindow(QMainWindow):
                 )
         self._refresh_processing_page()
 
+    def _start_imported_image_check(self) -> None:
+        """Launch a local, read-only preflight: never marks processing complete."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._project_service is None
+            or self._current_project_id is None
+            or self._image_check_thread is not None
+            or self._image_check_close_pending
+        ):
+            return
+        from mcm_solarcheck.gui.offline_imported_image_check_worker import (
+            ImportedImageCheckThread,
+        )
+        thread = ImportedImageCheckThread(
+            self._project_service.database.path,
+            self._current_project_id,
+            self,
+        )
+        self._image_check_thread = thread
+        self._image_check_project_id = self._current_project_id
+        self._image_check_status = "Lokale Dateiprüfung gestartet (nur lesend)."
+        self._refresh_processing_page()
+        thread.progress.connect(
+            self._imported_image_check_progress, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.result_ready.connect(
+            self._imported_image_check_finished, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.failed.connect(
+            self._imported_image_check_failed, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.cancelled.connect(
+            self._imported_image_check_cancelled, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.finished.connect(
+            self._imported_image_check_thread_stopped,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        thread.start()
+
+    def _imported_image_check_result_current(self) -> bool:
+        return (
+            self._image_check_project_id is not None
+            and self._image_check_project_id == self._current_project_id
+            and not self._image_check_close_pending
+        )
+
+    @Slot(int, int, int)
+    def _imported_image_check_progress(self, done: int, total: int, issues: int) -> None:
+        if not self._imported_image_check_result_current():
+            return
+        self._image_check_status = (
+            f"Dateiprüfung: {done} von {total} Bildern, "
+            f"{issues} bisher mit Problemen. Keine Fachfreigabe."
+        )
+        # Avoid expensive SQLite page rebuilds on every frame.
+        if done == total or done % 5 == 0 or issues:
+            self._refresh_processing_page()
+
+    @Slot(object)
+    def _imported_image_check_finished(self, result) -> None:
+        if not self._imported_image_check_result_current():
+            return
+        self._image_check_status = (
+            f"Dateiprüfung beendet: {result.valid_images}/{result.total} "
+            f"strukturell lesbar, {result.checksum_verified} mit "
+            f"Import-Prüfsumme bestätigt, {result.without_checksum} "
+            f"ohne Import-Prüfsumme, {result.issues} mit Problemen."
+            + (" Eingaben während der Prüfung geändert; Ergebnis veraltet."
+               if result.changed_inputs else "")
+            + " Keine abgeschlossene Bildanalyse oder Fachfreigabe."
+        )
+        self._refresh_processing_page()
+
+    @Slot(str)
+    def _imported_image_check_failed(self, message: str) -> None:
+        if not self._imported_image_check_result_current():
+            return
+        # The worker emits only redacted text, never user paths or filenames.
+        self._image_check_status = message
+        self._refresh_processing_page()
+
+    @Slot()
+    def _imported_image_check_cancelled(self) -> None:
+        if not self._imported_image_check_result_current():
+            return
+        self._image_check_status = (
+            "Dateiprüfung abgebrochen. Keine Änderung an Originalbildern "
+            "und keine Fachfreigabe."
+        )
+        self._refresh_processing_page()
+
+    @Slot()
+    def _imported_image_check_thread_stopped(self) -> None:
+        QTimer.singleShot(0, self._imported_image_check_cleanup)
+
+    @Slot()
+    def _imported_image_check_cleanup(self) -> None:
+        thread = self._image_check_thread
+        if thread is None:
+            return
+        thread.wait()
+        self._image_check_thread = None
+        thread.deleteLater()
+        self._image_check_project_id = None
+        if self._image_check_close_pending:
+            self._image_check_close_pending = False
+            self.close()
+        else:
+            self._refresh_processing_page()
+
+    def _cancel_imported_image_check(self) -> None:
+        thread = self._image_check_thread
+        if thread is not None:
+            thread.request_cancel()
+
     def _refresh_processing_page(self) -> None:
         """Render the selected project's persisted evidence through its service."""
         old_page = self._pages[ShellRoute.PROCESSING]
@@ -1264,6 +1387,26 @@ class SolarCheckMainWindow(QMainWindow):
             project_label=project_label,
             processing_run=processing_run,
             overview=overview,
+            on_check_imported_files=(
+                self._start_imported_image_check
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and self._image_check_thread is None
+                and not self._image_check_close_pending
+                else None
+            ),
+            on_cancel_imported_files=(
+                self._cancel_imported_image_check
+                if self._image_check_thread is not None
+                and self._image_check_project_id == self._current_project_id
+                else None
+            ),
+            image_check_status=(
+                self._image_check_status
+                if self._image_check_project_id in (None, self._current_project_id)
+                else None
+            ),
+            image_check_running=self._image_check_thread is not None,
             registration_check_status=self._pair_control_status,
             on_check_registration=(
                 self._check_pair_control_points
@@ -1661,7 +1804,8 @@ class SolarCheckMainWindow(QMainWindow):
         integrity_busy = getattr(self, "_integrity_thread", None) is not None
         preflight_busy = self._preflight_thread is not None
         import_busy = self._import_thread is not None
-        if integrity_busy or preflight_busy or import_busy:
+        image_check_busy = self._image_check_thread is not None
+        if integrity_busy or preflight_busy or import_busy or image_check_busy:
             if integrity_busy:
                 self._integrity_close_pending = True
                 self._cancel_rgb_integrity()
@@ -1671,6 +1815,9 @@ class SolarCheckMainWindow(QMainWindow):
             if import_busy:
                 self._import_close_pending = True
                 self._cancel_image_import()
+            if image_check_busy:
+                self._image_check_close_pending = True
+                self._cancel_imported_image_check()
             event.ignore()
             return
         super().closeEvent(event)
