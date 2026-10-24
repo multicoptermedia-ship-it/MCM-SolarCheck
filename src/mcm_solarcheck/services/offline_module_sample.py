@@ -7,6 +7,7 @@ A module may be reported only after separate spatial/human validation.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections import Counter
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -18,6 +19,7 @@ from PIL import Image, ImageOps
 from mcm_solarcheck.services.offline_processing_inventory import (
     capture_offline_processing_inventory,
 )
+from mcm_solarcheck.services.offline_cadence_diagnostics import safe_cadence_reason
 from mcm_solarcheck.vision.grid_module_backend import GridModuleDetector
 from mcm_solarcheck.vision.cadence_module_detector import CadenceConfirmedModuleDetector
 from mcm_solarcheck.vision.opencv_module_detector import OpenCVModuleDetector
@@ -53,6 +55,9 @@ class ModuleSampleResult:
     cadence_rejected_grid: int = 0
     cadence_rejected_phase: int = 0
     cadence_rejected_other: int = 0
+    # Language-neutral, allowlisted (code, count) pairs; includes every frame
+    # with no cadence proposals, rather than just the earlier broad categories.
+    cadence_rejection_details: tuple[tuple[str, int], ...] = ()
 
     @property
     def technical_sample_only(self) -> bool:
@@ -160,6 +165,7 @@ def sample_imported_rgb_module_evidence(
     cadence = cadence_detector or CadenceConfirmedModuleDetector()
     checked = analyzed = errors = missing = grids = visuals = overlaps = supported_frames = 0
     cadence_proposals = cadence_frames = no_support = no_grid = no_phase = other = 0
+    rejection_reasons: Counter[str] = Counter()
     for source, width, height, checksum in entries:
         if cancelled():
             raise ModuleSampleCancelled()
@@ -194,6 +200,9 @@ def sample_imported_rgb_module_evidence(
                 cadence_proposals += len(cadence_found)
                 cadence_frames += bool(cadence_found)
                 if not cadence_found:
+                    # Never propagate arbitrary reason strings from a detector.
+                    # Only stable codes can be displayed; no paths/pixels/IDs.
+                    rejection_reasons[safe_cadence_reason(cadence_status)] += 1
                     if cadence_status == "independent_image_support_required":
                         no_support += 1
                     elif cadence_status in (
@@ -228,4 +237,5 @@ def sample_imported_rgb_module_evidence(
         cadence_rejected_grid=no_grid,
         cadence_rejected_phase=no_phase,
         cadence_rejected_other=other,
+        cadence_rejection_details=tuple(sorted(rejection_reasons.items())),
     )
