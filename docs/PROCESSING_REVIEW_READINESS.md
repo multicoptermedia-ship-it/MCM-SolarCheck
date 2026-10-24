@@ -13,6 +13,15 @@ Im separat gestarteten Projekt SC-0003 wurden **160 Thermalbilder, 33 RGB-Bilder
 3. Erst **nach belegtem erfolgreichen Abschluss aller verpflichtenden Verarbeitungsschritte für den aktuellen Datensatz** die fachlichen Einzelentscheidungen freischalten. Fehlschlag, Abbruch, Teilresultate, veränderte/neu importierte Eingaben oder alte Abschlussmarkierungen müssen die Freigabe verhindern.
 4. Fachkundiger Prüfer entscheidet je Kandidat ausdrücklich. Kundenbericht und Export benötigen weiterhin getrennte bestehende Freigaben.
 
+### Implementierte Grundlage vom 24.10.2026
+
+- `offline_processing_inventory.py` berechnet einen projektspezifischen SHA-256-Fingerabdruck ausschließlich aus **gespeicherten SQLite-Eingaben** (RGB-/Thermalframes, Paare, vorhandene private Importprüfsummen). Kein Einlesen privater Fotos, keine Pfade im GUI oder in Logs. Die echte Dateiintegrität ist dadurch **nicht** erneut geprüft und bleibt eine eigene Voraussetzung des künftigen Workers.
+- Datenbankschema 21 legt `offline_processing_runs` an (projektbezogener Lauf, unveränderlicher Eingabe-Fingerabdruck, verpflichtende Thermalanzahl, Pipeline-Version, Laufzustand und Fehler-/Fortschrittszahlen). V20-Migration fügt **keinen** fiktiven erfolgreichen Alt-Lauf hinzu.
+- Der Service kann einen Lauf atomar beginnen sowie Fehlschlag oder Abbruch speichern; parallele aktive Läufe desselben Projekts sind ausgeschlossen. **Es gibt noch keine API, einen Lauf als vollständig erfolgreich zu markieren.**
+- Die Windows-Verarbeitungsseite zeigt den tatsächlich vorhandenen Laufstatus und warnt vor geändertem Input. Alle Statusmeldungen bleiben ausdrücklich unterhalb einer fachlichen Review-Freigabe.
+- Tests prüfen projektspezifische Daten, Fingerabdruck bei Nachimport, Doppelstart, ungültige Statusübergänge, Abbruch, v20-Migration und Qt-Hinweise. CI dieser neuen Runde bei Erstellung noch offen.
+- **Keine sichere Review-Sperre behaupten:** `WorkflowAction.REVIEW` wertet zurzeit weiterhin importierte Kandidaten als Verarbeitungsbeleg. Backend-Koppelung an einen vom zukünftigen Worker geprüften Abschluss ist noch ausdrücklich ausstehend. Erst dann reale Nutzerdaten fachlich prüfen.
+
 ### Nötiger technischer Abschlussnachweis – noch nicht implementiert
 
 - Dauerhafter, projektspezifischer Verarbeitungsauftrag mit unveränderlicher Eingabeinventar-/Versionssignatur.
