@@ -66,10 +66,15 @@ class ProjectWorkflowState:
 class ProjectWorkflowService:
     """Derive application readiness from persisted inspection evidence."""
 
-    def __init__(self, database) -> None:
+    def __init__(self, database, *, require_verified_offline_processing: bool = False) -> None:
         from mcm_solarcheck.storage.queries import InspectionQueries
+        if type(require_verified_offline_processing) is not bool:
+            raise TypeError("require_verified_offline_processing must be a boolean")
         self.database = database
         self.queries = InspectionQueries(database)
+        # Default maintains the existing shared/online workflow contract.
+        # The shipped offline composition explicitly enables fail-closed gating.
+        self.require_verified_offline_processing = require_verified_offline_processing
 
     def state(self, project_id: str) -> ProjectWorkflowState:
         summary = self.queries.summary(project_id)
@@ -78,6 +83,15 @@ class ProjectWorkflowService:
         review_blockers = []
         if not has_processing:
             review_blockers.append("no processed modules or findings")
+        strict_processing_blockers = ()
+        if self.require_verified_offline_processing:
+            from mcm_solarcheck.services.offline_review_gate import (
+                verified_offline_processing_blockers,
+            )
+            strict_processing_blockers = verified_offline_processing_blockers(
+                self.database, project_id,
+            )
+            review_blockers.extend(strict_processing_blockers)
         report_blockers = []
         if summary.unreviewed_findings:
             report_blockers.append("unreviewed findings remain")
@@ -92,6 +106,7 @@ class ProjectWorkflowService:
             report_blockers.append("reviewed findings require resolved physical modules")
         if not has_processing:
             report_blockers.append("no processed modules or findings")
+        report_blockers.extend(strict_processing_blockers)
         export_blockers = list(report_blockers)
         stages = (
             StageReadiness(WorkflowStage.PROJECT, True),
