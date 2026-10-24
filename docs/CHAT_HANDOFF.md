@@ -634,3 +634,15 @@ Branch feature/rgb-all-segments-export; vorheriger HEAD bdb8ebb mit erfolgreiche
 - Neue Verarbeitungsseite mit lesbaren Kennzahlkarten, ausklappbaren technischen Details, echtem Hinweis `Verarbeitung: Abschluss nicht nachgewiesen`, Windows-Scrollbereich und nummerierter Projektanzeige. Verifikation durch `tests/test_gui_processing_layout.py`; alte `test_gui_processing_vertical.py`-Anzeigeerwartung aktualisiert. Maßgebliche technische Anforderung `docs/PROCESSING_REVIEW_READINESS.md`, Vereinbarung am Dokumentende ergänzt.
 - Nächste Arbeit: persistierter verifizierter Verarbeitungslauf für aktuellen Datenbestand, sichere Verarbeitungs-/Analysekomponenten und zentraler Review-Gate; nicht aus bloß vorhandenen Findings/Modulen einen Verarbeitungserfolg ableiten. UI-/Service-API-scope testen, Altprüfungen nicht stillschweigend als vollständig markieren. Jeder echte Kunde entscheidet fachlich selbst.
 - Vor nächsten Windows-Schritten sämtliche vier GitHub-CI-Jobs der neuesten Branch-HEAD prüfen. `main`/PRs nicht mergen. Nutzer bevorzugt deutsch, genaue Einzelanweisungen und bestätigte Sicherheitskopien.
+
+
+## Übergabe 24.10.2026 – Grünes Review-UI / neue Processing-Provenienz
+
+- Voriger CI-Stand `7d8dcc3` am 24.10. **viermal grün** (Ubuntu/Windows Python 3.11/3.12); bisherige überarbeitete Windows-Review-/Processing-UI war damit getestet.
+- Neuer, noch CI-zu-verifizierender Branch-Stand: weiter `feature/offline-human-report-approval`.
+- Neues `services/offline_processing_inventory.py`: SHA-256-Digest der **SQLite-importierten Eingaben**, ohne DJI-Dateiinhalte erneut zu prüfen. Hash wechselt bei neu gespeicherten RGB-/Thermalbildern/Metadaten/Paaren/Trainings-Checksummen. Kein privater Pfad im GUI/Log.
+- Datenbank v21 fügt `offline_processing_runs` hinzu. V20->V21 Migration ergänzt nur Tabellen, **niemals** erfundene Erfolgsdaten. Lauf kann atomar gestartet und fehlgeschlagen/abgebrochen protokolliert werden, nicht als erfolgreich gesetzt. Doppelte gleichzeitige Läufe für ein Projekt blockiert.
+- Projektspezifischer Lesestatus ist in Application Service und Windows-Verarbeitungsanzeige angebunden, kein neuer Startbutton. Bei neuer Bildübernahme wird alter Lauf als veraltet markiert. Sicherheits- und Qt-Tests dazu erstellt.
+- Noch **KEIN** echter kompletter Background-Worker, keine qualitätsgeprüfte Verarbeitung, keine gesicherte Review-Sperre im Backend; `WorkflowAction.REVIEW` wird durch alten Code derzeit zu früh bei vorhandenen Rohkandidaten erlaubt. Nicht als abgeschlossen behaupten.
+- Verbindlicher Ablauf: echten vollständig überprüften Verarbeitungsabschluss mit geprüften aktuellen Originalbytes, Ergebnis-Konsistenz, Batch-/Workerstatus und Input-Versionen schaffen, erst dann zentralen Review-/Bericht-/Export-Guard daran koppeln. Details `docs/PROCESSING_REVIEW_READINESS.md`.
+- Keine neuen Windows-Befehle ohne aktuelle vier grüne CI-Jobs und getrennte neue DB-Kopie; alte `F:\\MCM-SolarCheck` und aktive Kundendaten unangetastet.
