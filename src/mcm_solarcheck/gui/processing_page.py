@@ -281,9 +281,10 @@ def make_processing_page(
             layout.addWidget(cancel_sample)
         sample_info = QLabel(
             rgb_sample_status or (
-                "Unverbindliche Stichprobe: maximal 3 RGB-Bilder mit zwei "
-                "unabhängigen Erkennungsverfahren. Vorschläge sind keine "
-                "bestätigten PV-Module. Keine Speicherung oder Fachfreigabe."
+                "Unverbindliche Stichprobe: maximal 3 RGB-Bilder mit "
+                "Strukturerkennung, Bildinhaltserkennung und der bereits "
+                "entwickelten Cadence-Rasterprüfung. Nur Modulvorschläge, "
+                "keine bestätigten PV-Module. Keine Speicherung oder Fachfreigabe."
             ), page,
         )
         sample_info.setObjectName("processing_rgb_module_sample_status")
