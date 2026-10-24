@@ -218,23 +218,25 @@ def _migrate_19_to_20(db: sqlite3.Connection) -> None:
 
 
 def _migrate_20_to_21(db: sqlite3.Connection) -> None:
-    """Processing run provenance only; never mark legacy imports as completed."""
-    db.executescript("""CREATE TABLE IF NOT EXISTS offline_processing_runs(
-    run_id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
-    input_fingerprint TEXT NOT NULL CHECK(length(input_fingerprint)=64),
-    pipeline_version TEXT NOT NULL CHECK(length(pipeline_version)>0),
-    status TEXT NOT NULL CHECK(status IN ('running','failed','cancelled','completed')),
-    expected_thermal_frames INTEGER NOT NULL CHECK(expected_thermal_frames>0),
-    processed_thermal_frames INTEGER NOT NULL DEFAULT 0 CHECK(processed_thermal_frames>=0),
-    failed_thermal_frames INTEGER NOT NULL DEFAULT 0 CHECK(failed_thermal_frames>=0),
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    finished_at TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_offline_processing_runs_project
-    ON offline_processing_runs(project_id,created_at,run_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_offline_processing_one_running
-    ON offline_processing_runs(project_id) WHERE status='running';""")
+    """Add provenance atomically, never backfill a fabricated completion."""
+    # executescript would implicitly commit the enclosing migration. Execute
+    # each statement in the caller's existing transaction instead.
+    db.execute("""CREATE TABLE IF NOT EXISTS offline_processing_runs(
+        run_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+        input_fingerprint TEXT NOT NULL CHECK(length(input_fingerprint)=64),
+        pipeline_version TEXT NOT NULL CHECK(length(pipeline_version)>0),
+        status TEXT NOT NULL CHECK(status IN ('running','failed','cancelled','completed')),
+        expected_thermal_frames INTEGER NOT NULL CHECK(expected_thermal_frames>0),
+        processed_thermal_frames INTEGER NOT NULL DEFAULT 0 CHECK(processed_thermal_frames>=0),
+        failed_thermal_frames INTEGER NOT NULL DEFAULT 0 CHECK(failed_thermal_frames>=0),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        finished_at TEXT
+    )""")
+    db.execute("""CREATE INDEX IF NOT EXISTS idx_offline_processing_runs_project
+        ON offline_processing_runs(project_id,created_at,run_id)""")
+    db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_offline_processing_one_running
+        ON offline_processing_runs(project_id) WHERE status='running'""")
     db.execute("UPDATE schema_info SET version=21")
 
 
