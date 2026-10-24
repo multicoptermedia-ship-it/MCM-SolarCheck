@@ -75,7 +75,7 @@ def test_local_worker_inspects_synthetic_file_without_review_or_db_changes(
         status = page.findChild(QLabel, "processing_image_check_status").text()
         assert "Dateiprüfung beendet:" in status
         assert "1/1 strukturell lesbar" in status
-        assert "keine" not in status.lower() or "fachfreigabe" in status.lower()
+        assert "Keine abgeschlossene Bildanalyse oder Fachfreigabe." in status
         assert source.read_bytes() == before
         with service.database.connect() as sql:
             assert sql.execute(

@@ -107,7 +107,8 @@ def _inspect_one(
             or any(c not in "0123456789abcdefABCDEF" for c in expected_hash)
         ):
             return False, False
-        return digest.hexdigest() == expected_hash.lower(), digest.hexdigest() == expected_hash.lower()
+        matched = digest.hexdigest() == expected_hash.lower()
+        return matched, matched
     except ImportedImageCheckCancelled:
         raise
     except (OSError, ValueError, SyntaxError, UnidentifiedImageError):

@@ -38,3 +38,12 @@ Die Windows-Verarbeitungsseite zeigt jetzt **kompakte importierte Kennzahlen**, 
 Der existierende Workflow-Guard lässt Review derzeit noch anhand gespeicherter Findings/Module zu; **diese fachliche Lücke ist offen**. Die aktuell entwickelten Qt-Änderungen dürfen deshalb nicht als vollständige Review-Sperre bezeichnet werden. Bis der Abschlussnachweis und der Backend-Guard implementiert und getestet sind, sind echte Fachentscheidungen mit unvollständig verarbeiteten Pilotdaten zu unterlassen.
 
 Kein Commit echter Kundendaten, GPS, Bildpfade oder DJI-Originalbilder nach GitHub. Kein Merge nach `main` ohne ausdrückliche Freigabe.
+
+
+## Bilddateiprüfung als nächste sichere Teilstufe (24.10.2026)
+
+- `services/offline_imported_image_check.py` prüft alle aktuell eingetragenen RGB- und Thermaldateien **lesend**, mit Byte-Limit je Datei, SHA-256-Abgleich wo ein Import-Hash existiert, PIL-Dateistrukturprüfung, Projektinventar-Vorher/Nachher-Vergleich und Abbruchprüfung pro Leseblock. Private Pfade/Dateinamen werden weder im Ergebnis noch in der Oberfläche ausgegeben. Eine Datei ohne Import-Hash ist **nicht** als identisch zum Import bestätigt.
+- `gui/offline_imported_image_check_worker.py` führt diese Arbeit in einem Qt-Thread aus, meldet ausschließlich aggregierte Zahlen; GUI zeigt Fortschritt, Abbruch und generische Fehler. Quelle sind nur bereits importierte Pfade. `gui/shell.py` verwirft veraltete Projektsignale und hält Threads beim Programmende am Leben, bis sie beendet sind.
+- Button **„Importierte Originalbilder prüfen (nur lesend)“** ist ausschließlich eine **VORPRÜFUNG** und **kein** vollständiger Verarbeitungsstart, keine Defekt-/Modulanalyse, keine RGB/Thermal-Pixelregistrierung, keine Kalibrierung, keine Berichts-/Reviewfreigabe. Projekt-Laufjournal `offline_processing_runs` bleibt von der Vorprüfung unverändert.
+- Neue synthetische Tests: `tests/test_offline_imported_image_check.py`, `tests/test_gui_imported_image_check.py`; echte Kundenbilder bleiben nur auf dem Nutzerrechner. Alle aktuellen CI-Ergebnisse vor neuem Windows-Praxistest prüfen. Für die neue Programmversion zwingend erst **neue separate Kopie** von Code und Testdatenbank wegen Schema v21 verwenden.
+- Noch offen: sicherer vollständiger Verarbeitungslauf (verifizierte Bildintegrität, Modell-/Algorithmusstufen, Batch-/Dateistatus, Ergebniskonsistenz und atomarer Abschluss), erst danach zentrale Fachreview-Sperre. `WorkflowAction.REVIEW` ist derzeit für Rohkandidaten **zu permissiv**. Kein Merge zu `main`.

@@ -1238,12 +1238,13 @@ class SolarCheckMainWindow(QMainWindow):
                 )
         self._refresh_processing_page()
 
-    def _start_imported_image_check(self) -> None:
+    def _start_imported_image_check(self, source_project: str) -> None:
         """Launch a local, read-only preflight: never marks processing complete."""
         if (
             self._deployment is not DeploymentMode.OFFLINE_DESKTOP
             or self._project_service is None
             or self._current_project_id is None
+            or source_project != self._current_project_id
             or self._image_check_thread is not None
             or self._image_check_close_pending
         ):
@@ -1388,7 +1389,8 @@ class SolarCheckMainWindow(QMainWindow):
             processing_run=processing_run,
             overview=overview,
             on_check_imported_files=(
-                self._start_imported_image_check
+                (lambda checked=False, source=self._current_project_id:
+                 self._start_imported_image_check(source))
                 if self._deployment is DeploymentMode.OFFLINE_DESKTOP
                 and self._current_project_id is not None
                 and self._image_check_thread is None
