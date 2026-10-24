@@ -89,7 +89,10 @@ def _inspect_one(
         if consumed != initial.st_size:
             return False, False
         with Image.open(file) as decoded:
-            if decoded.format not in ("JPEG", "PNG", "TIFF"):
+            # DJI M3T originals can be presented as MPO (Multi-Picture
+            # Object) by Pillow even when their filename ends with .JPG.
+            # An MPO is still checked by Pillow.verify and SHA-256 below.
+            if decoded.format not in ("JPEG", "MPO", "PNG", "TIFF"):
                 return False, False
             decoded.verify()
         final = file.stat()
