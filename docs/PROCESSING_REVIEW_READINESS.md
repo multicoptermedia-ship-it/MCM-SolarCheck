@@ -170,3 +170,36 @@ Die weiterentwickelte, bereits vorhandene Komponente `vision/cadence_module_dete
 - Synthetische Regressionstests schützen den unveränderten Dateipfad-API-Vertrag, den geprüften Array-Zugang ohne erneutes Öffnen der Originaldatei, Schutz vor fehlenden/überschriebenen Dateien, IoU-Anforderungen, Rastergate, isolierte Ergebniszählung und weiter gesperrte Review-/Berichts-/Exportaktionen. **Keine DJI-Originale gelangen auf GitHub**.
 
 **Nächster echter Abnahmetest:** neue isolierte Windows-Version **erst nach vier erfolgreichen CI-Prüfungen**. Mit SC-0003 denselben begrenzten Drei-RGB-Test wiederholen; zusätzliche Cadence-Zahlen und Ablehnungsgründe beurteilen. Erst danach planen, welche Originale mit lokalen Bildüberlagerungen und unabhängig geprüften Annotationen fachlich beurteilt werden sollen. Keine Speicher-/Produktionsdaten ändern.
+
+
+## 24.10.2026 – Exakte Cadence-Ablehnungsgründe statt Sammelkategorie „andere“
+
+Im Windows-Pilot **SC-0003** lief der auf 3 RGB-Frames begrenzte Test
+problemlos: 12 Strukturvorschläge, 32 Bildinhaltvorschläge, 0 gemeinsame
+geometrische Stützungen. Der eingebundene vorhandene Cadence-Detektor lieferte
+0 zusätzliche Modulvorschläge: 1 Bild mit nicht aufgelöster Rasterphase,
+2 Bilder unter der vorher unpräzisen Kategorie „andere Qualitätsgründe“.
+
+Diese Diagnose-Lücke ist jetzt ohne Lockerung der Erkennungsgrenzwerte behoben:
+
+- `services/offline_cadence_diagnostics.py`: feste, erlaubte und stabile
+  **sprachneutrale Grundcodes**. Unbekannte/fremde Detektortexte werden
+  auf `other_quality_gate` zurückgeführt. Keine Pfade, Bildnamen, Pixel,
+  GPS oder fremde Debug-Meldungen über die UI.
+- `offline_module_sample.py`: zusätzlich zu den bisherigen kompatiblen
+  groben Statistikzählern werden die **konkreten (Grundcode, Anzahl)** der
+  höchstens 3 abgewiesenen RGB-Testbilder gezählt. Nur geprüfte importierte
+  SHA-256-Bildbytes gelangen zum bestehenden Cadence-Detektor, keine
+  SQLite-Schreiboperationen oder Analysegenehmigungen.
+- `gui/offline_cadence_diagnostic_text.py`: deutsche Benutzertexte als
+  separate Lokalisierungsabbildung der Codes. `gui/shell.py` zeigt
+  „Detaillierte Cadence-Gründe“ hinter der bisherigen Ergebniszeile.
+  Dies erlaubt künftig der Online-Version eine eigenständige Übersetzung
+  in andere europäische Sprachen, ohne das Backend zu verändern.
+- Neue synthetische Tests prüfen genaue Statusverteilung, unbekannte private
+  Detektortextwerte, GUI-Textausgabe und bestehende Schranken für
+  `pv_modules`, `finding_reviews`, `offline_processing_runs`,
+  Review, Bericht und Export.
+- **Noch keine** verifizierte Modulerkennung, pixelgenaue RGB/Thermal-
+  Registrierung, Celsius-Kalibrierung oder abgeschlossene PV-Analyse.
+  Keine echten DJI-Testdaten werden zu GitHub übertragen.
