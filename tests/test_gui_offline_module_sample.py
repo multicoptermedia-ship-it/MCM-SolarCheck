@@ -65,6 +65,8 @@ def test_rgb_sample_does_not_persist_modules_or_unlock_actions(qt_app, tmp_path)
         assert "RGB-Erkennungsstichprobe beendet:" in message
         assert "1/1 ausgewertet (von 1 RGB-Bildern)" in message
         assert "0 mit Problemen" in message
+        assert "Zusätzlicher Cadence-Modultest:" in message
+        assert "ohne bestätigtes Raster" in message
         assert "Keine bestätigten PV-Module" in message
         assert rgb.read_bytes() == before
         for action in (
