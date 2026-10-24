@@ -738,3 +738,17 @@ def test_project_switch_during_pdf_viewer_discards_scroll_event(
         assert not window._report_end_seen
     finally:
         window.close()
+
+
+@pytest.fixture(autouse=True)
+def _simulate_completed_processing_only_for_legacy_ui_regressions(monkeypatch):
+    """These historic UI tests exercise post-processing UI in isolation.
+
+    A future trusted processing worker is simulated ONLY inside this test
+    module. The real offline application remains fail-closed by default;
+    tests/test_offline_review_requires_processing.py verifies that contract.
+    """
+    monkeypatch.setattr(
+        "mcm_solarcheck.services.offline_review_gate.verified_offline_processing_blockers",
+        lambda database, project_id: (),
+    )
