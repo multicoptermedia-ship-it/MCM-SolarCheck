@@ -16,6 +16,8 @@ def make_processing_page(
     image_check_status=None, image_check_running=False,
     on_check_thermal_raw=None, on_cancel_thermal_raw=None,
     thermal_check_status=None, thermal_check_running=False,
+    on_analyze_thermal_stats=None, on_cancel_thermal_stats=None,
+    thermal_stats_status=None, thermal_stats_running=False,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -133,7 +135,8 @@ def make_processing_page(
         check_images.setObjectName("processing_check_imported_files")
         check_images.setEnabled(
             callable(on_check_imported_files) and not image_check_running
-            and not thermal_check_running and counts.thermal_frames > 0
+            and not thermal_check_running and not thermal_stats_running
+            and counts.thermal_frames > 0
         )
         if check_images.isEnabled():
             check_images.clicked.connect(on_check_imported_files)
@@ -166,7 +169,8 @@ def make_processing_page(
         check_raw.setObjectName("processing_check_thermal_raw")
         check_raw.setEnabled(
             callable(on_check_thermal_raw) and not thermal_check_running
-            and not image_check_running and counts.thermal_frames > 0
+            and not image_check_running and not thermal_stats_running
+            and counts.thermal_frames > 0
         )
         if check_raw.isEnabled():
             check_raw.clicked.connect(on_check_thermal_raw)
@@ -190,6 +194,41 @@ def make_processing_page(
         raw_status.setTextFormat(Qt.TextFormat.PlainText)
         raw_status.setWordWrap(True)
         layout.addWidget(raw_status)
+
+        # First quantitative per-image raw-sensor stage. No Celsius,
+        # anomaly classification, persistence or workflow permission changes.
+        analyze = QPushButton(
+            "Thermal-Sensorrohwerte statistisch auswerten (nur lesend)", page,
+        )
+        analyze.setObjectName("processing_analyze_thermal_stats")
+        analyze.setEnabled(
+            callable(on_analyze_thermal_stats)
+            and not thermal_stats_running and not image_check_running
+            and not thermal_check_running and counts.thermal_frames > 0
+        )
+        if analyze.isEnabled():
+            analyze.clicked.connect(on_analyze_thermal_stats)
+        layout.addWidget(analyze)
+        if thermal_stats_running:
+            cancel_stats = QPushButton(
+                "Thermalstatistik abbrechen", page,
+            )
+            cancel_stats.setObjectName("processing_cancel_thermal_stats")
+            cancel_stats.setEnabled(callable(on_cancel_thermal_stats))
+            if cancel_stats.isEnabled():
+                cancel_stats.clicked.connect(on_cancel_thermal_stats)
+            layout.addWidget(cancel_stats)
+        stats_label = QLabel(
+            thermal_stats_status or (
+                "Berechnet Rohwertstatistiken pro Thermalbild nur aus "
+                "verifizierten 16-Bit-Sensordaten. Keine °C-Werte, "
+                "PV-Modulerkennung, Defektdiagnose oder Freigabe."
+            ), page,
+        )
+        stats_label.setObjectName("processing_thermal_statistics_status")
+        stats_label.setTextFormat(Qt.TextFormat.PlainText)
+        stats_label.setWordWrap(True)
+        layout.addWidget(stats_label)
 
         details_toggle = QPushButton("Technische Details anzeigen", page)
         details_toggle.setObjectName("processing_details_toggle")
