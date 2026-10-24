@@ -78,7 +78,10 @@ def test_visual_rgb_overlay_is_ephemeral_and_keeps_review_closed(qt_app, tmp_pat
                 assert sql.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0
         dialog.findChild(QPushButton, "rgb_module_overlay_close").click()
         qt_app.processEvents()
-        assert not dialog.isVisible() or window._rgb_overlay_dialog is None
+        assert (
+            window._rgb_overlay_dialog is None
+            or not window._rgb_overlay_dialog.isVisible()
+        )
     finally:
         window.close()
         qt_app.processEvents()
