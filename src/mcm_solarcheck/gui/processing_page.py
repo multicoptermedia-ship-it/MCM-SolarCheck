@@ -20,6 +20,7 @@ def make_processing_page(
     thermal_stats_status=None, thermal_stats_running=False,
     on_sample_rgb_modules=None, on_cancel_rgb_modules=None,
     rgb_sample_status=None, rgb_sample_running=False,
+    on_check_module_readiness=None, module_readiness_status=None,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -232,6 +233,32 @@ def make_processing_page(
         stats_label.setTextFormat(Qt.TextFormat.PlainText)
         stats_label.setWordWrap(True)
         layout.addWidget(stats_label)
+
+        # Metadata prerequisite check is distinct from any detector output
+        # and never verifies referenced image bytes itself.
+        module_ready = QPushButton(
+            "RGB-Eingaben für Modulerkennung prüfen (nur lesend)", page,
+        )
+        module_ready.setObjectName("processing_check_module_readiness")
+        module_ready.setEnabled(
+            callable(on_check_module_readiness) and counts.rgb_frames > 0
+            and not image_check_running and not thermal_check_running
+            and not thermal_stats_running and not rgb_sample_running
+        )
+        if module_ready.isEnabled():
+            module_ready.clicked.connect(on_check_module_readiness)
+        layout.addWidget(module_ready)
+        module_info = QLabel(
+            module_readiness_status or (
+                "Prüft nur gespeicherte RGB-Bildmaße und eingetragene "
+                "Import-Prüfsummen. Keine erneute Dateiprüfung, "
+                "kein produktionsvalidierter Moduldetektor oder Fachfreigabe."
+            ), page,
+        )
+        module_info.setObjectName("processing_module_readiness_status")
+        module_info.setTextFormat(Qt.TextFormat.PlainText)
+        module_info.setWordWrap(True)
+        layout.addWidget(module_info)
 
         sample = QPushButton(
             "PV-Modulvorschläge prüfen (3 RGB-Bilder, nur lesend)", page,
