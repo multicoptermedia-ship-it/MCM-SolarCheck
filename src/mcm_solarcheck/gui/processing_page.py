@@ -18,6 +18,8 @@ def make_processing_page(
     thermal_check_status=None, thermal_check_running=False,
     on_analyze_thermal_stats=None, on_cancel_thermal_stats=None,
     thermal_stats_status=None, thermal_stats_running=False,
+    on_sample_rgb_modules=None, on_cancel_rgb_modules=None,
+    rgb_sample_status=None, rgb_sample_running=False,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -136,7 +138,7 @@ def make_processing_page(
         check_images.setEnabled(
             callable(on_check_imported_files) and not image_check_running
             and not thermal_check_running and not thermal_stats_running
-            and counts.thermal_frames > 0
+            and not rgb_sample_running and counts.thermal_frames > 0
         )
         if check_images.isEnabled():
             check_images.clicked.connect(on_check_imported_files)
@@ -170,7 +172,7 @@ def make_processing_page(
         check_raw.setEnabled(
             callable(on_check_thermal_raw) and not thermal_check_running
             and not image_check_running and not thermal_stats_running
-            and counts.thermal_frames > 0
+            and not rgb_sample_running and counts.thermal_frames > 0
         )
         if check_raw.isEnabled():
             check_raw.clicked.connect(on_check_thermal_raw)
@@ -204,7 +206,8 @@ def make_processing_page(
         analyze.setEnabled(
             callable(on_analyze_thermal_stats)
             and not thermal_stats_running and not image_check_running
-            and not thermal_check_running and counts.thermal_frames > 0
+            and not thermal_check_running and not rgb_sample_running
+            and counts.thermal_frames > 0
         )
         if analyze.isEnabled():
             analyze.clicked.connect(on_analyze_thermal_stats)
@@ -229,6 +232,37 @@ def make_processing_page(
         stats_label.setTextFormat(Qt.TextFormat.PlainText)
         stats_label.setWordWrap(True)
         layout.addWidget(stats_label)
+
+        sample = QPushButton(
+            "PV-Modulvorschläge prüfen (3 RGB-Bilder, nur lesend)", page,
+        )
+        sample.setObjectName("processing_sample_rgb_modules")
+        sample.setEnabled(
+            callable(on_sample_rgb_modules) and not rgb_sample_running
+            and not image_check_running and not thermal_check_running
+            and not thermal_stats_running and counts.rgb_frames > 0
+        )
+        if sample.isEnabled():
+            sample.clicked.connect(on_sample_rgb_modules)
+        layout.addWidget(sample)
+        if rgb_sample_running:
+            cancel_sample = QPushButton("RGB-Erkennungstest abbrechen", page)
+            cancel_sample.setObjectName("processing_cancel_rgb_modules")
+            cancel_sample.setEnabled(callable(on_cancel_rgb_modules))
+            if cancel_sample.isEnabled():
+                cancel_sample.clicked.connect(on_cancel_rgb_modules)
+            layout.addWidget(cancel_sample)
+        sample_info = QLabel(
+            rgb_sample_status or (
+                "Unverbindliche Stichprobe: maximal 3 RGB-Bilder mit zwei "
+                "unabhängigen Erkennungsverfahren. Vorschläge sind keine "
+                "bestätigten PV-Module. Keine Speicherung oder Fachfreigabe."
+            ), page,
+        )
+        sample_info.setObjectName("processing_rgb_module_sample_status")
+        sample_info.setTextFormat(Qt.TextFormat.PlainText)
+        sample_info.setWordWrap(True)
+        layout.addWidget(sample_info)
 
         details_toggle = QPushButton("Technische Details anzeigen", page)
         details_toggle.setObjectName("processing_details_toggle")

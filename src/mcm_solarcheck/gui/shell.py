@@ -111,6 +111,10 @@ class SolarCheckMainWindow(QMainWindow):
         self._thermal_stats_project_id = None
         self._thermal_stats_status = None
         self._thermal_stats_close_pending = False
+        self._rgb_module_sample_thread = None
+        self._rgb_module_sample_project_id = None
+        self._rgb_module_sample_status = None
+        self._rgb_module_sample_close_pending = False
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -393,6 +397,9 @@ class SolarCheckMainWindow(QMainWindow):
             if self._thermal_stats_thread is not None:
                 self._thermal_stats_thread.request_cancel()
             self._thermal_stats_status = None
+            if self._rgb_module_sample_thread is not None:
+                self._rgb_module_sample_thread.request_cancel()
+            self._rgb_module_sample_status = None
             self._clear_prepared_draft()
             self._geotiff_result = None
             self._orthophoto_comparison = None
@@ -1263,6 +1270,7 @@ class SolarCheckMainWindow(QMainWindow):
             or self._image_check_close_pending
             or self._thermal_raw_thread is not None
             or self._thermal_stats_thread is not None
+            or self._rgb_module_sample_thread is not None
         ):
             return
         from mcm_solarcheck.gui.offline_imported_image_check_worker import (
@@ -1382,6 +1390,7 @@ class SolarCheckMainWindow(QMainWindow):
             or self._thermal_raw_close_pending
             or self._image_check_thread is not None
             or self._thermal_stats_thread is not None
+            or self._rgb_module_sample_thread is not None
         ):
             return
         from mcm_solarcheck.gui.offline_thermal_raw_check_worker import (
@@ -1499,6 +1508,7 @@ class SolarCheckMainWindow(QMainWindow):
             or self._thermal_stats_close_pending
             or self._thermal_raw_thread is not None
             or self._image_check_thread is not None
+            or self._rgb_module_sample_thread is not None
         ):
             return
         from mcm_solarcheck.gui.offline_thermal_statistics_worker import (
@@ -1613,6 +1623,126 @@ class SolarCheckMainWindow(QMainWindow):
         if self._thermal_stats_thread is not None:
             self._thermal_stats_thread.request_cancel()
 
+    def _start_rgb_module_sample(self, source_project: str) -> None:
+        """Only inspect first 3 authenticated RGB frames; no persistence."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._project_service is None
+            or self._current_project_id is None
+            or source_project != self._current_project_id
+            or self._rgb_module_sample_thread is not None
+            or self._rgb_module_sample_close_pending
+            or self._image_check_thread is not None
+            or self._thermal_raw_thread is not None
+            or self._thermal_stats_thread is not None
+        ):
+            return
+        from mcm_solarcheck.gui.offline_module_sample_worker import (
+            ModuleSampleThread,
+        )
+        thread = ModuleSampleThread(
+            self._project_service.database.path, source_project, self,
+        )
+        self._rgb_module_sample_thread = thread
+        self._rgb_module_sample_project_id = source_project
+        self._rgb_module_sample_status = (
+            "Modul-Erkennungsstichprobe gestartet (nur lesend)."
+        )
+        self._refresh_processing_page()
+        thread.progress.connect(
+            self._rgb_module_sample_progress, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.result_ready.connect(
+            self._rgb_module_sample_finished, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.failed.connect(
+            self._rgb_module_sample_failed, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.cancelled.connect(
+            self._rgb_module_sample_cancelled, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.finished.connect(
+            self._rgb_module_sample_thread_stopped, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.start()
+
+    def _rgb_module_sample_current(self) -> bool:
+        return (
+            self._rgb_module_sample_project_id is not None
+            and self._rgb_module_sample_project_id == self._current_project_id
+            and not self._rgb_module_sample_close_pending
+        )
+
+    @Slot(int, int, int)
+    def _rgb_module_sample_progress(self, done: int, total: int, issues: int) -> None:
+        if not self._rgb_module_sample_current():
+            return
+        self._rgb_module_sample_status = (
+            f"RGB-Erkennungsstichprobe: {done}/{total} geprüft, "
+            f"{issues} Probleme. Keine bestätigten Module."
+        )
+        self._refresh_processing_page()
+
+    @Slot(object)
+    def _rgb_module_sample_finished(self, result) -> None:
+        if not self._rgb_module_sample_current():
+            return
+        self._rgb_module_sample_status = (
+            f"RGB-Erkennungsstichprobe beendet: {result.analyzed}/"
+            f"{result.sample_size} ausgewertet (von {result.available_rgb} "
+            f"RGB-Bildern), {result.structural_proposals} Strukturvorschläge, "
+            f"{result.visual_proposals} Bildinhalt-Vorschläge, "
+            f"{result.overlapping_proposals} räumlich gestützte Vorschläge "
+            f"in {result.frames_with_overlap} Bildern, "
+            f"{result.unverified} ohne Import-Prüfsumme, "
+            f"{result.issues} mit Problemen."
+            + (" Eingaben geändert; Ergebnis veraltet."
+               if result.changed_inputs else "")
+            + " Keine bestätigten PV-Module, kein Verarbeitungsabschluss "
+              "und keine Fachfreigabe."
+        )
+        self._refresh_processing_page()
+
+    @Slot(str)
+    def _rgb_module_sample_failed(self, message: str) -> None:
+        if not self._rgb_module_sample_current():
+            return
+        self._rgb_module_sample_status = message
+        self._refresh_processing_page()
+
+    @Slot()
+    def _rgb_module_sample_cancelled(self) -> None:
+        if not self._rgb_module_sample_current():
+            return
+        self._rgb_module_sample_status = (
+            "RGB-Erkennungsstichprobe abgebrochen; Originale, Datenbank "
+            "und Freigaben unverändert."
+        )
+        self._refresh_processing_page()
+
+    @Slot()
+    def _rgb_module_sample_thread_stopped(self) -> None:
+        QTimer.singleShot(0, self._rgb_module_sample_cleanup)
+
+    @Slot()
+    def _rgb_module_sample_cleanup(self) -> None:
+        thread = self._rgb_module_sample_thread
+        if thread is None:
+            return
+        thread.wait()
+        self._rgb_module_sample_thread = None
+        thread.deleteLater()
+        self._rgb_module_sample_project_id = None
+        if self._rgb_module_sample_close_pending:
+            self._rgb_module_sample_close_pending = False
+            self.close()
+        else:
+            self._refresh_processing_page()
+
+    def _cancel_rgb_module_sample(self) -> None:
+        if self._rgb_module_sample_thread is not None:
+            self._rgb_module_sample_thread.request_cancel()
+
     def _refresh_processing_page(self) -> None:
         """Render the selected project's persisted evidence through its service."""
         old_page = self._pages[ShellRoute.PROCESSING]
@@ -1654,6 +1784,7 @@ class SolarCheckMainWindow(QMainWindow):
                 and self._image_check_thread is None
                 and self._thermal_raw_thread is None
                 and self._thermal_stats_thread is None
+                and self._rgb_module_sample_thread is None
                 and not self._image_check_close_pending
                 else None
             ),
@@ -1677,6 +1808,7 @@ class SolarCheckMainWindow(QMainWindow):
                 and self._image_check_thread is None
                 and self._thermal_raw_thread is None
                 and self._thermal_stats_thread is None
+                and self._rgb_module_sample_thread is None
                 and not self._thermal_raw_close_pending
                 else None
             ),
@@ -1700,6 +1832,7 @@ class SolarCheckMainWindow(QMainWindow):
                 and self._image_check_thread is None
                 and self._thermal_raw_thread is None
                 and self._thermal_stats_thread is None
+                and self._rgb_module_sample_thread is None
                 and not self._thermal_stats_close_pending
                 else None
             ),
@@ -1715,6 +1848,30 @@ class SolarCheckMainWindow(QMainWindow):
                 else None
             ),
             thermal_stats_running=self._thermal_stats_thread is not None,
+            on_sample_rgb_modules=(
+                (lambda checked=False, source=self._current_project_id:
+                 self._start_rgb_module_sample(source))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and self._image_check_thread is None
+                and self._thermal_raw_thread is None
+                and self._thermal_stats_thread is None
+                and self._rgb_module_sample_thread is None
+                and not self._rgb_module_sample_close_pending
+                else None
+            ),
+            on_cancel_rgb_modules=(
+                self._cancel_rgb_module_sample
+                if self._rgb_module_sample_thread is not None
+                and self._rgb_module_sample_project_id == self._current_project_id
+                else None
+            ),
+            rgb_sample_status=(
+                self._rgb_module_sample_status
+                if self._rgb_module_sample_project_id in (None, self._current_project_id)
+                else None
+            ),
+            rgb_sample_running=self._rgb_module_sample_thread is not None,
             registration_check_status=self._pair_control_status,
             on_check_registration=(
                 self._check_pair_control_points
@@ -2115,8 +2272,9 @@ class SolarCheckMainWindow(QMainWindow):
         image_check_busy = self._image_check_thread is not None
         thermal_raw_busy = self._thermal_raw_thread is not None
         thermal_stats_busy = self._thermal_stats_thread is not None
+        rgb_module_sample_busy = self._rgb_module_sample_thread is not None
         if (integrity_busy or preflight_busy or import_busy or image_check_busy
-                or thermal_raw_busy or thermal_stats_busy):
+                or thermal_raw_busy or thermal_stats_busy or rgb_module_sample_busy):
             if integrity_busy:
                 self._integrity_close_pending = True
                 self._cancel_rgb_integrity()
@@ -2135,6 +2293,9 @@ class SolarCheckMainWindow(QMainWindow):
             if thermal_stats_busy:
                 self._thermal_stats_close_pending = True
                 self._cancel_thermal_statistics()
+            if rgb_module_sample_busy:
+                self._rgb_module_sample_close_pending = True
+                self._cancel_rgb_module_sample()
             event.ignore()
             return
         super().closeEvent(event)
