@@ -115,6 +115,8 @@ class SolarCheckMainWindow(QMainWindow):
         self._rgb_module_sample_project_id = None
         self._rgb_module_sample_status = None
         self._rgb_module_sample_close_pending = False
+        self._module_readiness_project_id = None
+        self._module_readiness_status = None
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -400,6 +402,8 @@ class SolarCheckMainWindow(QMainWindow):
             if self._rgb_module_sample_thread is not None:
                 self._rgb_module_sample_thread.request_cancel()
             self._rgb_module_sample_status = None
+            self._module_readiness_project_id = None
+            self._module_readiness_status = None
             self._clear_prepared_draft()
             self._geotiff_result = None
             self._orthophoto_comparison = None
@@ -1743,6 +1747,54 @@ class SolarCheckMainWindow(QMainWindow):
         if self._rgb_module_sample_thread is not None:
             self._rgb_module_sample_thread.request_cancel()
 
+    def _check_module_detection_readiness(self, source_project: str) -> None:
+        """Read RGB prerequisites only, never run an unverified detector."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._project_service is None
+            or self._current_project_id is None
+            or source_project != self._current_project_id
+            or self._image_check_thread is not None
+            or self._thermal_raw_thread is not None
+            or self._thermal_stats_thread is not None
+            or self._rgb_module_sample_thread is not None
+        ):
+            return
+        from mcm_solarcheck.services.offline_module_detection_readiness import (
+            assess_module_detection_readiness,
+        )
+        try:
+            result = assess_module_detection_readiness(
+                self._project_service.database, source_project,
+            )
+        except Exception:
+            # SQL exceptions must not show private customer data or file paths.
+            self._module_readiness_status = (
+                "RGB-Eingabeprüfung nicht möglich. "
+                "Keine Änderung an Bildern, Datenbank oder Fachfreigaben."
+            )
+        else:
+            self._module_readiness_status = (
+                f"RGB-Eingabeprüfung (nur gespeicherte Daten): "
+                f"{result.rgb_frames} RGB-Bilder, "
+                f"{result.geometrically_plausible_rgb} mit plausiblen Bildmaßen, "
+                f"{result.imported_rgb_with_digest} mit eingetragener "
+                f"Import-Prüfsumme, {result.rgb_ready_as_detector_inputs} "
+                f"mit beiden Metadatenvoraussetzungen, "
+                f"{result.rgb_missing_geometry} ohne plausible Bildmaße, "
+                f"{result.rgb_missing_import_digest} ohne eingetragene "
+                f"Import-Prüfsumme, "
+                f"{result.metadata_pairs} nur anhand von Metadaten zugeordnete "
+                f"RGB/Thermal-Bildpaare."
+                + (" Eingaben während der Prüfung geändert; Ergebnis veraltet."
+                   if result.changed_inputs else "")
+                + " Dateien hier nicht erneut gelesen; "
+                  "kein produktionsvalidierter Moduldetektor, "
+                  "keine bestätigten PV-Module, keine Fachfreigabe."
+            )
+        self._module_readiness_project_id = source_project
+        self._refresh_processing_page()
+
     def _refresh_processing_page(self) -> None:
         """Render the selected project's persisted evidence through its service."""
         old_page = self._pages[ShellRoute.PROCESSING]
@@ -1872,6 +1924,23 @@ class SolarCheckMainWindow(QMainWindow):
                 else None
             ),
             rgb_sample_running=self._rgb_module_sample_thread is not None,
+            on_check_module_readiness=(
+                (lambda checked=False, source=self._current_project_id:
+                 self._check_module_detection_readiness(source))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and self._image_check_thread is None
+                and self._thermal_raw_thread is None
+                and self._thermal_stats_thread is None
+                and self._rgb_module_sample_thread is None
+                else None
+            ),
+            module_readiness_status=(
+                self._module_readiness_status
+                if self._module_readiness_project_id in (
+                    None, self._current_project_id
+                ) else None
+            ),
             registration_check_status=self._pair_control_status,
             on_check_registration=(
                 self._check_pair_control_points
