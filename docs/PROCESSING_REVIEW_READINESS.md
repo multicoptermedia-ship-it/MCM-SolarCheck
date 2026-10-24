@@ -103,3 +103,12 @@ jetzt als eigener Entwicklungsabschnitt implementiert:
   sind nachvollziehbare, persistierte Einzelbild-/Phasenstände separat zu
   implementieren. Vor einem neuen Windows-Einsatz alle vier CI-Prüfungen
   bestätigen und nur die vollständig isolierte Testumgebung verwenden.
+
+
+## 24.10.2026 – Bildweise Thermal-Sensorstatistik als nächste echte Teilanalyse
+
+- Nach erfolgreichem Windows-Pilot (160 von 160 echte DJI-Rohbildströme dekodierbar) rechnet die neue `services/offline_thermal_statistics.py` für jedes einzelne **SHA-256-bestätigte** Thermalraster die realen Sensorrohwert-Kennzahlen (Minimum, Maximum, Mittelwert, Median, Perzentile, Dynamik) mittels `thermal.analysis.raw_statistics`. Es handelt sich **nicht um Celsius-Temperaturen**. Wenn der gespeicherte Import-Hash fehlt oder nicht stimmt, wird keine Statistik für dieses Bild berechnet.
+- Die Auswertung bleibt im Arbeitsspeicher und gibt an die GUI nur Zähler, projektweite Sensorrohwert-Extremwerte und Anzahlen konstanter bzw. variabler Bilder zurück. Weder Bildinhalte noch Dateipfade, GPS-Daten oder Einzelbildstatistiken werden an die GUI oder GitHub ausgegeben. Nach jedem Bild wird das dekodierte Raster verworfen.
+- Eine dritte Schaltfläche auf der Seite `Verarbeitung`: **„Thermal-Sensorrohwerte statistisch auswerten (nur lesend)“**; Qt-Hintergrundthread mit Fortschritt, Abbruch und Schutz vor parallelen Prüfungen, Projektwechsel und Programmende.
+- Das bestehende `offline_processing_runs`-Journal wird **nicht** verändert. Es gibt keinen fingierten Verarbeitungsabschluss. Fachprüfung, Bericht und Export bleiben gesperrt, auch wenn alle Rohstatistiken berechnet werden konnten. Noch fehlen insbesondere verifizierte RGB/Thermal-Pixelregistrierung, PV-Modulsegmentierung, Kalibrierung, Expertenkontext und persistierter atomarer Vollständigkeitsnachweis.
+- Synthetische Tests sichern echte Statistikberechnung, konstante Rohwerte, Hash-Mismatch, fehlenden Hash, beschädigte bzw. fehlende Quelldatei, Größenlimit, Abbruch, Projektänderung und Qt-Gates ab. Vor Windows-Test **alle vier** CI-Jobs auf dem neuen Commit kontrollieren. Produktionsinstallation und DJI-Originale nie ändern.
