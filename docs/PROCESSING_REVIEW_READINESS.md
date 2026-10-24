@@ -145,3 +145,12 @@ Rohwertstatistiken beginnt die nächste **diagnostische** PV-Modulstufe:
   falsche Bildmaße, Projektisolation, maximal drei Bilder, Abbruch,
   Eingabeänderung und Qt-Sperren. Vor dem echten Windows-Pilot alle vier
   CI-Ergebnisse prüfen und neue Version in eigenem Ordner auf F: testen.
+
+
+## 24.10.2026 – RGB-Bereitschaft sichtbar vor dem Drei-Bilder-Modultest
+
+- Auf der Offline-Seite **Verarbeitung** steht vor dem bereits existierenden, strikt auf drei RGB-Bilder begrenzten und unverbindlichen Modulerkennungs-Stichprobentest jetzt die zusätzliche Schaltfläche **„RGB-Eingaben für Modulerkennung prüfen (nur lesend)”**.
+- Sie ruft nur `services/offline_module_detection_readiness.py` auf: Anzahl RGB-Bilder, plausible **gespeicherte** Bildabmessungen, **eingetragene** SHA-256-Importprüfsummen, Schnittmenge dieser beiden Metadatenvoraussetzungen und nur nach Aufnahmemetadaten verknüpfte RGB/Thermal-Paare. **Hier keine erneute Prüfung von Originalbytes oder tatsächlicher Pixelinhalte.** Die zuvor erfolgreiche Datei-Integritätsprüfung ist ein eigenständiger Test; die 33 Bildpaare sind nicht pixelgenau registriert.
+- Ergebnis enthält keine persönlichen Pfade, Bildnamen oder Sensordaten. Die GUI löscht Anzeigeergebnisse beim Projektwechsel, verwirft Aufrufe aus alten Projekten und zeigt bei SQL-Fehlern nur generische, pfadfreie Meldungen.
+- Die Prüfung verändert weder Originaldaten noch die SQLite-Einträge für Module, Rohkandidaten, Trainingsbeispiele, Läufe oder Reviews. Auch vorhandene Vorschläge aus dem höchstens Drei-RGB-Stichprobentest sind **keine validierten Module** und kein Nachweis vollständiger Verarbeitung.
+- Eine **produktionsvalidierte vollumfängliche PV-Modulsegmentierung** fehlt weiter. `Review`, `Bericht` und `Export` bleiben zentral gesperrt. Zusätzliche synthetische Offscreen-Qt-Tests sichern Projekttrennung, fehlende Quelldateien, keinen persistierten Modulnachweis und die Sperren ab. Echte Pilotdaten SC-0003 bleiben ausschließlich lokal.
