@@ -1839,7 +1839,9 @@ class SolarCheckMainWindow(QMainWindow):
                 self._rgb_overlay_dialog.close()
             dialog = RgbModuleOverlayDialog(overlay, self)
             self._rgb_overlay_dialog = dialog
-            dialog.destroyed.connect(self._rgb_overlay_dialog_destroyed)
+            dialog.destroyed.connect(
+                lambda *_: self._rgb_overlay_dialog_destroyed(dialog)
+            )
             dialog.show()
             self._rgb_overlay_status = (
                 f"RGB-Testbild {overlay.sample_index + 1}/{overlay.total}: "
@@ -1854,8 +1856,9 @@ class SolarCheckMainWindow(QMainWindow):
         self._refresh_processing_page()
 
     @Slot()
-    def _rgb_overlay_dialog_destroyed(self) -> None:
-        self._rgb_overlay_dialog = None
+    def _rgb_overlay_dialog_destroyed(self, dialog) -> None:
+        if self._rgb_overlay_dialog is dialog:
+            self._rgb_overlay_dialog = None
 
     @Slot(str)
     def _rgb_overlay_failed(self, message: str) -> None:
