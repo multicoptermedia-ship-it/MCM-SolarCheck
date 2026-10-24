@@ -24,7 +24,15 @@ class GridModuleDetector:
     def detect_with_diagnostics(self,source_file:Path):
         image=cv2.imread(str(source_file),cv2.IMREAD_COLOR)
         if image is None:return (),GridModuleDiagnostics(0,0,0,())
+        return self.detect_with_diagnostics_array(image)
+
+    def detect_with_diagnostics_array(self,image):
+        """Inspect already-verified pixels without reopening the source path."""
+        if image is None or image.ndim!=3 or image.shape[2]!=3:
+            raise ValueError("BGR image with three channels required")
         h,w=image.shape[:2]
+        if not h or not w:
+            raise ValueError("nonempty image required")
         scale=min(1.0,self.max_dimension/max(h,w))
         small=cv2.resize(image,None,fx=scale,fy=scale,interpolation=cv2.INTER_AREA) if scale<1 else image
         lines=detect_structural_lines(small,max_dimension=self.max_dimension,min_length_fraction=.08)

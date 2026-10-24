@@ -19,7 +19,16 @@ class OpenCVModuleDetector:
     def detect(self,source_file:Path)->tuple[ModuleDetection,...]:
         image=cv2.imread(str(source_file),cv2.IMREAD_COLOR)
         if image is None: return ()
-        h,w=image.shape[:2]; scale=min(1.0,self.max_dimension/max(h,w))
+        return self.detect_array(image)
+
+    def detect_array(self,image)->tuple[ModuleDetection,...]:
+        """Detect on authenticated in-memory BGR pixels, without another file read."""
+        if image is None or image.ndim!=3 or image.shape[2]!=3:
+            raise ValueError("BGR image with three channels required")
+        h,w=image.shape[:2]
+        if not h or not w:
+            raise ValueError("nonempty image required")
+        scale=min(1.0,self.max_dimension/max(h,w))
         small=cv2.resize(image,None,fx=scale,fy=scale,interpolation=cv2.INTER_AREA) if scale<1 else image
         hsv=cv2.cvtColor(small,cv2.COLOR_BGR2HSV)
         mask=((hsv[:,:,1]>=self.minimum_saturation)&(hsv[:,:,2]<=self.maximum_value)).astype(np.uint8)*255
