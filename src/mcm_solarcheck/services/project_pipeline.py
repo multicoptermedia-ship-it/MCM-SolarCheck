@@ -96,9 +96,15 @@ def import_and_store_m3t_project(
 class ProjectApplicationService:
     """Guard application operations with the persisted workflow contract."""
 
-    def __init__(self, database: ProjectDatabase) -> None:
+    def __init__(
+        self, database: ProjectDatabase, *,
+        require_verified_offline_processing: bool = False,
+    ) -> None:
         self.database = database
-        self.workflow = ProjectWorkflowService(database)
+        self.workflow = ProjectWorkflowService(
+            database,
+            require_verified_offline_processing=require_verified_offline_processing,
+        )
 
     def projects(self) -> tuple[ProjectRecord, ...]:
         """Expose persisted project selection through the application boundary."""
@@ -192,7 +198,7 @@ class ProjectApplicationService:
 
     def require(self, project_id: str, action: WorkflowAction) -> None:
         """Reject an operation before side effects when its workflow gate is closed."""
-        require_action(self.workflow.state(project_id), action)
+        require_action(self.state(project_id), action)
 
     def state(self, project_id: str) -> ProjectWorkflowState:
         """Expose the same persisted state used to guard operations."""
