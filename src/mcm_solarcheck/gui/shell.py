@@ -115,6 +115,11 @@ class SolarCheckMainWindow(QMainWindow):
         self._rgb_module_sample_project_id = None
         self._rgb_module_sample_status = None
         self._rgb_module_sample_close_pending = False
+        self._rgb_overlay_thread = None
+        self._rgb_overlay_project_id = None
+        self._rgb_overlay_status = None
+        self._rgb_overlay_close_pending = False
+        self._rgb_overlay_dialog = None
         self._module_readiness_project_id = None
         self._module_readiness_status = None
         self._command_routes = {
@@ -402,6 +407,12 @@ class SolarCheckMainWindow(QMainWindow):
             if self._rgb_module_sample_thread is not None:
                 self._rgb_module_sample_thread.request_cancel()
             self._rgb_module_sample_status = None
+            if self._rgb_overlay_thread is not None:
+                self._rgb_overlay_thread.request_cancel()
+            self._rgb_overlay_status = None
+            if self._rgb_overlay_dialog is not None:
+                self._rgb_overlay_dialog.close()
+                self._rgb_overlay_dialog = None
             self._module_readiness_project_id = None
             self._module_readiness_status = None
             self._clear_prepared_draft()
@@ -1639,6 +1650,7 @@ class SolarCheckMainWindow(QMainWindow):
             or self._image_check_thread is not None
             or self._thermal_raw_thread is not None
             or self._thermal_stats_thread is not None
+            or self._rgb_overlay_thread is not None
         ):
             return
         from mcm_solarcheck.gui.offline_module_sample_worker import (
@@ -1763,6 +1775,124 @@ class SolarCheckMainWindow(QMainWindow):
     def _cancel_rgb_module_sample(self) -> None:
         if self._rgb_module_sample_thread is not None:
             self._rgb_module_sample_thread.request_cancel()
+
+    def _start_rgb_module_overlay(self, source_project: str, sample_index: int) -> None:
+        """Show one authenticated RGB detector overlay without persistence."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._project_service is None
+            or self._current_project_id is None
+            or source_project != self._current_project_id
+            or type(sample_index) is not int or not 0 <= sample_index <= 2
+            or self._rgb_overlay_thread is not None
+            or self._rgb_overlay_close_pending
+            or self._rgb_module_sample_thread is not None
+            or self._image_check_thread is not None
+            or self._thermal_raw_thread is not None
+            or self._thermal_stats_thread is not None
+        ):
+            return
+        from mcm_solarcheck.gui.offline_rgb_module_overlay_worker import (
+            RgbModuleOverlayThread,
+        )
+        thread = RgbModuleOverlayThread(
+            self._project_service.database.path,
+            source_project, sample_index, self,
+        )
+        self._rgb_overlay_thread = thread
+        self._rgb_overlay_project_id = source_project
+        self._rgb_overlay_status = (
+            f"RGB-Testbild {sample_index + 1}: unverbindliche Markierungen "
+            "werden nur im Arbeitsspeicher erstellt."
+        )
+        self._refresh_processing_page()
+        thread.result_ready.connect(
+            self._rgb_overlay_finished, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.failed.connect(
+            self._rgb_overlay_failed, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.cancelled.connect(
+            self._rgb_overlay_cancelled, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.finished.connect(
+            self._rgb_overlay_thread_stopped, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.start()
+
+    def _rgb_overlay_current(self) -> bool:
+        return (
+            self._rgb_overlay_project_id is not None
+            and self._rgb_overlay_project_id == self._current_project_id
+            and not self._rgb_overlay_close_pending
+        )
+
+    @Slot(object)
+    def _rgb_overlay_finished(self, overlay) -> None:
+        if not self._rgb_overlay_current():
+            return
+        from mcm_solarcheck.gui.offline_rgb_module_overlay_dialog import (
+            RgbModuleOverlayDialog,
+        )
+        try:
+            if self._rgb_overlay_dialog is not None:
+                self._rgb_overlay_dialog.close()
+            dialog = RgbModuleOverlayDialog(overlay, self)
+            self._rgb_overlay_dialog = dialog
+            dialog.destroyed.connect(self._rgb_overlay_dialog_destroyed)
+            dialog.show()
+            self._rgb_overlay_status = (
+                f"RGB-Testbild {overlay.sample_index + 1}/{overlay.total}: "
+                "technische Farbvorschau geöffnet. "
+                "Keine bestätigten PV-Module oder Fachfreigabe."
+            )
+        except (ValueError, TypeError):
+            self._rgb_overlay_status = (
+                "RGB-Vorschau konnte nicht angezeigt werden. "
+                "Originale und Datenbank unverändert."
+            )
+        self._refresh_processing_page()
+
+    @Slot()
+    def _rgb_overlay_dialog_destroyed(self) -> None:
+        self._rgb_overlay_dialog = None
+
+    @Slot(str)
+    def _rgb_overlay_failed(self, message: str) -> None:
+        if self._rgb_overlay_current():
+            self._rgb_overlay_status = message
+            self._refresh_processing_page()
+
+    @Slot()
+    def _rgb_overlay_cancelled(self) -> None:
+        if self._rgb_overlay_current():
+            self._rgb_overlay_status = (
+                "RGB-Farbvorschau abgebrochen. Keine Änderungen am Projekt."
+            )
+            self._refresh_processing_page()
+
+    @Slot()
+    def _rgb_overlay_thread_stopped(self) -> None:
+        QTimer.singleShot(0, self._rgb_overlay_cleanup)
+
+    @Slot()
+    def _rgb_overlay_cleanup(self) -> None:
+        thread = self._rgb_overlay_thread
+        if thread is None:
+            return
+        thread.wait()
+        self._rgb_overlay_thread = None
+        thread.deleteLater()
+        self._rgb_overlay_project_id = None
+        if self._rgb_overlay_close_pending:
+            self._rgb_overlay_close_pending = False
+            self.close()
+        else:
+            self._refresh_processing_page()
+
+    def _cancel_rgb_module_overlay(self) -> None:
+        if self._rgb_overlay_thread is not None:
+            self._rgb_overlay_thread.request_cancel()
 
     def _check_module_detection_readiness(self, source_project: str) -> None:
         """Read RGB prerequisites only, never run an unverified detector."""
@@ -1941,6 +2071,31 @@ class SolarCheckMainWindow(QMainWindow):
                 else None
             ),
             rgb_sample_running=self._rgb_module_sample_thread is not None,
+            on_preview_rgb_overlay=(
+                (lambda index, source=self._current_project_id:
+                 self._start_rgb_module_overlay(source, index))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and self._rgb_overlay_thread is None
+                and self._rgb_module_sample_thread is None
+                and self._image_check_thread is None
+                and self._thermal_raw_thread is None
+                and self._thermal_stats_thread is None
+                and not self._rgb_overlay_close_pending
+                else None
+            ),
+            on_cancel_rgb_overlay=(
+                self._cancel_rgb_module_overlay
+                if self._rgb_overlay_thread is not None
+                and self._rgb_overlay_project_id == self._current_project_id
+                else None
+            ),
+            rgb_overlay_status=(
+                self._rgb_overlay_status
+                if self._rgb_overlay_project_id in (None, self._current_project_id)
+                else None
+            ),
+            rgb_overlay_running=self._rgb_overlay_thread is not None,
             on_check_module_readiness=(
                 (lambda checked=False, source=self._current_project_id:
                  self._check_module_detection_readiness(source))
@@ -2359,8 +2514,10 @@ class SolarCheckMainWindow(QMainWindow):
         thermal_raw_busy = self._thermal_raw_thread is not None
         thermal_stats_busy = self._thermal_stats_thread is not None
         rgb_module_sample_busy = self._rgb_module_sample_thread is not None
+        rgb_overlay_busy = self._rgb_overlay_thread is not None
         if (integrity_busy or preflight_busy or import_busy or image_check_busy
-                or thermal_raw_busy or thermal_stats_busy or rgb_module_sample_busy):
+                or thermal_raw_busy or thermal_stats_busy or rgb_module_sample_busy
+                or rgb_overlay_busy):
             if integrity_busy:
                 self._integrity_close_pending = True
                 self._cancel_rgb_integrity()
@@ -2382,6 +2539,9 @@ class SolarCheckMainWindow(QMainWindow):
             if rgb_module_sample_busy:
                 self._rgb_module_sample_close_pending = True
                 self._cancel_rgb_module_sample()
+            if rgb_overlay_busy:
+                self._rgb_overlay_close_pending = True
+                self._cancel_rgb_module_overlay()
             event.ignore()
             return
         super().closeEvent(event)
