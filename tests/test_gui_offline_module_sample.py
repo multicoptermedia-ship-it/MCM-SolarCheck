@@ -67,6 +67,8 @@ def test_rgb_sample_does_not_persist_modules_or_unlock_actions(qt_app, tmp_path)
         assert "0 mit Problemen" in message
         assert "Zusätzlicher Cadence-Modultest:" in message
         assert "ohne bestätigtes Raster" in message
+        assert "Detaillierte Cadence-Gründe:" in message
+        assert "Bild(er):" in message
         assert "Keine bestätigten PV-Module" in message
         assert rgb.read_bytes() == before
         for action in (
