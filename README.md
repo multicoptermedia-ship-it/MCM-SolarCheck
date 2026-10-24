@@ -8,6 +8,8 @@ MCM-SolarCheck soll RTK-georeferenzierte Einzelbilder kleiner und mittlerer PV-A
 
 Für große Freiflächenanlagen kann ein vorhandenes Orthofoto als Eingang verwendet werden.
 
+**Europäische Online-Version:** Die spätere Online-Anwendung ist mehrsprachig zu planen (zunächst Deutsch/Englisch, später erweiterbar). Spracheinstellung, lokalisierte Fachhinweise, Backend-Fehlercodes, internationalisierte Datums-/Zahlenformate und übersetzbare Berichte gehören zur Produktarchitektur. Die Offline-Windows-Entwicklung bleibt zunächst deutschsprachig. Anforderungen: [Online-Mehrsprachigkeit](docs/ONLINE_LOCALIZATION_STRATEGY.md).
+
 ## Geplante Pipeline
 
 1. Projekt anlegen und Bilder importieren
