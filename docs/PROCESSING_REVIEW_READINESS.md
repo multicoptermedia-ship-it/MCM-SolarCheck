@@ -66,3 +66,40 @@ Korrektur: Whitelist um `MPO` ergänzt; Byte-/Dateigrößenlimits, originale Imp
 - Neue Tests: `test_offline_review_requires_processing.py` für Projektisolation, Status, manipuliertes `completed`, veränderte Eingaben, API-Schreibzugriffe, Historienerhalt; `test_gui_offline_review_full_processing_gate.py` für echte Offline-Qt-Navigation, gesperrten Review-Button und stale callback. Begründungen erscheinen auf Deutsch.
 - Es gibt weiterhin **noch keinen tatsächlich erfolgreichen, prüfbar persistierten vollständigen Verarbeitungsjob**. Die Schutzsperre ist deshalb absichtlich streng und verhindert reale neue Fachentscheidungen bis zur späteren Implementierung. Prüfung der Windows-/Ubuntu-CI vor jeder neuen Test-Installation. Bei Tests, die absichtlich bereits früher existierende Reviewer-Interaktionen simulieren, darf ausschließlich testseitiges Mocking der *künftigen* Abschlussprüfung genutzt werden; nie ein Bypass in der ausgelieferten Desktop-Komposition.
 - Lokale Pilotversion `F:\\MCM-SolarCheck-20add5b8222459c2c386c4c5df2bac62c4ba5a01` wurde vom Benutzer **geschlossen**. Vorher ergab die lesende Prüfung in `F:\\MCM-SolarCheck-Testdaten-ebb61e2\\solarcheck.sqlite3` **193/193 lesbar, 193/193 gespeicherte SHA-256-Hashes übereinstimmend, 0 Probleme**. Dabei weiterhin nur **33 Metadatenpaare**, keine überprüfte geometrische Überlagerung, 16.000 ungeprüfte Rohkandidaten. Keine lokalen Dateien geändert. `main` bleibt unberührt.
+
+
+## 24.10.2026 – Nächste technische Vorstufe: echte 16-Bit-Thermalrohwerte
+
+Der Windows-Pilot mit 193 von 193 lesbaren JPG/MPO-Dateien bestätigte die
+Dateiintegrität, aber **nicht** die Nutzbarkeit der radiometrischen Rohdaten.
+Eine davon unabhängige, ausschließlich **lesende** technische Prüfstufe ist
+jetzt als eigener Entwicklungsabschnitt implementiert:
+
+- `services/offline_thermal_raw_check.py`: alle ausgewählten Projekt-Thermalbilder
+  mit maximal 120 MB pro Datei chunkweise lesen, gespeicherte
+  Import-SHA-256-Prüfsumme vergleichen, die strukturellen APP3/APP4/APP5-Blöcke
+  und vollständigen 640×512-16-Bit-Rohwerte mittels des vorhandenen
+  M3T-Parsers dekodieren, gespeicherte Rasterabmessungen abgleichen.
+- Abbruch zwischen Datei-Chunks, projektspezifischer Fortschritt,
+  gesonderte Zähler für authentisierte Rohdaten, fehlende Prüfsummen und
+  fehlerhafte Daten, Fingerabdruckvergleich der Eingabeinventare vor/nachher.
+  Es werden keine Dateipfade, DJI-Originalbytes oder Koordinaten angezeigt.
+- Separater Qt-Hintergrundthread, Projektwechsel-/Schließschutz und zweite
+  Schaltfläche `Thermal-Rohdaten prüfen (nur lesend)` auf `Verarbeitung`.
+  Die erste JPEG/MPO-Dateiprüfung und die neue Rohdatenprüfung schließen
+  sich gegenseitig aus; beide ändern **weder** Originaldateien noch DB,
+  Findings, Reviews, Berichte oder Verarbeitungsstatus.
+- Erfolgreich dekodierte Rohwerte sind **keine Temperaturangaben in °C**,
+  keine PV-Modulsegmentierung, keine qualifizierte Anomaliediagnose,
+  keine RGB/Thermal-Pixelüberlagerung und vor allem **kein vollständiger
+  Verarbeitungsabschluss**. Review, Bericht und Export bleiben gesperrt.
+- Synthetische Tests decken SHA-Änderungen, fehlende Prüfsummen,
+  unlesbare APP-Ketten, Dimensionsfehler, Größenbegrenzung, Abbruch,
+  geänderte Projekteingaben und den echten Qt-Arbeitsablauf ab.
+  Keine echten DJI-Bilder, Pfade oder Kundendaten werden nach GitHub übertragen.
+- Die bereits bestehende Tabelle `offline_processing_runs` bleibt
+  bei dieser Teilstufe absichtlich leer, damit noch kein Verarbeitungslauf
+  fälschlich abgeschlossen erscheint. Für den späteren vollständigen Worker
+  sind nachvollziehbare, persistierte Einzelbild-/Phasenstände separat zu
+  implementieren. Vor einem neuen Windows-Einsatz alle vier CI-Prüfungen
+  bestätigen und nur die vollständig isolierte Testumgebung verwenden.
