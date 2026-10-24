@@ -1250,9 +1250,19 @@ class SolarCheckMainWindow(QMainWindow):
             and getattr(project_record, "display_number", None)
             else None
         )
+        run_provider = getattr(
+            self._project_service, "latest_offline_processing_run", None,
+        )
+        processing_run = (
+            run_provider(self._current_project_id)
+            if callable(run_provider) and self._current_project_id is not None
+            and self._deployment is DeploymentMode.OFFLINE_DESKTOP
+            else None
+        )
         new_page = make_processing_page(
             current_project_id=self._current_project_id,
             project_label=project_label,
+            processing_run=processing_run,
             overview=overview,
             registration_check_status=self._pair_control_status,
             on_check_registration=(
