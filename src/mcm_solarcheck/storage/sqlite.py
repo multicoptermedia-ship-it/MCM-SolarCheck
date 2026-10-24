@@ -8,7 +8,7 @@ from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
@@ -32,6 +32,22 @@ CREATE INDEX IF NOT EXISTS idx_training_geometries_frame ON training_geometries(
 CREATE INDEX IF NOT EXISTS idx_training_labels_frame ON training_labels(project_id,source_frame_id);
 CREATE INDEX IF NOT EXISTS idx_training_samples_project ON training_samples(project_id,modality,label_status,rights_status);
 CREATE INDEX IF NOT EXISTS idx_findings_frame ON findings(project_id,thermal_frame_id); CREATE INDEX IF NOT EXISTS idx_reviews_finding ON finding_reviews(project_id,finding_id); CREATE INDEX IF NOT EXISTS idx_sensor_links_rgb ON finding_sensor_links(project_id,rgb_frame_id);
+CREATE TABLE IF NOT EXISTS offline_processing_runs(
+    run_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+    input_fingerprint TEXT NOT NULL CHECK(length(input_fingerprint)=64),
+    pipeline_version TEXT NOT NULL CHECK(length(pipeline_version)>0),
+    status TEXT NOT NULL CHECK(status IN ('running','failed','cancelled','completed')),
+    expected_thermal_frames INTEGER NOT NULL CHECK(expected_thermal_frames>0),
+    processed_thermal_frames INTEGER NOT NULL DEFAULT 0 CHECK(processed_thermal_frames>=0),
+    failed_thermal_frames INTEGER NOT NULL DEFAULT 0 CHECK(failed_thermal_frames>=0),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_offline_processing_runs_project
+    ON offline_processing_runs(project_id,created_at,run_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_offline_processing_one_running
+    ON offline_processing_runs(project_id) WHERE status='running';
 """
 
 def _upsert(table:str, columns:tuple[str,...], conflict:tuple[str,...])->str:
@@ -201,6 +217,27 @@ def _migrate_19_to_20(db: sqlite3.Connection) -> None:
     db.execute("UPDATE schema_info SET version=20")
 
 
+def _migrate_20_to_21(db: sqlite3.Connection) -> None:
+    """Processing run provenance only; never mark legacy imports as completed."""
+    db.executescript("""CREATE TABLE IF NOT EXISTS offline_processing_runs(
+    run_id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+    input_fingerprint TEXT NOT NULL CHECK(length(input_fingerprint)=64),
+    pipeline_version TEXT NOT NULL CHECK(length(pipeline_version)>0),
+    status TEXT NOT NULL CHECK(status IN ('running','failed','cancelled','completed')),
+    expected_thermal_frames INTEGER NOT NULL CHECK(expected_thermal_frames>0),
+    processed_thermal_frames INTEGER NOT NULL DEFAULT 0 CHECK(processed_thermal_frames>=0),
+    failed_thermal_frames INTEGER NOT NULL DEFAULT 0 CHECK(failed_thermal_frames>=0),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_offline_processing_runs_project
+    ON offline_processing_runs(project_id,created_at,run_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_offline_processing_one_running
+    ON offline_processing_runs(project_id) WHERE status='running';""")
+    db.execute("UPDATE schema_info SET version=21")
+
+
 class ProjectDatabase:
     def __init__(self,path:str|Path)->None:self.path=Path(path)
     @contextmanager
@@ -246,6 +283,9 @@ class ProjectDatabase:
                 if version == 19:
                     _migrate_19_to_20(db)
                     version = 20
+                if version == 20:
+                    _migrate_20_to_21(db)
+                    version = 21
                 if version != SCHEMA_VERSION:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
