@@ -103,6 +103,10 @@ class SolarCheckMainWindow(QMainWindow):
         self._image_check_project_id = None
         self._image_check_status = None
         self._image_check_close_pending = False
+        self._thermal_raw_thread = None
+        self._thermal_raw_project_id = None
+        self._thermal_raw_status = None
+        self._thermal_raw_close_pending = False
         self._command_routes = {
             ShellCommandId.NEW_PROJECT: ShellRoute.PROJECT,
             ShellCommandId.OPEN_PROJECT: ShellRoute.PROJECT,
@@ -379,6 +383,9 @@ class SolarCheckMainWindow(QMainWindow):
             if self._image_check_thread is not None:
                 self._image_check_thread.request_cancel()
             self._image_check_status = None
+            if self._thermal_raw_thread is not None:
+                self._thermal_raw_thread.request_cancel()
+            self._thermal_raw_status = None
             self._clear_prepared_draft()
             self._geotiff_result = None
             self._orthophoto_comparison = None
@@ -1247,6 +1254,7 @@ class SolarCheckMainWindow(QMainWindow):
             or source_project != self._current_project_id
             or self._image_check_thread is not None
             or self._image_check_close_pending
+            or self._thermal_raw_thread is not None
         ):
             return
         from mcm_solarcheck.gui.offline_imported_image_check_worker import (
@@ -1355,6 +1363,122 @@ class SolarCheckMainWindow(QMainWindow):
         if thread is not None:
             thread.request_cancel()
 
+    def _start_thermal_raw_check(self, source_project: str) -> None:
+        """Start an independent, read-only 16-bit raster check, not PV analysis."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._project_service is None
+            or self._current_project_id is None
+            or source_project != self._current_project_id
+            or self._thermal_raw_thread is not None
+            or self._thermal_raw_close_pending
+            or self._image_check_thread is not None
+        ):
+            return
+        from mcm_solarcheck.gui.offline_thermal_raw_check_worker import (
+            ThermalRawCheckThread,
+        )
+        thread = ThermalRawCheckThread(
+            self._project_service.database.path,
+            self._current_project_id, self,
+        )
+        self._thermal_raw_thread = thread
+        self._thermal_raw_project_id = self._current_project_id
+        self._thermal_raw_status = (
+            "Lokale Thermal-Rohdatenprüfung gestartet (nur lesend)."
+        )
+        self._refresh_processing_page()
+        thread.progress.connect(
+            self._thermal_raw_check_progress, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.result_ready.connect(
+            self._thermal_raw_check_finished, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.failed.connect(
+            self._thermal_raw_check_failed, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.cancelled.connect(
+            self._thermal_raw_check_cancelled, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.finished.connect(
+            self._thermal_raw_thread_stopped, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.start()
+
+    def _thermal_raw_result_current(self) -> bool:
+        return (
+            self._thermal_raw_project_id is not None
+            and self._thermal_raw_project_id == self._current_project_id
+            and not self._thermal_raw_close_pending
+        )
+
+    @Slot(int, int, int)
+    def _thermal_raw_check_progress(self, done: int, total: int, issues: int) -> None:
+        if not self._thermal_raw_result_current():
+            return
+        self._thermal_raw_status = (
+            f"Thermal-Rohdatenprüfung: {done} von {total} Bildern, "
+            f"{issues} mit Problemen. Noch keine Bildanalyse oder Freigabe."
+        )
+        if done == total or done % 5 == 0 or issues:
+            self._refresh_processing_page()
+
+    @Slot(object)
+    def _thermal_raw_check_finished(self, result) -> None:
+        if not self._thermal_raw_result_current():
+            return
+        self._thermal_raw_status = (
+            f"Thermal-Rohdatenprüfung beendet: "
+            f"{result.valid_rasters}/{result.total} 16-Bit-Raster lesbar, "
+            f"{result.checksum_verified} Import-Prüfsummen bestätigt, "
+            f"{result.without_checksum} ohne Import-Prüfsumme, "
+            f"{result.issues} mit Problemen."
+            + (" Eingaben während der Prüfung geändert; Ergebnis veraltet."
+               if result.changed_inputs else "")
+            + " Keine Temperaturkalibrierung, Modulanalyse oder Fachfreigabe."
+        )
+        self._refresh_processing_page()
+
+    @Slot(str)
+    def _thermal_raw_check_failed(self, message: str) -> None:
+        if not self._thermal_raw_result_current():
+            return
+        self._thermal_raw_status = message
+        self._refresh_processing_page()
+
+    @Slot()
+    def _thermal_raw_check_cancelled(self) -> None:
+        if not self._thermal_raw_result_current():
+            return
+        self._thermal_raw_status = (
+            "Thermal-Rohdatenprüfung abgebrochen. Keine Änderungen an "
+            "Originalen, Projektdaten oder Fachfreigaben."
+        )
+        self._refresh_processing_page()
+
+    @Slot()
+    def _thermal_raw_thread_stopped(self) -> None:
+        QTimer.singleShot(0, self._thermal_raw_check_cleanup)
+
+    @Slot()
+    def _thermal_raw_check_cleanup(self) -> None:
+        thread = self._thermal_raw_thread
+        if thread is None:
+            return
+        thread.wait()
+        self._thermal_raw_thread = None
+        thread.deleteLater()
+        self._thermal_raw_project_id = None
+        if self._thermal_raw_close_pending:
+            self._thermal_raw_close_pending = False
+            self.close()
+        else:
+            self._refresh_processing_page()
+
+    def _cancel_thermal_raw_check(self) -> None:
+        if self._thermal_raw_thread is not None:
+            self._thermal_raw_thread.request_cancel()
+
     def _refresh_processing_page(self) -> None:
         """Render the selected project's persisted evidence through its service."""
         old_page = self._pages[ShellRoute.PROCESSING]
@@ -1394,6 +1518,7 @@ class SolarCheckMainWindow(QMainWindow):
                 if self._deployment is DeploymentMode.OFFLINE_DESKTOP
                 and self._current_project_id is not None
                 and self._image_check_thread is None
+                and self._thermal_raw_thread is None
                 and not self._image_check_close_pending
                 else None
             ),
@@ -1409,6 +1534,28 @@ class SolarCheckMainWindow(QMainWindow):
                 else None
             ),
             image_check_running=self._image_check_thread is not None,
+            on_check_thermal_raw=(
+                (lambda checked=False, source=self._current_project_id:
+                 self._start_thermal_raw_check(source))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and self._image_check_thread is None
+                and self._thermal_raw_thread is None
+                and not self._thermal_raw_close_pending
+                else None
+            ),
+            on_cancel_thermal_raw=(
+                self._cancel_thermal_raw_check
+                if self._thermal_raw_thread is not None
+                and self._thermal_raw_project_id == self._current_project_id
+                else None
+            ),
+            thermal_check_status=(
+                self._thermal_raw_status
+                if self._thermal_raw_project_id in (None, self._current_project_id)
+                else None
+            ),
+            thermal_check_running=self._thermal_raw_thread is not None,
             registration_check_status=self._pair_control_status,
             on_check_registration=(
                 self._check_pair_control_points
@@ -1807,7 +1954,9 @@ class SolarCheckMainWindow(QMainWindow):
         preflight_busy = self._preflight_thread is not None
         import_busy = self._import_thread is not None
         image_check_busy = self._image_check_thread is not None
-        if integrity_busy or preflight_busy or import_busy or image_check_busy:
+        thermal_raw_busy = self._thermal_raw_thread is not None
+        if (integrity_busy or preflight_busy or import_busy or image_check_busy
+                or thermal_raw_busy):
             if integrity_busy:
                 self._integrity_close_pending = True
                 self._cancel_rgb_integrity()
@@ -1820,6 +1969,9 @@ class SolarCheckMainWindow(QMainWindow):
             if image_check_busy:
                 self._image_check_close_pending = True
                 self._cancel_imported_image_check()
+            if thermal_raw_busy:
+                self._thermal_raw_close_pending = True
+                self._cancel_thermal_raw_check()
             event.ignore()
             return
         super().closeEvent(event)

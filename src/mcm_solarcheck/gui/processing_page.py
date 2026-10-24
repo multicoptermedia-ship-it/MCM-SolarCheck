@@ -14,6 +14,8 @@ def make_processing_page(
     project_label=None, processing_run=None,
     on_check_imported_files=None, on_cancel_imported_files=None,
     image_check_status=None, image_check_running=False,
+    on_check_thermal_raw=None, on_cancel_thermal_raw=None,
+    thermal_check_status=None, thermal_check_running=False,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -131,7 +133,7 @@ def make_processing_page(
         check_images.setObjectName("processing_check_imported_files")
         check_images.setEnabled(
             callable(on_check_imported_files) and not image_check_running
-            and counts.thermal_frames > 0
+            and not thermal_check_running and counts.thermal_frames > 0
         )
         if check_images.isEnabled():
             check_images.clicked.connect(on_check_imported_files)
@@ -154,6 +156,40 @@ def make_processing_page(
         check_status.setTextFormat(Qt.TextFormat.PlainText)
         check_status.setWordWrap(True)
         layout.addWidget(check_status)
+
+        # A separate technical check decodes the actual 16-bit APP3 raster,
+        # unlike JPEG/MPO structural inspection. It never writes findings or
+        # marks the full offline processing run as completed.
+        check_raw = QPushButton(
+            "Thermal-Rohdaten prüfen (nur lesend)", page,
+        )
+        check_raw.setObjectName("processing_check_thermal_raw")
+        check_raw.setEnabled(
+            callable(on_check_thermal_raw) and not thermal_check_running
+            and not image_check_running and counts.thermal_frames > 0
+        )
+        if check_raw.isEnabled():
+            check_raw.clicked.connect(on_check_thermal_raw)
+        layout.addWidget(check_raw)
+
+        if thermal_check_running:
+            cancel_raw = QPushButton("Thermal-Rohdatenprüfung abbrechen", page)
+            cancel_raw.setObjectName("processing_cancel_thermal_raw")
+            cancel_raw.setEnabled(callable(on_cancel_thermal_raw))
+            if cancel_raw.isEnabled():
+                cancel_raw.clicked.connect(on_cancel_thermal_raw)
+            layout.addWidget(cancel_raw)
+        raw_status = QLabel(
+            thermal_check_status or (
+                "Prüft die gespeicherten 16-Bit-Thermalrohwerte und "
+                "Import-Prüfsummen. Keine Temperaturkalibrierung, "
+                "Defektdiagnose oder Freigabe."
+            ), page,
+        )
+        raw_status.setObjectName("processing_thermal_raw_status")
+        raw_status.setTextFormat(Qt.TextFormat.PlainText)
+        raw_status.setWordWrap(True)
+        layout.addWidget(raw_status)
 
         details_toggle = QPushButton("Technische Details anzeigen", page)
         details_toggle.setObjectName("processing_details_toggle")
