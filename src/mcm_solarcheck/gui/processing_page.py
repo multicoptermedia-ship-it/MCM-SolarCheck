@@ -12,6 +12,8 @@ def make_processing_page(
     parent=None, *, current_project_id=None, overview=None, on_refresh=None,
     on_check_registration=None, registration_check_status=None, choose_control_file=None,
     project_label=None, processing_run=None,
+    on_check_imported_files=None, on_cancel_imported_files=None,
+    image_check_status=None, image_check_running=False,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -122,6 +124,36 @@ def make_processing_page(
         run_label.setWordWrap(True)
         run_label.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(run_label)
+
+        check_images = QPushButton(
+            "Importierte Originalbilder prüfen (nur lesend)", page,
+        )
+        check_images.setObjectName("processing_check_imported_files")
+        check_images.setEnabled(
+            callable(on_check_imported_files) and not image_check_running
+            and counts.thermal_frames > 0
+        )
+        if check_images.isEnabled():
+            check_images.clicked.connect(on_check_imported_files)
+        layout.addWidget(check_images)
+
+        if image_check_running:
+            cancel_images = QPushButton("Dateiprüfung abbrechen", page)
+            cancel_images.setObjectName("processing_cancel_imported_files")
+            cancel_images.setEnabled(callable(on_cancel_imported_files))
+            if cancel_images.isEnabled():
+                cancel_images.clicked.connect(on_cancel_imported_files)
+            layout.addWidget(cancel_images)
+        check_status = QLabel(
+            image_check_status or (
+                "Prüft lokal Dateilesbarkeit und bekannte Import-Prüfsummen. "
+                "Keine Bildanalyse, Temperaturkalibrierung oder Fachfreigabe."
+            ), page,
+        )
+        check_status.setObjectName("processing_image_check_status")
+        check_status.setTextFormat(Qt.TextFormat.PlainText)
+        check_status.setWordWrap(True)
+        layout.addWidget(check_status)
 
         details_toggle = QPushButton("Technische Details anzeigen", page)
         details_toggle.setObjectName("processing_details_toggle")
