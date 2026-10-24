@@ -203,3 +203,49 @@ Diese Diagnose-Lücke ist jetzt ohne Lockerung der Erkennungsgrenzwerte behoben:
 - **Noch keine** verifizierte Modulerkennung, pixelgenaue RGB/Thermal-
   Registrierung, Celsius-Kalibrierung oder abgeschlossene PV-Analyse.
   Keine echten DJI-Testdaten werden zu GitHub übertragen.
+
+
+## 24.10.2026 – Technische Modulvorschläge farbig auf echten RGB-Testbildern ansehen
+
+Die Windows-Stichprobe für SC-0003 hat 12 Struktur- und 32 Bildinhalt-Vorschläge
+aber keine räumlich gestützten Module geliefert. Der Cadence-Detektor wurde
+für 2 der 3 RGB-Testbilder wegen mehrdeutiger Rasterabstände und für ein
+weiteres wegen nicht eindeutig aufgelöster Rasterphase konservativ abgewiesen.
+
+Der vorhandene Detektor-Stack wird deshalb nicht ersetzt, sondern erhält
+eine lokale, ausdrücklich **nicht freigabefähige Farbvorschau**:
+
+- `services/offline_rgb_module_overlay.py`: nur eines der **ersten 3**
+  gespeicherten RGB-Bilder pro ausgewähltem Projekt auswählen; Original
+  wieder mit dem vorhandenen beschränkten Datei-/SHA-256-Prüfverfahren
+  `_verified_bgr` laden. Bestehenden Strukturdetektor,
+  Bildinhalt-Detektor, konservativen räumlichen Fusionsfilter und
+  Cadence-Detektor unverändert auf denselben geprüften Bildpixeln aufrufen.
+  Es entstehen lediglich Zähler und ein auf maximal 960 Pixel Kantenlänge
+  verkleinertes, **rein temporäres PNG im Arbeitsspeicher**.
+- Überlagerung: **gelb** = Strukturvorschläge, **magenta** =
+  Bildinhalt-Vorschläge, **türkis** = räumliche Fusion, **grün** =
+  Cadence-Vorschläge. Einzelbild-Cadence-Ablehnungen stammen aus der
+  vorhandenen festen deutschen Übersetzungstabelle. Keine bildbasierte
+  Fachentscheidung wird durch die Farben impliziert; die fehlende
+  Übereinstimmung kann so visuell nachvollzogen werden.
+- `gui/offline_rgb_module_overlay_worker.py` verarbeitet asynchron
+  mit Abbruchsignal. `gui/offline_rgb_module_overlay_dialog.py`
+  zeigt die Markierungen und ihre Legende in einem lokalen Dialog ohne
+  Speichern-/Export-Schaltflächen.
+  `gui/processing_page.py` bietet die Auswahl der Bildnummer 1–3 und
+  `gui/shell.py` verwaltet Lebensdauer, Projektwechsel, veraltete
+  Signalantworten und Programmende.
+- Es wird **kein** Kundentestbild, Originalbildpfad, Bildname, EXIF/GPS,
+  Sensorwert oder Bild-PNG zu GitHub oder einem Cloud-Dienst übertragen.
+  Die Bilder werden lokal nur auf dem Rechner der testenden Person gezeigt.
+  Produktive Originale und die Datenbank werden **nicht verändert**.
+- Keine vollständige Modulerkennung, kein verifizierter RGB-/Thermal-
+  Pixelabgleich, keine Temperaturkalibrierung, keine Anomaliediagnose,
+  keine Ergebnisse in `pv_modules` / `offline_processing_runs` und
+  **keine** Freigabe für Review, Bericht oder Export. Neue synthetische
+  Qt-/Service-Tests sollen diese Sperren sowie Projektwechsel, Abbruch,
+  Datei-/Prüfsummenschutz und Speichergrenzen absichern.
+- Vor dem isolierten nächsten Windows-Pilot **alle vier CI-Jobs des
+  konkreten ZIP-Commits** prüfen. Erst dann auf dem Testlaufwerk F:
+  ausprobieren, niemals Originale oder Produktion überschreiben.
