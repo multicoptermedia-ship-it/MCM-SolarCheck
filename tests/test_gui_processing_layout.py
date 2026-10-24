@@ -58,6 +58,9 @@ def test_processing_screen_keeps_import_distinct_from_finished_processing(qt_app
             for label in page.findChildren(QLabel, "processing_metric_value")
         ]
         assert headline_values == ["160", "33", "33"]
+        assert "Noch kein vollständiger Verarbeitungslauf" in page.findChild(
+            QLabel, "processing_run_status",
+        ).text()
         next_steps = page.findChild(QLabel, "processing_next_steps").text()
         assert "Bilder importiert" in next_steps
         assert "Abschluss nicht nachgewiesen" in next_steps
@@ -85,5 +88,42 @@ def test_legacy_and_empty_overviews_do_not_claim_processing(qt_app):
         )
         assert page.findChild(QLabel, "processing_empty_state") is not None
         assert page.findChild(QLabel, "processing_next_steps") is None
+    finally:
+        page.close()
+
+def test_processing_status_refuses_to_announce_completion(qt_app):
+    from types import SimpleNamespace
+
+    page = make_processing_page(
+        current_project_id="P1",
+        overview=overview(),
+        processing_run=SimpleNamespace(
+            status="completed", stale_inputs=False,
+        ),
+    )
+    try:
+        text = page.findChild(QLabel, "processing_run_status").text()
+        assert "allein belegt keine geprüfte Verarbeitung" in text
+        assert "Abschluss nicht nachgewiesen" in page.findChild(
+            QLabel, "processing_next_steps",
+        ).text()
+    finally:
+        page.close()
+
+
+def test_processing_status_detects_stale_inputs(qt_app):
+    from types import SimpleNamespace
+
+    page = make_processing_page(
+        current_project_id="P1",
+        overview=overview(),
+        processing_run=SimpleNamespace(
+            status="failed", stale_inputs=True,
+        ),
+    )
+    try:
+        assert "Datenbestand wurde seit dem letzten" in page.findChild(
+            QLabel, "processing_run_status",
+        ).text()
     finally:
         page.close()
