@@ -19,6 +19,7 @@ from mcm_solarcheck.services.offline_processing_inventory import (
     capture_offline_processing_inventory,
 )
 from mcm_solarcheck.vision.grid_module_backend import GridModuleDetector
+from mcm_solarcheck.vision.cadence_module_detector import CadenceConfirmedModuleDetector
 from mcm_solarcheck.vision.opencv_module_detector import OpenCVModuleDetector
 from mcm_solarcheck.vision.module_fusion import fuse_module_detections
 from mcm_solarcheck.vision.module_quality import filter_module_detections
@@ -46,6 +47,12 @@ class ModuleSampleResult:
     frames_with_overlap: int
     changed_inputs: bool
     read_only: bool = True
+    cadence_proposals: int = 0
+    cadence_frames_with_proposals: int = 0
+    cadence_rejected_no_support: int = 0
+    cadence_rejected_grid: int = 0
+    cadence_rejected_phase: int = 0
+    cadence_rejected_other: int = 0
 
     @property
     def technical_sample_only(self) -> bool:
@@ -129,13 +136,16 @@ def _verified_bgr(source, width, height, checksum, should_cancel):
 
 def sample_imported_rgb_module_evidence(
     database, project_id, *, should_cancel=None, on_progress=None,
-    grid_detector=None, image_detector=None,
+    grid_detector=None, image_detector=None, cadence_detector=None,
 ) -> ModuleSampleResult:
     """Read-only first-3 image feasibility test; output counts only.
 
     Grid proposals and visual proposals are independent, and only spatial
-    overlap can yield overlapping proposals. None are expert-confirmed PV
-    modules, and zero overlap is a valid result.
+    overlap can yield overlapping proposals. In addition, the previously
+    implemented cadence-aware detector is now evaluated on the SAME verified
+    in-memory pixels. A cadence detection is still only a suggestion; a
+    rejected cadence is technical evidence, not proof of no installed module.
+    None of these counts are expert-confirmed PV modules.
     """
     cancelled = should_cancel or (lambda: False)
     if cancelled():
@@ -147,7 +157,9 @@ def sample_imported_rgb_module_evidence(
         raise ValueError("RGB inventory changed during sample selection")
     grid = grid_detector or GridModuleDetector()
     image = image_detector or OpenCVModuleDetector()
+    cadence = cadence_detector or CadenceConfirmedModuleDetector()
     checked = analyzed = errors = missing = grids = visuals = overlaps = supported_frames = 0
+    cadence_proposals = cadence_frames = no_support = no_grid = no_phase = other = 0
     for source, width, height, checksum in entries:
         if cancelled():
             raise ModuleSampleCancelled()
@@ -173,6 +185,27 @@ def sample_imported_rgb_module_evidence(
                 visuals += len(support)
                 overlaps += len(accepted)
                 supported_frames += bool(accepted)
+                if cancelled():
+                    raise ModuleSampleCancelled()
+                cadence_found, cadence_status = cadence.detect_array_with_status(bgr)
+                # Existing cadence logic requires two axes, an independently
+                # confirmed grid cadence, a unique phase and spatial overlap.
+                # Never include these *suggestions* in persisted pv_modules.
+                cadence_proposals += len(cadence_found)
+                cadence_frames += bool(cadence_found)
+                if not cadence_found:
+                    if cadence_status == "independent_image_support_required":
+                        no_support += 1
+                    elif cadence_status in (
+                        "two_grid_families_required", "cadence_not_confirmed",
+                    ):
+                        no_grid += 1
+                    elif cadence_status in (
+                        "unresolved_cadence_phase", "invalid_resolved_phase",
+                    ):
+                        no_phase += 1
+                    else:
+                        other += 1
                 analyzed += 1
             except (ValueError, TypeError, cv2.error):
                 errors += 1
@@ -189,4 +222,10 @@ def sample_imported_rgb_module_evidence(
         structural_proposals=grids, visual_proposals=visuals,
         overlapping_proposals=overlaps, frames_with_overlap=supported_frames,
         changed_inputs=final.fingerprint != initial.fingerprint,
+        cadence_proposals=cadence_proposals,
+        cadence_frames_with_proposals=cadence_frames,
+        cadence_rejected_no_support=no_support,
+        cadence_rejected_grid=no_grid,
+        cadence_rejected_phase=no_phase,
+        cadence_rejected_other=other,
     )
