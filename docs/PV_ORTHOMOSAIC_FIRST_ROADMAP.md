@@ -103,3 +103,10 @@ Die 2021/2022 veröffentlichte PV-Hawk-Forschung zeigt den für SolarCheck weite
 - Best Practices for Processing Thermal UAV Imagery from DJI Platforms (2026): R-JPEG-Radiometrie statt visueller Farbpaletten und Vorsicht beim Pixelmosaik: https://doi.org/10.1080/2150704X.2026.2691917
 
 **Architekturstatus:** Dies ist eine **als erstes zu testende Optimierungsoption**. Falls ein vollflächiges Thermal-Orthofoto für Anwenderansicht, GIS, einen konkreten Auftrag oder Fach-/Berichtszwecke benötigt wird, muss es korrekt erstellt bzw. dynamisch als geometrisch belegter Thermal-Layer dargestellt werden. Die zuvor dokumentierte Anforderung an zwei räumlich passende Ansichten wird nicht stillschweigend gestrichen. Noch keine neue Implementierung, keine Ergebnisvalidierung an privaten Originalen, keine CI-Freigabe.
+
+## Implementierungskontrollpunkt – Projektions-Prototyp (25.10.2026)
+
+Auf Branch `feature/offline-human-report-approval` wurden für die explizite **RGB-Originalbild→Thermal-Originalbild**-Projektion die vorhandene `pairing.geometry.PixelTransform`-Grenze und die vorhandene `RadiometricRaster`-Rohsensorstruktur wiederverwendet. Commits `321cc3e`, `5c68685`, `f2d0969`, `0cc5a33` implementieren geometrische Ablehnung unsicherer Abbildungen, native ROI-Rasterisierung mit Teilabdeckungsstatus, Rohwertdiagnostik ohne Celsius und synthetische Tests.
+
+**Nicht implementiert:** unabhängige reale Pair-Registrierung, Ableitung einer Orthofoto→Thermal-Projektion, automatische Kameraextrinsics/Dachgeometrie, vollständige RGB-/Thermal-Orthofotos, Analyse echter SC-0003-Pixel oder eine GUI-Freigabe. Nach dem fünften Dokumentationscommit CI und Windows-Hardwareprüfung trennen. Die neue Codebasis bleibt read-only und bestätigt keine Module.
+
