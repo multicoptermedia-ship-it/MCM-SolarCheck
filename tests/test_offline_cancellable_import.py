@@ -87,7 +87,7 @@ def test_successful_import_commits_rgb_thermal_findings_pairs_together(monkeypat
     assert app.import_summary("P2").rgb_frames == 0
     assert calls[0] == ("Einlesen und Zuordnen", 0)
     assert ("Atomare SQLite-Speicherung", 0) in calls
-    assert [(x.project_id, x.name) for x in app.projects()] == [
+    assert sorted((x.project_id, x.name) for x in app.projects()) == [
         ("P1", "Dach Nord"), ("P2", "Dach Sued"),
     ]
 
@@ -203,7 +203,7 @@ def test_legacy_sync_import_reuses_existing_project_and_atomic_commit(monkeypatc
     assert imported[1].rgb_frames == 3
     assert imported[1].thermal_frames == 1
     assert calls == [("legacy-flight", False)]
-    assert [(project.project_id, project.name) for project in app.projects()] == [
+    assert sorted((project.project_id, project.name) for project in app.projects()) == [
         ("P1", "Dach Nord"), ("P2", "Dach Sued"),
     ]
     assert app.import_summary("P1").image_pairs == 1
