@@ -1,0 +1,44 @@
+# Architekturentscheidung 25.10.2026 – Orthofotos vor PV-Modulanalyse
+
+## Anlass, Pilotsignal und verbindliche Priorität
+
+Der Windows-10-Pilot `SC-0003 · Hummintech3` hat 160 Thermal- und 33 RGB-Aufnahmen; nur 33 Metadatenpaare sind belegt, keine pixelgenau geprüften Sensorpaare. In der neuen **rein lesenden** RGB-Overlay-Diagnose (Commit `04798fe`) zeigte RGB-Testbild 1 **4 Strukturvorschläge**, **10 Bildinhalt-Vorschläge**, **0 räumlich gestützte** und **0 Cadence-Vorschläge**. Der Anwender hat nachvollziehbar festgestellt, dass unter anderem eine Dachfläche als Bildinhalt-Modulvorschlag markiert wurde und schmale Strukturvorschläge keine vollständigen Module abbilden.
+
+**Verbindliche fachliche Richtungsentscheidung des Anwenders:** Nicht weiter die Moduldetektion auf isolierten Einzelbildern als Hauptpfad optimieren. Zuerst die vollständige, geometrisch geprüfte RGB-Orthofoto-/Dachflächenrekonstruktion und eine dazu geometrisch registrierte **eigenständige radiometrische Thermal-Orthofotoansicht** herstellen. Erst danach Gebäude-, Dach-, PV-Anlagen- und einzelne Modulstrukturen ermitteln und thermische Befunde zuordnen. Frühere Einzelbilddetektoren dienen höchstens ergänzend als Diagnose/Bausteine.
+
+Die beiden auszugebenden Raster sind eigene Ansichten mit nachvollziehbarer gemeinsamer Geometrie; **sie dürfen nicht unkontrolliert unabhängig zusammengesetzt und allein aufgrund identischer GPS-Koordinaten als deckungsgleich erklärt werden**. Thermal-only-SfM kann an schwacher Wärmebildtextur scheitern; bevorzugt RGB-geführte Geometrie, unabhängige Kamera-Kalibrierung (Intrinsics/Extrinsics), zeitliche Zuordnung und Projektion der Thermal-Rohwerte. Wenn Thermal-only zuverlässig gelingt, ist auch separate Rekonstruktion mit belegtem RGB/Thermal-Registrierungsfehler möglich. Bei fehlenden Voraussetzungen ehrlich degradierten/partiellen Status und zugehörige Einzelbilder zeigen.
+
+## Vorhandene SolarCheck-Bausteine wiederverwenden
+
+- `services/orthomosaic_rgb_feature_matcher.py`, `orthomosaic_rgb_overlap_* `, `flight_rgb_geometry_chain.py`: Match-/Überlappungs- und Geometrievorarbeiten.
+- `services/orthomosaic_rgb_stitch_preview.py`: begrenzte nichtmetrische Vorschau, **kein vollständiges verifiziertes Orthofoto**.
+- `services/orthophoto_planar_rectification.py`, `orthophoto_planar_mosaic.py`, `orthophoto_survey_job.py`: vorgeprüfter planarer Aufbau **mit expliziten Vermessungs-/Planenkontrollen**, keine automatische vollständige Flugphotogrammetrie.
+- `services/orthomosaic_geotiff_contract.py`, `orthomosaic_viewer_contract.py`: Georaster-/Viewer-Qualitäts- und Exportgrundlagen.
+- Bereits dokumentierte Anforderungen: `docs/ORTHOMOSAIC_WORKER_INTEGRATION_GATE.md`, `docs/MODULE_SURFACE_RECONSTRUCTION.md`: Dach-/Modulflächen können geneigt sein; für Messung und Modulfassung zusätzliche entzerrte Dach-/Modulflächenansichten mit eigener Neigung/Ausrichtung vorsehen. Ein horizontal projiziertes Übersichtsorthofoto allein reicht nicht für präzise geneigte Modulflächen.
+- Originalbilder unverändert und in Originalauflösung behalten. Verarbeitung speicherbegrenzt/gekachelt statt globaler RAM-Gigant; Ausgabe-GSD auf reale Quellauflösung und Geometrie abstimmen, **kein** erfundenes Detail durch Hochskalierung.
+
+## Neue vertikale Reihenfolge und verbindliche Gates
+
+1. **Inventur/Präflight**: Quelle, Prüfsummen, Bildzählung, Überlappung, Aufnahmezeitpunkte, Kamera- und Geometriedaten, DJI-MPO/Thermal-Rohstruktur und Verteilung auf dem Dach; 33 RGB vs. 160 Thermal dürfen nicht als vollständig gepaart bezeichnet werden. Verbleibende Coverage-Lücken explizit markieren.
+2. **RGB-Photogrammetrie/Orthorektifizierung**: vorhandene Matcher/Registrierung wiederverwenden, robuste Mehrbild-Pose/Geometrie und Höhen-/Dachflächenbasis ergänzen; native, speicherbegrenzt gekachelte **geometrisch geprüfte** RGB-Orthofotoausgabe (GeoTIFF/Viewer) mit tatsächlicher Abdeckung, Residuen, CRS und Validierungsstatus. Nichtmetrische Stitch-Vorschau getrennt kennzeichnen.
+3. **Thermal-Geometrie und radiometrisches Raster**: vorhandene Radiometrieparser nutzen, unabhängige Kalibrierung gegen DJI-R-JPEG/SDK und Messreferenzen prüfen, Sensor-Extrinsics/zeitliche Zuordnung prüfen, 160 Thermalbilder nach verifizierter Geometrie projizieren und eine eigene, zum RGB-Raum passende Thermalansicht erzeugen. **Thermal-Palette ist nicht °C**; Roh-/Temperaturband separat mit Provenienz und Unsicherheit führen. Keine erzwungene RGB-Auflösung für Thermalsensor.
+4. **Qualitätssicherung beider Ansichten**: geometrische Residuen, Bildabdeckung, Nahtstellen, unabhängige Kontrollpunkte und RGB-/Thermal-Registrierungsfehler messen; fail-closed bei falscher Überlagerung oder unzureichender Dachabdeckung. Schwellen nachvollziehbar in Tests/Validierung begründen, nicht stillschweigend lockern.
+5. **Hierarchische RGB-Strukturanalyse**: erst Gebäude-/Dachmasken, dann PV-Anlagenflächen, dann einzelne PV-Module auf geeigneten auflösungstreuen Dachflächenkacheln segmentieren. Inneren Zellraster nicht mit Modulaußenkanten verwechseln. Modulinstanzen per Mehrbild-/Mosaikkonsistenz, Kanten/Raster und menschlichem Review plausibilisieren; keine bloßen dunklen Rechtecke als bestätigte Module.
+6. **Thermalzuordnung und Befundanalyse** erst auf verifiziert registrierten Modulflächen; Eingabe-/Messqualität, Unsicherheit, vollständigen Verarbeitungslauf und Expertenfreigabe getrennt prüfen. Review, Bericht und Export bleiben bis zu echten Backend-Gates gesperrt.
+
+## Externe Fach-/Open-Source-Beispiele, ausschließlich zur Evaluierung
+
+Recherche vom 25.10.2026. Diese Projekte werden **nicht** automatisch installiert, kopiert oder in SolarCheck integriert. Einsatz, Rechte, Gewichte und Windows-10-/Offline-Tauglichkeit sind vorab getrennt zu prüfen.
+
+- [PV-Hawk](https://github.com/LukasBommes/PV-Hawk): Mask-R-CNN-basierte **Modulinstanzsegmentierung** aus RGB-/IR-Videoframes mit Tracking, SfM und Modul-Georeferenzierung; MIT-Code, aber Video/Ubuntu/GPU/Docker-Workflow, nicht direkt der SolarCheck-Orthofoto-Pfad. Interessant: Modulgrenzen und Annotation.
+- [rooftop-segmentation](https://github.com/imharrisonking/rooftop-segmentation): U-Net auf gekachelten **GeoTIFFs** plus Gebäudegrundriss-Labels; MIT-Code, Ansatz für Gebäudemasken, keine Modulerkennung.
+- [Solar PV Segmentation Brandenburg](https://huggingface.co/Muemmel/solar-pv-segmentation-brandenburg): DeepLabV3+ für PV-**Anlagenflächen** auf deutschen 20-cm-Orthofotos; auch RGB-Modell, Modellkarte CC BY 4.0. Keine nachgewiesene Detektion einzelner Module und kein validierter Transfer auf hochauflösende Mavic-3T-Dächer.
+- [Kleebauer et al. multi-resolution-pv-system-segmentation](https://github.com/Kleebaue/multi-resolution-pv-system-segmentation): Beispiele und Gewichte für PV-Flächensegmentierung bei verschiedenen Auflösungen, darunter UAV; Lizenz und Modellrechte vor jeder Nutzung separat verifizieren.
+- [OpenDroneMap, Thermaldokumentation](https://docs.opendronemap.org/thermal/) und [Multispectral](https://docs.opendronemap.org/multispectral/): fachliche Architektur-/Qualitätsreferenz für Orthomosaike und thermische Prozesskette. **Verbindliche Projektregel bleibt: keine ODM/WebODM-Laufzeit, kein Docker-ODM und keine direkte Übernahme von ODM-Code**.
+- [DJI Thermal SDK](https://www.dji.com/downloads/softwares/dji-thermal-sdk): mögliche Referenz für M3T-R-JPEG/Temperaturverarbeitung; Funktionsumfang und Lizenz vor Verwendung auf Windows 10 prüfen.
+
+## Unmittelbare Fortsetzung
+
+Weitere RGB-Modulvorschläge aus Einzelbildern **nicht als nächsten Entwicklungsschwerpunkt** behandeln. Zuerst Implementierungsstand der bereits vorhandenen Orthofoto-/Registrierungsbausteine samt Tests und tatsächlich vorhandenen SC-0003-Metadaten prüfen; kleinen, nachweisbaren Geometrie-/Coverage-Schritt umsetzen; darauf native RGB-Kachel-/Dachflächenansicht aufbauen; anschließend Thermal-Rohwert-Projektion/Registrierung. Keine Scheinerfolge durch Panorama-Stitching, Pixel-Interpolation oder nicht geprüfte GeoTIFF-Metadaten.
+
+Diese Richtungsentscheidung ändert vorerst **ausschließlich Planung/Dokumentation**, weder lokalen Testcode noch Datenbank, Bilder, Programme oder Freigaben. CI für Dokumentationscommits nicht als bestanden behaupten, bevor sie tatsächlich geprüft ist.
