@@ -101,3 +101,75 @@ def project_rgb_proposal_to_thermal(
         tuple((float(x), float(y)) for x, y in projected),
         transform.target_width, transform.target_height, float(error),
     )
+
+
+@dataclass(frozen=True)
+class ThermalProposalMask:
+    """Diagnostic native thermal-pixel mask; never a confirmed module."""
+    mask: np.ndarray
+    pixels: int
+    area_coverage_fraction: float
+    complete_coverage: bool
+    registration_error_px: float
+    status: str = "unconfirmed_module_proposal"
+
+    @property
+    def usable_for_complete_module_sampling(self) -> bool:
+        return self.complete_coverage and self.pixels > 0
+
+
+def rasterize_projected_thermal_proposal(
+    projection: ProjectedThermalPolygon, *,
+    minimum_area_coverage: float = 0.99,
+) -> ThermalProposalMask:
+    """Clip a calibrated thermal polygon to native pixels; report partial views.
+
+    A partially visible module is explicitly ineligible for full-module
+    statistics. Polygon coverage measures projected polygon *area*, not the
+    fraction of the full RGB image or source camera's field of view.
+    """
+    if not isinstance(projection, ProjectedThermalPolygon):
+        raise TypeError("explicit thermal projection required")
+    if (
+        type(projection.width) is not int or type(projection.height) is not int
+        or projection.width < 1 or projection.height < 1
+        or projection.width * projection.height > MAX_THERMAL_PIXELS
+    ):
+        raise ValueError("invalid diagnostic thermal dimensions")
+    if (
+        type(minimum_area_coverage) not in (int, float)
+        or not isfinite(float(minimum_area_coverage))
+        or not 0 < minimum_area_coverage <= 1
+    ):
+        raise ValueError("bounded positive area coverage threshold required")
+    xy = np.asarray(projection.points_xy, dtype=np.float32)
+    if (
+        xy.ndim != 2 or xy.shape[1:] != (2,) or not 4 <= len(xy) <= MAX_VERTICES
+        or not np.isfinite(xy).all() or not is_valid_module_polygon(xy)
+        or np.max(np.abs(xy)) > 1_000_000
+    ):
+        raise ValueError("valid bounded convex thermal polygon required")
+    if not isfinite(projection.registration_error_px) or projection.registration_error_px < 0:
+        raise ValueError("valid registration error required")
+    total_area = float(abs(cv2.contourArea(xy)))
+    image_boundary = np.asarray([
+        [0, 0], [projection.width - 1, 0],
+        [projection.width - 1, projection.height - 1], [0, projection.height - 1],
+    ], dtype=np.float32)
+    if projection.width < 2 or projection.height < 2:
+        raise ValueError("thermal mask requires at least two pixels per axis")
+    clipped_area, _ = cv2.intersectConvexConvex(xy, image_boundary)
+    coverage = max(0.0, min(1.0, float(clipped_area) / total_area))
+    mask = np.zeros((projection.height, projection.width), dtype=np.uint8)
+    if coverage > 0:
+        rounded = np.rint(xy).astype(np.int32)
+        cv2.fillConvexPoly(mask, rounded, 1)
+    boolean_mask = mask.astype(bool)
+    count = int(np.count_nonzero(boolean_mask))
+    return ThermalProposalMask(
+        boolean_mask,
+        count,
+        coverage,
+        coverage >= minimum_area_coverage and count > 0,
+        projection.registration_error_px,
+    )
