@@ -4,6 +4,14 @@ Stand: 18.10.2026. Verbindlicher Arbeitszweig: `feature/block38-offline-ai-inges
 Repository: https://github.com/multicoptermedia-ship-it/MCM-SolarCheck
 Letzter bestätigter CI-Stand: Nutzer meldete „test grün“ nach gezieltem Hotfix `d4b068a2ac4ad904712c6792315b4574ee59fec0`. Der letzte reguläre Fünf-Commit-Block endete mit `ba46544a98784391584a85fe21f281b87cf6966b`.
 
+## Nutzerentscheidung 25.10.2026: Orthofoto zuerst, Moduldiagnose danach
+
+Die Weiterentwicklung wechselt bewusst vom isolierten Einzelbild-Moduldetektor zum **geometrisch geprüften Orthofoto-/Dachflächen-Workflow**. Zuerst vollständiges RGB-Orthofoto in nutzbarer Quellauflösung samt geprüfter Dach-/Modulflächengeometrie, sodann eigenständige, auf dieselbe Fläche korrekt registrierte **radiometrische Thermal-Orthofotoansicht**; beide dürfen auch technisch parallel rekonstruiert werden, aber ihre gemeinsame Geometrie ist unabhängig zu validieren. Erst danach Gebäude/Dach/PV-Anlagenflächen/Einzelmodule segmentieren, auf Module registrierte Temperaturen und Befunde fachlich prüfen. Einzelbild-Modulvorschläge sind ergänzende Diagnosen, nicht der Hauptanalysepfad.
+
+Anlass: Der lokale Pilot `SC-0003 · Hummintech3` zeigte im Overlay von RGB-Bild 1 vier strukturelle und zehn visuelle, aber null gegenseitig gestützte bzw. Cadence-Vorschläge; visuelle Fehlmarkierungen umfassen nackte Dachflächen. Die 33 RGB- und 160 Thermalbilder ergeben nur 33 Metadatenpaare, **keine** garantierte identische Abdeckung oder Pixelregistrierung. Die bisherigen getrennten Foto-, Geometrie-, Überlappungs-, Dachflächen- und GeoTIFF-Bausteine wiederverwenden. Native Kachelausgabe und ein nachweislich kalibrierter, geometrisch validierter Workflow sind noch offen; keine freigegebenen Ortho-/Temperatur-/Modul-/Berichtsergebnisse vortäuschen.
+
+**Ausführliche verbindliche Anforderung, Meilensteine und geprüfte externe Programmbeispiele:** [`docs/PV_ORTHOMOSAIC_FIRST_ROADMAP.md`](PV_ORTHOMOSAIC_FIRST_ROADMAP.md). Die Fremdbeispiele dienen vorerst nur der Forschung; keine Downloads, neuen Fremdlaufzeiten oder Modellgewichte ohne Lizenz-/Datenschutz-/Windows-10-Prüfung. Vor der Fortsetzung den Code- und CI-Stand auf dem aktiven Branch ermitteln. Keine Änderung an der privaten Windows-Testdatenbank, DJI-Originalen, freigegebenen Projekten oder Review-/Berichtssperren durch diese Dokumentationsentscheidung.
+
 ## Verbindliche Vorgabe: GPT-6 und Chat-Kontinuität (25.10.2026)
 
 - **Nutzeranforderung:** Für jeden neuen MCM-SolarCheck-Entwicklungschat nach Möglichkeit **GPT-6** als Entwicklungsmodell wählen; für anspruchsvolle Programmier-, Prüf- und Architekturarbeit die höchste nutzerseitig verfügbare Denkstufe bevorzugen. Ziel ist die kontinuierliche, zügige Weiterentwicklung ohne Wissensverlust, Rückschritte oder unnötige Wiederholungen.
