@@ -1792,7 +1792,7 @@ class SolarCheckMainWindow(QMainWindow):
         """One project-owned, explicitly requested, nonmetric RGB diagnosis."""
         if (
             self._deployment is not DeploymentMode.OFFLINE_DESKTOP
-            or self._project_service is None
+            or getattr(getattr(self._project_service, "database", None), "path", None) is None
             or not source_project or source_project != self._current_project_id
             or not isinstance(pair, tuple) or len(pair) != 2
             or self._project_rgb_preview_thread is not None
@@ -1813,7 +1813,7 @@ class SolarCheckMainWindow(QMainWindow):
                 self._project_service.database.path, source_project
             ):
                 return
-        except (OSError, ValueError, RuntimeError):
+        except Exception:
             self._project_rgb_preview_status = (
                 "RGB-Bildauswahl nicht verfügbar; Projektdaten unverändert."
             )
@@ -2156,18 +2156,19 @@ class SolarCheckMainWindow(QMainWindow):
         # Only cheap, read-only imported capture names. Never read private
         # source image pixels or run registration merely to render the page.
         project_rgb_pairs = ()
+        rgb_database = getattr(self._project_service, "database", None)
         if (self._deployment is DeploymentMode.OFFLINE_DESKTOP
                 and self._current_project_id is not None
-                and self._project_service is not None):
+                and getattr(rgb_database, "path", None) is not None):
             from mcm_solarcheck.services.rgb_project_preview_vertical import (
                 list_project_rgb_pairs,
             )
             try:
                 project_rgb_pairs = list_project_rgb_pairs(
-                    self._project_service.database.path,
+                    rgb_database.path,
                     self._current_project_id,
                 )
-            except (ValueError, OSError, RuntimeError):
+            except Exception:
                 # Do not disclose private database or customer source paths.
                 project_rgb_pairs = ()
         
