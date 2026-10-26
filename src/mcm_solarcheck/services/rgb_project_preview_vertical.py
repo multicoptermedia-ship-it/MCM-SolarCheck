@@ -35,11 +35,58 @@ class ProjectRGBPreviewResult:
     metric_orthophoto_verified: bool = False
 
 
+class RGBProjectPreviewCancelled(RuntimeError):
+    """The user cancelled before any diagnostic artefact may be published."""
+
+
+def list_project_rgb_pairs(
+    database: str | Path, project_id: str,
+) -> tuple[tuple[str, str], ...]:
+    """List imported consecutive RGB capture IDs; no paths leave this method.
+
+    A listed pair is a candidate only, never confirmed visual overlap.
+    The expensive original file checks run after explicit user action.
+    """
+    dbpath = Path(database)
+    if not dbpath.is_file() or dbpath.is_symlink():
+        raise ValueError("existing regular project database required")
+    if not isinstance(project_id, str) or not project_id.strip():
+        raise ValueError("nonempty project ID required")
+    with sqlite3.connect(dbpath.resolve(strict=True).as_uri() + "?mode=ro", uri=True) as db:
+        db.execute("PRAGMA query_only=ON")
+        rows = db.execute(
+            "SELECT source_file FROM image_frames WHERE project_id=?",
+            (project_id,),
+        ).fetchall()
+    captures = set()
+    for (source_file,) in rows:
+        if not isinstance(source_file, str):
+            continue
+        match = _RGB_NAME.fullmatch(Path(source_file).name)
+        if match is None:
+            continue
+        identifier = match.group(1)
+        if identifier in captures:
+            # Ambiguous frame identity cannot safely drive an image picker.
+            raise ValueError("duplicate imported RGB capture number")
+        captures.add(identifier)
+    return tuple(
+        (first, f"{int(first) + 1:04d}")
+        for first in sorted(captures)
+        if int(first) < 9999 and f"{int(first) + 1:04d}" in captures
+    )
+
+
+def _require_not_cancelled(should_cancel) -> None:
+    if should_cancel is not None and should_cancel():
+        raise RGBProjectPreviewCancelled("RGB preview cancelled")
+
 def _selected_rgb_paths(
     database: Path, project_id: str, first: str, second: str,
-    *, max_file_bytes: int,
+    *, max_file_bytes: int, should_cancel=None,
 ) -> tuple[Path, Path]:
     """Read frame names from a SQLite file opened strictly read-only."""
+    _require_not_cancelled(should_cancel)
     if not database.is_file() or database.is_symlink():
         raise ValueError("existing regular local test database required")
     if not isinstance(project_id, str) or not project_id.strip():
@@ -67,6 +114,7 @@ def _selected_rgb_paths(
 
     selected: dict[str, tuple[Path, int, int]] = {}
     for filename, width, height in rows:
+        _require_not_cancelled(should_cancel)
         if not isinstance(filename, str):
             continue
         match = _RGB_NAME.fullmatch(Path(filename).name)
@@ -84,6 +132,7 @@ def _selected_rgb_paths(
         raise ValueError("requested consecutive RGB frames are not imported")
     result = []
     for number in (first, second):
+        _require_not_cancelled(should_cancel)
         path, width, height = selected[number]
         if not path.is_file() or path.is_symlink():
             raise ValueError("imported original RGB image must be a regular file")
@@ -105,6 +154,7 @@ def _selected_rgb_paths(
         if reduced is None or reduced.shape[:2] != (height // 4, width // 4):
             raise ValueError("OpenCV did not decode the expected primary DJI RGB frame")
         result.append(path)
+    _require_not_cancelled(should_cancel)
     return result[0], result[1]
 
 
@@ -118,12 +168,18 @@ def create_project_rgb_preview(
     max_file_bytes: int = 80_000_000,
     max_side: int = 1400,
     max_canvas_pixels: int = 12_000_000,
+    should_cancel=None,
+    on_progress=None,
 ) -> ProjectRGBPreviewResult:
     """Render one selected consecutive RGB pair to a new, empty local folder.
 
     Preview files are the ONLY possible writes. The project database is opened
     with SQLite mode=ro and the original source files are never changed.
     """
+    _require_not_cancelled(should_cancel)
+    if on_progress is not None:
+        on_progress(0, 3, "Projektbilder vorbereiten")
+    _require_not_cancelled(should_cancel)
     db = Path(database)
     directory = Path(output_directory)
     if (
@@ -136,7 +192,7 @@ def create_project_rgb_preview(
 
     first, second = _selected_rgb_paths(
         db, project_id, first_sequence, second_sequence,
-        max_file_bytes=max_file_bytes,
+        max_file_bytes=max_file_bytes, should_cancel=should_cancel,
     )
     target = directory.resolve(strict=True)
     for source in (first, second, db):
@@ -149,13 +205,28 @@ def create_project_rgb_preview(
     if any(source.resolve(strict=True).parent in target.parents for source in (first, second)):
         raise ValueError("preview folder cannot be inside original-photo directory")
 
+    _require_not_cancelled(should_cancel)
+    if on_progress is not None:
+        on_progress(1, 3, "RGB-Merkmale registrieren")
+    _require_not_cancelled(should_cancel)
     preview = stitch_rgb_preview(
         first, second, max_side=max_side,
         max_canvas_pixels=max_canvas_pixels,
     )
+    _require_not_cancelled(should_cancel)
+    if on_progress is not None:
+        on_progress(2, 3, "Diagnostische PNG- und JSON-Ausgabe erstellen")
+    _require_not_cancelled(should_cancel)
     png, manifest = save_rgb_preview_artifacts(
         preview, target, source_names=(first.name, second.name),
     )
+    if should_cancel is not None and should_cancel():
+        # These two names were known absent in the required empty output folder.
+        png.unlink(missing_ok=True)
+        manifest.unlink(missing_ok=True)
+        raise RGBProjectPreviewCancelled("RGB preview cancelled")
+    if on_progress is not None:
+        on_progress(3, 3, "Diagnose abgeschlossen")
     return ProjectRGBPreviewResult(
         png, manifest, first_sequence, second_sequence, preview.inliers,
         preview.covered_fraction, preview.median_reprojection_error_px,
