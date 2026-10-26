@@ -16,3 +16,5 @@
 **Schutz:** Niemals Originalbilder, produktive SQLite, Nutzerbackups, `main`, offene PRs oder andere Branches ohne ausdrückliche Freigabe verändern. GitHub-Codecommit aktualisiert **nicht** den lokalen alten Windows-Checkout. Keine fiktive °C-/Defekt-/Vermessungs-/Fachfreigabe.
 
 **Bei jedem Abschluss:** diesen Startpunkt prüfen, Register + Entwicklungsvereinbarung + Chat-Handoff und thematische Roadmap aktualisieren, danach CI des finalen Commits prüfen. Benutzer erhält eine kurze, nachvollziehbare Ergebnisübergabe.
+
+**CI-Integration:** `main` wurde nach GitHub-CI-Grün per Fast-forward an den bisherigen Entwicklungsstand angeglichen. [DEV-INT-002](DEVELOPMENT_STEP_REGISTER.md) dokumentiert den neuen Windows-Pushtrigger für `main`. Ziel weiterhin **Entwicklung**, kein freigegebener Offline-Release.

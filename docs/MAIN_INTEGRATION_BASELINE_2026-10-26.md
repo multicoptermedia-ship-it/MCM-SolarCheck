@@ -49,3 +49,9 @@ Das Übernehmen nach `main` ist nur **Codeintegration**. Eine eigenständige vol
 - Nach jedem Schritt **Entwicklungsregister, Vereinbarung, Chat-Handoff, RGB-Roadmap** aktualisieren und den letzten Commit wieder mit Python-/Windows-CI prüfen. Kein neuer Test der bereits belegten MPO-Metadaten ohne echten Anlass.
 - `main` ab Fast-forward gemeinsame Integrationsbasis. Für neue Arbeit kleine isolierte Featurezweige erstellen und **erst nach CI-/Review-Gate** via nicht erzwungenem Fast-forward/PR nach `main` übernehmen. `main` nicht als unverifizierten Experimentierzweig verwenden.
 - Kein GitHub-Commit ändert die alte lokale Windows-10-Installation. Kein Merge/Branchlöschung, keine Originalbild-/Produktivdatenbankänderung, keine fiktive Orthofoto- oder medizinisch klingende Fehlerfreigabe.
+
+## Ausführung des Fast-forward und Absicherung von main
+
+Am 26.10.2026 wurde `main` **ohne Force-Push** (geprüfter erwarteter HEAD) von `e523a30dff0cb6a17fc8d287289cadb9cbde28d8` nach `56d6bf22f178bf98dbcb38559824d03c9ce718f1` bewegt: **4019 Commit-Vorwärtsschritte**, 0 zurückliegende Commits; danach `compare(main...feature)` = **identical**. Präintegrations-CI für `56d6bf2`: [Python grün](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/40364637228), [Windows grün](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/40364637118), jeweils 3.11/3.12.
+
+**Zusätzliche notwendige CI-Konsolidierung:** Die Windows-Push-Trigger enthielten zuvor nur `feature/offline-human-report-approval`. Der nachfolgende `main`-Entwicklungsschritt **DEV-INT-002** erweitert den Trigger auf `main` und behält den alten Branch bei. Der neue Dokumentations-/Workflow-Commit muss danach separat alle erforderlichen Tests bestehen; eine frühere grüne CI reicht nicht.

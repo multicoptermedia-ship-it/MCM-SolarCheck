@@ -66,3 +66,10 @@
 - **Status:** Git-Integration nach erneuter CI, **nicht** voll funktionsfähiges freigegebenes M3T-Orthofoto/Release. Lokaler alter Windows-Checkout unverändert.
 - **Bewusst nicht pauschal gemergt:** die drei divergierten Zwei-Agenten-Experimentbranches; Datenschutztest-Befund und GUI-Teststand liegen in der aktiven Linie eigenständig vor; keine automatische PR-Schließung, kein `force`.
 - **Nächster vertikaler Schritt:** sichtbare PySide6-UI zum Projekt-RGB-Preview mit Abbruch-/Qualitätsstatus, anschließend echte geneigte Dachflächen-Orthorektifizierung mit unabhängig geprüfter Intrinsic-/Pose-/Surveygeometrie.
+
+### 2026-10-26 · DEV-INT-002 – Windows-CI auf neue Main-Integrationsbasis umstellen
+- **Motiv:** Nach erfolgreich durchgeführtem `main`-Fast-forward von `e523a30dff` auf `56d6bf22f178bf98dbcb38559824d03c9ce718f1` war `.github/workflows/windows-offline.yml` auf `push` nur für den bisherigen Featurebranch konfiguriert. Ohne Anpassung würden zukünftige `main`-Pushs keine Windows-Offline-Prüfung starten.
+- **Änderung:** Windows-Actions-Pushtrigger **additiv** um `main` ergänzen, Featurebranch-Auslöser für historische Vergleichbarkeit beibehalten; bestehende Windows-Testfälle unverändert. Python-`tests`-Workflow löst bereits auf allen Pushs aus und bleibt unverändert.
+- **Validierung:** Ergänzter Test `tests/test_main_windows_ci_gate.py` bestätigt Workflow-Trigger für beide Zweige aus YAML-Text. Der exakte neue `main`-Commit muss erneut unter Python und Windows 3.11/3.12 grün sein.
+- **Status:** Nur CI- und Anforderungsverwaltung, keine lokalen Dateimigrationen/Originaldaten/Produktivdatenbank, keine neue fachliche Orthofoto- oder Thermal-Freigabe.
+- **Nächster Schritt:** vertikale offline PySide6 GUI-Anbindung des vorhandenen Projekt→2 RGB→PNG/JSON-Wegs auf geprüfter `main`-Basis; keine erneuten redundanten MPO-Metadatenprüfungen.

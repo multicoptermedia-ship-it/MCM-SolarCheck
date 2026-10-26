@@ -2,6 +2,7 @@ name: windows-offline-validation
 on:
   push:
     branches:
+      - main
       - feature/offline-human-report-approval
   pull_request:
   workflow_dispatch:
