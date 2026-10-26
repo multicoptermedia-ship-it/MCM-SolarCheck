@@ -7,6 +7,7 @@ database migration, or expert approval may be inferred from this preview.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import closing
 from pathlib import Path
 import re
 import sqlite3
@@ -52,7 +53,7 @@ def list_project_rgb_pairs(
         raise ValueError("existing regular project database required")
     if not isinstance(project_id, str) or not project_id.strip():
         raise ValueError("nonempty project ID required")
-    with sqlite3.connect(dbpath.resolve(strict=True).as_uri() + "?mode=ro", uri=True) as db:
+    with closing(sqlite3.connect(dbpath.resolve(strict=True).as_uri() + "?mode=ro", uri=True)) as db:
         db.execute("PRAGMA query_only=ON")
         rows = db.execute(
             "SELECT source_file FROM image_frames WHERE project_id=?",
@@ -100,7 +101,7 @@ def _selected_rgb_paths(
         raise ValueError("positive image byte limit required")
 
     uri = database.resolve(strict=True).as_uri() + "?mode=ro"
-    with sqlite3.connect(uri, uri=True) as db:
+    with closing(sqlite3.connect(uri, uri=True)) as db:
         db.execute("PRAGMA query_only=ON")
         if db.execute(
             "SELECT 1 FROM projects WHERE project_id=?", (project_id,),
