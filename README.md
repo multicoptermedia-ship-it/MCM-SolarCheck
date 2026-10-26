@@ -1,5 +1,7 @@
 # MCM-SolarCheck
 
+> **Verbindliche Entwicklungsgrundlage (Stand 26.10.2026):** Vor neuer Programmierung zuerst [Start für Folgechats](docs/PROJECT_START_HERE.md), [Branch-Bestandsaufnahme](docs/REPOSITORY_BRANCH_INVENTORY_2026-10-26.md), [Entwicklungsregister](docs/DEVELOPMENT_STEP_REGISTER.md) und [Entwicklungsvereinbarung](docs/DEVELOPMENT_AGREEMENT.md) lesen. Die nachfolgenden ursprünglichen Pipeline-/ODM-/Modellideen in diesem README sind **historische Planung**, keine Freigabe für ODM/WebODM, Docker, Cloud, YOLO-Lizenzänderungen, °C-Behauptungen oder ein ungeprüftes Orthofoto. Der verbindliche aktuelle Arbeitsbranch ist `feature/offline-human-report-approval`; `main` ist nicht der ausführbare Arbeitsstand.
+
 Automatisierte PV-Anlagenprüfung aus georeferenzierten RGB- und Thermaldaten.
 
 ## Ziel

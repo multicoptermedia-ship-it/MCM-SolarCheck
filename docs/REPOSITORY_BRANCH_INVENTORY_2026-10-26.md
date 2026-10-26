@@ -26,7 +26,7 @@
 | Aktiver CI vor Inventur | `tests` und `windows-offline-validation` jeweils **grün** auf Python 3.11/3.12, SHA `0a29e6a` |
 | Offene PRs | #3 `integration/phase10-master` → `main`; #4 `feature/unified-online-offline-foundation` → `integration/phase10-master` |
 
-**Hinweis zu Zählung:** Die vollständigen Vorfahren des Arbeitszweigs umfassen die Branches `main`, `images` und alle zehn übrigen Nicht-Experiment-/Nicht-Aktiv-Branches. Insgesamt sind 10 andere Branches mit eigenem älterem Funktionsstand vollständig enthalten; `main`/`images` bilden die beiden zusätzlichen identischen Wurzelreferenzen.
+**Hinweis zur Zählung:** Die **10 anderen Nicht-Experiment-/Nicht-Aktiv-Branches insgesamt** sind Git-Vorfahren des Arbeitszweigs, darunter `main` und `images` mit identischer SHA. Die **anderen acht** sind eigenständige ältere Entwicklungs- oder Releasezweige. Die drei experimentellen Branches sind divergiert.
 
 ## Katalog aller 14 Branches (unveränderter Stichtags-HEAD)
 

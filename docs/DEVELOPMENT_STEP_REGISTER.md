@@ -45,3 +45,14 @@
 **Fachliche Dauergrenzen:** geneigte Dachflächen und 20–30° Freiflächenaufständerung stets gegen reale Oberflächennormalen geometrisch behandeln; Nadirkamera ist nicht automatisch senkrecht zur Modulfläche; keine vermessungsfremden Koordinaten erfinden; Offline/Privatheit/Fachfreigabe bleiben verbindlich.
 
 **Inventur-Commit und CI:** Werden nach der Aktualisierung des Registers separat überprüft und im nächstfolgenden Registereintrag nachgetragen; keinesfalls vorab als grün behaupten.
+
+### 2026-10-26 · DEV-INV-001 – Vollständige 14-Branch-Bestandsaufnahme
+- **Branch / Start-HEAD:** `feature/offline-human-report-approval`, vor der Inventur `0a29e6a66d2ca0b23962f50b09ce099a2decaf5a`.
+- **Inventur-Dokumentationscommit:** `6ac92bfdf9bada682e89c730d07646e1379d66ad`. Danach folgte eine rein dokumentarische Korrektur/README-Wegweiser-Aktualisierung; der tatsächliche End-HEAD ist stets über GitHub zu prüfen.
+- **Benutzerziel:** Kein erneutes Erfinden bereits entwickelter Funktionen; sämtliche 14 Branches als gegliederte, nachvollziehbare Git-Wissensbasis und als PDF-Bericht sichern.
+- **Neue/aktualisierte Dateien:** `docs/REPOSITORY_BRANCH_INVENTORY_2026-10-26.md`, `docs/DEVELOPMENT_STEP_REGISTER.md`, `docs/PROJECT_START_HERE.md`, README-Einstiegsverweis, Kurzverweise in `docs/DEVELOPMENT_AGREEMENT.md`, `docs/CHAT_HANDOFF.md`, `docs/PV_ORTHOMOSAIC_FIRST_ROADMAP.md`.
+- **Validierung:** Für jeden Branch Git-HEAD, Datums-/Titel-Commit, vollständiger File-Tree ohne Trunkierung, Historienrelation zum aktiven Branch und GitHub-Actions-HEAD (wenn vorhanden). Zwei offene PRs nicht verändert. PDF aus demselben datierten Bestandsdatenstand erzeugt; visuelle Renderkontrolle.
+- **CI dieses ersten Inventur-Commits:** `6ac92bf`: [tests (3.11/3.12)](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/40361333242) **success**; [Windows (3.11/3.12)](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/40361333253) **success**.
+- **Status:** Branch-Wissensinventur und Verfahrensregeln dokumentiert; **keine neuen Laufzeitfunktionen, kein Merge, keine Nutzerdaten geändert**. PDF datierter Snapshot, Git-Markdown dauerhaft pflegen. Der spätere README-/Korrekturcommit benötigt eigene finale CI-Prüfung.
+- **Risiken/Grenzen:** `main`/ `images` identisch und nicht lauffähiger Quellstand; drei Zwei-Agenten-Branches divergent, QA-HEAD rot (privater Exportpfad in GUI-Fehlermeldung), Integration-Review grün. Keine pauschale Funktionsgleichheit der divergierten Experimente ableiten.
+- **Nächste Benutzeraktion:** Keine Wiederholung von MPO/EXIF/ORB-Lesetests; nach Sichtung dieses Berichts gezielt vertikalen RGB-Projekt→Preview-GUI-Pfad weiterbauen, dann geometrisch geprüftes geneigtes RGB-Dachflächenmosaik.
