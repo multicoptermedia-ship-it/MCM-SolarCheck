@@ -11,7 +11,7 @@
 
 **Derzeit letzter realer Nutzertest:** 33/33 originale RGB-MPO (4000×3000 Hauptbild + 960×720 Begleitbild), 160 Thermal in getrenntem TEST-Projekt Hummintech3; 28/32 plausible ORB-Nachbarlinks, 4 kritische, fünf Querlinks unzureichend; DJI Gimbalwinkel-Metadaten eingeordnet. **Nicht erneut** nach denselben PowerShell-Ausgaben fragen.
 
-**Letzte implementierte vertikale Funktion:** GitHub-Stand `0a29e6a`: testprojektspezifische 2-RGB-Originale→begrenztes diagnostisches PNG/JSON; mit synthetischen Tests/CI, noch nicht in alter Windows-10-GUI installiert. **Nächster Schritt:** nutzbaren GUI-Aufruf mit sicheren Status-/Abbruch-/Exportgates herstellen. Nur bei unabhängiger tatsächlicher Kamerakalibrierung + Dachsurvey darf ein überprüftes Oberflächen-RGB-Orthofoto entstehen.
+**Letzter neu implementierter Vertikalschritt:** [DEV-RGB-GUI-001](DEVELOPMENT_STEP_REGISTER.md) – offline Projekt → bereits importiertes RGB-Nachbarpaar → leerer lokaler Ausgabeordner → QThread-Diagnose-PNG/JSON → sichtbarer Qt-Vorschaudialog samt Abbruch. Der neue Code liegt zunächst in `feature/offline-project-rgb-preview-gui` und wird **nur nach final grünen CI-Gates** nach `main` übernommen. Die alte lokale Windows-10-GUI wurde noch nicht aktualisiert oder auf SC-0003 ausgeführt. **Nächster Schritt:** echte Windows-10-Abnahme des neuen GUI-Pfads und danach unabhängig kalibrierte geneigte RGB-Dachflächengeometrie; keine metrische Orthofoto-Freigabe aus der nichtmetrischen Vorschau.
 
 **Schutz:** Niemals Originalbilder, produktive SQLite, Nutzerbackups, `main`, offene PRs oder andere Branches ohne ausdrückliche Freigabe verändern. GitHub-Codecommit aktualisiert **nicht** den lokalen alten Windows-Checkout. Keine fiktive °C-/Defekt-/Vermessungs-/Fachfreigabe.
 
