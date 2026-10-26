@@ -120,6 +120,11 @@ class SolarCheckMainWindow(QMainWindow):
         self._rgb_overlay_status = None
         self._rgb_overlay_close_pending = False
         self._rgb_overlay_dialog = None
+        self._project_rgb_preview_thread = None
+        self._project_rgb_preview_project_id = None
+        self._project_rgb_preview_status = None
+        self._project_rgb_preview_close_pending = False
+        self._project_rgb_preview_dialog = None
         self._module_readiness_project_id = None
         self._module_readiness_status = None
         self._command_routes = {
@@ -413,6 +418,12 @@ class SolarCheckMainWindow(QMainWindow):
             if self._rgb_overlay_dialog is not None:
                 self._rgb_overlay_dialog.close()
                 self._rgb_overlay_dialog = None
+            if self._project_rgb_preview_thread is not None:
+                self._project_rgb_preview_thread.request_cancel()
+            self._project_rgb_preview_status = None
+            if self._project_rgb_preview_dialog is not None:
+                self._project_rgb_preview_dialog.close()
+                self._project_rgb_preview_dialog = None
             self._module_readiness_project_id = None
             self._module_readiness_status = None
             self._clear_prepared_draft()
@@ -1776,6 +1787,175 @@ class SolarCheckMainWindow(QMainWindow):
         if self._rgb_module_sample_thread is not None:
             self._rgb_module_sample_thread.request_cancel()
 
+
+    def _start_project_rgb_preview(self, source_project: str, pair) -> None:
+        """One project-owned, explicitly requested, nonmetric RGB diagnosis."""
+        if (
+            self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+            or self._project_service is None
+            or not source_project or source_project != self._current_project_id
+            or not isinstance(pair, tuple) or len(pair) != 2
+            or self._project_rgb_preview_thread is not None
+            or self._project_rgb_preview_close_pending
+            or self._image_check_thread is not None
+            or self._thermal_raw_thread is not None
+            or self._thermal_stats_thread is not None
+            or self._rgb_module_sample_thread is not None
+            or self._rgb_overlay_thread is not None
+        ):
+            return
+        from PySide6.QtWidgets import QFileDialog
+        from mcm_solarcheck.services.rgb_project_preview_vertical import (
+            list_project_rgb_pairs,
+        )
+        try:
+            if pair not in list_project_rgb_pairs(
+                self._project_service.database.path, source_project
+            ):
+                return
+        except (OSError, ValueError, RuntimeError):
+            self._project_rgb_preview_status = (
+                "RGB-Bildauswahl nicht verfügbar; Projektdaten unverändert."
+            )
+            self._refresh_processing_page()
+            return
+        chosen = QFileDialog.getExistingDirectory(
+            self, "Vorhandenen leeren Ordner für RGB-Diagnose wählen"
+        )
+        if not chosen:
+            return
+        from pathlib import Path
+        directory = Path(chosen)
+        if (not directory.is_dir() or directory.is_symlink()
+                or any(directory.iterdir())):
+            self._project_rgb_preview_status = (
+                "RGB-Vorschau nicht gestartet: einen vorhandenen "
+                "leeren lokalen Ausgabeordner auswählen."
+            )
+            self._refresh_processing_page()
+            return
+        from mcm_solarcheck.gui.project_rgb_preview_worker import (
+            ProjectRGBPreviewThread,
+        )
+        thread = ProjectRGBPreviewThread(
+            self._project_service.database.path, source_project,
+            pair[0], pair[1], directory, self,
+        )
+        self._project_rgb_preview_thread = thread
+        self._project_rgb_preview_project_id = source_project
+        self._project_rgb_preview_status = (
+            f"RGB {pair[0]} + {pair[1]}: nichtmetrische Diagnose gestartet. "
+            "Keine Dachflächenvermessung oder Fachfreigabe."
+        )
+        self._refresh_processing_page()
+        thread.progress.connect(
+            self._project_rgb_preview_progress, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.result_ready.connect(
+            self._project_rgb_preview_ready, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.failed.connect(
+            self._project_rgb_preview_failed, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.cancelled.connect(
+            self._project_rgb_preview_cancelled, Qt.ConnectionType.QueuedConnection,
+        )
+        thread.finished.connect(
+            self._project_rgb_preview_thread_finished,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        thread.start()
+
+    def _project_rgb_preview_current(self) -> bool:
+        return (
+            self._project_rgb_preview_project_id is not None
+            and self._project_rgb_preview_project_id == self._current_project_id
+            and not self._project_rgb_preview_close_pending
+        )
+
+    @Slot(int, int, str)
+    def _project_rgb_preview_progress(
+        self, done: int, total: int, stage: str,
+    ) -> None:
+        if not self._project_rgb_preview_current():
+            return
+        self._project_rgb_preview_status = (
+            f"RGB-Projektvorschau: Schritt {done}/{total} – {stage}. "
+            "Keine verifizierte Dachflächengeometrie."
+        )
+        self._refresh_processing_page()
+
+    @Slot(object)
+    def _project_rgb_preview_ready(self, result) -> None:
+        if not self._project_rgb_preview_current():
+            return
+        from mcm_solarcheck.gui.project_rgb_preview_dialog import (
+            ProjectRGBPreviewDialog,
+        )
+        try:
+            if self._project_rgb_preview_dialog is not None:
+                self._project_rgb_preview_dialog.close()
+            dialog = ProjectRGBPreviewDialog(result, self)
+            self._project_rgb_preview_dialog = dialog
+            dialog.show()
+        except (ValueError, TypeError, RuntimeError, OSError):
+            self._project_rgb_preview_status = (
+                "RGB-PNG wurde erstellt, konnte jedoch nicht angezeigt werden. "
+                "Keine Veränderung der Originalbilder oder Projektdatenbank."
+            )
+        else:
+            self._project_rgb_preview_status = (
+                f"RGB {result.first_sequence} + {result.second_sequence}: "
+                f"lokale PNG/JSON-Diagnose erstellt; {result.inliers} Inlier. "
+                "Nicht metrisch, keine geprüfte Dachgeometrie, "
+                "keine Modul- oder Thermal-Freigabe."
+            )
+        self._refresh_processing_page()
+
+    @Slot(str)
+    def _project_rgb_preview_failed(self, message: str) -> None:
+        if self._project_rgb_preview_current():
+            self._project_rgb_preview_status = message
+            self._refresh_processing_page()
+
+    @Slot()
+    def _project_rgb_preview_cancelled(self) -> None:
+        if self._project_rgb_preview_current():
+            self._project_rgb_preview_status = (
+                "RGB-Projektvorschau abgebrochen; keine neuen "
+                "Projektbefunde oder Orthofoto-Freigabe."
+            )
+            self._refresh_processing_page()
+
+    @Slot()
+    def _project_rgb_preview_thread_finished(self) -> None:
+        QTimer.singleShot(0, self._project_rgb_preview_cleanup)
+
+    @Slot()
+    def _project_rgb_preview_cleanup(self) -> None:
+        thread = self._project_rgb_preview_thread
+        if thread is None:
+            return
+        thread.wait()
+        self._project_rgb_preview_thread = None
+        thread.deleteLater()
+        self._project_rgb_preview_project_id = None
+        if self._project_rgb_preview_close_pending:
+            self._project_rgb_preview_close_pending = False
+            self.close()
+        else:
+            self._refresh_processing_page()
+
+    def _cancel_project_rgb_preview(self) -> None:
+        if self._project_rgb_preview_thread is not None:
+            self._project_rgb_preview_thread.request_cancel()
+            if self._project_rgb_preview_current():
+                self._project_rgb_preview_status = (
+                    "RGB-Projektvorschau: Abbruch angefordert; laufende "
+                    "Bildoperation wird am nächsten Prüfschritt beendet."
+                )
+                self._refresh_processing_page()
+
     def _start_rgb_module_overlay(self, source_project: str, sample_index: int) -> None:
         """Show one authenticated RGB detector overlay without persistence."""
         if (
@@ -1973,6 +2153,24 @@ class SolarCheckMainWindow(QMainWindow):
             and self._deployment is DeploymentMode.OFFLINE_DESKTOP
             else None
         )
+        # Only cheap, read-only imported capture names. Never read private
+        # source image pixels or run registration merely to render the page.
+        project_rgb_pairs = ()
+        if (self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and self._project_service is not None):
+            from mcm_solarcheck.services.rgb_project_preview_vertical import (
+                list_project_rgb_pairs,
+            )
+            try:
+                project_rgb_pairs = list_project_rgb_pairs(
+                    self._project_service.database.path,
+                    self._current_project_id,
+                )
+            except (ValueError, OSError, RuntimeError):
+                # Do not disclose private database or customer source paths.
+                project_rgb_pairs = ()
+        
         new_page = make_processing_page(
             current_project_id=self._current_project_id,
             project_label=project_label,
@@ -2099,6 +2297,35 @@ class SolarCheckMainWindow(QMainWindow):
                 else None
             ),
             rgb_overlay_running=self._rgb_overlay_thread is not None,
+            rgb_project_pairs=project_rgb_pairs,
+            on_start_project_rgb_preview=(
+                (lambda pair, source=self._current_project_id:
+                 self._start_project_rgb_preview(source, pair))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and self._project_rgb_preview_thread is None
+                and not self._project_rgb_preview_close_pending
+                and not self._image_check_thread
+                and not self._thermal_raw_thread
+                and not self._thermal_stats_thread
+                and not self._rgb_module_sample_thread
+                and not self._rgb_overlay_thread
+                and bool(project_rgb_pairs)
+                else None
+            ),
+            on_cancel_project_rgb_preview=(
+                self._cancel_project_rgb_preview
+                if self._project_rgb_preview_thread is not None
+                and self._project_rgb_preview_project_id == self._current_project_id
+                else None
+            ),
+            project_rgb_preview_status=(
+                self._project_rgb_preview_status
+                if self._project_rgb_preview_project_id in (
+                    None, self._current_project_id
+                ) else None
+            ),
+            project_rgb_preview_running=self._project_rgb_preview_thread is not None,
             on_check_module_readiness=(
                 (lambda checked=False, source=self._current_project_id:
                  self._check_module_detection_readiness(source))
@@ -2518,9 +2745,10 @@ class SolarCheckMainWindow(QMainWindow):
         thermal_stats_busy = self._thermal_stats_thread is not None
         rgb_module_sample_busy = self._rgb_module_sample_thread is not None
         rgb_overlay_busy = self._rgb_overlay_thread is not None
+        rgb_project_busy = self._project_rgb_preview_thread is not None
         if (integrity_busy or preflight_busy or import_busy or image_check_busy
                 or thermal_raw_busy or thermal_stats_busy or rgb_module_sample_busy
-                or rgb_overlay_busy):
+                or rgb_overlay_busy or rgb_project_busy):
             if integrity_busy:
                 self._integrity_close_pending = True
                 self._cancel_rgb_integrity()
@@ -2545,6 +2773,9 @@ class SolarCheckMainWindow(QMainWindow):
             if rgb_overlay_busy:
                 self._rgb_overlay_close_pending = True
                 self._cancel_rgb_module_overlay()
+            if rgb_project_busy:
+                self._project_rgb_preview_close_pending = True
+                self._cancel_project_rgb_preview()
             event.ignore()
             return
         super().closeEvent(event)
