@@ -197,3 +197,40 @@ def test_read_only_sqlite_connections_release_file_for_windows_deletion(tmp_path
     # were retained in the new project pair listing.
     path.unlink()
     assert not path.exists()
+
+
+def test_cancel_button_requests_cooperative_abort(project, monkeypatch, app):
+    """The visible GUI cancel action reaches the real QThread cancel flag."""
+    import time
+    from mcm_solarcheck.gui import project_rgb_preview_worker
+
+    window, _, target = project
+
+    def cancellable(*args, should_cancel, on_progress, **kwargs):
+        on_progress(1, 3, "RGB-Merkmale registrieren")
+        while not should_cancel():
+            time.sleep(0.005)
+        raise RGBProjectPreviewCancelled("cancelled")
+
+    monkeypatch.setattr(
+        project_rgb_preview_worker, "create_project_rgb_preview", cancellable,
+    )
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", lambda *args, **kwargs: str(target),
+    )
+    window._pages[ShellRoute.PROCESSING].findChild(
+        QPushButton, "processing_start_project_rgb_preview"
+    ).click()
+    page = window._pages[ShellRoute.PROCESSING]
+    cancel = page.findChild(
+        QPushButton, "processing_cancel_project_rgb_preview"
+    )
+    assert cancel is not None and cancel.isEnabled()
+    cancel.click()
+    _wait_done(window, app)
+    assert not list(target.iterdir())
+    assert window._project_rgb_preview_dialog is None
+    status = window._pages[ShellRoute.PROCESSING].findChild(
+        QLabel, "processing_project_rgb_preview_status"
+    ).text()
+    assert "abgebrochen" in status.lower()
