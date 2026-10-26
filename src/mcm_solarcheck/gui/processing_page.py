@@ -23,6 +23,9 @@ def make_processing_page(
     on_check_module_readiness=None, module_readiness_status=None,
     on_preview_rgb_overlay=None, on_cancel_rgb_overlay=None,
     rgb_overlay_status=None, rgb_overlay_running=False,
+    rgb_project_pairs=(), on_start_project_rgb_preview=None,
+    on_cancel_project_rgb_preview=None, project_rgb_preview_status=None,
+    project_rgb_preview_running=False,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -340,6 +343,65 @@ def make_processing_page(
         overlay_info.setTextFormat(Qt.TextFormat.PlainText)
         overlay_info.setWordWrap(True)
         layout.addWidget(overlay_info)
+
+
+        # Selected PROJECT -> imported consecutive original RGB frames -> PNG/JSON.
+        # This is explicitly a nonmetric visual test, not module recognition.
+        project_preview_label = QLabel(
+            "RGB-Dachansicht: zwei bereits importierte aufeinanderfolgende "
+            "RGB-Bilder zu einer unvermessenen Vorschau zusammensetzen.",
+            page,
+        )
+        project_preview_label.setWordWrap(True)
+        layout.addWidget(project_preview_label)
+        project_pairs = QComboBox(page)
+        project_pairs.setObjectName("processing_project_rgb_pair_selector")
+        for first, second in rgb_project_pairs:
+            project_pairs.addItem(f"RGB {first} + {second}", (first, second))
+        project_pairs.setEnabled(not project_rgb_preview_running and bool(rgb_project_pairs))
+        layout.addWidget(project_pairs)
+        project_preview_button = QPushButton(
+            "Projekt-RGB-Vorschau erstellen (nicht metrisch)", page,
+        )
+        project_preview_button.setObjectName("processing_start_project_rgb_preview")
+        project_preview_button.setEnabled(
+            bool(rgb_project_pairs) and callable(on_start_project_rgb_preview)
+            and not project_rgb_preview_running
+            and not image_check_running and not thermal_check_running
+            and not thermal_stats_running and not rgb_sample_running
+            and not rgb_overlay_running
+        )
+        if project_preview_button.isEnabled():
+            project_preview_button.clicked.connect(
+                lambda checked=False: on_start_project_rgb_preview(
+                    project_pairs.currentData()
+                )
+            )
+        layout.addWidget(project_preview_button)
+        if project_rgb_preview_running:
+            cancel_preview = QPushButton(
+                "Projekt-RGB-Vorschau abbrechen", page,
+            )
+            cancel_preview.setObjectName("processing_cancel_project_rgb_preview")
+            cancel_preview.setEnabled(callable(on_cancel_project_rgb_preview))
+            if cancel_preview.isEnabled():
+                cancel_preview.clicked.connect(on_cancel_project_rgb_preview)
+            layout.addWidget(cancel_preview)
+        project_preview_status_label = QLabel(
+            project_rgb_preview_status or (
+                "Wählt ein tatsächliches RGB-Nachbarpaar aus dem aktiven Projekt. "
+                "Ausgabe ausschließlich in einen zuvor vorhandenen leeren "
+                "lokalen Ordner; Originale und SQLite bleiben unverändert. "
+                "Kein verifiziertes Orthofoto oder Thermalbefund."
+            ),
+            page,
+        )
+        project_preview_status_label.setObjectName(
+            "processing_project_rgb_preview_status"
+        )
+        project_preview_status_label.setTextFormat(Qt.TextFormat.PlainText)
+        project_preview_status_label.setWordWrap(True)
+        layout.addWidget(project_preview_status_label)
 
         details_toggle = QPushButton("Technische Details anzeigen", page)
         details_toggle.setObjectName("processing_details_toggle")
