@@ -1,0 +1,47 @@
+# Verbindliches Entwicklungsregister – MCM-SolarCheck
+
+**Gilt ab:** 26.10.2026. **Autoritative Git-Quelle für abgeschlossene Arbeiten:** `feature/offline-human-report-approval`, sofern der Nutzer nicht ausdrücklich einen anderen Branch als neuen Arbeitsbranch bestimmt. **Nicht ersetzen**: Sicherheits-/Freigaberegeln in [DEVELOPMENT_AGREEMENT.md](DEVELOPMENT_AGREEMENT.md).
+
+## Unverhandelbarer Ablauf ab jetzt
+
+1. **Vor der Implementierung:** [PROJECT_START_HERE.md](PROJECT_START_HERE.md), [REPOSITORY_BRANCH_INVENTORY_2026-10-26.md](REPOSITORY_BRANCH_INVENTORY_2026-10-26.md), dieses Register, Entwicklungsvereinbarung, Chat-Übergabe und aktuelle Fachroadmap lesen. Bestehende Funktionen und bereits belegte Nutzerresultate feststellen; keine unnötigen Wiederholungstests oder isolierten Endlosschleifen.
+2. **Immer ein kleiner vertikaler Schritt:** konkreter Benutzerweg (Projekt → echte Eingabe → nachvollziehbarer Verarbeitungsschritt → sichtbares Ergebnis/Fehlerstatus), vollständig offline auf Windows 10 ausgelegt. Technische Unterfunktionen nur einbauen, wenn sie diesem Benutzerweg dienen. Keine irreführende Qualitäts-/Vermessungsfreigabe.
+3. **Für jeden abgeschlossenen Code- oder Entwicklungsblock:** Noch im **selben Branch** diesen Eintrag ergänzen: Datum, ID, Ziel, geänderte Dateien, SHA, Vorbedingungen, reale/synthetische Belege, CI-Links inkl. Windows-3.11/3.12, Sicherheits-/Qualitätsgrenzen, Abnahmestatus auf Nutzerhardware, offene Restarbeit und exakte nächste Aktion.
+4. **Dokumentation muss mit dem Code synchron sein:** im selben Abschlussblock ebenfalls `docs/DEVELOPMENT_AGREEMENT.md`, `docs/CHAT_HANDOFF.md` und bei PV-Arbeit `docs/PV_ORTHOMOSAIC_FIRST_ROADMAP.md` mit kurzem Verweis auf den Registereintrag aktualisieren. Die 5-Commit-Übergabe ist eine bewährte Regel, aber wichtiger ist: **keine undokumentierte abgeschlossene Funktion**.
+5. **Nach dem Dokumentationscommit:** HEAD und neue CI-Runs nachprüfen. Kein grünes Ergebnis für neue Commits aus älteren erfolgreichen Runs ableiten. `main`, Release-/Experiment-/PR-Branches nicht ohne separaten schriftlichen Integrationsauftrag ändern.
+6. **Evidenz strikt unterscheiden:** GitHub-Synthetiktests ≠ echte Windows-10-Nutzerabnahme; MPO-/GPS-Metadaten ≠ validierte Kamerapose; ORB/optische Vorschau ≠ vermessenes Orthofoto; M3T-raw16 ≠ °C; Vorschlag ≠ bestätigtes Modul/Befund; automatischer Bericht ≠ Fachfreigabe.
+7. **Neuer Chat:** zuerst das [PROJECT_START_HERE.md](PROJECT_START_HERE.md) lesen und den letzten Registereintrag als Ausgangspunkt benutzen; bereits dokumentierte Belege nicht erneut vom Benutzer einfordern. Bei fehlendem Zugriff auf GitHub offen benennen, statt alte Ergebnisse zu erfinden.
+
+## Format des nächsten Eintrags
+
+```markdown
+### YYYY-MM-DD · DEV-XXXX – Kurzname
+- Branch / Start-HEAD / Abschluss-HEAD:
+- Nutzerziel und vertikaler Arbeitsweg:
+- Neue/geänderte Dateien, bereits wiederverwendete Module:
+- Validierung: synthetische Tests; echte Nutzerdaten; Windows-Betrieb (getrennt!):
+- CI: tests und windows-offline-validation, Python 3.11/3.12, konkrete Action-Links:
+- Einordnung: implementiert / geprüft / lokal abgenommen / freigegeben:
+- Grenzen und fail-closed-Gates:
+- Nutzer-/Datenschutz (Originale, Test-SQLite, Produktions-SQLite):
+- Dokumentations-Updates:
+- Offene Fragen und nächster einziger vertikaler Schritt:
+```
+
+## Historischer Index (nicht neu ausführen)
+
+| Stand | Dokumentierte abgeschlossene Erkenntnis | Einstufung |
+|---|---|---|
+| Vor Oktober 2026 | DJI-M3T-Importer, APP3-Rohdatenpfad, RGB-/Thermal-Pairing, Modul/Cadence-Ansätze, SQLite-/Review- und Exportgates | Über Vorgängerbranches im aktuellen Branch historisch enthalten; einzelne Fachbelege in bisherigen Dokumenten |
+| 21.10.2026 | RGB-Flugbildregistrierung, Ketten und Segmentvorschau | `feature/rgb-all-segments-export` historisch im aktiven Branch enthalten; nichtmetrisch |
+| 25./26.10.2026, A–E | Geneigte Oberflächen, RGB-Kachelplanung, kachelweise RGB-Entzerrung, Mehrbildkacheln, abrechbarer RGB-Dachflächenpilot | `6f25e00` synthetisch + GitHub-CI grün; **keine** reale Dachsurvey-/Orthofoto-Abnahme |
+| 26.10.2026, vertikaler Erstweg | `rgb_project_preview_vertical.py`, `rgb_project_preview_cli.py`, `tests/test_rgb_project_preview_vertical.py`: importiertes Projekt → originale RGB-Bilder → diagnostisches PNG/JSON | `0a29e6a` Python + Windows CI grün; auf alter lokaler Windows-App **noch nicht installiert/getestet** |
+| 26.10.2026, Inventur | Alle 14 vorhandenen Branch-HEADs, vollständige Bäume, Vergleiche, GitHub-Actions-HEAD-Status, Datenschutz-Experiment und PRs katalogisiert | [Branch-Katalog](REPOSITORY_BRANCH_INVENTORY_2026-10-26.md); Repository-Dokumentation statt redundanter PowerShell-Prüfungen |
+
+## Aktueller Übergabestatus
+
+**Nächster sinnvoller vertikaler Schritt nach dieser Bestandserhebung:** gezielte GUI-Anbindung für den bereits vorhandenen Projekt→2-RGB-Originale→PNG/JSON-Preview-Weg, mit echtem Nutzerstatus und Abbruch; erst nach UI-/Eingabeprüfung und eigenständiger Kalibrierung eine tatsächlich maßhaltige Dachflächen-RGB-Ausgabe. Keine Neuerfindung der bereits vorhandenen Importer/MPO-Diagnostik/Feature-Matcher.
+
+**Fachliche Dauergrenzen:** geneigte Dachflächen und 20–30° Freiflächenaufständerung stets gegen reale Oberflächennormalen geometrisch behandeln; Nadirkamera ist nicht automatisch senkrecht zur Modulfläche; keine vermessungsfremden Koordinaten erfinden; Offline/Privatheit/Fachfreigabe bleiben verbindlich.
+
+**Inventur-Commit und CI:** Werden nach der Aktualisierung des Registers separat überprüft und im nächstfolgenden Registereintrag nachgetragen; keinesfalls vorab als grün behaupten.
