@@ -173,3 +173,27 @@ def test_cancel_running_gui_job_and_switch_project_has_no_stale_dialog(
         QPushButton, "processing_start_project_rgb_preview"
     ).isEnabled()
     assert not list(target.iterdir())
+
+
+def test_read_only_sqlite_connections_release_file_for_windows_deletion(tmp_path):
+    """A SQLite 'with connection' transaction alone does not close it."""
+    from contextlib import closing
+
+    path = tmp_path / "read-only-test.sqlite3"
+    with closing(sqlite3.connect(path)) as connection:
+        connection.execute(
+            "CREATE TABLE image_frames(project_id TEXT, source_file TEXT)"
+        )
+        connection.executemany(
+            "INSERT INTO image_frames VALUES (?, ?)",
+            [
+                ("P1", "DJI_20250825121642_0136_V.JPG"),
+                ("P1", "DJI_20250825121642_0137_V.JPG"),
+            ],
+        )
+        connection.commit()
+    assert list_project_rgb_pairs(path, "P1") == (("0136", "0137"),)
+    # This unlink would fail with WinError 32 if any read-only SQLite handle
+    # were retained in the new project pair listing.
+    path.unlink()
+    assert not path.exists()
