@@ -90,3 +90,7 @@ Git-Historienrelation wurde jeweils mit `compare(base=<Branch>, head=feature/off
 - [Branches](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/branches), [aktueller Arbeitszweig](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/tree/feature/offline-human-report-approval), [PR #3](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/pull/3), [PR #4](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/pull/4).
 - [Aktiver CI vor Inventur](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions), [roter Experiment-QA-Lauf](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/39452059534).
 - Einzel-HEADs siehe Tabelle. Branchdaten sind zeitbezogen; **vor zukünftigen Schreiboperationen HEAD und CI immer neu prüfen**.
+
+## Nachtrag vom 26.10.2026 – späterer Integrationsauftrag
+
+Diese Inventur beschreibt weiterhin **den Branchzustand VOR der Integration** und die damaligen 14 Heads. Danach hat der Nutzer ausdrücklich gestattet, den dokumentierten, CI-geprüften aktiven Entwicklungsstand als gemeinsame Quellcodebasis per **Fast-forward in `main`** zu übernehmen. Maßgeblich für spätere Arbeiten ist [MAIN_INTEGRATION_BASELINE_2026-10-26.md](MAIN_INTEGRATION_BASELINE_2026-10-26.md) und [DEV-INT-001](DEVELOPMENT_STEP_REGISTER.md). **Die historische Branch-Tabelle oben nicht rückwirkend umschreiben.**

@@ -1,6 +1,6 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
-**Gilt ab:** 26.10.2026. **Autoritative Git-Quelle für abgeschlossene Arbeiten:** `feature/offline-human-report-approval`, sofern der Nutzer nicht ausdrücklich einen anderen Branch als neuen Arbeitsbranch bestimmt. **Nicht ersetzen**: Sicherheits-/Freigaberegeln in [DEVELOPMENT_AGREEMENT.md](DEVELOPMENT_AGREEMENT.md).
+**Gilt ab:** 26.10.2026. **Autoritative Git-Quelle für abgeschlossene Arbeiten:** `main` **nach dem CI-geprüften Fast-forward vom 26.10.2026**. Bisherige Arbeiten sind im Quellzweig `feature/offline-human-report-approval` historisch enthalten. Neue Entwicklung in kleinen Featurebranches und erst nach Gate in `main`. **Nicht ersetzen**: Sicherheits-/Freigaberegeln in [DEVELOPMENT_AGREEMENT.md](DEVELOPMENT_AGREEMENT.md).
 
 ## Unverhandelbarer Ablauf ab jetzt
 
@@ -56,3 +56,13 @@
 - **Status:** Branch-Wissensinventur und Verfahrensregeln dokumentiert; **keine neuen Laufzeitfunktionen, kein Merge, keine Nutzerdaten geändert**. PDF datierter Snapshot, Git-Markdown dauerhaft pflegen. Der spätere README-/Korrekturcommit benötigt eigene finale CI-Prüfung.
 - **Risiken/Grenzen:** `main`/ `images` identisch und nicht lauffähiger Quellstand; drei Zwei-Agenten-Branches divergent, QA-HEAD rot (privater Exportpfad in GUI-Fehlermeldung), Integration-Review grün. Keine pauschale Funktionsgleichheit der divergierten Experimente ableiten.
 - **Nächste Benutzeraktion:** Keine Wiederholung von MPO/EXIF/ORB-Lesetests; nach Sichtung dieses Berichts gezielt vertikalen RGB-Projekt→Preview-GUI-Pfad weiterbauen, dann geometrisch geprüftes geneigtes RGB-Dachflächenmosaik.
+
+### 2026-10-26 · DEV-INT-001 – Gemeinsame Main-Integrationsbasis
+- **Ziel und Nutzerfreigabe:** Alle bisherigen *geprüften* Entwicklungsstände statt ständiger Wiederholung als gemeinsame Offline-Entwicklungsbasis unter `main` zur Verfügung stellen. Wörtliche Nutzerabsicht: `main` darf zur Ablage des neuen Programmstands dienen.
+- **Quelle:** `feature/offline-human-report-approval` ab geprüftem Head `a32fbe26ffd609e09a2a79973b934ac893e33cec`. Alte `main`-Basis `e523a30dff0cb6a17fc8d287289cadb9cbde28d8` ist Vorfahr (4018 Commits, 0 behind); geplanter Übergang nicht erzwungener Fast-forward auf den final getesteten Integrationscommit. Die resultierende exakte SHA nach Ref-Update ist auf GitHub abzulesen.
+- **Bereits implementierte technische Bereiche:** Offline-Windows-UI, lokale DJI-Import-/M3T-Parser, ORB-/RGB-Fotoregistrierung, Segmentvorschau, geneigte kalibrierungsgebundene Dachflächenkacheln, Projekt→2 RGB→PNG/JSON-Diagnostik, SQLite- und Expertenfreigabe-Gates.
+- **Neu in diesem Schritt:** Dokumentationsbasierte Integrations-/Releasegates unter `docs/MAIN_INTEGRATION_BASELINE_2026-10-26.md`; README, Start-Here, Register, Entwicklungsvereinbarung, Handoff und Roadmap folgen `main` als neuer Quell-Basis. Keine zusätzliche ungeprüfte Laufzeitfunktion.
+- **Quellen-Testevidenz:** SHA `a32fbe26ffd609e09a2a79973b934ac893e33cec`: [Python Tests](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/40362304927) und [Windows](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/40362304745), Python 3.11/3.12 grün. Der **zusätzliche Integrations-Dokumentationscommit** muss unabhängig grün sein, bevor `main` bewegt wird.
+- **Status:** Git-Integration nach erneuter CI, **nicht** voll funktionsfähiges freigegebenes M3T-Orthofoto/Release. Lokaler alter Windows-Checkout unverändert.
+- **Bewusst nicht pauschal gemergt:** die drei divergierten Zwei-Agenten-Experimentbranches; Datenschutztest-Befund und GUI-Teststand liegen in der aktiven Linie eigenständig vor; keine automatische PR-Schließung, kein `force`.
+- **Nächster vertikaler Schritt:** sichtbare PySide6-UI zum Projekt-RGB-Preview mit Abbruch-/Qualitätsstatus, anschließend echte geneigte Dachflächen-Orthorektifizierung mit unabhängig geprüfter Intrinsic-/Pose-/Surveygeometrie.
