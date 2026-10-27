@@ -32,6 +32,32 @@ class ProjectRGBPreviewDialog(QDialog):
         info.setWordWrap(True)
         layout.addWidget(info)
 
+        # A high RANSAC count and canvas coverage do not validate a hard
+        # compositing seam. The warning is intentionally ALWAYS visible.
+        if result.seam_p90_rgb_difference is None:
+            seam_detail = (
+                "Kein auswertbarer Naht-Pixelvergleich; die lokale "
+                "Bildausrichtung bleibt ungeprüft."
+            )
+        else:
+            seam_detail = (
+                f"Nahtdiagnose: 90 %-Quantil der lokalen RGB-Abweichung "
+                f"{result.seam_p90_rgb_difference:.1f}/255 "
+                f"aus {result.seam_pixel_samples} Vergleichspixeln. "
+                "Beleuchtung und Parallaxe beeinflussen diesen Wert."
+            )
+        seam_notice = QLabel(
+            "ACHTUNG BILDNAHT: Das erste Bild überdeckt das zweite "
+            "im Überlappungsbereich mit einer harten Kante. "
+            "Sichtbare Versätze sind nicht korrigiert und erfordern Prüfung. "
+            + seam_detail,
+            self,
+        )
+        seam_notice.setObjectName("project_rgb_preview_seam_notice")
+        seam_notice.setTextFormat(Qt.TextFormat.PlainText)
+        seam_notice.setWordWrap(True)
+        layout.addWidget(seam_notice)
+
         image_label = QLabel(self)
         image_label.setObjectName("project_rgb_preview_image")
         image_label.setPixmap(image)
