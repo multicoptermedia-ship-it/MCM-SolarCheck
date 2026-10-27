@@ -18,3 +18,6 @@
 **Bei jedem Abschluss:** diesen Startpunkt prüfen, Register + Entwicklungsvereinbarung + Chat-Handoff und thematische Roadmap aktualisieren, danach CI des finalen Commits prüfen. Benutzer erhält eine kurze, nachvollziehbare Ergebnisübergabe.
 
 **CI-Integration:** `main` wurde nach GitHub-CI-Grün per Fast-forward an den bisherigen Entwicklungsstand angeglichen. [DEV-INT-002](DEVELOPMENT_STEP_REGISTER.md) dokumentiert den neuen Windows-Pushtrigger für `main`. Ziel weiterhin **Entwicklung**, kein freigegebener Offline-Release.
+
+
+**Entwicklungsnachtrag 27.10.2026 – DEV-RGB-GEO-001:** Nach erfolgreicher Win10-GUI-Bedienung, aber sichtbarer falsch ausgerichteter RGB-Naht ist die **unabhängige Hold-out-Kontrollpunktprüfung** vor der vorhandenen Dachkachelpipeline umgesetzt auf Branch `feature/rgb-roof-independent-control-gate-20261027`; Python-/Windows-CI und echte Kalibrierungs-/Survey-Inputs sind von den Quellbelegen getrennt zu verfolgen. Keine metrische/Geo-Orthofotofreigabe, keine neue MPO-Inventur. Siehe Entwicklungsregister.
