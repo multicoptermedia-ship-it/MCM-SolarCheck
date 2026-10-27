@@ -106,6 +106,10 @@ def test_real_gui_project_to_original_rgb_to_png_and_visible_dialog(project, mon
     warning = dialog.findChild(QLabel, "project_rgb_preview_warning").text()
     assert "Nichtmetrische" in warning
     assert "Dachflächen" in warning
+    seam_warning = dialog.findChild(QLabel, "project_rgb_preview_seam_notice")
+    assert seam_warning is not None and seam_warning.isVisible()
+    assert "ACHTUNG BILDNAHT" in seam_warning.text()
+    assert "nicht korrigiert" in seam_warning.text()
     status = window._pages[ShellRoute.PROCESSING].findChild(
         QLabel, "processing_project_rgb_preview_status"
     ).text()

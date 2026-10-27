@@ -22,6 +22,48 @@ class RGBStitchPreview:
     covered_fraction: float = 0.0
     median_reprojection_error_px: float | None = None
     frame_count: int = 2
+    seam_p90_rgb_difference: float | None = None
+    seam_pixel_samples: int = 0
+
+
+
+def _measure_visible_rgb_seam(
+    reference: np.ndarray,
+    warped: np.ndarray,
+    warped_valid: np.ndarray,
+    x: int,
+    y: int,
+    *,
+    collar: int = 8,
+) -> tuple[float | None, int]:
+    """Uncalibrated pixel-difference diagnostic near the HARD mosaic cut.
+
+    Evaluate only positions where a warped second view continues beyond the
+    reference rectangle. This is an exposure/texture-sensitive seam warning,
+    NEVER a metric registration accuracy or proof of correct alignment.
+    """
+    h, w = reference.shape[:2]
+    ch, cw = warped.shape[:2]
+    ref_region = np.zeros((ch, cw), dtype=np.uint8)
+    ref_region[y:y+h, x:x+w] = 1
+    valid = warped_valid != 0
+    other_only = (ref_region == 0) & valid
+    near_continuation = cv2.dilate(
+        other_only.astype(np.uint8),
+        np.ones((2 * collar + 1, 2 * collar + 1), dtype=np.uint8),
+    ) != 0
+    compare = (ref_region[y:y+h, x:x+w] != 0) & (
+        valid[y:y+h, x:x+w]
+    ) & near_continuation[y:y+h, x:x+w]
+    count = int(np.count_nonzero(compare))
+    if count < 32:
+        return None, 0
+    warped_crop = warped[y:y+h, x:x+w]
+    # int16 prevents unsigned uint8 subtraction wraparound.
+    difference = np.abs(
+        reference.astype(np.int16) - warped_crop.astype(np.int16)
+    ).mean(axis=2)
+    return float(np.percentile(difference[compare], 90)), count
 
 
 def stitch_rgb_preview(
@@ -98,12 +140,19 @@ def stitch_rgb_preview(
                                      translate @ matrix, (width, height),
                                      flags=cv2.INTER_NEAREST)
     x, y = map(int, -low)
+    # Measure the cut BEFORE hiding the warped image under the reference.
+    seam_p90, seam_count = _measure_visible_rgb_seam(
+        left, canvas, right_mask, x, y,
+    )
     # Deterministic priority to the reference photograph in overlapping regions.
+    # No seam blend: that could conceal parallax or incorrect registration.
     canvas[y:y+h1, x:x+w1] = left
     right_mask[y:y+h1, x:x+w1] = 1
     coverage = float(np.count_nonzero(right_mask)) / (width * height)
     return RGBStitchPreview(canvas, int(np.count_nonzero(mask)), covered_fraction=coverage,
-                            median_reprojection_error_px=float(np.median(inlier_errors)))
+                            median_reprojection_error_px=float(np.median(inlier_errors)),
+                            seam_p90_rgb_difference=seam_p90,
+                            seam_pixel_samples=seam_count)
 
 
 def save_rgb_stitch_preview(preview: RGBStitchPreview, output_path: str | Path) -> Path:
@@ -191,6 +240,11 @@ def save_rgb_preview_manifest(
         or preview.median_reprojection_error_px < 0
     ):
         raise ValueError("invalid reprojection error")
+    if (preview.seam_p90_rgb_difference is not None and (
+        not np.isfinite(preview.seam_p90_rgb_difference)
+        or not 0 <= preview.seam_p90_rgb_difference <= 255
+    )) or type(preview.seam_pixel_samples) is not int or preview.seam_pixel_samples < 0:
+        raise ValueError("invalid seam diagnostic")
     payload = {
         "schema": "mcm.rgb_preview.v1",
         "status": "unverified_preview",
@@ -202,6 +256,9 @@ def save_rgb_preview_manifest(
         "last_pair_median_reprojection_error_px": preview.median_reprojection_error_px,
         "image_width": int(preview.image.shape[1]),
         "image_height": int(preview.image.shape[0]),
+        "seam_p90_rgb_difference": preview.seam_p90_rgb_difference,
+        "seam_pixel_samples": preview.seam_pixel_samples,
+        "seam_visual_review_required": True,
     }
     path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     return path
@@ -241,6 +298,11 @@ def save_rgb_preview_artifacts(
         raise ValueError("invalid reprojection error")
     if preview.verified_orthomosaic:
         raise ValueError("verified orthomosaics require separate export")
+    if (preview.seam_p90_rgb_difference is not None and (
+        not np.isfinite(preview.seam_p90_rgb_difference)
+        or not 0 <= preview.seam_p90_rgb_difference <= 255
+    )) or type(preview.seam_pixel_samples) is not int or preview.seam_pixel_samples < 0:
+        raise ValueError("invalid seam diagnostic")
     saved_image = save_rgb_stitch_preview(preview, image_path)
     try:
         saved_manifest = save_rgb_preview_manifest(

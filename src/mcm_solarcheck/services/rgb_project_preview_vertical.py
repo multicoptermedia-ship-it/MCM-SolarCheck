@@ -34,6 +34,8 @@ class ProjectRGBPreviewResult:
     median_reprojection_error_px: float | None
     status: str = "unverified_nonmetric_rgb_preview"
     metric_orthophoto_verified: bool = False
+    seam_p90_rgb_difference: float | None = None
+    seam_pixel_samples: int = 0
 
 
 class RGBProjectPreviewCancelled(RuntimeError):
@@ -231,4 +233,6 @@ def create_project_rgb_preview(
     return ProjectRGBPreviewResult(
         png, manifest, first_sequence, second_sequence, preview.inliers,
         preview.covered_fraction, preview.median_reprojection_error_px,
+        seam_p90_rgb_difference=preview.seam_p90_rgb_difference,
+        seam_pixel_samples=preview.seam_pixel_samples,
     )

@@ -171,3 +171,57 @@ def test_manifest_requires_all_source_frames(tmp_path):
     with pytest.raises(ValueError, match="frame count"):
         save_rgb_preview_manifest(preview, tmp_path / "missing.json",
                                   source_names=("a.png", "b.png"))
+
+
+def test_seam_diagnostic_flags_rgb_difference_at_actual_cut():
+    from mcm_solarcheck.services.orthomosaic_rgb_stitch_preview import (
+        _measure_visible_rgb_seam,
+    )
+    # The reference covers the center; the second view continues beyond it.
+    ref = np.full((40, 40, 3), 50, dtype=np.uint8)
+    warped = np.full((80, 80, 3), 82, dtype=np.uint8)
+    valid = np.ones((80, 80), dtype=np.uint8)
+    p90, count = _measure_visible_rgb_seam(ref, warped, valid, 20, 20)
+    assert count >= 32
+    assert p90 == pytest.approx(32)
+
+    # The same RGB values have no visible photometric discontinuity.
+    warped[:] = 50
+    p90, count = _measure_visible_rgb_seam(ref, warped, valid, 20, 20)
+    assert count >= 32
+    assert p90 == pytest.approx(0)
+
+
+def test_no_seam_comparison_possible_is_explicitly_unknown():
+    from mcm_solarcheck.services.orthomosaic_rgb_stitch_preview import (
+        _measure_visible_rgb_seam,
+    )
+    ref = np.full((40, 40, 3), 50, dtype=np.uint8)
+    warped = np.full((80, 80, 3), 50, dtype=np.uint8)
+    # No second-view continuation outside the first image.
+    valid = np.zeros((80, 80), dtype=np.uint8)
+    valid[20:60, 20:60] = 1
+    p90, count = _measure_visible_rgb_seam(ref, warped, valid, 20, 20)
+    assert p90 is None and count == 0
+
+
+def test_manifest_keeps_seam_review_and_quality_limit(tmp_path):
+    from mcm_solarcheck.services.orthomosaic_rgb_stitch_preview import (
+        RGBStitchPreview, save_rgb_preview_manifest,
+    )
+    import json
+
+    preview = RGBStitchPreview(
+        np.zeros((40, 40, 3), dtype=np.uint8),
+        473, covered_fraction=0.978,
+        seam_p90_rgb_difference=42.5, seam_pixel_samples=101,
+    )
+    output = save_rgb_preview_manifest(
+        preview, tmp_path / "seam.json",
+        source_names=("first.png", "second.png"),
+    )
+    manifest = json.loads(output.read_text(encoding="utf-8"))
+    assert manifest["seam_p90_rgb_difference"] == 42.5
+    assert manifest["seam_pixel_samples"] == 101
+    assert manifest["seam_visual_review_required"] is True
+    assert manifest["verified_orthomosaic"] is False
