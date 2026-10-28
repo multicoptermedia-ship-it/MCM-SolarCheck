@@ -1,5 +1,8 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **28.10.2026, aktueller Ganzflug-SfM-Graph-Audit auf Draft PR #9:** Die bestehende komplette private ZIP→SfM→RTK-BA wurde um ein vollständiges kalibriertes Paargraph-Gate ergänzt. Nur in Essential-RANSAC und Pose akzeptierte ORB-Matches zählen, alle Kameras müssen im gemeinsamen Graphen verbunden sein; mindestens zwei räumlich nicht benachbarte akzeptierte Links mit mindestens drei beteiligten Bildern. Einzelkanten-Brücken werden als unfreigegebene Diagnose gezählt. Nur aggregierte Daten im JSON. Synthetische 1000-Kamera-/Fehlertests hinzugefügt; CI des exakten HEAD noch prüfen. Kein echter 160-Bild-Lauf, kein physischer Streifen-, Dach-, Ortho-, PV- oder Thermal-Nachweis, kein ODM/ODX, kein Main-Merge. Einstieg: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **28.10.2026 – geometriestützte RGB-Verbindungsprüfung, PR #9:** Der direkte private ZIP→SfM→RTK-BA-Pfad war auf `ffd547d` Python-/Windows-CI-grün. Neu reicht ein ORB-Deskriptorpaar nicht mehr als streifenübergreifende Stützung: das komplette SfM-Netz bewahrt die Essential-RANSAC-/Pose-akzeptierten Verbindungen, und der CLI-Pfad verlangt echte akzeptierte nicht benachbarte Bildverbindungen. Im Bericht werden Deskriptor- und geometrische Links unterschieden; physische Streifenidentität, absolute Genauigkeit, Dach/Orthofoto bleiben ungeprüft. Neuer Negativtest im CI. Kein Original-/SQLite-Schreibzugriff, kein ODM, kein Main-Merge. Checkpoint: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
