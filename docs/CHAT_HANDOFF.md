@@ -819,3 +819,7 @@ PR #9 ergänzt `rgb_global_camera_network.py`, projektgebundene RGB-Serienanbind
 
 
 **28.10.2026 · DEV-RGB-BA-001:** Auf dem bestehenden Entwurfsbranch PR #9 ist mit `rgb_global_bundle_adjustment.py` eine kleine gemeinsame robuste reprojektionsbasierte Ausgleichung aus dem schon vorhandenen 3D-Track-Bundle entstanden. Die berechneten Posen/Punkte bleiben explizit willkürlich unskaliert; standardmäßig höchstens 12 Kameras und 400 Punkte. Noch keine vollskalige Flug-BA oder unabhängige GCP-/RTK-Meterreferenzierung und kein echtes RGB-Orthofoto. **Aktuellen Entwicklungsauftrag nur aus `docs/AKTUELLER_ENTWICKLUNGSSTAND.md` ableiten**, nicht aus historischen Abschnitten. Keine ODM-Nutzung, kein Main-Merge ohne Freigabe.
+
+
+### 28.10.2026 – DEV-RGB-BA-002: Fensteroptimierung ohne neue Bildpaararbeit
+Die bereits vorhandene Schur-/Huber-Ausgleichung wird für alle gespeicherten Projektkameras nacheinander in überlappenden, ressourcenbegrenzten Fenstern angewendet und jeder Verbesserung über alle globalen SfM-Beobachtungen nachgeprüft. Der lokale `rgb_windowed_bundle_adjustment_cli.py` liest nur unskalierte NPZ/JSON-Zwischenstände und erzeugt wieder unskalierte NPZ/JSON, **ohne** RGB-Originale/SQLite erneut zu öffnen. PR #9 offen, `main` unverändert. Kein echtes SC-0003-Orthofoto, keine volle simultane BA oder metrische Verifikation; nächstes einziges Gate unabhängige reale GCP-/ENU-3D-Eichung und Dachkontrollpunkte. Aktuellen Checkpoint immer zuerst lesen.

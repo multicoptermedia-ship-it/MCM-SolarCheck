@@ -219,3 +219,7 @@ Die bisherigen ORB-/Candidate-Mechanismen dienen nun als **interne Mehrbildkante
 
 
 **28.10.2026 · DEV-RGB-BA-001:** Auf dem bestehenden Entwurfsbranch PR #9 ist mit `rgb_global_bundle_adjustment.py` eine kleine gemeinsame robuste reprojektionsbasierte Ausgleichung aus dem schon vorhandenen 3D-Track-Bundle entstanden. Die berechneten Posen/Punkte bleiben explizit willkürlich unskaliert; standardmäßig höchstens 12 Kameras und 400 Punkte. Noch keine vollskalige Flug-BA oder unabhängige GCP-/RTK-Meterreferenzierung und kein echtes RGB-Orthofoto. **Aktuellen Entwicklungsauftrag nur aus `docs/AKTUELLER_ENTWICKLUNGSSTAND.md` ableiten**, nicht aus historischen Abschnitten. Keine ODM-Nutzung, kein Main-Merge ohne Freigabe.
+
+
+## 28.10.2026 – DEV-RGB-BA-002: Ganzes Kamera-Netz als überlappende lokale BA-Fenster
+Der vorhandene 3D-SfM-Zwischenstand wird lokal aus NPZ statt neuer ORB-Analyse gelesen; robuste Schur-BA in überlappenden Kamerafenstern, globaler Reprojektionsvergleich nach jedem Fenster, gesicherte unskalierte NPZ-/JSON-Ausgabe. Noch **kein** kompletter simultaner/global-BA-Schritt und **keine** metrische Vermessung; aus unskalierten 3D-Posen niemals PV-Maße oder Modulpolygone freigeben. Nächstes Qualitätsgate unabhängig gemessene, räumlich verteilte GCP/ENU-Kontrollen und tatsächliche geneigte Dachflächenpose; nur danach vorhandene Dachflächenkacheln verifizieren.
