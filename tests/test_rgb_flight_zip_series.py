@@ -58,7 +58,9 @@ def test_rgb_tip_is_zip_and_entire_series_is_deduplicated_and_private(tmp_path,c
     assert [x.frame_id for x in series.frames]==[
         "V-0121","V-0122","V-0123","V-0124","V-0125"
     ]
-    output=tmp_path/"private-report.json"
+    reports=tmp_path/"reports"
+    reports.mkdir()
+    output=reports/"private-report.json"
     assert main([
         "--rgb-archive",str(a),"--rgb-archive",str(b),
         "--rgb-archive",str(c),"--report",str(output),
