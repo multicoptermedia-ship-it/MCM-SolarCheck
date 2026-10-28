@@ -1,5 +1,8 @@
 # Architekturentscheidung 25.10.2026 – Orthofotos vor PV-Modulanalyse
 
+> **RGB-Engine-Teilgate 28.10.2026:** PR #9 nutzt die vorhandene Fenster-BA nun als Eingang für lokale, robuste RTK-ENU-Kameraausrichtung mit zurückgehaltenen RTK-Kamerapositionen. Dies ist noch keine gemeinsame GNSS-gewichtete BA, keine verifizierte 3D-Dachfläche und kein RGB-Orthofoto. Nächste einzig aktive Entwicklung: RTK-GNSS-Prior-Gewichtung in die gemeinsame BA; erst danach reale 160-Bild-/Dachflächen-Orthorektifizierung. Detail in [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **Aktueller Arbeitsauftrag vom 28.10.2026:** [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Dies ist eine umfangreiche Fachchronik; alte „nächste Schritte“ sind nicht mehr aktiv. **Keine ODM/WebODM/ODX-Laufzeit oder Code-Integration.**
 
 ## Anlass, Pilotsignal und verbindliche Priorität
