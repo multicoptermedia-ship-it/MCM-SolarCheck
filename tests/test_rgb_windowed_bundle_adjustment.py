@@ -98,3 +98,72 @@ def test_no_3d_geometry_can_be_faked_from_partial_observations():
             replace(network,observation_landmark_indices=np.full(
                 len(network.observation_landmark_indices),9999,np.int32)),k,
         )
+
+
+def test_unscaled_npz_to_windowed_ba_cli_is_offline_and_nonmetric(tmp_path,capsys):
+    """The existing SfM NPZ can be optimized without opening photos again."""
+    from mcm_solarcheck.services.rgb_windowed_bundle_adjustment_cli import main
+
+    network,k=_synthetic_network()
+    source=tmp_path/"rgb-global-camera-network-unscaled.npz"
+    with source.open("xb") as fp:
+        np.savez_compressed(
+            fp,
+            poses_world_to_camera_arbitrary=np.stack(network.world_to_camera),
+            landmarks_xyz_arbitrary=network.landmark_xyz_unit_baseline,
+            observation_landmark_indices=network.observation_landmark_indices,
+            observation_frame_indices=network.observation_frame_indices,
+            observation_pixels_xy=network.observation_pixels_xy,
+            calibrated_intrinsics=np.array([k.fx,k.fy,k.cx,k.cy]),
+        )
+    summary_path=tmp_path/"rgb-global-camera-network-unscaled.json"
+    summary_path.write_text(json.dumps({
+        "schema":"mcm.rgb_global_camera_network.v1",
+        "unscaled_track_bundle":source.name,
+        "metric_scale_verified":False,
+        "orthophoto_verified":False,
+        "bundle_adjustment_completed":False,
+        "camera_frame_ids":list(network.frame_ids),
+    }),encoding="utf-8")
+    original=source.read_bytes()
+    folder=tmp_path/"result"
+    folder.mkdir()
+    assert main([
+        "--source-npz",str(source),
+        "--source-json",str(summary_path),
+        "--output-directory",str(folder),
+    ])==0
+    assert source.read_bytes()==original
+    results=json.loads((folder/"rgb-global-windowed-ba-unscaled.json").read_text(encoding="utf-8"))
+    assert results["camera_count"]==14
+    assert results["window_count"]==3
+    assert results["metric_scale_verified"] is False
+    assert results["global_joint_ba_completed"] is False
+    assert results["orthophoto_verified"] is False
+    with np.load(folder/results["result_npz"],allow_pickle=False) as exported:
+        assert exported["poses_world_to_camera_arbitrary"].shape==(14,3,4)
+        assert exported["landmarks_xyz_arbitrary"].shape==(28,3)
+    assert "orthophoto_verified" in capsys.readouterr().out
+
+
+def test_source_manifest_that_claims_metric_evidence_is_rejected(tmp_path):
+    from mcm_solarcheck.services.rgb_windowed_bundle_adjustment_cli import main
+    folder=tmp_path/"empty"
+    folder.mkdir()
+    source=tmp_path/"fake.npz"
+    np.savez_compressed(source,invalid=np.array([1]))
+    metadata=tmp_path/"fake.json"
+    metadata.write_text(json.dumps({
+        "schema":"mcm.rgb_global_camera_network.v1",
+        "unscaled_track_bundle":source.name,
+        "metric_scale_verified":True,
+        "orthophoto_verified":False,
+        "bundle_adjustment_completed":False,
+    }),encoding="utf-8")
+    with pytest.raises(ValueError,match="unscaled"):
+        main([
+            "--source-npz",str(source),
+            "--source-json",str(metadata),
+            "--output-directory",str(folder),
+        ])
+    assert not list(folder.iterdir())
