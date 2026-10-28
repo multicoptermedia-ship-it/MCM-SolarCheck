@@ -13,8 +13,8 @@
 - In `main` vorhanden: Offline-PySide6/Projekt/Importer, ORB-Überlappung/Segmentdiagnostik, `module_camera_calibration_gate`, `module_plane_projection`, `rgb_surface_tiles`, `rgb_surface_tile_render`, `rgb_surface_tile_mosaic`, `rgb_surface_pilot_run`, GeoTIFF-Inspektion. Das sind **Bausteine**, keine komplette automatische globale SfM/BA-/Orthofoto-Engine. Wiederverwenden statt neu bauen.
 
 ## 3 · Entwicklungskandidaten / Integrationsgates
-- **PR #7** [Nahtdiagnose](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/pull/7), Branch `feature/rgb-preview-seam-evidence-20261027`: Python-/Windows-CI **grün**; nur Sichtbarmachen der Fehler, **keine** geometrische Korrektur; offen/unmerged.
-- **PR #8** [Kontrollpunkt-Gate](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/pull/8), Branch `feature/rgb-roof-independent-control-gate-20261027`: Python-/Windows-CI **grün**; synthetisch kontrollierte geneigte Dachkacheln, noch **keine** unabhängigen vermessenen realen SC-0003-Kontrollen; offen/unmerged.
+- **PR #7:** Nahtdiagnose, CI grün, offen/unmerged, keine geometrische Korrektur.
+- **PR #8:** Kontrollpunkt-Gate, CI grün, offen/unmerged, keine echten SC-0003-Kontrollen.
 - **PR #9** [Orthofoto/Lizenz-Architektur](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/pull/9), Branch `feature/orthofoto-license-neutral-rgb-first-20261028`: ursprünglicher Übergabe-Commit Python-/Windows-CI **grün**; Kachelpfad `4efb81a9` CI grün; mehransichtiger SfM-Initialisierer bis `474fff04`, gemeinsame BA/Skalierung offen; offen/unmerged. **CI nach jedem neuen Commit auf PR #9 erneut prüfen.**
 - Kein Merge/Push nach `main` ohne ausdrücklichen Nutzerauftrag. CI-Erfolg ≠ reale Nutzerabnahme ≠ fachliche Orthofoto-/Temperatur-/Defektfreigabe. GitHub-Quellstand aktualisiert den separaten Windows-Checkout nicht.
 
@@ -33,5 +33,4 @@
 4. **Vor Chatende und vor Übergabe:** diese Datei **als erste** aktualisieren (Datum, Remote-SHA, PR-/CI-/Hardwarestatus, was fertig/gesperrt, exakte nächste Code-Dateien/Arbeitsaufgabe). Danach `DEVELOPMENT_STEP_REGISTER.md`, `DEVELOPMENT_AGREEMENT.md`, `CHAT_HANDOFF.md`, passende Fachroadmap synchronisieren. Nie lediglich einen neuen historischen Absatz unten an eine riesige Datei anhängen und den Anfang veralten lassen.
 5. Private PDFs, Kundendateien, Bildpfade, Fotos und Datenbankinhalte **nicht öffentlich in GitHub speichern**. Der PDF-Fortschrittsverlauf war in einem früheren Chat verfügbar; sein Inhalt ist durch diese kompakte, überprüfbare Evidenz zusammengefasst, nicht im neuen Chat automatisch erreichbar.
 
-**Startanweisung zum Kopieren in einen neuen Chat:**
-> Wir setzen MCM-SolarCheck fort. Lies zuerst `docs/AKTUELLER_ENTWICKLUNGSSTAND.md` auf `feature/orthofoto-license-neutral-rgb-first-20261028` in `multicoptermedia-ship-it/MCM-SolarCheck`. Verifiziere remote HEADs, PRs und CI, bevor du programmierst. Keine ODM/WebODM/ODX-Integration, keine Wiederholung von MPO-/EXIF-/Bildpaar-/GUI-Vorarbeit. Arbeite ausschließlich am End-to-End-Weg gesamte RGB-Flugbildserie → eigene Mehrbild-Photogrammetrie → geprüftes RGB-Orthofoto und geneigte PV-Flächen → Modulprüfung. Melde zuerst maximal fünf Zeilen aktuellen Stand und die eine nächste Implementierungsaufgabe; kein Merge nach main ohne Freigabe.
+**Folgechat:** Lies zuerst diesen Checkpoint auf dem Branch `feature/orthofoto-license-neutral-rgb-first-20261028`. Prüfe HEAD/CI und arbeite am exakt nächsten RGB-Gate, keine alten Tests oder ODM, kein Main-Merge.
