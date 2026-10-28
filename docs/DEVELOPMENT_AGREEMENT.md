@@ -1,5 +1,8 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **Stand 28.10.2026, aktueller RGB-GNSS-BA-Block auf PR #9:** Die vorhandene Schur-BA berücksichtigt nun fakultativ robuste, sigma-gewichtete RTK-Kamerazentren und lässt im metrischen Modus auch die bisherigen zwei Ankerkameras optimieren. Überlappende Fenster prüfen einen vollständigen Pixel+GNSS-Verlust, 20 % RTK-Kameras bleiben als interne Hold-outs ausgeschlossen. `rgb_rtk_joint_bundle_adjustment.py` ist neu, reine synthetische Tests im CI-Gate; **keine echte 160-Bild-Ausführung, kein Full-global-BA-Solver, keine Orthofoto-/Dach-/Thermalfreigabe**. Der verkürzte [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md) ist vorrangig. ODM/ODX ausgeschlossen, kein Main-Merge.
+
+
 > **Stand 28.10.2026, RTK-ENU-Teilgate auf Draft PR #9:** `rgb_rtk_camera_priors.py` verbindet den bestehenden 160-Bild-ZIP-Metadatenpfad mit den Kamera-IDs und der vorhandenen Fenster-BA zu einer robusten lokalen ENU-Startausrichtung (RTK-Unsicherheiten, 20 % zurückgehaltene RTK-Posen). Noch KEINE GNSS-regularisierte gemeinsame BA, keine unabhängige Survey-/Dach-/Orthofotofreigabe, kein realer erneuter 160-Bild-Lauf. Verbindlich bleiben Checkpoint und einziges Folgegate: gewichtete gemeinsame GNSS-BA. Python-/Windows-CI am neuesten HEAD erneut prüfen, kein Main-Merge.
 
 
