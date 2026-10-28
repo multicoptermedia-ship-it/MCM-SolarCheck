@@ -1,5 +1,8 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **Aktuelle RGB-Entwicklung 28.10.2026, Draft PR #9:** Ein kompletter privater Offline-ZIP/`.tip`→RGB-ORB→GNSS-nahe Streifenverbindungen→bestehende SfM-/Fenster-BA→RTK-gewichtete Fenster-BA-Weg ist auf dem Branch implementiert: `rgb_zip_whole_flight_reconstruction.py`, `rgb_zip_whole_flight_cli.py` und synthetischer Integrationstest. Nur lokale aggregierte Berichte; keine Bild-/GPS-Extraktion/SQLite-Schreibzugriffe. Externe überprüfte Objektivkalibrierung ist Pflicht. Der echte 160-Bild-Lauf und Orthofoto-/3D-Dachflächen-/PV-/Thermal-Fachgates bleiben **offen**; neue Python-/Windows-CI auf exaktem HEAD prüfen. Vorgabe: kein ODM/ODX, kein Main-Merge. Aktueller Schritt: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **Stand 28.10.2026, aktueller RGB-GNSS-BA-Block auf PR #9:** Die vorhandene Schur-BA berücksichtigt nun fakultativ robuste, sigma-gewichtete RTK-Kamerazentren und lässt im metrischen Modus auch die bisherigen zwei Ankerkameras optimieren. Überlappende Fenster prüfen einen vollständigen Pixel+GNSS-Verlust, 20 % RTK-Kameras bleiben als interne Hold-outs ausgeschlossen. `rgb_rtk_joint_bundle_adjustment.py` ist neu, reine synthetische Tests im CI-Gate; **keine echte 160-Bild-Ausführung, kein Full-global-BA-Solver, keine Orthofoto-/Dach-/Thermalfreigabe**. Der verkürzte [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md) ist vorrangig. ODM/ODX ausgeschlossen, kein Main-Merge.
 
 
