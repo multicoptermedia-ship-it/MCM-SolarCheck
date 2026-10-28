@@ -100,6 +100,7 @@ def sample_unverified_surface_candidate(
     world = origin + uu[..., None] * u + vv[..., None] * v
     center = np.asarray(extrinsics.center_enu_m)
     rotation = np.asarray(extrinsics.camera_to_enu)
+    k = intrinsics
     if (center.shape != (3,) or rotation.shape != (3,3)
             or not np.isfinite(center).all() or not np.isfinite(rotation).all()
             or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-6)
@@ -112,7 +113,6 @@ def sample_unverified_surface_candidate(
     z = camera[..., 2]
     front = z > 1e-9
     safe_z = np.where(front, z, 1.)
-    k = intrinsics
     px = k.fx * camera[..., 0] / safe_z + k.cx
     py = k.fy * camera[..., 1] / safe_z + k.cy
     valid = front & (px >= 0) & (py >= 0) & (px < image.shape[1] - 1) & (py < image.shape[0] - 1)
