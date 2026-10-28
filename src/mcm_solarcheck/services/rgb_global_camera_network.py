@@ -269,6 +269,7 @@ def solve_global_rgb_camera_network(
         raise ValueError("disconnected or underconstrained RGB camera network")
     errors=[]
     participating=set()
+    supported={index:0 for index in range(len(frames))}
     for index,point in landmarks.items():
         track=tracks[index]
         for frame_index,feature_index in track.items():
@@ -278,8 +279,11 @@ def solve_global_rgb_camera_network(
             error=float(np.linalg.norm(fit-frames[frame_index].points_xy[feature_index]))
             if error<=max_reprojection_px:
                 errors.append(error)
+                supported[frame_index]+=1
                 participating.add(frame_index)
-    if len(errors)<min_inliers*3 or len(participating)!=len(frames):
+    # A camera with just one lucky track cannot pass the all-frame gate.
+    if (len(errors)<min_inliers*3 or len(participating)!=len(frames)
+            or any(value<min_inliers for value in supported.values())):
         raise ValueError("incomplete global RGB reprojection evidence")
     p95=float(np.percentile(errors,95))
     if not np.isfinite(p95) or p95>max_reprojection_px:
