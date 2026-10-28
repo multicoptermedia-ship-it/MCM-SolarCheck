@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import numpy as np
+import cv2
 
 from mcm_solarcheck.services.rgb_global_camera_network import RGBUnscaledNetwork
 from mcm_solarcheck.services.rgb_global_bundle_adjustment import (
@@ -259,7 +260,61 @@ def adjust_windowed_unscaled_rgb_network(
         )
         if use_gnss:
             if new_global > global_current + 1e-8:
-                raise ValueError("RGB RTK window worsens full-flight joint objective")
+                # Shared landmarks occur OUTSIDE this window. A local Schur
+                # minimizer is not necessarily a descent direction for the
+                # full-flight objective; backtrack both pose and landmark
+                # increments, and fall back to pose-only/point-only steps.
+                # Never accept a local improvement that hurts other frames.
+                accepted = False
+                for variant in ("both", "poses", "points"):
+                    if accepted:
+                        break
+                    for alpha in (.5, .25, .125, .0625, .03125, .015625):
+                        cancel()
+                        trial_cameras = cameras.copy()
+                        trial_points = landmarks.copy()
+                        if variant != "points":
+                            for cam_id in numbers:
+                                old_pose = cameras[cam_id]
+                                target = proposal_cameras[cam_id]
+                                diff_rotation = target[:, :3] @ old_pose[:, :3].T
+                                log_rotation, _ = cv2.Rodrigues(diff_rotation)
+                                small_rotation, _ = cv2.Rodrigues(alpha * log_rotation)
+                                trial_cameras[cam_id, :, :3] = (
+                                    small_rotation @ old_pose[:, :3]
+                                )
+                                trial_cameras[cam_id, :, 3] = (
+                                    old_pose[:, 3] +
+                                    alpha * (target[:, 3] - old_pose[:, 3])
+                                )
+                        if variant != "poses":
+                            trial_points[original_points] = (
+                                landmarks[original_points] +
+                                alpha * (proposal_points[original_points] -
+                                         landmarks[original_points])
+                            )
+                        try:
+                            trial_errors = _all_network_errors(
+                                trial_cameras, trial_points, fid, lid, xy,
+                                intrinsics,
+                            )
+                        except ValueError:
+                            continue
+                        trial_global = _whole_flight_robust_objective(
+                            trial_errors, trial_cameras,
+                            centers, sigmas, fit, gnss_huber_sigma,
+                        )
+                        if trial_global < global_current - 1.e-10:
+                            proposal_cameras, proposal_points = (
+                                trial_cameras, trial_points,
+                            )
+                            new_errors, new_global = trial_errors, trial_global
+                            accepted = True
+                            break
+                if not accepted:
+                    raise ValueError(
+                        "RGB RTK window has no globally improving safe step"
+                    )
         elif float(np.mean(new_errors**2)) > float(np.mean(old_errors**2)) + 1e-9:
             raise ValueError("RGB window update worsens full-flight camera network")
         global_current = new_global
