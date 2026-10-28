@@ -1,5 +1,12 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 28.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – RTK/ENU-Kamerapriors (Teilgate)
+- Branch: `feature/orthofoto-license-neutral-rgb-first-20261028` / PR #9, unverändertes `main` `5f2de8fa`.
+- Code: `services/rgb_rtk_camera_priors.py` und `tests/test_rgb_rtk_camera_priors.py` (`ecb1307`, `e6a0017`, Korrektur `126c2fc`). Nutzt bestehende ZIP-XMP-Lesung, SfM-Frame-IDs und Fenster-Schur-BA; ENU mit konservativen RTK-Sigma-Floors, robuste Sim(3)-Ausrichtung mit 20 % zurückgehaltenen RTK-Kamerapositionen; keine öffentliche Roh-GPS-Ausgabe.
+- Nachweis: synthetisches 160-Kamera-Gate eingereicht; exakte Python-3.11/3.12-/Windows-CI nach dem finalen Dokumentations-HEAD prüfen. **Kein neuer echter 160-Bild-Lauf und keine Windows-10-Anwenderabnahme**.
+- Einordnung: Kandidaten-Initialisierung (GNSS-/Gimbal-Priors noch NICHT Bestandteil der gemeinsamen BA, DJI-Achsenkonvention ungeprüft); kein GCP-/Dach-/Orthofoto-/PV-/Thermal-Gate. Nächster Schritt: gewichtete GNSS-Priors in der gemeinsamen BA, dann reale ganze Flugserie gegen Residuen prüfen.
+
+
 > **Aktuelles Gate und einzige Folgeaufgabe:** [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Die nachfolgende Chronik ist ein Belegregister, kein Plan zur Wiederholung historischer nächster Schritte.
 
 **Gilt ab:** 26.10.2026. **Autoritative Git-Quelle für abgeschlossene Arbeiten:** `main` **nach dem CI-geprüften Fast-forward vom 26.10.2026**. Bisherige Arbeiten sind im Quellzweig `feature/offline-human-report-approval` historisch enthalten. Neue Entwicklung in kleinen Featurebranches und erst nach Gate in `main`. **Nicht ersetzen**: Sicherheits-/Freigaberegeln in [DEVELOPMENT_AGREEMENT.md](DEVELOPMENT_AGREEMENT.md).
