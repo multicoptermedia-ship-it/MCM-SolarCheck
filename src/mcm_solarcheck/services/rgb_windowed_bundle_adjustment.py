@@ -41,6 +41,8 @@ class RGBWindowedBAResult:
     rtk_camera_priors_optimized: bool = False
     weighted_objective_before: float | None = None
     weighted_objective_after: float | None = None
+    rtk_windows_with_updates: int = 0
+    rtk_windows_without_improvement: int = 0
 
 
 def _camera_windows(count, size, overlap):
@@ -187,6 +189,8 @@ def adjust_windowed_unscaled_rgb_network(
     # Every image needs actual support: no invisible frames lost through slicing.
     touched=set()
     completed=0
+    updates=0
+    without_improvement=0
     for numbers in windows:
         cancel()
         local_ids = np.searchsorted(numbers, fid)
@@ -312,11 +316,18 @@ def adjust_windowed_unscaled_rgb_network(
                             accepted = True
                             break
                 if not accepted:
-                    raise ValueError(
-                        "RGB RTK window has no globally improving safe step"
-                    )
+                    # A non-descent local direction can occur for shared tracks.
+                    # Refuse the unsafe mutation, record an explicit degraded
+                    # window and continue. No improvements anywhere = failure.
+                    without_improvement += 1
+                    completed += 1
+                    if on_progress is not None:
+                        on_progress(completed,len(windows),len(numbers))
+                    continue
         elif float(np.mean(new_errors**2)) > float(np.mean(old_errors**2)) + 1e-9:
             raise ValueError("RGB window update worsens full-flight camera network")
+        if use_gnss and new_global < global_current - 1e-10:
+            updates += 1
         global_current = new_global
         cameras,landmarks=proposal_cameras,proposal_points
         completed+=1
@@ -330,8 +341,8 @@ def adjust_windowed_unscaled_rgb_network(
     after_p95=float(np.percentile(final,95))
     if not use_gnss and after > before + 1e-8:
         raise ValueError("whole-flight RGB BA did not validate global improvement")
-    if use_gnss and global_current > global_before + 1.e-8:
-        raise ValueError("whole-flight RTK BA joint objective regressed")
+    if use_gnss and (global_current > global_before + 1.e-8 or updates == 0):
+        raise ValueError("whole-flight RTK BA lacks a globally improving safe step")
     result_poses=tuple(p.copy() for p in cameras)
     result_points=landmarks.copy()
     for array in (*result_poses,result_points):
@@ -340,9 +351,13 @@ def adjust_windowed_unscaled_rgb_network(
         result_poses,result_points,before,after,before_p95,after_p95,
         camera_count,len(result_points),len(fid),completed,
         min(window_cameras,camera_count),
-        status=("rtk_regularized_windowed_rgb_ba_candidate_unverified" if use_gnss
-                else "windowed_rgb_ba_unscaled_unverified"),
+        status=("rtk_regularized_windows_with_rejections_unverified"
+                if use_gnss and without_improvement else
+                "rtk_regularized_windowed_rgb_ba_candidate_unverified"
+                if use_gnss else "windowed_rgb_ba_unscaled_unverified"),
         rtk_camera_priors_optimized=use_gnss,
         weighted_objective_before=global_before if use_gnss else None,
         weighted_objective_after=global_current if use_gnss else None,
+        rtk_windows_with_updates=updates if use_gnss else 0,
+        rtk_windows_without_improvement=without_improvement if use_gnss else 0,
     )
