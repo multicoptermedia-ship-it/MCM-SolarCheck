@@ -52,6 +52,9 @@ class RGBUnscaledNetwork:
     observation_landmark_indices: np.ndarray | None = None
     observation_frame_indices: np.ndarray | None = None
     observation_pixels_xy: np.ndarray | None = None
+    # Pairs that survived calibrated essential-matrix RANSAC and pose recovery;
+    # these are geometric link candidates, NOT independent roof/strip proof.
+    accepted_link_pairs: tuple[tuple[str, str], ...] = ()
 
 
 def _project(pose, point, k):
@@ -324,4 +327,7 @@ def solve_global_rgb_camera_network(
         observation_landmark_indices=arrays[1],
         observation_frame_indices=arrays[2],
         observation_pixels_xy=arrays[3],
+        accepted_link_pairs=tuple(
+            (frame_ids[i], frame_ids[j]) for i, j, _, _, _ in accepted
+        ),
     )
