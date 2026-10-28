@@ -1,5 +1,13 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 28.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – Geometrisches Cross-Flight-Evidenzgate
+- PR #9, `main` unverändert `5f2de8fa`. Voriger ZIP→SfM→RTK-BA-Stand `ffd547d`: Python 3.11/3.12 und Windows 3.11/3.12 erfolgreich.
+- Kleine Ergänzung im vorhandenen Nutzerweg: `rgb_global_camera_network.py` liefert die nach kalibrierter Essential-Matrix-RANSAC und relativer Pose tatsächlich akzeptierten Bildpaare. `rgb_zip_whole_flight_reconstruction.py` prüft vor der BA, ob darunter mindestens ein räumlich nicht benachbartes Kandidatenpaar ist. Der lokale Report unterscheidet ORB-Deskriptor-Treffer von SfM-geometrisch akzeptierten Paaren; er behauptet ausdrücklich keine unabhängig geprüfte reale Flugstreifen-Identität.
+- Dateien/Commits: `rgb_global_camera_network.py` (`ec59a91`), `rgb_zip_whole_flight_reconstruction.py` (`aeb35c8`), `tests/test_rgb_zip_whole_flight_reconstruction.py` (`9eeca35`, Negativtest: ORB-Paare ohne SfM-RANSAC-Stützung müssen scheitern). Keine neuen Abhängigkeiten/ODX/ODM.
+- Status: synthetischer Regressionstest neu, aktuelle Python-/Windows-CI am endgültigen HEAD zu prüfen. Echter 160-Hummintech-RGB-Lauf in dieser Sitzung nicht erfolgt (Originalarchive hier nicht verfügbar), kalibrierte echte DJI-Optik nicht nachgewiesen. Keine 3D-Dach-/RGB-Ortho-/PV-/Thermal-/Vermessungsfreigabe; interne RTK-Hold-outs ≠ GCP.
+- Nächster einzelner Schritt: exakte CI am neuen HEAD prüfen, dann alle 160 lokalen Originale read-only mit verifizierter Kameraoptik durch die vollständige Pipeline schicken; geometrische paarweise SfM-Verbindungen, Reprojektion und RTK-Hold-outs auswerten.
+
+
 ### 28.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – kompletter privater ZIP→SfM→RTK-BA-Pfad (Real-Gate offen)
 - Branch: `feature/orthofoto-license-neutral-rgb-first-20261028` / Draft PR #9. Ausgangs-HEAD `982ce129`: Python-3.11/3.12 und Windows-3.11/3.12 grün. `main`: `5f2de8fa`, unberührt.
 - Neuer vertikaler Nutzerweg: alle lokalen originalen RGB ZIP/`.tip` als Quelle → bestehender DJI-XMP-Intake → einmalige ORB-Merkmale direkt aus JPEG-ZIP-Streams → GNSS-nahe streifenübergreifende Paar-Kandidaten → vorhandenes globales unskaliertes SfM-Netz → unskalierte Fenster-BA → robuste RTK-gewichtete Fenster-BA mit internen RTK-Hold-outs → privacy-safe JSON mit Stufe/Qualität oder fail-closed.
