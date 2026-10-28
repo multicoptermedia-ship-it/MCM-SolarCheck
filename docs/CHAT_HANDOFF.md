@@ -1,5 +1,8 @@
 # MCM-SolarCheck – Übergabe für einen neuen Chat
 
+> **Neuster Stand 28.10.2026 – Ganzflug-SfM-Graph statt bloßer Einzelpaar-Treffer:** Auf PR #9 `rgb_sfm_link_graph_gate.py` ergänzt. Prüft geometrisch akzeptierte Paarprovenienz, Zusammenhang des ganzen Kameranetzes, mindestens 2 räumlich nicht benachbarte akzeptierte Verbindungen mit ≥3 Kameras; zählt Ein-Kanten-Brücken, alles ohne private Koordinaten. In `rgb_zip_whole_flight_reconstruction.py` zwingend VOR BA geschaltet; neue synthetische Tests für 1000 Kameras und Fehlfälle. Vorherige Basis- und Paar-CI grün; CI des neuesten Graph-HEAD gesondert prüfen. Kein 160-Hummintech-Realtest in dieser Sitzung, da Originalarchive/verifizierte Optik nicht lokal vorliegen. Keine unabhängigen GCP-/Dach-/Orthofoto-/PV-/Thermal-Gates und kein ODM/Main-Merge. Zuerst [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md) lesen.
+
+
 > **Aktueller Qualitätsnachtrag 28.10.2026, PR #9:** kompletter privater ZIP-/`.tip`-RGB-Flugpfad `ffd547d` Python-/Windows-CI-grün. Neu sind geometrisch akzeptierte SfM-Paarlinks mit Essential-RANSAC-/Pose-Kontrolle (`rgb_global_camera_network.py`), Fail-Closed-Gate und getrennte ORB-/SfM-Zählung im privaten ZIP-CLI; Negativtest ohne geometrisch akzeptiertes räumliches Paar. Der Begriff "cross_strip" in Kandidaten belegt noch keine reale Streifenzugehörigkeit. Neuer HEAD-CI-Status separat prüfen. **Alle 160 echten Hummintech-Originale fehlen in dieser laufenden Sitzung, daher kein neuer realer Durchlauf**; Objektivkalibrierung und 3D-Dach-/Orthofoto-/PV-/Thermal-Gates offen. Kein ODM, kein Main-Merge. Autoritativ: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
