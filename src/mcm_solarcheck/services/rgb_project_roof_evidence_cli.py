@@ -14,6 +14,9 @@ import numpy as np
 from mcm_solarcheck.services.rgb_project_roof_evidence_gate import (
     screen_project_rgb_roof_geometry,
 )
+from mcm_solarcheck.services.rgb_project_roof_diagnostic_vertical import (
+    render_unverified_project_roof_tiles,
+)
 
 
 def _local_file(path,limit):
@@ -32,6 +35,8 @@ def main(argv=None):
     parser.add_argument("--gcp-survey-json",required=True)
     parser.add_argument("--roof-survey-json",required=True)
     parser.add_argument("--output-directory",required=True)
+    parser.add_argument("--render-diagnostic-tiles",action="store_true",
+                        help="Generate candidate-only PNG tiles/masks; NEVER verified ortho")
     args=parser.parse_args(argv)
     paths=[
         _local_file(args.candidate_npz,50_000_000),
@@ -61,6 +66,13 @@ def main(argv=None):
             raise ValueError("untrusted oversized camera candidate NPZ")
     with np.load(paths[0],allow_pickle=False) as data:
         arrays={name:data[name] for name in data.files}
+    if args.render_diagnostic_tiles:
+        result=render_unverified_project_roof_tiles(
+            args.database,args.project_id,manifest,arrays,gcp,roof,out,
+        )
+        print(json.dumps({"state":result.state,"frames":result.rgb_frame_count,
+                          "orthophoto_verified":False},sort_keys=True))
+        return 0
     audit=screen_project_rgb_roof_geometry(
         args.database,args.project_id,manifest,arrays,gcp,roof,
     )
