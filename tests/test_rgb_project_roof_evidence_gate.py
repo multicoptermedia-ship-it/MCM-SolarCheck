@@ -185,3 +185,152 @@ def test_local_cli_writes_only_unverified_review_report_and_never_originals(tmp_
     assert {p.name:hashlib.sha256(p.read_bytes()).hexdigest()
             for p in (db,*files,npz,*photos.iterdir())}==before
     assert "orthophoto_verified" in capsys.readouterr().out
+
+
+def _write_real_synthetic_primary_jpegs(photos):
+    import cv2
+    for i,photo in enumerate(sorted(photos.iterdir())):
+        image=np.full((128,128,3),90+10*i,dtype=np.uint8)
+        assert cv2.imwrite(str(photo),image)
+
+
+def test_single_cli_full_project_evidence_then_diagnostic_png_and_valid_masks(tmp_path,capsys):
+    from mcm_solarcheck.services.rgb_project_roof_diagnostic_vertical import (
+        render_unverified_project_roof_tiles,
+    )
+    db,photos,manifest,arrays,gcps,roof=_fixture(tmp_path)
+    _write_real_synthetic_primary_jpegs(photos)
+    roof["calibration_evidence"]["distortion_coefficients"]=[0.,0.,0.,0.,0.]
+    roof["calibration_evidence"]["lens_correction_reference"]="synthetic pinned calibration"
+    paths=[]
+    for name,payload in (
+        ("rgb-camera-enu-candidate-unverified.json",manifest),
+        ("fit-and-held-gcp.json",gcps),
+        ("roof-heldout.json",roof),
+    ):
+        path=tmp_path/name
+        path.write_text(json.dumps(payload),encoding="utf-8")
+        paths.append(path)
+    npz=tmp_path/"rgb-camera-enu-candidate-unverified.npz"
+    np.savez_compressed(npz,**arrays)
+    out=tmp_path/"new-output"
+    out.mkdir()
+    source_files=(db,npz,*paths,*sorted(photos.iterdir()))
+    original={p:hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}
+    assert main([
+        "--database",str(db),"--project-id","SC-TEST",
+        "--candidate-npz",str(npz),
+        "--candidate-json",str(paths[0]),
+        "--gcp-survey-json",str(paths[1]),
+        "--roof-survey-json",str(paths[2]),
+        "--output-directory",str(out),
+        "--render-diagnostic-tiles",
+    ])==0
+    metadata=json.loads((out/"rgb-roof-unverified-diagnostic.json").read_text())
+    assert metadata["whole_imported_rgb_series_processed"] is True
+    assert metadata["rgb_source_count"]==3
+    assert metadata["tile_count"]==4
+    assert metadata["covered_fraction"]==pytest.approx(1.)
+    assert metadata["independent_roof_holdout_count"]==12
+    assert metadata["overlap_observations"]>0
+    assert metadata["overlap_visual_review_required"] is True
+    assert metadata["survey_authenticity_verified"] is False
+    assert metadata["metric_scale_verified"] is False
+    assert metadata["eligible_for_verified_roof_tiles"] is False
+    assert metadata["orthophoto_verified"] is False
+    assert metadata["pv_module_detection_performed"] is False
+    assert len(list(out.glob("rgb-roof-r*-c*.png")))==8
+    assert original=={p:hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}
+    assert "orthophoto_verified" in capsys.readouterr().out
+
+
+def test_bad_holdout_blocks_diagnostic_png_before_photo_read(tmp_path,monkeypatch):
+    from mcm_solarcheck.services.rgb_project_roof_diagnostic_vertical import (
+        render_unverified_project_roof_tiles,
+    )
+    db,photos,manifest,arrays,gcps,roof=_fixture(tmp_path)
+    out=tmp_path/"empty-output"
+    out.mkdir()
+    roof["calibration_evidence"].update({
+        "distortion_coefficients":[0.]*5,
+        "lens_correction_reference":"external synthetic calibration",
+    })
+    roof["controls"][0]["undistorted_pixel_xy"][0]+=8.
+    import cv2
+    def no_decode(*args,**kwargs):
+        raise AssertionError("preflight must precede decoding")
+    monkeypatch.setattr(cv2,"imread",no_decode)
+    with pytest.raises(ValueError,match="residual"):
+        render_unverified_project_roof_tiles(
+            db,"SC-TEST",manifest,arrays,gcps,roof,out,
+        )
+    assert not list(out.iterdir())
+
+
+def test_whole_flight_cancellation_cleans_all_diagnostic_files(tmp_path):
+    from mcm_solarcheck.services.rgb_project_roof_diagnostic_vertical import (
+        RGBDiagnosticRoofCancelled,render_unverified_project_roof_tiles,
+    )
+    db,photos,manifest,arrays,gcps,roof=_fixture(tmp_path)
+    _write_real_synthetic_primary_jpegs(photos)
+    roof["calibration_evidence"].update({
+        "distortion_coefficients":[0.]*5,
+        "lens_correction_reference":"external synthetic calibration",
+    })
+    out=tmp_path/"new-output"
+    out.mkdir()
+    abort={"now":False}
+    with pytest.raises(RGBDiagnosticRoofCancelled):
+        render_unverified_project_roof_tiles(
+            db,"SC-TEST",manifest,arrays,gcps,roof,out,
+            should_cancel=lambda:abort["now"],
+            on_progress=lambda n,total:abort.update(now=True),
+        )
+    assert not list(out.iterdir())
+
+
+def test_unverified_candidate_cannot_bypass_verified_pixel_renderer(tmp_path):
+    from mcm_solarcheck.services.module_plane_rectification import (
+        rectify_module_surface, sample_unverified_surface_candidate,
+        ModuleSurfaceGrid,
+    )
+    from mcm_solarcheck.services.module_plane_projection import (
+        PinholeIntrinsics, CameraExtrinsicsENU, SurveyedPlane3D,
+    )
+    from mcm_solarcheck.domain.models import ImageFrame, Pose
+    from mcm_solarcheck.services.module_camera_calibration_gate import VerifiedCameraGeometry
+    k=PinholeIntrinsics(40.,40.,64.,64.)
+    extrinsics=CameraExtrinsicsENU(
+        (0.,0.,10.), ((1.,0.,0.),(0.,-1.,0.),(0.,0.,-1.)),
+    )
+    plane=SurveyedPlane3D((0.,0.,0.),(0.,0.,1.))
+    grid=ModuleSurfaceGrid(-1.,-1.,.1,20,20)
+    image=np.full((128,128,3),100,dtype=np.uint8)
+    frame=ImageFrame("rgb-0",tmp_path/"dummy.jpg",width=128,height=128,
+                     camera_pose=Pose(0.,-90.,0.))
+    candidate=VerifiedCameraGeometry(k,extrinsics,128,128,
+                                     "unverified","unverified","unverified",
+                                     False,False)
+    with pytest.raises(ValueError,match="lens correction"):
+        rectify_module_surface(frame,image,candidate,plane,grid)
+    diagnostic=sample_unverified_surface_candidate(
+        image,k,extrinsics,plane,grid,
+    )
+    assert int(diagnostic.valid_mask.sum())==400
+    assert not diagnostic.georeferencing_verified
+
+
+def test_rejected_diagnostic_output_directory_does_not_change_photos(tmp_path):
+    from mcm_solarcheck.services.rgb_project_roof_diagnostic_vertical import (
+        render_unverified_project_roof_tiles,
+    )
+    db,photos,manifest,arrays,gcps,roof=_fixture(tmp_path)
+    _write_real_synthetic_primary_jpegs(photos)
+    roof["calibration_evidence"].update({
+        "distortion_coefficients":[0.]*5,
+        "lens_correction_reference":"external synthetic calibration",
+    })
+    with pytest.raises(ValueError,match="overlap"):
+        render_unverified_project_roof_tiles(
+            db,"SC-TEST",manifest,arrays,gcps,roof,photos,
+        )
