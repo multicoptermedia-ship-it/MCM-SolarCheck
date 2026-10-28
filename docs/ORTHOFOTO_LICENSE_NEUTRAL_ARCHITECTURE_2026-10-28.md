@@ -88,3 +88,7 @@ der reinen Zwei-Foto-Vorschau als Hauptziel.
 Architekturentscheidung und Arbeitsauftrag, **keine** neue funktionsfähige
 Photogrammetrie-Engine, keine zusätzliche Drittsoftware installiert,
 keine lokale Windows-Hardware oder Originaldaten verändert.
+
+
+## Umsetzungstranche DEV-RGB-ORTHO-ENGINE-001 (28.10.2026)
+Das Projekt-bis-Dachkachel-Backend ist umgesetzt: ganze importierte RGB-Foto-Serie, lokale Quelle je einmal decodiert, kontrollpunktgebundene geneigte Rasterprojektion, Kachelbilder/Validitätsmasken/JSON. **Externe kalibrierte Kamerageometrie zwingend**, kein vollautomatischer SfM-/Bundle-Adjustment-Prozess, keine bestätigte photogrammetrische Orthofoto-/PV-Modul-Ausgabe. Die nächste technische Entwicklung muss Kameraposen und globale 3D-Geometrie aus dem gesamten Bildverband lösen und mit unabhängigen Kontrollpunkten bewerten. Kein ODM/WebODM/ODX. Siehe aktuellen Checkpoint als einzig aktuellen Arbeitsauftrag.
