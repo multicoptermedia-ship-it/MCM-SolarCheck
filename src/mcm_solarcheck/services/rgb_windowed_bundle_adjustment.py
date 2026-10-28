@@ -107,6 +107,8 @@ def adjust_windowed_unscaled_rgb_network(
     lid = np.asarray(network.observation_landmark_indices)
     xy = np.asarray(network.observation_pixels_xy, dtype=np.float64)
     camera_count = len(network.frame_ids)
+    if camera_count > max_cameras_total:
+        raise ValueError("whole-flight RGB camera budget exceeded")
     if (not 3 <= camera_count <= max_cameras_total
             or cameras.shape != (camera_count,3,4)
             or landmarks.ndim != 2 or landmarks.shape[1] != 3
