@@ -1339,3 +1339,6 @@ Korrektur: Whitelist um `MPO` ergänzt; Byte-/Dateigrößenlimits, originale Imp
 
 
 **DEV-RGB-SFM-001 (28.10.2026):** Neuer mehransichtiger 3D-SfM-Initialisierer im vorhandenen PR #9 über **alle** importierten Projekt-RGB-Aufnahmen: gemeinsame ORB-Tracks, Essential-/RANSAC-Geometrie, Triangulation, weitere PnP-Kameras, globale Qualitätsprüfung. Kein ODM/WebODM/ODX-Code, nur bisher lizenzgeprüfte Abhängigkeiten. **Arbiträre Baselineskala, kein echtes Bundle Adjustment, keine unabhängige Vermessung, kein bestätigtes Orthofoto.** Posen bleiben vom metrischen Dachkachelrenderer gesperrt. Einziger Folgeblock: BA mit GCP-/Skalenevidenz und anschließender Wiederverwendung der Dachflächenkacheln; vor neuem Code aktuellen Checkpoint zuerst lesen.
+
+
+**Mehrbild-SfM-Sicherungsformat:** Der auf die komplette Projektserie bezogene, noch **unskalierte** 3D-Track- und Poseverband kann ausschließlich in ein ausdrücklich gewähltes lokales Ausgabeziel als NPZ + JSON geschrieben werden. Das vermeidet einen erneuten ORB-Lauf vor der späteren echten globalen BA. Skalierte/metrisch geprüfte GCP-Kamera-/Oberflächengeometrie ist weiterhin nicht vorhanden und darf niemals aus diesem NPZ als verifiziert ausgegeben werden. Nächste Aufgabe unverändert echte BA + Survey-Verifizierung.

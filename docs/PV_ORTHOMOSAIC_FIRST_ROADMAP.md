@@ -213,3 +213,6 @@ Technische erste Brücke im vorhandenen Branch PR #9: Projekt-ID aus read-only S
 
 ## 28.10.2026 – DEV-RGB-SFM-001: Ganzes Projekt als unskaliertes 3D-Kameranetz
 Die bisherigen ORB-/Candidate-Mechanismen dienen nun als **interne Mehrbildkanten** einer gemeinsamen 3D-Track- und Pose-Rekonstruktion. Essential-Matrix, 3D-Triangulation und kamerabezogene PnP-/Reprojektionsgates liefern eine erste unskalierte Kameranetz-Geometrie. Diese ist **kein Maßstab**, keine globale Bundle Adjustment, kein freigegebenes Dachflächen-/Modul-Orthofoto. Erst nach BA und unabhängiger Vermessungs-/GCP-Eichung wird der bestehende geneigte RGB-Dachkachelrenderer für metrologisch prüfbare Produkte genutzt.
+
+
+**SfM-Optimierungsübergabe (28.10.2026):** In der neuen kompletten RGB-Kameranetz-Initialisierung werden die global verbundenen 3D-Punkte und ihre 2D-Ansichten im **lokalen unskalierten NPZ-Zwischenformat** samt JSON-Qualitätsstatus aufbewahrt. Dieses Format dient künftiger gemeinsamer Bundle Adjustment ohne neue Bildpaar-/ORB-Runs. Es ist ausdrücklich weder ein vermessenes Orthofoto noch eine metrische Dachkachel-Eingabe.
