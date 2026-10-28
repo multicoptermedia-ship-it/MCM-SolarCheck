@@ -1,5 +1,8 @@
 # MCM-SolarCheck – Übergabe für einen neuen Chat
 
+> **AKTUELLE ÜBERGABE 28.10.2026 (vor historischen Abschnitten lesen):** PR #9 enthält `rgb_rtk_joint_bundle_adjustment.py`, RTK-Zentrum-gewichtete Schur-BA und Fenster-Prüfung des gemeinsamen Pixel+RTK-Robustverlusts. Komplette private DJI-Serie wird als nächster REALER Test benötigt; synthetischer Rechenweg ist noch im CI-Gate. 20 % interner RTK-Hold-out ≠ unabhängiger GCP. Keine Full-global-Simultan-BA, keine validierten Dachflächen, kein Orthofoto, kein ODM, kein Main-Merge. Aktueller Status und genau ein nächster Schritt: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Der vorige Dokumentations-HEAD `0b66baa` scheiterte allein am Längengate; `d2f3c57` behebt den Checkpoint.
+
+
 > **Aktuelle Übergabe 28.10.2026 – vor dem historischen Archiv lesen:** PR #9 enthält neu `rgb_rtk_camera_priors.py` und den synthetischen 160-Kamera-Test. DJI-XMP/RTK-Sigma → lokales ENU → robuste gewichtete Sim(3)-Ausrichtung des bestehenden Fenster-BA-Kandidaten, 20 % zurückgehaltene RTK-Positionen. Kein neuer realer Fluglauf, keine gemeinsame GNSS-prior-BA, kein Orthofoto, kein Main-Merge. Nächster Schritt: gewichtete GNSS-Translationsterme in der vorhandenen gemeinsamen BA; siehe [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). CI nur für verifizierten HEAD behaupten.
 
 
