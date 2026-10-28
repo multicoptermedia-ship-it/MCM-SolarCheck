@@ -1,5 +1,8 @@
 # MCM-SolarCheck – Übergabe für einen neuen Chat
 
+> **Aktueller Qualitätsnachtrag 28.10.2026, PR #9:** kompletter privater ZIP-/`.tip`-RGB-Flugpfad `ffd547d` Python-/Windows-CI-grün. Neu sind geometrisch akzeptierte SfM-Paarlinks mit Essential-RANSAC-/Pose-Kontrolle (`rgb_global_camera_network.py`), Fail-Closed-Gate und getrennte ORB-/SfM-Zählung im privaten ZIP-CLI; Negativtest ohne geometrisch akzeptiertes räumliches Paar. Der Begriff "cross_strip" in Kandidaten belegt noch keine reale Streifenzugehörigkeit. Neuer HEAD-CI-Status separat prüfen. **Alle 160 echten Hummintech-Originale fehlen in dieser laufenden Sitzung, daher kein neuer realer Durchlauf**; Objektivkalibrierung und 3D-Dach-/Orthofoto-/PV-/Thermal-Gates offen. Kein ODM, kein Main-Merge. Autoritativ: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **Aktuelle Übergabe 28.10.2026 (vor historischen Abschnitten lesen):** Auf PR #9 neu: `rgb_zip_whole_flight_reconstruction.py` und `rgb_zip_whole_flight_cli.py` als reiner Offline-/Read-only-Lauf über alle privaten DJI-RGB-ZIP-/`.tip`-Originale, mit extern verifizierter Kamera-Kalibrierung, GNSS-nahen Cross-Strip-Kandidaten, bestehendem globalem SfM-Tracknetz und GNSS-gewichteter Fenster-BA. Aggregierter JSON-Erfolgs-/Fehlerbericht ohne private Koordinaten/Fotos. Synthetische Tests in `test_rgb_zip_whole_flight_reconstruction.py`, CI des letzten HEAD prüfen. **Kein realer 160-Bild-Test in diesem Chat**: Archive in aktueller Laufzeit nicht verfügbar. Keine Orthofoto-/Dachflächen-/PV-/Thermal-Freigabe; kein ODM, kein Main-Merge. Details und einzige Folgeaufgabe: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
