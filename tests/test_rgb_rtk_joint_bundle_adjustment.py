@@ -20,7 +20,10 @@ from mcm_solarcheck.services.rgb_rtk_joint_bundle_adjustment import (
 )
 
 
-def _synthetic_full_rgb_flight(n=12, landmarks_count=24):
+def _synthetic_full_rgb_flight(n=12, landmarks_count=None):
+    # Realistic LOCAL cross-frame tracks, not every landmark in every image.
+    if landmarks_count is None:
+        landmarks_count = 8 * n
     rng = np.random.default_rng(20261028)
     k = PinholeIntrinsics(760., 760., 400., 300.)
     points_true = np.column_stack((
@@ -54,9 +57,13 @@ def _synthetic_full_rgb_flight(n=12, landmarks_count=24):
             k.fy * camera[:,1] / camera[:,2] + k.cy,
         ))
         pixels += rng.normal(0.,.05,pixels.shape)
-        observed_pixels.extend(pixels)
-        obs_fid.extend([t]*landmarks_count)
-        obs_lid.extend(range(landmarks_count))
+        # Every synthetic landmark is in at least two and at most four
+        # adjacent frames, spanning several overlapping camera windows.
+        groups = np.minimum(np.arange(landmarks_count)//8, n-2)
+        visible = np.flatnonzero((groups <= t) & (t < groups+4))
+        observed_pixels.extend(pixels[visible])
+        obs_fid.extend([t]*len(visible))
+        obs_lid.extend(visible.tolist())
         biased_center = center + rng.normal(0.,.02,3)
         if t in (0,1):
             biased_center += np.array((.08,-.07,.04))
@@ -131,7 +138,7 @@ def test_small_schur_gnss_mode_unfixes_first_two_cameras_and_validates_weights()
     sigma = np.full((6,3),.30)
     sigma[:,2] = .40
     result = adjust_unscaled_rgb_bundle(
-        network,k,max_cameras=6,max_landmarks=24,
+        network,k,max_cameras=6,max_landmarks=100,
         camera_center_priors_m=desired,camera_center_sigma_m=sigma,
         max_iterations=4,
     )
@@ -139,7 +146,7 @@ def test_small_schur_gnss_mode_unfixes_first_two_cameras_and_validates_weights()
     assert result.state.startswith("rtk_regularized")
     # Existing legacy path continues fixing cameras zero and one.
     legacy = adjust_unscaled_rgb_bundle(
-        network,k,max_cameras=6,max_landmarks=24,max_iterations=4,
+        network,k,max_cameras=6,max_landmarks=100,max_iterations=4,
     )
     np.testing.assert_allclose(legacy.world_to_camera[0],network.world_to_camera[0])
     np.testing.assert_allclose(legacy.world_to_camera[1],network.world_to_camera[1])
@@ -147,7 +154,7 @@ def test_small_schur_gnss_mode_unfixes_first_two_cameras_and_validates_weights()
             or not np.allclose(result.world_to_camera[1],network.world_to_camera[1]))
     with pytest.raises(ValueError,match="conservative RTK"):
         adjust_unscaled_rgb_bundle(
-            network,k,max_cameras=6,max_landmarks=24,
+            network,k,max_cameras=6,max_landmarks=100,
             camera_center_priors_m=desired,
             camera_center_sigma_m=np.full((6,3),.0001),
         )
