@@ -54,7 +54,7 @@ def _fixture(tmp_path):
     return tuple(archives), camera
 
 
-def _stub_pipeline(monkeypatch, traced):
+def _stub_pipeline(monkeypatch, traced, *, accepted_nonadjacent=True):
     from mcm_solarcheck.services.rgb_windowed_bundle_adjustment import RGBWindowedBAResult
 
     rng = np.random.default_rng(20261028)
@@ -89,6 +89,12 @@ def _stub_pipeline(monkeypatch, traced):
                 np.arange(16, dtype=np.int32), 2,
             ),
             observation_pixels_xy=np.ones((32,2), np.float64),
+            accepted_link_pairs=tuple(
+                (link.first_id, link.second_id) for link in links
+                if accepted_nonadjacent or abs(
+                    int(link.first_id[2:])-int(link.second_id[2:])
+                ) == 1
+            ),
         )
     monkeypatch.setattr(process, "solve_global_rgb_camera_network", fake_global)
 
@@ -133,6 +139,9 @@ def test_private_zip_rgb_pipeline_uses_all_frames_without_extracting(tmp_path, m
     assert report["frame_count"] == 12
     assert report["feature_matched_pairs"] >= 11
     assert report["cross_strip_matched_pairs"] > 0
+    assert report["cross_strip_matches_are_descriptor_only"] is True
+    assert report["sfm_accepted_spatial_nonadjacent_pairs"] > 0
+    assert report["physical_cross_strip_identity_verified"] is False
     assert report["all_input_rgb_frames_processed"] is True
     assert report["rgb_orthophoto_verified"] is False
     assert len([x for x in traced if x[0] == "decoded"]) == 12
@@ -212,3 +221,20 @@ def test_nonadjacent_rtk_cross_strip_candidates_are_proposed():
     assert len([p for p in pairs if p.reason == "consecutive"]) == 11
     assert len([p for p in pairs if p.reason == "cross_strip"]) >= 5
     assert len({frozenset((p.first_id, p.second_id)) for p in pairs}) == len(pairs)
+
+
+def test_descriptor_only_spatial_links_are_not_geometry_evidence(tmp_path, monkeypatch):
+    archives, camera = _fixture(tmp_path)
+    seen = []
+    # BFMatcher matches all of the synthetic descriptor arrays, but the fake
+    # SfM solver accepts ONLY sequential pairs geometrically. The complete
+    # flight gate must FAIL CLOSED before any RTK BA.
+    _stub_pipeline(monkeypatch, seen, accepted_nonadjacent=False)
+    with pytest.raises(process.PrivateRGBFlightStageError) as error:
+        process.reconstruct_private_complete_rgb_zip_flight(
+            archives, camera, max_side=400, max_features=500,
+        )
+    assert error.value.stage == "global_sfm"
+    assert any(stage[0] == "sfm" for stage in seen)
+    assert not any(stage[0] == "rtk" for stage in seen)
+    assert "flight/" not in str(error.value)
