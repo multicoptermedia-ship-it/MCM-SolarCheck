@@ -1,5 +1,8 @@
 # Architekturentscheidung 25.10.2026 – Orthofotos vor PV-Modulanalyse
 
+> **28.10.2026 – zusätzliche RGB-3D-Verbindungsqualität:** Auf PR #9 prüft nun `rgb_sfm_link_graph_gate.py` die gesamte geometrisch akzeptierte, kalibrierte SfM-Verknüpfung aller Kameras statt einzelner ORB-Paare. Mindestens 2 räumlich nicht benachbarte Geometriepaare mit ≥3 Kameras, vollständiger Graphenzusammenhang und Diagnose kritischer Ein-Kanten-Brücken. Nur synthetisch getestet, CI des aktuellen HEAD separat prüfen. Dies ist keine Bestätigung physischer Flugstreifenzugehörigkeit, genauer Dachhöhen oder eines RGB-Orthofotos. Als Nächstes die echten 160 Bilder mit extern nachgewiesener Objektivkalibrierung read-only im vorhandenen Offline-Pfad laufen lassen, Reprojektion/RTK/Gesamtgraph prüfen, danach Dachflächen-Orthorektifizierung. Kein ODM, kein Main-Merge. Detail: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **28.10.2026 – RGB-3D-Verbindungs-Gate ergänzt:** Die bestehende private vollständige ZIP→RGB-SfM→RTK-gewichtete Fenster-BA wurde auf `ffd547d` Python-/Windows-CI-grün geprüft. Ergänzend müssen nun wenigstens eine räumlich nicht benachbarte Bildverbindung aus tatsächlicher Essential-Matrix-RANSAC und Pose-Recovery stammen, statt allein aus ORB-Deskriptortreffern. Der Diagnosebericht unterscheidet beides; dies beweist weder mehrere physische Streifen noch eine korrekte 3D-Dachfläche. Neue synthetische Negativtests, aktueller CI-HEAD gesondert prüfen. Danach 160 echte Hummintech-Bilder lokal mit korrekter unabhängiger Kamerakalibrierung und Cross-Strip-Residualprüfung; erst dann Dachoberflächen und RGB-Orthorektifizierung. [Aktueller Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md). Kein ODM, kein Main-Merge.
 
 
