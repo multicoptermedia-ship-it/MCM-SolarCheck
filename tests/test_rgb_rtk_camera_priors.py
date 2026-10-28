@@ -30,12 +30,19 @@ def _flight(count=160):
     ])
     true_m = 1.7 * centers @ rotation.T + np.array((12., -8., 1.5))
     lat0, lon0, height = 50., 7., 100.
-    # millimetre-level local-coordinate accuracy at the synthetic <100m extent
+    # Local WGS84 differential radii: metre-scale priors are not made up.
+    lat_rad = np.deg2rad(lat0)
+    e2 = 6.6943799901413165e-3
+    a = 6378137.0
+    n_radius = a / np.sqrt(1 - e2 * np.sin(lat_rad) ** 2)
+    m_radius = a * (1 - e2) / (1 - e2 * np.sin(lat_rad) ** 2) ** 1.5
+    north_per_degree = m_radius * np.pi / 180.
+    east_per_degree = n_radius * np.cos(lat_rad) * np.pi / 180.
     frames = []
     poses = []
     for n, (center, enu) in enumerate(zip(centers, true_m), 1):
-        lat = lat0 + enu[1] / 111230.
-        lon = lon0 + enu[0] / (111320. * np.cos(np.deg2rad(lat0)))
+        lat = lat0 + enu[1] / north_per_degree
+        lon = lon0 + enu[0] / east_per_degree
         pos = Position(lat, lon, height + enu[2])
         frames.append(PrivateRGBFlightFrame(
             Path("private-only.zip"),
