@@ -1,5 +1,10 @@
 # START HERE – SolarCheck Folgechat und Entwicklungsübernahme
 
+## AKTUELLER, VORRANGIGER EINSTIEG – 28.10.2026
+**[AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md) ZUERST LESEN.** Sie enthält genau einen bindenden nächsten RGB-Orthofoto-Arbeitsweg, aktuellen PR-/CI-/Windows-Stand sowie das Verbot von ODM/WebODM/ODX und Wiederholungsarbeit. Alle folgenden 26.10.-Abschnitte sind **historischer Kontext** und ihre damaligen „nächsten Schritte“ gelten nicht mehr. Bei Wiederaufnahme strikt den aktuellen GitHub-Branch dieses Checkpoints lesen; der Default `main` enthält die neuen PRs noch nicht. Keine neue Chat-Zusammenfassung durch erneutes Umsortieren alter Chroniken.
+
+---
+
 **Stand 26.10.2026. Ein neuer Chat muss zuerst die tatsächlichen Repository-Dateien lesen, nicht aus einer alten Chat-Zusammenfassung programmieren.** **Neuer gemeinsamer Entwicklungsstand:** `main` nach dem nicht erzwungenen CI-geprüften Fast-forward; Quelle des Ausgangsstands: `feature/offline-human-report-approval`. **Nur Integrationsbasis – kein lokal abgenommenes Release.** Die Branch-Bestandsaufnahme beschreibt ausdrücklich den **früheren Stichtag** vor dem Fast-forward.
 
 1. [MAIN_INTEGRATION_BASELINE_2026-10-26.md](MAIN_INTEGRATION_BASELINE_2026-10-26.md) – **Main-Übernahme, integrierte Softwarebereiche und offene Windows-/RGB-/Thermal-Gates**.

@@ -1,5 +1,7 @@
 # MCM-SolarCheck – Übergabe für einen neuen Chat
 
+> **ACHTUNG: HISTORISCHES ARCHIV.** Verbindliche aktuelle Einstiegspunkte, PR-/CI-/Windows-Stand und die einzige nächste Aufgabe stehen in [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Die Datums- und Branchaussagen unten stammen aus älteren Entwicklungsphasen; nicht als „heute“ übernehmen. Am 28.10.2026 gilt kein ODM/WebODM/ODX in SolarCheck. Kein neues Bildpaar-Testprojekt vor der ganzen RGB-Orthofoto-Engine.
+
 Stand: 18.10.2026. Verbindlicher Arbeitszweig: `feature/block38-offline-ai-ingestion-tests`.
 Repository: https://github.com/multicoptermedia-ship-it/MCM-SolarCheck
 Letzter bestätigter CI-Stand: Nutzer meldete „test grün“ nach gezieltem Hotfix `d4b068a2ac4ad904712c6792315b4574ee59fec0`. Der letzte reguläre Fünf-Commit-Block endete mit `ba46544a98784391584a85fe21f281b87cf6966b`.

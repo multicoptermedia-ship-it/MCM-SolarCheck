@@ -1,5 +1,7 @@
 # MCM-SolarCheck
 
+> **ZUERST LESEN, verbindlicher laufender Entwicklungsstand:** [AKTUELLER_ENTWICKLUNGSSTAND.md](docs/AKTUELLER_ENTWICKLUNGSSTAND.md) (28.10.2026, Branch/PR im Dokument). Alte Ideen in diesem README und anderen Chroniken sind keine aktuelle Arbeitsanweisung. **ODM/WebODM/ODX werden ausdrücklich NICHT eingebunden.** Der Hauptweg ist vollständige RGB-Mehrbild-Photogrammetrie → geprüftes RGB-Orthofoto/geneigte PV-Flächen → PV-Modulprüfung.
+
 > **Verbindliche Entwicklungsgrundlage (Stand 26.10.2026):** Vor neuer Programmierung zuerst [Start für Folgechats](docs/PROJECT_START_HERE.md), [Branch-Bestandsaufnahme](docs/REPOSITORY_BRANCH_INVENTORY_2026-10-26.md), [Entwicklungsregister](docs/DEVELOPMENT_STEP_REGISTER.md) und [Entwicklungsvereinbarung](docs/DEVELOPMENT_AGREEMENT.md) lesen. Die nachfolgenden ursprünglichen Pipeline-/ODM-/Modellideen in diesem README sind **historische Planung**, keine Freigabe für ODM/WebODM, Docker, Cloud, YOLO-Lizenzänderungen, °C-Behauptungen oder ein ungeprüftes Orthofoto. **Neue Integrationsbasis ist `main` ab dem CI-geprüften Fast-forward vom 26.10.2026.** Das ist Quellcode für weitere Entwicklung, **kein fertig abgenommenes Windows-10-Release**. Herkunft: `feature/offline-human-report-approval`. [Integrationsstatus und offene Freigabegates](docs/MAIN_INTEGRATION_BASELINE_2026-10-26.md).
 
 Automatisierte PV-Anlagenprüfung aus georeferenzierten RGB- und Thermaldaten.
@@ -28,7 +30,7 @@ Für große Freiflächenanlagen kann ein vorhandenes Orthofoto als Eingang verwe
 - Python 3.11+
 - PySide6 für die Desktop-Oberfläche
 - OpenCV/Pillow/rasterio/GDAL für Bild- und Geodaten
-- OpenDroneMap/WebODM bzw. kompatible Photogrammetrie-Pipeline für Orthofotos
+- **Eigenständig entwickelte lizenzverträgliche Mehrbild-Photogrammetrie** für Orthofotos; **kein** ODM/WebODM/ODX-Code, -Prozess, -API, -Container oder -Runtime. Abhängigkeiten separat lizenzprüfen
 - Ultralytics YOLO für Detektion/Segmentierung
 - U-Net/ähnliche Modelle für pixelgenaue Segmentierung, soweit für den jeweiligen Defektdatensatz sinnvoll
 - GeoPackage/SQLite für Projekte, Befunde und Geometrien
@@ -43,7 +45,7 @@ Die KI-Erkennung ist als Assistenzsystem zu behandeln. Eine automatische Klassif
 Die Import-, Radiometrie-, Lokalisierungs-/Priorisierungs- sowie Modell-/Trainingsdatenverträge bis einschließlich Phase 8 sind testgestützt aufgebaut. Phase 9 ist abgeschlossen und ergänzt den backend-neutralen Inspektionsbericht, Review- und Release-Gates, Bild-/Temperatur-Provenienz, deterministische Report-Assets sowie den gemeinsamen DOCX-/ODT-/PDF-Export. Modellklassifikation bleibt ausdrücklich eine überprüfbare Empfehlung; die fachkundige menschliche Prüfung bleibt die maßgebliche Befundentscheidung. Ein wissenschaftlich validiertes Produktionsmodell, die Prüfung gegen die lizenzierte Norm und die kommerzielle Softwarefreigabe bleiben eigenständige Gates.
 
 
-## Nächster Arbeitsblock
+## Historischer Planungsabschnitt (überholt; NICHT nächster Arbeitsblock)
 
 Phase 10 wird aus einer Bestandsaufnahme der vollständigen Projektpipeline abgeleitet. Vorrang haben Integrations- und Betriebsreife-Lücken zwischen Projektanlage, Import, Verarbeitung, Review und Berichtsexport; neue Komfortfunktionen werden erst danach eingeplant.
 

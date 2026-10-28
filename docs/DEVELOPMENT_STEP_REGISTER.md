@@ -1,5 +1,7 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+> **Aktuelles Gate und einzige Folgeaufgabe:** [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Die nachfolgende Chronik ist ein Belegregister, kein Plan zur Wiederholung historischer nächster Schritte.
+
 **Gilt ab:** 26.10.2026. **Autoritative Git-Quelle für abgeschlossene Arbeiten:** `main` **nach dem CI-geprüften Fast-forward vom 26.10.2026**. Bisherige Arbeiten sind im Quellzweig `feature/offline-human-report-approval` historisch enthalten. Neue Entwicklung in kleinen Featurebranches und erst nach Gate in `main`. **Nicht ersetzen**: Sicherheits-/Freigaberegeln in [DEVELOPMENT_AGREEMENT.md](DEVELOPMENT_AGREEMENT.md).
 
 ## Unverhandelbarer Ablauf ab jetzt
@@ -105,3 +107,11 @@
 - **Bestehender Code:** `odm_rgb_adapter.py` ist trotz historischem Namen nur lokales Staging ohne ODM-Aufruf. Lizenzneutral umbenennen, falls der Pfad berührt wird. Vorhandene Matcher/Geometrie-/Dachkachel-/GeoTIFF-Inspektion wiederverwenden; kein Doppelaufbau.
 - **Status:** Architektur und Dokumentation, **nicht** neue SfM-/MVS-Engine implementiert und **kein** Orthofoto freigegeben. GitHub-Branch/Commit und CI nach Erzeugung des Commit einzeln prüfen; `main`, Nutzer-Windows-PC, Originalfotos und produktive SQLite unverändert. PR #7/#8 bleiben separate, ungemergte Entwürfe.
 - **Nächste einzige Implementierungsaufgabe:** `DEV-RGB-ORTHO-ENGINE-001` – Projekt -> verfügbare gesamte RGB-Serie -> echtes globales Kameranetz/robuste Mehrbildgeometrie -> erster *zusammenhängender* dachbezogener RGB-Ausgabebereich mit Lücken-/Qualitätsstatus; bei fehlender Geometrie expliziter Sperrstatus statt vermeintlich vermessenem Orthofoto.
+
+
+### 2026-10-28 · GOV-CONTINUITY-001 – Verbindlicher kompakter Chat-Checkpoint
+- **Nutzerproblem:** Wiederholte Agentenwechsel haben bereits geprüfte Programmteile neu angefangen und die Orthofoto-first-Strategie durch Bildpaar-/Metadaten-Nebenentwicklungen unterbrochen. Veraltete Einstiege in README und sehr langen Archivdateien haben das begünstigt.
+- **Lösung auf getrenntem Featurebranch PR #9:** `docs/AKTUELLER_ENTWICKLUNGSSTAND.md` als einziger **priorisierter aktueller** Einstiegsvertrag; README, `PROJECT_START_HERE.md`, Fachroadmap, Agreement und Archiv-Handoff mit Vorabverweisen; maschineller Link-/Pflichtkapiteltest. Das PDF bleibt privat und wird nicht nach GitHub hochgeladen.
+- **Evidenz:** Tatsächlicher `main@5f2de8f`-Stand; PR #7/#8/#9 offen, ihre Python-/Windows-Prüfungen für die zuvor überprüften Commits grün; echte SC-0003-Win10-GUI und Nahtqualitätsfehler; kein vollständiges Orthofoto.
+- **Status:** Übergabemechanismus/Arbeitsorganisation, keine neue Photogrammetrie-Engine oder echte Nutzerhardwareabnahme. CI des neuen Abschlusscommits separat prüfen; `main` unberührt.
+- **Nächste Aufgabe:** ausschließlich `DEV-RGB-ORTHO-ENGINE-001` aus dem aktuellen Checkpoint; Checkpoint zuallererst vor nächstem Chat aktualisieren, keine erneute Metadaten-/MPO-/Pair-Tests.

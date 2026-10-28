@@ -1,5 +1,7 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **AKTUELLE ARBEITSENTSCHEIDUNG VOR HISTORISCHEN ABSCHNITTEN:** [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Die Historie unten ist kein aktueller Arbeitsplan. Weder ODM/WebODM/ODX noch erneute Bildpaar-/EXIF-/MPO-Inventuren; Hauptpfad komplette RGB-Mehrbild-Photogrammetrie → Orthofoto/geneigte Dachflächen → PV-Modulprüfung. Dieser kurze Checkpoint ist **bei jedem Entwicklungsabschluss zuerst zu aktualisieren**; kein Main-Merge ohne separate Freigabe.
+
 Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen Entwicklungsblöcken diese Datei, die aktuellen Branches/PRs und die jüngsten Commits prüfen. Bestehende frühere Anforderungen bleiben gültig; diese Datei ergänzt sie, statt sie zu ersetzen.
 
 ## Nutzerentscheidung 25.10.2026: Orthofoto zuerst, Moduldiagnose danach

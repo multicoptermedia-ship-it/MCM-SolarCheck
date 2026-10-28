@@ -1,5 +1,7 @@
 # Architekturentscheidung 25.10.2026 – Orthofotos vor PV-Modulanalyse
 
+> **Aktueller Arbeitsauftrag vom 28.10.2026:** [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Dies ist eine umfangreiche Fachchronik; alte „nächste Schritte“ sind nicht mehr aktiv. **Keine ODM/WebODM/ODX-Laufzeit oder Code-Integration.**
+
 ## Anlass, Pilotsignal und verbindliche Priorität
 
 Der Windows-10-Pilot `SC-0003 · Hummintech3` hat 160 Thermal- und 33 RGB-Aufnahmen; nur 33 Metadatenpaare sind belegt, keine pixelgenau geprüften Sensorpaare. In der neuen **rein lesenden** RGB-Overlay-Diagnose (Commit `04798fe`) zeigte RGB-Testbild 1 **4 Strukturvorschläge**, **10 Bildinhalt-Vorschläge**, **0 räumlich gestützte** und **0 Cadence-Vorschläge**. Der Anwender hat nachvollziehbar festgestellt, dass unter anderem eine Dachfläche als Bildinhalt-Modulvorschlag markiert wurde und schmale Strukturvorschläge keine vollständigen Module abbilden.
