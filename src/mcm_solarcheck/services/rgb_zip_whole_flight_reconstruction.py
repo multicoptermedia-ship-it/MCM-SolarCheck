@@ -52,6 +52,7 @@ class PrivateRGBFlightReconstruction:
     candidate_pair_count: int
     feature_matched_pair_count: int
     cross_strip_matched_pair_count: int
+    sfm_accepted_nonadjacent_pair_count: int
     network_landmark_count: int
     sfm_reprojection_p95_px: float
     unscaled_ba_reprojection_rmse_px: float
@@ -66,6 +67,11 @@ class PrivateRGBFlightReconstruction:
             "candidate_pairs": self.candidate_pair_count,
             "feature_matched_pairs": self.feature_matched_pair_count,
             "cross_strip_matched_pairs": self.cross_strip_matched_pair_count,
+            "cross_strip_matches_are_descriptor_only": True,
+            "sfm_accepted_spatial_nonadjacent_pairs": (
+                self.sfm_accepted_nonadjacent_pair_count
+            ),
+            "physical_cross_strip_identity_verified": False,
             "sfm_landmarks": self.network_landmark_count,
             "sfm_reprojection_p95_px": self.sfm_reprojection_p95_px,
             "unscaled_ba_reprojection_rmse_px": self.unscaled_ba_reprojection_rmse_px,
@@ -265,6 +271,26 @@ def reconstruct_private_complete_rgb_zip_flight(
         )
         if network.frame_ids != ids or len(network.world_to_camera) != len(ids):
             raise ValueError("SfM did not reconstruct every RGB image")
+        # Descriptor matches cannot establish geometry. Only links that
+        # survived SfM essential-RANSAC/recoverPose may support a cross-image
+        # graph claim. "Nonadjacent" remains a candidate, not a proven
+        # physical flight strip, roof face or metrically approved connection.
+        suggested = {
+            frozenset((p.first_id, p.second_id))
+            for p in candidates if p.reason == "cross_strip"
+        }
+        valid_sfm_links = tuple(network.accepted_link_pairs)
+        if any(len(pair) != 2 or pair[0] not in ids or pair[1] not in ids
+               or pair[0] == pair[1] for pair in valid_sfm_links):
+            raise ValueError("SfM returned invalid accepted link identities")
+        actual = {
+            frozenset(pair) for pair in valid_sfm_links
+            if frozenset(pair) in suggested
+        }
+        if not actual:
+            raise ValueError(
+                "no geometrically accepted spatially nonadjacent RGB links"
+            )
         stage = "unscaled_ba"
         unscaled = adjust_windowed_unscaled_rgb_network(
             network, intrinsics, max_landmarks_total=200000,
@@ -281,7 +307,7 @@ def reconstruct_private_complete_rgb_zip_flight(
         if metric.total_cameras != len(ids):
             raise ValueError("RTK BA omitted at least one flight image")
         return PrivateRGBFlightReconstruction(
-            len(ids), len(candidates), len(links), across,
+            len(ids), len(candidates), len(links), across, len(actual),
             network.reconstructed_landmarks, network.reprojection_p95_px,
             unscaled.after_rmse_px, metric,
         )
