@@ -152,3 +152,6 @@
 - **Strikte Fachgrenze:** lokaler Fenster-BA-Optimierer ist keine voll gemeinsam über alle Kameras durchgerechnete globale BA, kein wahrer RTK/GCP-Maßstab, kein vermessenes Dach-/PV-Modul-/Thermal-Orthofoto. Der nichtmetrische Ausgabestatus kann **nicht** als externe VerifiedCameraGeometry benutzt werden.
 - **CI/Abnahme:** Python- und Windows-Gates des exakten letzten Doku-Commits nach Ausführung prüfen; letzte echten Windows-Hardware-Daten bleiben GUI-Pilot mit fehlerhafter Naht. Für SC-0003 kein extern vermessenes Kamera-/Dach-/Control-Paket vorhanden.
 - **Eine nächste Aufgabe:** separater *unabhängiger* metrischer 3D-Similarity-/ENU-/GCP-Gate mit festgehaltenen Hold-outs für die globale Kamerapose und danach Anschluss an den vorhandenen Dachkachelrenderer. Nicht erneut Einzelbild-/Paar-/Inventurmodule entwickeln.
+
+
+**DEV-RGB-BA-002 gezielter CI-Fix (28.10.2026):** Erster Python-3.12-Gesamtlauf von `dd53424`: 3920 bestanden, ein Test rot, weil ein überschrittenes 14-gegen-12-Kamerabudget zwar korrekt abgewiesen, aber mit generischem statt explizitem `budget`-Fehlertext gemeldet wurde. `8f0dfa4` ändert ausschließlich den Fehlermeldungszweig. Keine algorithmische Abschwächung, kein neues Feature. **CI des letzten Commits** prüfen, keine alten Grüns auf neue Änderungen übertragen.

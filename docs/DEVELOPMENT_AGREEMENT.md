@@ -1348,3 +1348,6 @@ Korrektur: Whitelist um `MPO` ergänzt; Byte-/Dateigrößenlimits, originale Imp
 
 
 **DEV-RGB-BA-002 (28.10.2026):** Die vorhandene robuste `adjust_unscaled_rgb_bundle` wird über ein ganzes bereits rekonstruiertes 3D-RGB-Kameranetz in überlappenden begrenzten Fenstern wiederverwendet. Ein eigener CLI-Pfad verarbeitet das gespeicherte lokale NPZ **ohne erneute Bild-/EXIF-/ORB-Berechnung**, prüft globalen Reprojektionsverlust und speichert nur explizit **unskalierte** Folgeartefakte. Kein neues Paket/ODM. Fenster-BA ist keine vollständige simultane BA, kein nachgewiesener Maßstab und **keine Orthofoto-Abnahme**. Weiterhin nur nach Benutzerfreigabe in `main`. Nächster einziger Schritt: unabhängige metrische Referenzierung und Kontrollpunkte als Gate vor den existierenden Dachkacheln. Aktueller Stand: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
+**CI-Hotfix DEV-RGB-BA-002:** Bei zu vielen Kameras bleibt der ganze Fenster-BA-Pfad gesperrt; ein gezielter Commit `8f0dfa4` macht lediglich die Begrenzungsursache im Fehlertext sichtbar. Der erste Gesamt-Pythonlauf hatte 3920 erfolgreiche und einen fehlgeschlagenen Test ausschließlich wegen dieser Textkonvention. Übernahme/Release erst nach Prüfung des exakten neuen CI-HEAD; `main` und Originale unverändert.

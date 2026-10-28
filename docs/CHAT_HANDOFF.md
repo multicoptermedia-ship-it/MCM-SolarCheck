@@ -823,3 +823,6 @@ PR #9 ergänzt `rgb_global_camera_network.py`, projektgebundene RGB-Serienanbind
 
 ### 28.10.2026 – DEV-RGB-BA-002: Fensteroptimierung ohne neue Bildpaararbeit
 Die bereits vorhandene Schur-/Huber-Ausgleichung wird für alle gespeicherten Projektkameras nacheinander in überlappenden, ressourcenbegrenzten Fenstern angewendet und jeder Verbesserung über alle globalen SfM-Beobachtungen nachgeprüft. Der lokale `rgb_windowed_bundle_adjustment_cli.py` liest nur unskalierte NPZ/JSON-Zwischenstände und erzeugt wieder unskalierte NPZ/JSON, **ohne** RGB-Originale/SQLite erneut zu öffnen. PR #9 offen, `main` unverändert. Kein echtes SC-0003-Orthofoto, keine volle simultane BA oder metrische Verifikation; nächstes einziges Gate unabhängige reale GCP-/ENU-3D-Eichung und Dachkontrollpunkte. Aktuellen Checkpoint immer zuerst lesen.
+
+
+**28.10.2026 – gezielter Fenster-BA-Hotfix:** Der einzige Fehler aus dem anfänglichen 3920/3921-Pythonlauf war eine unpräzise Budget-Fehlermeldung. Commit `8f0dfa4` meldet die überschrittene Gesamtzahl Kameras ausdrücklich, ändert keine Pose-/Track-Geometrie. Aktueller PR9-Branch weiterhin Draft, `main` nicht geändert, echte Orthofotofreigabe offen. Exakte letzte CI beim Neustart prüfen, nächster Entwicklungsblock GCP-/ENU-Maßstabsgate.
