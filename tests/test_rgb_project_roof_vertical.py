@@ -1,4 +1,4 @@
-"""Synthetic full-project SQLite -> multiple original JPEGs -> verified-plane tiles.
+"""Synthetic project -> multiple original JPEGs from DISTINCT poses -> roof tiles.
 
 No real images, customer positions, uploads or database writes are used.
 """
@@ -37,7 +37,7 @@ def _inputs(tmp_path, count=3):
                 "imported_pose_degrees": {"yaw_deg": 0, "pitch_deg": -90, "roll_deg": 0},
                 "intrinsics": {"fx": 40, "fy": 40, "cx": 64, "cy": 64},
                 "camera_to_enu": [[1,0,0],[0,-1,0],[0,0,-1]],
-                "center_enu_m": [0,0,10], "calibration_provenance": "synthetic camera",
+                "center_enu_m": [0.15*i,0,10], "calibration_provenance": "synthetic camera",
                 "rotation_provenance": "synthetic ENU", "survey_provenance": "synthetic roof",
                 "lens_undistortion_verified": True, "reference_frames_verified": True,
                 "distortion_coefficients": [0,0,0,0,0],
@@ -45,7 +45,7 @@ def _inputs(tmp_path, count=3):
             for j, (east, north) in enumerate(((-1,-1),(-1,1),(1,-1),(1,1))):
                 controls.append({
                     "frame_id": identifier, "control_id": f"held-out-{j}",
-                    "undistorted_pixel_xy": [64 + 4*east, 64 - 4*north],
+                    "undistorted_pixel_xy": [64 + 4*(east-0.15*i), 64 - 4*north],
                     "surveyed_point_enu_m": [east, north, 0],
                 })
     package = {
