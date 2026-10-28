@@ -47,6 +47,11 @@ class RGBUnscaledNetwork:
     roof_geometry_verified: bool = False
     orthophoto_verified: bool = False
     bundle_adjustment_completed: bool = False
+    # Internal, UNMETRIC optimization payload; not approved roof geometry.
+    landmark_xyz_unit_baseline: np.ndarray | None = None
+    observation_landmark_indices: np.ndarray | None = None
+    observation_frame_indices: np.ndarray | None = None
+    observation_pixels_xy: np.ndarray | None = None
 
 
 def _project(pose, point, k):
@@ -288,7 +293,35 @@ def solve_global_rgb_camera_network(
     p95=float(np.percentile(errors,95))
     if not np.isfinite(p95) or p95>max_reprojection_px:
         raise ValueError("inconsistent global RGB reprojection error")
+    # Retain the shared landmark/observation bundle for the NEXT global BA
+    # without another expensive original-image decode / ORB matching pass.
+    xyz_points=[]
+    obs_landmark=[]
+    obs_frame=[]
+    obs_pixels=[]
+    for old_track_index,xyz in sorted(landmarks.items()):
+        new_id=len(xyz_points)
+        xyz_points.append(xyz)
+        for frame_index,feature_index in sorted(tracks[old_track_index].items()):
+            observed=frames[frame_index].points_xy[feature_index]
+            fitted=_project(poses[frame_index],xyz,k)
+            if fitted is not None and np.linalg.norm(fitted-observed)<=max_reprojection_px:
+                obs_landmark.append(new_id)
+                obs_frame.append(frame_index)
+                obs_pixels.append(observed)
+    arrays=(
+        np.asarray(xyz_points,dtype=np.float64).reshape(-1,3),
+        np.asarray(obs_landmark,dtype=np.int32),
+        np.asarray(obs_frame,dtype=np.int32),
+        np.asarray(obs_pixels,dtype=np.float64).reshape(-1,2),
+    )
+    for array in arrays:
+        array.setflags(write=False)
     return RGBUnscaledNetwork(
         frame_ids,tuple(poses[i] for i in range(len(frames))),
         len(landmarks),len(multi),len(accepted),p95,max(errors),
+        landmark_xyz_unit_baseline=arrays[0],
+        observation_landmark_indices=arrays[1],
+        observation_frame_indices=arrays[2],
+        observation_pixels_xy=arrays[3],
     )

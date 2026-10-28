@@ -53,6 +53,11 @@ def test_four_real_3d_views_form_one_global_camera_and_landmark_network():
     assert not result.roof_geometry_verified
     assert not result.orthophoto_verified
     assert not result.bundle_adjustment_completed
+    assert result.landmark_xyz_unit_baseline.shape == (result.reconstructed_landmarks,3)
+    assert result.observation_pixels_xy.shape[1] == 2
+    assert len(result.observation_landmark_indices) == len(result.observation_frame_indices) == len(result.observation_pixels_xy)
+    assert set(result.observation_frame_indices.tolist()) == {0,1,2,3}
+    assert not result.landmark_xyz_unit_baseline.flags.writeable
 
 
 def test_disconnected_fourth_image_must_not_be_accepted_as_a_full_network():
