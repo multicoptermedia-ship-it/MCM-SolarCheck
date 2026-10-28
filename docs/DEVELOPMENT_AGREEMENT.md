@@ -1,5 +1,8 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **Stand 28.10.2026, RTK-ENU-Teilgate auf Draft PR #9:** `rgb_rtk_camera_priors.py` verbindet den bestehenden 160-Bild-ZIP-Metadatenpfad mit den Kamera-IDs und der vorhandenen Fenster-BA zu einer robusten lokalen ENU-Startausrichtung (RTK-Unsicherheiten, 20 % zurückgehaltene RTK-Posen). Noch KEINE GNSS-regularisierte gemeinsame BA, keine unabhängige Survey-/Dach-/Orthofotofreigabe, kein realer erneuter 160-Bild-Lauf. Verbindlich bleiben Checkpoint und einziges Folgegate: gewichtete gemeinsame GNSS-BA. Python-/Windows-CI am neuesten HEAD erneut prüfen, kein Main-Merge.
+
+
 > **AKTUELLE ARBEITSENTSCHEIDUNG VOR HISTORISCHEN ABSCHNITTEN:** [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Die Historie unten ist kein aktueller Arbeitsplan. Weder ODM/WebODM/ODX noch erneute Bildpaar-/EXIF-/MPO-Inventuren; Hauptpfad komplette RGB-Mehrbild-Photogrammetrie → Orthofoto/geneigte Dachflächen → PV-Modulprüfung. Dieser kurze Checkpoint ist **bei jedem Entwicklungsabschluss zuerst zu aktualisieren**; kein Main-Merge ohne separate Freigabe.
 
 Diese Datei ist der dauerhafte Übergabepunkt zwischen Chat-Sitzungen. Vor neuen Entwicklungsblöcken diese Datei, die aktuellen Branches/PRs und die jüngsten Commits prüfen. Bestehende frühere Anforderungen bleiben gültig; diese Datei ergänzt sie, statt sie zu ersetzen.
