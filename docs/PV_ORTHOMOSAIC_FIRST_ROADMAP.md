@@ -1,5 +1,8 @@
 # Architekturentscheidung 25.10.2026 – Orthofotos vor PV-Modulanalyse
 
+> **Implementierungsfortschritt 28.10.2026:** Bestehende SfM-, ORB- und RTK-gewichtete Fenster-BA-Bausteine sind durch `rgb_zip_whole_flight_reconstruction.py` direkt mit kompletten privaten DJI-M3T-RGB-ZIP-/`.tip`-Serien verbunden; keine vorherige SQLite-Übernahme notwendig. GNSS dient zur Suche von Cross-Strip-Bildpaaren, nicht als Beweis korrekter Bildregistrierung. Unabhängig kalibrierte Intrinsics/Entzerrung und alle vollständigen SfM-Bilder erforderlich. Noch kein echter neuer 160-Bild-Lauf und keine verifizierte Dachoberfläche oder streifenübergreifende Orthorektifizierung. Erst vollständige CI und lokale Residualprüfung, dann echte 3D-Dachflächen und RGB-Ortho, erst danach PV und Thermal. Aktuelles Gate: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **Stand 28.10.2026 – aktive Entwicklung:** PR #9 hat jetzt einen synthetisch prüfbaren Pfad von der vorhandenen vollständigen SfM-/Fenster-BA via RTK-Sim(3) zu GNSS-regularisierter Schur-/Fenster-BA, mit metrisch gewichteten GNSS-Kamera-Priors und zurückgehaltenen RTK-Positionen. Dies ist **kein** geprüfter gleichzeitiger Full-global-Solver und noch keine Verarbeitung aller 160 echten Bilder. Neu-CI prüfen, danach gesamte private 160-RGB-Serie, mehrere Dachflächen und streifenübergreifende Orthorektifizierung. Details: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Kein ODM/ODX, kein Main-Merge.
 
 
