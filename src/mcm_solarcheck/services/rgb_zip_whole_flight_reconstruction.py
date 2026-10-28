@@ -25,6 +25,9 @@ from mcm_solarcheck.services.orthomosaic_overlap_candidates import (
 from mcm_solarcheck.services.rgb_global_camera_network import (
     RGBNetworkFrame, RGBNetworkLink, solve_global_rgb_camera_network,
 )
+from mcm_solarcheck.services.rgb_sfm_link_graph_gate import (
+    audit_complete_rgb_sfm_link_graph,
+)
 from mcm_solarcheck.services.rgb_windowed_bundle_adjustment import (
     adjust_windowed_unscaled_rgb_network,
 )
@@ -57,6 +60,7 @@ class PrivateRGBFlightReconstruction:
     sfm_reprojection_p95_px: float
     unscaled_ba_reprojection_rmse_px: float
     rtk_windowed_ba: object
+    geometric_link_graph_audit: object
 
     def privacy_safe_summary(self) -> dict:
         ba = self.rtk_windowed_ba.privacy_safe_summary()
@@ -72,6 +76,7 @@ class PrivateRGBFlightReconstruction:
                 self.sfm_accepted_nonadjacent_pair_count
             ),
             "physical_cross_strip_identity_verified": False,
+            **self.geometric_link_graph_audit.privacy_safe_summary(),
             "sfm_landmarks": self.network_landmark_count,
             "sfm_reprojection_p95_px": self.sfm_reprojection_p95_px,
             "unscaled_ba_reprojection_rmse_px": self.unscaled_ba_reprojection_rmse_px,
@@ -271,26 +276,16 @@ def reconstruct_private_complete_rgb_zip_flight(
         )
         if network.frame_ids != ids or len(network.world_to_camera) != len(ids):
             raise ValueError("SfM did not reconstruct every RGB image")
-        # Descriptor matches cannot establish geometry. Only links that
-        # survived SfM essential-RANSAC/recoverPose may support a cross-image
-        # graph claim. "Nonadjacent" remains a candidate, not a proven
-        # physical flight strip, roof face or metrically approved connection.
-        suggested = {
-            frozenset((p.first_id, p.second_id))
-            for p in candidates if p.reason == "cross_strip"
-        }
-        valid_sfm_links = tuple(network.accepted_link_pairs)
-        if any(len(pair) != 2 or pair[0] not in ids or pair[1] not in ids
-               or pair[0] == pair[1] for pair in valid_sfm_links):
-            raise ValueError("SfM returned invalid accepted link identities")
-        actual = {
-            frozenset(pair) for pair in valid_sfm_links
-            if frozenset(pair) in suggested
-        }
-        if not actual:
-            raise ValueError(
-                "no geometrically accepted spatially nonadjacent RGB links"
-            )
+        # Audit ALL calibrated RANSAC/pose links, not only descriptor matches.
+        # GNSS-near nonadjacent pairs remain flight-strip CANDIDATES.
+        audit = audit_complete_rgb_sfm_link_graph(
+            ids,
+            tuple((p.first_id, p.second_id) for p in links),
+            tuple(network.accepted_link_pairs),
+            tuple((p.first_id, p.second_id) for p in candidates
+                  if p.reason == "cross_strip"),
+        )
+        actual_count = audit.spatial_nonadjacent_geometric_pairs
         stage = "unscaled_ba"
         unscaled = adjust_windowed_unscaled_rgb_network(
             network, intrinsics, max_landmarks_total=200000,
@@ -307,9 +302,9 @@ def reconstruct_private_complete_rgb_zip_flight(
         if metric.total_cameras != len(ids):
             raise ValueError("RTK BA omitted at least one flight image")
         return PrivateRGBFlightReconstruction(
-            len(ids), len(candidates), len(links), across, len(actual),
+            len(ids), len(candidates), len(links), across, actual_count,
             network.reconstructed_landmarks, network.reprojection_p95_px,
-            unscaled.after_rmse_px, metric,
+            unscaled.after_rmse_px, metric, audit,
         )
     except (ValueError, TypeError, KeyError, IndexError, cv2.error) as exc:
         raise PrivateRGBFlightStageError(stage) from None
