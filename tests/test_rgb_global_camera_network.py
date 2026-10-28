@@ -139,3 +139,35 @@ def test_project_database_to_global_network_uses_all_four_rgb_sources(tmp_path, 
     assert progress[3] == ("features",4,4)
     assert not result.metric_scale_verified
     assert not result.bundle_adjustment_completed
+
+
+def test_cli_saves_reusable_unscaled_3d_track_bundle(tmp_path,monkeypatch,capsys):
+    from mcm_solarcheck.services import rgb_global_camera_network_cli as cli
+    import json
+
+    frames,links,k=synthetic_observations()
+    network=solve_global_rgb_camera_network(frames,links,k)
+    monkeypatch.setattr(cli,"reconstruct_project_rgb_camera_network",lambda *a,**kw:network)
+    calibration=tmp_path/"camera.json"
+    calibration.write_text(json.dumps({
+        "intrinsics":{"fx":k.fx,"fy":k.fy,"cx":k.cx,"cy":k.cy},
+    }),encoding="utf-8")
+    out=tmp_path/"output"
+    out.mkdir()
+    assert cli.main([
+        "--database","synthetic.sqlite","--project-id","P-TEST",
+        "--calibration-json",str(calibration),
+        "--output-directory",str(out),
+    ])==0
+    summary=json.loads((out/"rgb-global-camera-network-unscaled.json").read_text(encoding="utf-8"))
+    assert summary["bundle_adjustment_completed"] is False
+    assert summary["metric_scale_verified"] is False
+    assert summary["unscaled_3d_coordinates_not_metric"] is True
+    assert len(summary["camera_frame_ids"])==4
+    package=out/"rgb-global-camera-network-unscaled.npz"
+    with np.load(package,allow_pickle=False) as arrays:
+        assert arrays["poses_world_to_camera_arbitrary"].shape==(4,3,4)
+        assert arrays["landmarks_xyz_arbitrary"].shape[1]==3
+        assert arrays["observation_pixels_xy"].shape[1]==2
+        assert len(arrays["observation_landmark_indices"])==len(arrays["observation_frame_indices"])
+    assert "orthophoto_verified" in capsys.readouterr().out
