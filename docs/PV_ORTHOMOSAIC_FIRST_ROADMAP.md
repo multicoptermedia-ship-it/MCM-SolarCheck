@@ -1,5 +1,8 @@
 # Architekturentscheidung 25.10.2026 – Orthofotos vor PV-Modulanalyse
 
+> **28.10.2026 – RGB-3D-Verbindungs-Gate ergänzt:** Die bestehende private vollständige ZIP→RGB-SfM→RTK-gewichtete Fenster-BA wurde auf `ffd547d` Python-/Windows-CI-grün geprüft. Ergänzend müssen nun wenigstens eine räumlich nicht benachbarte Bildverbindung aus tatsächlicher Essential-Matrix-RANSAC und Pose-Recovery stammen, statt allein aus ORB-Deskriptortreffern. Der Diagnosebericht unterscheidet beides; dies beweist weder mehrere physische Streifen noch eine korrekte 3D-Dachfläche. Neue synthetische Negativtests, aktueller CI-HEAD gesondert prüfen. Danach 160 echte Hummintech-Bilder lokal mit korrekter unabhängiger Kamerakalibrierung und Cross-Strip-Residualprüfung; erst dann Dachoberflächen und RGB-Orthorektifizierung. [Aktueller Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md). Kein ODM, kein Main-Merge.
+
+
 > **Implementierungsfortschritt 28.10.2026:** Bestehende SfM-, ORB- und RTK-gewichtete Fenster-BA-Bausteine sind durch `rgb_zip_whole_flight_reconstruction.py` direkt mit kompletten privaten DJI-M3T-RGB-ZIP-/`.tip`-Serien verbunden; keine vorherige SQLite-Übernahme notwendig. GNSS dient zur Suche von Cross-Strip-Bildpaaren, nicht als Beweis korrekter Bildregistrierung. Unabhängig kalibrierte Intrinsics/Entzerrung und alle vollständigen SfM-Bilder erforderlich. Noch kein echter neuer 160-Bild-Lauf und keine verifizierte Dachoberfläche oder streifenübergreifende Orthorektifizierung. Erst vollständige CI und lokale Residualprüfung, dann echte 3D-Dachflächen und RGB-Ortho, erst danach PV und Thermal. Aktuelles Gate: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
