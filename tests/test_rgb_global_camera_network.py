@@ -46,6 +46,10 @@ def test_four_real_3d_views_form_one_global_camera_and_landmark_network():
     assert result.reconstructed_landmarks>=12
     assert result.multiview_tracks>=12
     assert result.linked_image_pairs>=3
+    assert len(result.accepted_link_pairs) == result.linked_image_pairs
+    proposed = {(link.first_id, link.second_id) for link in links}
+    assert set(result.accepted_link_pairs).issubset(proposed)
+    assert len(set(result.accepted_link_pairs)) == len(result.accepted_link_pairs)
     assert result.reprojection_p95_px < 2.
     assert all(np.isfinite(pose).all() and pose.shape==(3,4)
                for pose in result.world_to_camera)
