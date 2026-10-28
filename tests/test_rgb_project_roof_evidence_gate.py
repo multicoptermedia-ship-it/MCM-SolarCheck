@@ -330,7 +330,10 @@ def test_rejected_diagnostic_output_directory_does_not_change_photos(tmp_path):
         "distortion_coefficients":[0.]*5,
         "lens_correction_reference":"external synthetic calibration",
     })
+    forbidden=photos/"diagnostic-inside-originals"
+    forbidden.mkdir()
     with pytest.raises(ValueError,match="overlap"):
         render_unverified_project_roof_tiles(
-            db,"SC-TEST",manifest,arrays,gcps,roof,photos,
+            db,"SC-TEST",manifest,arrays,gcps,roof,forbidden,
         )
+    assert not list(forbidden.iterdir())
