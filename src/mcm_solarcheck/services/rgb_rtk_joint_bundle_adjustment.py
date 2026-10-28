@@ -38,6 +38,8 @@ class PrivateRGBRTKWindowedBA:
     completed_windows: int
     joint_objective_before: float
     joint_objective_after: float
+    windows_with_updates: int = 0
+    windows_without_improvement: int = 0
     state: str = "rtk_regularized_multiview_windowed_ba_unverified"
     rtk_prior_windowed_ba_completed: bool = True
     full_global_joint_ba_completed: bool = False
@@ -51,6 +53,8 @@ class PrivateRGBRTKWindowedBA:
             "status": self.state,
             "camera_count": self.total_cameras,
             "windows": self.completed_windows,
+            "windows_with_updates": self.windows_with_updates,
+            "windows_without_improvement": self.windows_without_improvement,
             "gnss_fit_camera_count": self.fitted_rtk_camera_count,
             "gnss_withheld_camera_count": self.withheld_rtk_camera_count,
             "before_reprojection_rmse_px": self.before_reprojection_rmse_px,
@@ -160,4 +164,9 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
         int(np.sum(fit)), int(np.sum(~fit)), n, fitted.completed_windows,
         float(fitted.weighted_objective_before),
         float(fitted.weighted_objective_after),
+        fitted.rtk_windows_with_updates,
+        fitted.rtk_windows_without_improvement,
+        state=("rtk_regularized_windows_with_rejections_unverified"
+               if fitted.rtk_windows_without_improvement else
+               "rtk_regularized_multiview_windowed_ba_unverified"),
     )
