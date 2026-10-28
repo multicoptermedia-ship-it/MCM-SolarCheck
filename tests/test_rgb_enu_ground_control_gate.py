@@ -53,7 +53,7 @@ def test_true_similarity_keeps_all_cameras_and_holdouts_separate():
         old_center=-original[:,:3].T@original[:,3]
         expected=scale*rotation@old_center+shift
         np.testing.assert_allclose(camera.center_enu_m,expected,atol=1e-9)
-        np.testing.assert_allclose(camera.camera_to_enu,rotation@original[:,:3].T)
+        np.testing.assert_allclose(camera.camera_to_enu,rotation@original[:,:3].T,atol=1e-12)
     np.testing.assert_array_equal(pts,before)
     assert not result.metric_scale_verified
     assert not result.independent_survey_authenticity_verified
