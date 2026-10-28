@@ -1,5 +1,14 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 28.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – GNSS-gewichtete Schur-/Fenster-BA (noch im CI-Gate)
+- Branch: `feature/orthofoto-license-neutral-rgb-first-20261028` / Draft PR #9; `main` bleibt `5f2de8fa`.
+- Wiederverwendet: DJI-Multi-ZIP/XMP, `rgb_rtk_camera_priors.py`, globales SfM-Track-Bundle, Schur-LM und überlappende Fenster-BA.
+- Implementierung: `rgb_global_bundle_adjustment.py` erhält optionale robuste ENU-Kamerazentren-Priors mit Sigma-Untergrenzen; die beiden unskalierten Fixkameras werden **nur in diesem Modus** mitoptimiert. `rgb_windowed_bundle_adjustment.py` validiert das volle Pixel+GNSS-Robustziel. `rgb_rtk_joint_bundle_adjustment.py` verbindet metrische Kandidatenausrichtung, Fenster-BA und 20 % RTK-Hold-outs. Regressionen: `tests/test_rgb_rtk_joint_bundle_adjustment.py`.
+- Beleg: synthetische Tests eingereicht, exakte Python-3.11/3.12-/Windows-CI am finalen HEAD prüfen. Vorheriger Dokumentations-HEAD `0b66baa` hatte 3951 grüne Tests, aber ein Längengate-Fail (9152 > 8500 Zeichen); Checkpoint mit `d2f3c57` verkürzt.
+- Grenzen: Keine echten 160 RGB originalbilder in dieser Sitzung verarbeitet; kein full-global gleichzeitiges BA aller 160 Kameras, keine echten 3D-Dachflächen, keine unabhängige GNSS-/GCP-Metrik- oder Ortho-/PV-/Thermalfreigabe. RTK-Hold-outs sind GNSS-intern. Kein ODM, keine privaten Koordinaten/Originale, kein Main-Merge.
+- Einziger nächster vertikaler Nutzerweg: Neu-CI reparieren/verifizieren, dann alle 160 privaten Originale read-only im vorhandenen ganzen SfM-/RTK-BA-Pfad verarbeiten und Residuen/Abdeckung prüfen, erst anschließend Dachflächen-Orthorektifizierung.
+
+
 ### 28.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – RTK/ENU-Kamerapriors (Teilgate)
 - Branch: `feature/orthofoto-license-neutral-rgb-first-20261028` / PR #9, unverändertes `main` `5f2de8fa`.
 - Code: `services/rgb_rtk_camera_priors.py` und `tests/test_rgb_rtk_camera_priors.py` (`ecb1307`, `e6a0017`, Korrektur `126c2fc`). Nutzt bestehende ZIP-XMP-Lesung, SfM-Frame-IDs und Fenster-Schur-BA; ENU mit konservativen RTK-Sigma-Floors, robuste Sim(3)-Ausrichtung mit 20 % zurückgehaltenen RTK-Kamerapositionen; keine öffentliche Roh-GPS-Ausgabe.
