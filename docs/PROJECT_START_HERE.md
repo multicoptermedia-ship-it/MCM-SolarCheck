@@ -18,3 +18,7 @@
 **Bei jedem Abschluss:** diesen Startpunkt prüfen, Register + Entwicklungsvereinbarung + Chat-Handoff und thematische Roadmap aktualisieren, danach CI des finalen Commits prüfen. Benutzer erhält eine kurze, nachvollziehbare Ergebnisübergabe.
 
 **CI-Integration:** `main` wurde nach GitHub-CI-Grün per Fast-forward an den bisherigen Entwicklungsstand angeglichen. [DEV-INT-002](DEVELOPMENT_STEP_REGISTER.md) dokumentiert den neuen Windows-Pushtrigger für `main`. Ziel weiterhin **Entwicklung**, kein freigegebener Offline-Release.
+
+
+## 28.10.2026 – Verbindliche Lizenz- und Orthofoto-Priorität
+**Neuer Primärplan:** [ORTHOFOTO_LICENSE_NEUTRAL_ARCHITECTURE_2026-10-28.md](ORTHOFOTO_LICENSE_NEUTRAL_ARCHITECTURE_2026-10-28.md). **Kein** ODM/WebODM/ODX als Code, Bibliothek, Dienst, Container, Prozess oder Produktbestandteil; nur allgemeine methodische Orientierung. Vollständige verfügbare RGB-Flugbildserie -> eigene lizenzneutral entwickelte Mehrbild-Photogrammetrie -> geprüfte RGB-Orthofotos und geneigte PV-Flächenansichten -> erst dann Modul-Erkennung, -ID, Thermalzuordnung. Der historische nächste Schritt „RGB-Paarvorschau“ ist inzwischen real getestet, mit mangelhafter Naht, und **nicht** erneut als Hauptaufgabe zu entwickeln. PR #7 und #8 sind separate Vorarbeiten. `main` bleibt bis zum expliziten Integrationsauftrag unberührt.
