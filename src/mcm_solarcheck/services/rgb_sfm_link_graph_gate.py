@@ -92,24 +92,7 @@ def audit_complete_rgb_sfm_link_graph(
     tick = 0
     bridges = 0
 
-    def visit(node: int, parent: int):
-        nonlocal tick, bridges
-        discovery[node] = low[node] = tick
-        tick += 1
-        for neighbor in graph[node]:
-            if neighbor == parent:
-                continue
-            if discovery[neighbor] == -1:
-                visit(neighbor, node)
-                low[node] = min(low[node], low[neighbor])
-                if low[neighbor] > discovery[node]:
-                    bridges += 1
-            else:
-                low[node] = min(low[node], discovery[neighbor])
-
-    # The original direct ZIP/RTK path is bounded at <=1000 RGB frames. Raise
-    # no recursion issues near that cap; iterative DFS is used below instead.
-    # An explicit DFS enter/exit stack computes the same low-link values.
+    # Explicit enter/exit stack avoids Python recursion limits at 1000 frames.
     def scan_iterative(start: int):
         nonlocal tick, bridges
         parent = [-1] * len(frame_ids)
