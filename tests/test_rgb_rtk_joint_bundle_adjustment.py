@@ -98,6 +98,11 @@ def test_rtk_weighted_window_ba_reuses_full_multiview_network_and_withholds_rtk(
     assert answer.fitted_rtk_camera_count == 10
     assert answer.withheld_rtk_camera_count == 2
     assert answer.completed_windows == 3
+    assert answer.windows_with_updates >= 1
+    assert (answer.windows_with_updates + answer.windows_without_improvement
+            == answer.completed_windows)
+    assert ("windows_with_updates" in answer.privacy_safe_summary()
+            and "windows_without_improvement" in answer.privacy_safe_summary())
     assert answer.joint_objective_after <= answer.joint_objective_before + 1e-8
     assert answer.after_rtk_holdout_max_m < 2.
     assert np.isfinite(answer.after_reprojection_rmse_px)
