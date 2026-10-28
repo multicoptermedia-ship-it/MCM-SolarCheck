@@ -1,5 +1,15 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 28.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – geometrisches Ganzflug-Graph-Gate
+- PR #9, `main` bleibt unverändert. Bestehendes ZIP→SfM→RTK-BA und dessen vorherige Tests werden wiederverwendet, nicht wiederholt.
+- Neu: `rgb_sfm_link_graph_gate.py` analysiert den vollständigen Graphen aus durch kalibrierte Essential-Matrix-RANSAC / Pose akzeptierten RGB-Paaren, validiert tatsächliche ORB-Match-Provenienz, prüft Zusammenhang aller Kamera-IDs und fordert mindestens 2 geometrisch akzeptierte räumlich nicht benachbarte Verbindungen mit mindestens 3 beteiligten Kameras. Iterativer DFS-Bridge-Audit für bis zu 1.000 Bilder, Kantenbrücken nur als Qualitätsdiagnose.
+- `rgb_zip_whole_flight_reconstruction.py` fordert den Audit nach dem globalen SfM und VOR beiden BA-Stufen; `PrivateRGBFlightReconstruction.privacy_safe_summary()` enthält nur aggregierte Link- und Brückenzahlen, niemals Frame-IDs, Kunden-GPS oder private 3D-Geometrie.
+- Tests: `tests/test_rgb_sfm_link_graph_gate.py` (positive/negative Paarprovenienz, fehlende Redundanz, entkoppeltes Netzwerk, kritische Brücken und 1000-Kamera-DFS); `tests/test_rgb_zip_whole_flight_reconstruction.py` erweitert um Graph-/Geometrie-Assertions.
+- Commits: `757189c`, `2bb986e`, `a1d8dd1`, `9386bf9`, `54c5a6d`. Python-/Windows-CI für den neuesten HEAD prüfen, noch keine grüne Freigabe vor Abschluss. Vorheriges `9eeca35` geometrisches Paar-Gate Python und Windows grün.
+- Dies ist nur interne geometrische Qualitätsabsicherung; die realen 160 Hummintech-RGB-Archive und unabhängig verifizierte DJI-Kamerakalibrierung sind in dieser Sitzung nicht zugänglich; kein realer neuer 160-Frame-Lauf, keine Flächen-/Ortho-/PV-/Thermal-/Survey-Freigabe, kein ODM und kein Main-Merge.
+- EINZIGE Folgeaufgabe: HEAD-CI auswerten/gezielt reparieren, danach 160 Originale vor Ort read-only rekonstruieren und vollständigen SfM-Graph, Reprojektion und RTK-Hold-outs auswerten.
+
+
 ### 28.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – Geometrisches Cross-Flight-Evidenzgate
 - PR #9, `main` unverändert `5f2de8fa`. Voriger ZIP→SfM→RTK-BA-Stand `ffd547d`: Python 3.11/3.12 und Windows 3.11/3.12 erfolgreich.
 - Kleine Ergänzung im vorhandenen Nutzerweg: `rgb_global_camera_network.py` liefert die nach kalibrierter Essential-Matrix-RANSAC und relativer Pose tatsächlich akzeptierten Bildpaare. `rgb_zip_whole_flight_reconstruction.py` prüft vor der BA, ob darunter mindestens ein räumlich nicht benachbartes Kandidatenpaar ist. Der lokale Report unterscheidet ORB-Deskriptor-Treffer von SfM-geometrisch akzeptierten Paaren; er behauptet ausdrücklich keine unabhängig geprüfte reale Flugstreifen-Identität.
