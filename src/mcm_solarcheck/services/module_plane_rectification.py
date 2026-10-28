@@ -48,6 +48,9 @@ def rectify_module_surface(
 ) -> RectifiedModuleSurface:
     """Sample surface pixel centres using an explicitly supplied calibrated camera."""
     require_verified_camera_geometry(frame, geometry)
+    if np.asarray(undistorted_image).shape[:2] != (
+            geometry.image_height, geometry.image_width):
+        raise ValueError("undistorted image dimensions do not match calibration")
     return sample_unverified_surface_candidate(
         undistorted_image, geometry.intrinsics, geometry.extrinsics, plane, grid,
         max_pixels=max_pixels,
