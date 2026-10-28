@@ -78,3 +78,59 @@ def test_duplicate_frame_and_oversized_feature_matches_fail_closed():
     with pytest.raises(ValueError,match="correspondence"):
         bad=RGBNetworkLink(links[0].first_id,links[0].second_id,np.full((90,2),9999,np.int32))
         solve_global_rgb_camera_network(frames,(bad,)+links[1:],k)
+
+
+def test_project_database_to_global_network_uses_all_four_rgb_sources(tmp_path, monkeypatch):
+    """Real synthetic SQLite/JPEG inventory, controlled 3D feature observations.
+
+    ORB is replaced ONLY for reproducible feature localization. Real project
+    reader, decoding, candidate graph, descriptor matching and pose solver run.
+    """
+    import sqlite3
+    from mcm_solarcheck.services import rgb_project_global_camera_network as service
+
+    synthetic_frames, _, k = synthetic_observations()
+    dbpath = tmp_path / "input.sqlite"
+    originals = tmp_path / "source"
+    originals.mkdir()
+    with sqlite3.connect(dbpath) as db:
+        db.execute("CREATE TABLE projects(project_id TEXT)")
+        db.execute("CREATE TABLE image_frames(project_id TEXT, frame_id TEXT, source_file TEXT, width INTEGER, height INTEGER)")
+        db.execute("INSERT INTO projects VALUES (?)", ("P-CAMERAS",))
+        for i in range(4):
+            path = originals / f"DJI_20260820112430_{120+i:04d}_V.JPG"
+            assert cv2.imwrite(str(path), np.full((600,800,3), 30*(i+1), np.uint8))
+            db.execute(
+                "INSERT INTO image_frames VALUES (?, ?, ?, ?, ?)",
+                ("P-CAMERAS", f"frame-{i}", str(path), 800, 600),
+            )
+    # Unique ORB signatures per 3D landmark, exactly shared across views.
+    rng = np.random.default_rng(3491)
+    descriptors = rng.integers(0, 256, (90,32), dtype=np.uint8)
+    class Feature:
+        def __init__(self, pt):
+            self.pt = tuple(pt)
+    class SyntheticDetector:
+        def detectAndCompute(self, image, mask):
+            i = round(float(image.mean())/30) - 1
+            assert 0 <= i < 4
+            return [Feature(pt) for pt in synthetic_frames[i].points_xy], descriptors
+    monkeypatch.setattr(service.cv2, "ORB_create", lambda **kwargs: SyntheticDetector())
+    progress = []
+    calibration = {
+        "schema": "mcm.rgb_camera_intrinsics_external.v1",
+        "calibration_provenance": "independently generated synthetic K",
+        "lens_calibration_verified": True,
+        "intrinsics": {"fx": k.fx, "fy": k.fy, "cx": k.cx, "cy": k.cy},
+        "distortion_coefficients": [0,0,0,0,0],
+    }
+    result = service.reconstruct_project_rgb_camera_network(
+        dbpath, "P-CAMERAS", calibration, on_progress=lambda *tick: progress.append(tick),
+    )
+    assert len(result.frame_ids) == 4
+    assert result.linked_image_pairs >= 3
+    assert result.reconstructed_landmarks >= 12
+    assert [x[0] for x in progress[:4]] == ["features"]*4
+    assert progress[3] == ("features",4,4)
+    assert not result.metric_scale_verified
+    assert not result.bundle_adjustment_completed
