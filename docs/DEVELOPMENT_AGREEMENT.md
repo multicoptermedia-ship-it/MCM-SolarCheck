@@ -1342,3 +1342,6 @@ Korrektur: Whitelist um `MPO` ergänzt; Byte-/Dateigrößenlimits, originale Imp
 
 
 **Mehrbild-SfM-Sicherungsformat:** Der auf die komplette Projektserie bezogene, noch **unskalierte** 3D-Track- und Poseverband kann ausschließlich in ein ausdrücklich gewähltes lokales Ausgabeziel als NPZ + JSON geschrieben werden. Das vermeidet einen erneuten ORB-Lauf vor der späteren echten globalen BA. Skalierte/metrisch geprüfte GCP-Kamera-/Oberflächengeometrie ist weiterhin nicht vorhanden und darf niemals aus diesem NPZ als verifiziert ausgegeben werden. Nächste Aufgabe unverändert echte BA + Survey-Verifizierung.
+
+
+**28.10.2026 · DEV-RGB-BA-001:** Auf dem bestehenden Entwurfsbranch PR #9 ist mit `rgb_global_bundle_adjustment.py` eine kleine gemeinsame robuste reprojektionsbasierte Ausgleichung aus dem schon vorhandenen 3D-Track-Bundle entstanden. Die berechneten Posen/Punkte bleiben explizit willkürlich unskaliert; standardmäßig höchstens 12 Kameras und 400 Punkte. Noch keine vollskalige Flug-BA oder unabhängige GCP-/RTK-Meterreferenzierung und kein echtes RGB-Orthofoto. **Aktuellen Entwicklungsauftrag nur aus `docs/AKTUELLER_ENTWICKLUNGSSTAND.md` ableiten**, nicht aus historischen Abschnitten. Keine ODM-Nutzung, kein Main-Merge ohne Freigabe.

@@ -216,3 +216,6 @@ Die bisherigen ORB-/Candidate-Mechanismen dienen nun als **interne Mehrbildkante
 
 
 **SfM-Optimierungsübergabe (28.10.2026):** In der neuen kompletten RGB-Kameranetz-Initialisierung werden die global verbundenen 3D-Punkte und ihre 2D-Ansichten im **lokalen unskalierten NPZ-Zwischenformat** samt JSON-Qualitätsstatus aufbewahrt. Dieses Format dient künftiger gemeinsamer Bundle Adjustment ohne neue Bildpaar-/ORB-Runs. Es ist ausdrücklich weder ein vermessenes Orthofoto noch eine metrische Dachkachel-Eingabe.
+
+
+**28.10.2026 · DEV-RGB-BA-001:** Auf dem bestehenden Entwurfsbranch PR #9 ist mit `rgb_global_bundle_adjustment.py` eine kleine gemeinsame robuste reprojektionsbasierte Ausgleichung aus dem schon vorhandenen 3D-Track-Bundle entstanden. Die berechneten Posen/Punkte bleiben explizit willkürlich unskaliert; standardmäßig höchstens 12 Kameras und 400 Punkte. Noch keine vollskalige Flug-BA oder unabhängige GCP-/RTK-Meterreferenzierung und kein echtes RGB-Orthofoto. **Aktuellen Entwicklungsauftrag nur aus `docs/AKTUELLER_ENTWICKLUNGSSTAND.md` ableiten**, nicht aus historischen Abschnitten. Keine ODM-Nutzung, kein Main-Merge ohne Freigabe.
