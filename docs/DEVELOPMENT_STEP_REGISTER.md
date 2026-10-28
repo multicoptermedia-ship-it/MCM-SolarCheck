@@ -1,5 +1,16 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 28.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – kompletter privater ZIP→SfM→RTK-BA-Pfad (Real-Gate offen)
+- Branch: `feature/orthofoto-license-neutral-rgb-first-20261028` / Draft PR #9. Ausgangs-HEAD `982ce129`: Python-3.11/3.12 und Windows-3.11/3.12 grün. `main`: `5f2de8fa`, unberührt.
+- Neuer vertikaler Nutzerweg: alle lokalen originalen RGB ZIP/`.tip` als Quelle → bestehender DJI-XMP-Intake → einmalige ORB-Merkmale direkt aus JPEG-ZIP-Streams → GNSS-nahe streifenübergreifende Paar-Kandidaten → vorhandenes globales unskaliertes SfM-Netz → unskalierte Fenster-BA → robuste RTK-gewichtete Fenster-BA mit internen RTK-Hold-outs → privacy-safe JSON mit Stufe/Qualität oder fail-closed.
+- Dateien: `rgb_zip_whole_flight_reconstruction.py`, `rgb_zip_whole_flight_cli.py`, `tests/test_rgb_zip_whole_flight_reconstruction.py`. Wiederverwendet: `rgb_flight_zip_series.py`, `rgb_global_camera_network.py`, `rgb_windowed_bundle_adjustment.py`, `rgb_rtk_camera_priors.py`, `rgb_rtk_joint_bundle_adjustment.py`, `orthomosaic_overlap_candidates.py`. Commits `48307b8`, `d0e40cb`, `54d6e33`.
+- Voraussetzungen: 12+ komplette Kamera-IDs und RTK-Metadaten, echte lesbare JPEGs, externe unabhängig geprüfte RGB-Kameraintrinsics inkl. Entzerrung, alle Kameras im SfM-Netz; bei fehlenden Streifenmatches oder geometrischen Gates FAIL, nie eine Teilstrecke als Gesamtflug ausgeben.
+- Belege: nur **synthetische** 12-Bild-ZIP-Testdaten (inklusive `.tip` und Fehlerstatus), neueste GitHub-Python-/Windows-CI am Abschluss-HEAD gesondert prüfen. **Kein erneuter echter 160-Bild-Lauf**, keine originale Kamerakalibrierung bereitgestellt, keine Windows-10-Hardwareabnahme.
+- Datensicherheit/Lizenz: Original-ZIP/JPEG und bestehende SQLite read-only/unverändert, JPEG-Bytes nur RAM; keine Extraktion, Kamera-GPS-Werte, Bildnamen, NPZ-Kameraposen oder privaten Oberflächen öffentlich exportieren. Keine ODM/WebODM/ODX-Integration oder neue Abhängigkeit.
+- Qualität: erfolgreiche Codeausführung ≠ geometrisch geprüftes RGB-Orthofoto. Ohne echte Dachflächen-3D-Rekonstruktion und Residual-/GCP-Gates PV-Modul- und Thermalprüfung gesperrt. Fenster-BA ist kein gleichzeitiger Full-global-160-Kamera-Solver.
+- Einziger nächster konkreter Schritt: CI am aktuellen HEAD prüfen/beheben, dann den lokalen READ-ONLY-Lauf mit den bereits verifizierten 160 Hummintech-RGB-Originalen plus unabhängig verifizierter Kalibrierung durchführen und die Streifen-/SfM-/RTK-Residuals bewerten.
+
+
 ### 28.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – GNSS-gewichtete Schur-/Fenster-BA (noch im CI-Gate)
 - Branch: `feature/orthofoto-license-neutral-rgb-first-20261028` / Draft PR #9; `main` bleibt `5f2de8fa`.
 - Wiederverwendet: DJI-Multi-ZIP/XMP, `rgb_rtk_camera_priors.py`, globales SfM-Track-Bundle, Schur-LM und überlappende Fenster-BA.
