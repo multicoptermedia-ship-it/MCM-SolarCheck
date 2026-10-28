@@ -24,7 +24,7 @@ def _image(number):
         drone-dji:RtkStdLat="0.02" drone-dji:RtkStdLon="0.02"
         drone-dji:RtkStdHgt="0.04"
         drone-dji:DewarpData="0,0,0"/></x:xmpmeta>''').encode("utf-8")
-    segment=b"\\xff\\xe1"+(len(xmp)+2).to_bytes(2,"big")+xmp
+    segment=bytes((0xFF,0xE1))+(len(xmp)+2).to_bytes(2,"big")+xmp
     # Return a legal JPEG with an additional metadata APP1 segment.
     return output.getvalue()[:2]+segment+output.getvalue()[2:]
 
