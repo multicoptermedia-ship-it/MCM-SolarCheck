@@ -1,5 +1,8 @@
 # MCM-SolarCheck – Übergabe für einen neuen Chat
 
+> **Aktuelle Übergabe 28.10.2026 – vor dem historischen Archiv lesen:** PR #9 enthält neu `rgb_rtk_camera_priors.py` und den synthetischen 160-Kamera-Test. DJI-XMP/RTK-Sigma → lokales ENU → robuste gewichtete Sim(3)-Ausrichtung des bestehenden Fenster-BA-Kandidaten, 20 % zurückgehaltene RTK-Positionen. Kein neuer realer Fluglauf, keine gemeinsame GNSS-prior-BA, kein Orthofoto, kein Main-Merge. Nächster Schritt: gewichtete GNSS-Translationsterme in der vorhandenen gemeinsamen BA; siehe [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). CI nur für verifizierten HEAD behaupten.
+
+
 > **ACHTUNG: HISTORISCHES ARCHIV.** Verbindliche aktuelle Einstiegspunkte, PR-/CI-/Windows-Stand und die einzige nächste Aufgabe stehen in [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Die Datums- und Branchaussagen unten stammen aus älteren Entwicklungsphasen; nicht als „heute“ übernehmen. Am 28.10.2026 gilt kein ODM/WebODM/ODX in SolarCheck. Kein neues Bildpaar-Testprojekt vor der ganzen RGB-Orthofoto-Engine.
 
 Stand: 18.10.2026. Verbindlicher Arbeitszweig: `feature/block38-offline-ai-ingestion-tests`.
