@@ -22,6 +22,7 @@ class RGBUnscaledBundleAdjustment:
     metric_scale_verified: bool = False
     roof_geometry_verified: bool = False
     orthophoto_verified: bool = False
+    rtk_camera_priors_optimized: bool = False
 
 
 def _projections(poses, points, camera_ids, landmark_ids, k):
@@ -43,17 +44,31 @@ def _small_rotation(delta):
     return rotation
 
 
+def _robust_gnss_cost(poses, centers, sigmas, fitted, huber):
+    """Robust GNSS objective in normalized camera-center metres; no GPS output."""
+    center = -np.einsum("nji,nj->ni", poses[:, :, :3], poses[:, :, 3])
+    whitened = (center[fitted] - centers[fitted]) / sigmas[fitted]
+    norm = np.linalg.norm(whitened, axis=1)
+    cost = np.sum(np.where(norm <= huber, .5 * norm**2,
+                           huber * (norm - .5 * huber)))
+    return float(cost), whitened, norm
+
+
 def adjust_unscaled_rgb_bundle(
     network, intrinsics, *, max_iterations=12,
     max_cameras=12, max_landmarks=400, max_observations=4000,
     huber_threshold_px=2., should_cancel=None,
+    camera_center_priors_m=None, camera_center_sigma_m=None,
+    camera_prior_fit_mask=None, gnss_huber_sigma=3.,
 ):
     """Jointly refine *all selected* 3D landmarks and non-anchor camera poses.
 
     Requires the complete previously verified multi-camera observation bundle.
-    The small all-network limit is intentional; oversized projects FAIL CLOSED
-    instead of silently sampling an image subset. Scaling to the full flight
-    requires a separately tested sparse/windowed optimization stage.
+    The small all-network limit is intentional; oversized projects FAIL CLOSED.
+    With complete metric RTK priors, ALL camera centers are adjustable and the
+    reference frame is constrained by the GNSS penalty, NOT first-two anchors.
+    A false fit mask explicitly withholds RTK values from the optimization.
+    Neither version verifies surveying, 3D roofs, or an orthophoto.
     """
     from mcm_solarcheck.services.rgb_global_camera_network import RGBUnscaledNetwork
     from mcm_solarcheck.services.module_plane_projection import PinholeIntrinsics
@@ -96,9 +111,31 @@ def adjust_unscaled_rgb_bundle(
     if any(not np.allclose(c[:,:3].T@c[:,:3], np.eye(3), atol=1e-4)
            or not np.isclose(np.linalg.det(c[:,:3]), 1., atol=1e-4) for c in cameras):
         raise ValueError("invalid initial camera rotation")
-    # Fix the first TWO camera poses throughout. This is explicitly an
-    # arbitrary, NONMETRIC baseline; the optimizer does not establish metres.
-    dof = 6 * (count - 2)
+    use_gnss = (camera_center_priors_m is not None
+                or camera_center_sigma_m is not None
+                or camera_prior_fit_mask is not None)
+    centers = sigma = fit = None
+    if use_gnss:
+        if camera_center_priors_m is None or camera_center_sigma_m is None:
+            raise ValueError("RTK prior positions and sigma must be provided together")
+        centers = np.asarray(camera_center_priors_m, dtype=np.float64)
+        sigma = np.asarray(camera_center_sigma_m, dtype=np.float64)
+        fit = (np.ones(count, dtype=bool) if camera_prior_fit_mask is None
+               else np.asarray(camera_prior_fit_mask))
+        if (centers.shape != (count, 3) or sigma.shape != (count, 3)
+                or fit.shape != (count,) or fit.dtype != np.bool_
+                or not np.isfinite(centers).all()
+                or not np.isfinite(sigma).all()
+                or np.any(sigma[:, :2] < .10) or np.any(sigma[:, 2] < .20)
+                or np.count_nonzero(fit) < 3
+                or type(gnss_huber_sigma) not in (float, int)
+                or not np.isfinite(gnss_huber_sigma)
+                or not .5 <= gnss_huber_sigma <= 10):
+            raise ValueError("complete conservative RTK camera priors required")
+    # Legacy unscaled SfM fixes the first two cameras. Metric-prior mode instead
+    # optimizes ALL poses, including the first two, with a weighted ENU datum.
+    first_variable_camera = 0 if use_gnss else 2
+    dof = 6 * (count - first_variable_camera)
     I3 = np.eye(3)
     by_landmark = [np.flatnonzero(lid == j) for j in range(len(points))]
     def evaluate(pose_array, xyz):
@@ -107,8 +144,13 @@ def adjust_unscaled_rgb_bundle(
         norms = np.linalg.norm(residual, axis=1)
         h = float(huber_threshold_px)
         # Robust loss is comparable across trials and resistive to outliers.
-        cost = np.sum(np.where(norms <= h, .5*norms**2, h*(norms-.5*h)))
-        return transformed, residual, norms, float(cost)
+        cost = float(np.sum(np.where(norms <= h, .5*norms**2, h*(norms-.5*h))))
+        if use_gnss:
+            gnss_cost, _, _ = _robust_gnss_cost(
+                pose_array, centers, sigma, fit, gnss_huber_sigma,
+            )
+            cost += gnss_cost
+        return transformed, residual, norms, cost
     transformed, residual, norms, cost = evaluate(cameras, points)
     before = float(np.sqrt(np.mean(np.sum(residual**2, axis=1))))
     damping = 1.e-3
@@ -139,14 +181,14 @@ def adjust_unscaled_rgb_bundle(
                 weight = min(1., float(huber_threshold_px)/max(1e-12,norms[ix]))
                 hll += weight*(jl.T@jl)
                 gl += weight*(jl.T@r)
-                if i >= 2:
+                if i >= first_variable_camera:
                     skew = np.array([
                         [0.,-xc[2],xc[1]],
                         [xc[2],0.,-xc[0]],
                         [-xc[1],xc[0],0.],
                     ])
                     jc = derivative @ np.column_stack((-skew,I3))
-                    sl = slice(6*(i-2),6*(i-1))
+                    sl = slice(6*(i-first_variable_camera),6*(i-first_variable_camera+1))
                     hcc[sl,sl] += weight*(jc.T@jc)
                     gcc[sl] += weight*(jc.T@r)
                     cross[sl] += weight*(jc.T@jl)
@@ -156,6 +198,19 @@ def adjust_unscaled_rgb_bundle(
             inverse_blocks.append(inv)
             cross_blocks.append(cross)
             point_gradients.append(gl)
+        if use_gnss:
+            _, whitening, prior_norms = _robust_gnss_cost(
+                cameras, centers, sigma, fit, gnss_huber_sigma,
+            )
+            for index, i in enumerate(np.flatnonzero(fit)):
+                # C = -R.T @ t, R' = exp(dw)@R, t' = exp(dw)@t + dt.
+                # Thus dC/d(dt) = -R.T and dC/d(dw) = 0 at first order.
+                jac = np.zeros((3, 6))
+                jac[:, 3:] = -cameras[i, :, :3].T / sigma[i, :, None]
+                sl = slice(6*i, 6*(i+1))
+                weight = min(1., gnss_huber_sigma / max(1.e-12, prior_norms[index]))
+                hcc[sl, sl] += weight * (jac.T @ jac)
+                gcc[sl] += weight * (jac.T @ whitening[index])
         if dof:
             hcc += damping*np.eye(dof)
             try:
@@ -170,8 +225,8 @@ def adjust_unscaled_rgb_bundle(
                 point_gradients[j]+cross_blocks[j].T@camera_delta
             )
         candidate_cameras = cameras.copy()
-        for i in range(2,count):
-            delta = camera_delta[6*(i-2):6*(i-1)]
+        for i in range(first_variable_camera,count):
+            delta = camera_delta[6*(i-first_variable_camera):6*(i-first_variable_camera+1)]
             rotation = _small_rotation(delta[:3])
             candidate_cameras[i,:,:3] = rotation@cameras[i,:,:3]
             candidate_cameras[i,:,3] = rotation@cameras[i,:,3] + delta[3:]
@@ -197,10 +252,10 @@ def adjust_unscaled_rgb_bundle(
     if accepted == 0:
         # Exact or already well-converged inputs remain usable if residuals
         # were explicitly evaluated; never claim an improvement that did not occur.
-        if before > huber_threshold_px:
+        if not use_gnss and before > huber_threshold_px:
             raise ValueError("RGB global BA failed to improve high reprojection error")
     after = float(np.sqrt(np.mean(np.sum(residual**2,axis=1))))
-    if not np.isfinite(after) or after > before + 1.e-8:
+    if not np.isfinite(after) or (not use_gnss and after > before + 1.e-8):
         raise ValueError("RGB global BA could not validate reprojection improvement")
     for p in cameras:
         p.setflags(write=False)
@@ -208,4 +263,7 @@ def adjust_unscaled_rgb_bundle(
     return RGBUnscaledBundleAdjustment(
         tuple(p.copy() for p in cameras), points,
         before, after, len(fid), accepted,
+        state=("rtk_regularized_window_schur_ba_candidate_unverified" if use_gnss
+               else "global_bundle_adjustment_unscaled_unverified"),
+        rtk_camera_priors_optimized=use_gnss,
     )
