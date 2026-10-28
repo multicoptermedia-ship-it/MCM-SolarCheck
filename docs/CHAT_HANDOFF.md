@@ -826,3 +826,7 @@ Die bereits vorhandene Schur-/Huber-Ausgleichung wird für alle gespeicherten Pr
 
 
 **28.10.2026 – gezielter Fenster-BA-Hotfix:** Der einzige Fehler aus dem anfänglichen 3920/3921-Pythonlauf war eine unpräzise Budget-Fehlermeldung. Commit `8f0dfa4` meldet die überschrittene Gesamtzahl Kameras ausdrücklich, ändert keine Pose-/Track-Geometrie. Aktueller PR9-Branch weiterhin Draft, `main` nicht geändert, echte Orthofotofreigabe offen. Exakte letzte CI beim Neustart prüfen, nächster Entwicklungsblock GCP-/ENU-Maßstabsgate.
+
+
+### 28.10.2026 – DEV-RGB-GCP-001 (Fortsetzung ohne Rückschritte)
+PR #9 nach Fenster-BA: `rgb_enu_ground_control_gate.py` und `rgb_enu_candidate_cli.py` erzeugen jetzt aus gespeichertem unskaliertem BA-NPZ plus **getrennten unabhängigen vermessenen GCP-Fit-/Hold-out-Daten** eine ENU-Meter-Kandidatengeometrie mit Max-/P95-Residualen; eine unrichtige Spiegelung, Kollinearität, Punktüberlappung, fehlende Vermessung, falsche Eingabeflags verhindern die Ausgabe. Ein bestandener deklarierter Survey-Text ist **kein unabhängiger Vermessungsnachweis**. Daher bleiben reale Bildgeometrie-/Dachkachel-/Orthofotofreigabe gesperrt, kein Kundenfoto-/SQLite-Zugriff, `main` nicht geändert. Nächster Schritt ausschließlich authentifizierte Projektvermessung und pro-Kamera-Dachkontrollpunkt-Gate, dann vorhandenen Kachelpfad wiederverwenden.

@@ -1351,3 +1351,6 @@ Korrektur: Whitelist um `MPO` ergänzt; Byte-/Dateigrößenlimits, originale Imp
 
 
 **CI-Hotfix DEV-RGB-BA-002:** Bei zu vielen Kameras bleibt der ganze Fenster-BA-Pfad gesperrt; ein gezielter Commit `8f0dfa4` macht lediglich die Begrenzungsursache im Fehlertext sichtbar. Der erste Gesamt-Pythonlauf hatte 3920 erfolgreiche und einen fehlgeschlagenen Test ausschließlich wegen dieser Textkonvention. Übernahme/Release erst nach Prüfung des exakten neuen CI-HEAD; `main` und Originale unverändert.
+
+
+**DEV-RGB-GCP-001 (28.10.2026):** Auf demselben PR #9 steht nun nach dem unskalierten Multi-RGB-BA der 3D-Maßstabs-/ENU-Einpassungspfad mit getrennten externen Fitting-GCPs und unabhängigen Hold-outs als **lokaler Kandidat**. Kein Fotos-/Datenbank-Neueinlesen, keine Cloud, keine neuen Lizenzen. **Nicht mit unabhängig authentifizierten Vermessungswerten zu verwechseln**; keine automatische Freigabe als echte ENU-Kamerapose, Dachflächen-Kachel, RGB-Orthofoto oder PV-/Thermalprüfergebnis. Folgeschritt bleibt die überprüfte dachflächenspezifische Survey-/Bildpunktbindung für reale Projekte. Ausgangs-Status: siehe `AKTUELLER_ENTWICKLUNGSSTAND.md`.
