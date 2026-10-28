@@ -1,5 +1,8 @@
 # Architekturentscheidung 25.10.2026 – Orthofotos vor PV-Modulanalyse
 
+> **Stand 28.10.2026 – aktive Entwicklung:** PR #9 hat jetzt einen synthetisch prüfbaren Pfad von der vorhandenen vollständigen SfM-/Fenster-BA via RTK-Sim(3) zu GNSS-regularisierter Schur-/Fenster-BA, mit metrisch gewichteten GNSS-Kamera-Priors und zurückgehaltenen RTK-Positionen. Dies ist **kein** geprüfter gleichzeitiger Full-global-Solver und noch keine Verarbeitung aller 160 echten Bilder. Neu-CI prüfen, danach gesamte private 160-RGB-Serie, mehrere Dachflächen und streifenübergreifende Orthorektifizierung. Details: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Kein ODM/ODX, kein Main-Merge.
+
+
 > **RGB-Engine-Teilgate 28.10.2026:** PR #9 nutzt die vorhandene Fenster-BA nun als Eingang für lokale, robuste RTK-ENU-Kameraausrichtung mit zurückgehaltenen RTK-Kamerapositionen. Dies ist noch keine gemeinsame GNSS-gewichtete BA, keine verifizierte 3D-Dachfläche und kein RGB-Orthofoto. Nächste einzig aktive Entwicklung: RTK-GNSS-Prior-Gewichtung in die gemeinsame BA; erst danach reale 160-Bild-/Dachflächen-Orthorektifizierung. Detail in [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
