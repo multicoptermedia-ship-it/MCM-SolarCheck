@@ -1,5 +1,8 @@
 # MCM-SolarCheck – Übergabe für einen neuen Chat
 
+> **Aktuelle Übergabe 28.10.2026 (vor historischen Abschnitten lesen):** Auf PR #9 neu: `rgb_zip_whole_flight_reconstruction.py` und `rgb_zip_whole_flight_cli.py` als reiner Offline-/Read-only-Lauf über alle privaten DJI-RGB-ZIP-/`.tip`-Originale, mit extern verifizierter Kamera-Kalibrierung, GNSS-nahen Cross-Strip-Kandidaten, bestehendem globalem SfM-Tracknetz und GNSS-gewichteter Fenster-BA. Aggregierter JSON-Erfolgs-/Fehlerbericht ohne private Koordinaten/Fotos. Synthetische Tests in `test_rgb_zip_whole_flight_reconstruction.py`, CI des letzten HEAD prüfen. **Kein realer 160-Bild-Test in diesem Chat**: Archive in aktueller Laufzeit nicht verfügbar. Keine Orthofoto-/Dachflächen-/PV-/Thermal-Freigabe; kein ODM, kein Main-Merge. Details und einzige Folgeaufgabe: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **AKTUELLE ÜBERGABE 28.10.2026 (vor historischen Abschnitten lesen):** PR #9 enthält `rgb_rtk_joint_bundle_adjustment.py`, RTK-Zentrum-gewichtete Schur-BA und Fenster-Prüfung des gemeinsamen Pixel+RTK-Robustverlusts. Komplette private DJI-Serie wird als nächster REALER Test benötigt; synthetischer Rechenweg ist noch im CI-Gate. 20 % interner RTK-Hold-out ≠ unabhängiger GCP. Keine Full-global-Simultan-BA, keine validierten Dachflächen, kein Orthofoto, kein ODM, kein Main-Merge. Aktueller Status und genau ein nächster Schritt: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Der vorige Dokumentations-HEAD `0b66baa` scheiterte allein am Längengate; `d2f3c57` behebt den Checkpoint.
 
 
