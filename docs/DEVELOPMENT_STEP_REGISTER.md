@@ -1,5 +1,13 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 29.10.2026 · Kamera-p95-Gate: echter CI-Befund und fachlich strikte Korrektur
+- Initiale Python-3.11-CI des neuen individuellen Kamera-Gates auf `53850cc`: Integrationstest mit einer unzureichend passenden **synthetischen** RTK-Fenster-BA-Szene überschreitet 6px-p95 in mindestens einer Kamera (1 fehlgeschlagener Test; alle anderen bestanden). Fehler **nicht** durch Erhöhung des Grenzwerts/Abschalten des produktiven Gates verdecken.
+- `rgb_per_camera_reprojection_gate.py` (`bbbbf36`) dokumentiert `cameras_above_p95_limit`, `camera_reprojection_quality_passed` und p95-Grenzwert in privater Aggregatdiagnose. Nur ausdrückliche `enforce_camera_p95=False`-Diagnoseläufe dürfen den mangelhaften nicht freigegebenen Kandidaten zurückliefern.
+- `rgb_rtk_joint_bundle_adjustment.py` (`7ac9635`) unterscheidet solche unfertigen Diagnosekandidaten explizit im Status von erfolgreichen strikten BA-Ausgaben. `rgb_zip_whole_flight_reconstruction.py` (`c5a03ce`) erzwingt `enforce_camera_p95=True` für den **vollständigen echten** 160-RGB-CLI-Pfad.
+- `tests/test_rgb_rtk_joint_bundle_adjustment.py` (`086de90`): synthetischer Diagnosekandidat trägt Fail-Status, erneuter strikter Lauf muss exakt am fehlerhaften Kamera-p95 scheitern. Weitere Einzelkamera-/160-Frame-Tests bleiben erhalten.
+- Python-/Windows-CI des neuen Code-/Dokumentations-HEAD **noch prüfen**. Keine echten Hummintech-Archive oder verifizierte Optik im Chat, keine Survey-/Dach-/Orthofoto-/PV-/Thermal-Freigabe, kein ODM/WebODM/ODX, kein Main-Merge.
+
+
 ### 29.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – individuelles Kamera-/3D-Track-Gate nach RTK-BA
 - Aktiver Branch/PR: `feature/orthofoto-license-neutral-rgb-first-20261028` / Draft PR #9. Keine Änderung an `main`. Vorheriger HEAD `a80910e` Python 3.11/3.12 und Windows 3.11/3.12 CI grün.
 - Neue Module/Commits: `rgb_per_camera_reprojection_gate.py` (`8baf275`), Integration in `rgb_rtk_joint_bundle_adjustment.py` (`53850cc`), synthetische Negativ-/Stresstests `tests/test_rgb_per_camera_reprojection_gate.py` (`5fe9470`), echte synthetische Schur-/RTK-BA-Anbindung in `tests/test_rgb_rtk_joint_bundle_adjustment.py` (`5c0926c`).
