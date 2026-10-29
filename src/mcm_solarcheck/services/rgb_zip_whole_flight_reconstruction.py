@@ -493,3 +493,68 @@ def render_private_pitched_preview_from_original_rgb_archives(
         meters_per_pixel=meters_per_pixel, max_side=max_side,
         should_cancel=should_cancel,
     )
+
+
+def render_private_multiplane_preview_from_original_rgb_archives(
+    archives: tuple[str | Path, ...],
+    calibration: dict,
+    metric_candidate: PrivateRGBRTKWindowedBA,
+    *,
+    meters_per_pixel: float = .05,
+    max_side: int = 1024,
+    max_cameras_per_plane: int = 4,
+    should_cancel=None,
+):
+    """Opt-in private ZIP -> automatically selected RGB -> multiple pitch facets.
+
+    Selection uses all final metric BA poses and each *private* plane footprint,
+    not arbitrary flight counter ranges or descriptor-only links. Each chosen
+    camera's original JPEG is decoded directly from the read-only ZIP and
+    undistorted in RAM by the existing verified single-plane helper.
+    Individual patches are placed on one common metric ENU grid. No files.
+    Currently each facet can re-read an overlapping JPEG; at most 6 facets
+    and 8 RGB sources per facet, a bounded offline preview rather than a
+    production 160-frame/whole-roof orthomosaic or visibility solution.
+    """
+    from mcm_solarcheck.services.rgb_private_multi_plane_preview import (
+        choose_private_pitched_plane_cameras,
+        compose_private_pitched_rgb_orthopatches,
+    )
+    if (not isinstance(metric_candidate, PrivateRGBRTKWindowedBA)
+            or metric_candidate.pitched_plane_candidates is None
+            or not 2 <= len(metric_candidate.pitched_plane_candidates.planes_private) <= 6
+            or metric_candidate.camera_reprojection_audit is None
+            or metric_candidate.camera_reprojection_audit.cameras_above_p95_limit
+            or metric_candidate.multiview_parallax_audit is None
+            or not metric_candidate.multiview_parallax_audit.privacy_safe_summary()[
+                "parallax_quality_passed"
+            ]):
+        raise ValueError("valid private multi-plane RTK BA preview source required")
+    if should_cancel is not None and should_cancel():
+        raise RuntimeError("private RGB multi-plane ZIP preview cancelled")
+    series = read_private_rgb_zip_series(archives, should_cancel=should_cancel)
+    ids = tuple(f.frame_id for f in series.frames)
+    if (ids != metric_candidate.frame_ids
+            or len(ids) != metric_candidate.total_cameras):
+        raise ValueError("private RGB source identities differ from fitted 3D cameras")
+    intrinsics, _ = _calibrated_camera(calibration, series)
+    width, height = series.frames[0].width, series.frames[0].height
+    planes = metric_candidate.pitched_plane_candidates.planes_private
+    patches = []
+    for candidate_index, plane in enumerate(planes):
+        if should_cancel is not None and should_cancel():
+            raise RuntimeError("private RGB multi-plane ZIP preview cancelled")
+        selected = choose_private_pitched_plane_cameras(
+            plane, metric_candidate.world_enu_to_camera_private,
+            intrinsics, width, height,
+            max_cameras=max_cameras_per_plane, should_cancel=should_cancel,
+        )
+        patches.append(render_private_pitched_preview_from_original_rgb_archives(
+            archives, calibration, metric_candidate, candidate_index, selected,
+            meters_per_pixel=meters_per_pixel,
+            max_side=max_side, should_cancel=should_cancel,
+        ))
+    return compose_private_pitched_rgb_orthopatches(
+        planes, tuple(patches), max_side=max_side,
+        should_cancel=should_cancel,
+    )
