@@ -1,5 +1,8 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **29.10.2026 – vollständiger privater 160-RGB-Windows-Lauf, Draft PR #9:** Der vorhandene ZIP→SfM→RTK-BA-Pfad verlangt nun optional explizit den vollständigen archiv-/bildzählungs-/countergeprüften Flug; das lokale Windows-CLI fordert standardmäßig sechs ZIP/`.tip`-Archive und **exakt V-0001..V-0160**, bevor JPEGs für ORB dekodiert werden. Eine 33-Bild-Teilserie darf niemals als erfolgreicher Gesamtflug erscheinen. Aggregatdiagnose trennt Eingangsverarbeitung von verifizierter Sollvollständigkeit. `docs/PRIVATE_160_RGB_READONLY_RUN.md` enthält den datenschutzkonformen lokalen Ablauf. Neuer Code unter CI, echter Nutzer-Windows-160-RGB-Test mangels Originaldaten/kalibrierter Optik noch offen. Keine erfundenen Intrinsics, keine Survey-/Dach-/Orthofoto-/PV-/Thermal-Freigabe, kein ODM/ODX, kein Main-Merge. Verbindlicher Einstieg: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **28.10.2026, aktueller Ganzflug-SfM-Graph-Audit auf Draft PR #9:** Die bestehende komplette private ZIP→SfM→RTK-BA wurde um ein vollständiges kalibriertes Paargraph-Gate ergänzt. Nur in Essential-RANSAC und Pose akzeptierte ORB-Matches zählen, alle Kameras müssen im gemeinsamen Graphen verbunden sein; mindestens zwei räumlich nicht benachbarte akzeptierte Links mit mindestens drei beteiligten Bildern. Einzelkanten-Brücken werden als unfreigegebene Diagnose gezählt. Nur aggregierte Daten im JSON. Synthetische 1000-Kamera-/Fehlertests hinzugefügt; CI des exakten HEAD noch prüfen. Kein echter 160-Bild-Lauf, kein physischer Streifen-, Dach-, Ortho-, PV- oder Thermal-Nachweis, kein ODM/ODX, kein Main-Merge. Einstieg: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
