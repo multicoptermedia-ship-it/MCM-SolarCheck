@@ -21,6 +21,9 @@ from mcm_solarcheck.services.module_plane_projection import PinholeIntrinsics
 from mcm_solarcheck.services.rgb_per_camera_reprojection_gate import (
     RGBPerCameraReprojectionAudit, audit_rgb_per_camera_reprojection,
 )
+from mcm_solarcheck.services.rgb_multiview_parallax_gate import (
+    RGBMultiviewParallaxAudit, audit_rgb_multiview_parallax,
+)
 
 
 @dataclass(frozen=True)
@@ -50,6 +53,7 @@ class PrivateRGBRTKWindowedBA:
     roof_geometry_verified: bool = False
     orthophoto_verified: bool = False
     camera_reprojection_audit: RGBPerCameraReprojectionAudit | None = None
+    multiview_parallax_audit: RGBMultiviewParallaxAudit | None = None
 
     def privacy_safe_summary(self):
         return {
@@ -66,6 +70,10 @@ class PrivateRGBRTKWindowedBA:
             "per_camera_reprojection": (
                 self.camera_reprojection_audit.privacy_safe_summary()
                 if self.camera_reprojection_audit is not None else None
+            ),
+            "multiview_parallax": (
+                self.multiview_parallax_audit.privacy_safe_summary()
+                if self.multiview_parallax_audit is not None else None
             ),
             "before_rtk_holdout_p95_m": self.before_rtk_holdout_p95_m,
             "after_rtk_holdout_p95_m": self.after_rtk_holdout_p95_m,
@@ -89,6 +97,7 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
     max_rtk_holdout_m: float = 2.,
     windowed_options: dict | None = None,
     enforce_camera_p95: bool = True,
+    enforce_parallax: bool = True,
     should_cancel=None,
 ) -> PrivateRGBRTKWindowedBA:
     """One complete existing SfM flight -> aligned ENU -> robust GNSS window BA.
@@ -97,8 +106,8 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
     optimization priors; they still participate in the common pixel tracks.
     Changes to camera zero and one are allowed, unlike unscaled legacy BA.
     """
-    if type(enforce_camera_p95) is not bool:
-        raise ValueError("explicit final RGB camera quality policy required")
+    if type(enforce_camera_p95) is not bool or type(enforce_parallax) is not bool:
+        raise ValueError("explicit final RGB camera/3D parallax policy required")
     if should_cancel is not None and should_cancel():
         raise RuntimeError("RTK-weighted RGB flight cancelled")
     if (not isinstance(network, RGBUnscaledNetwork)
@@ -176,6 +185,12 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
         intrinsics, enforce_camera_p95=enforce_camera_p95,
         should_cancel=should_cancel,
     )
+    parallax_audit = audit_rgb_multiview_parallax(
+        result_poses, xyz,
+        network.observation_frame_indices,
+        network.observation_landmark_indices,
+        enforce_parallax=enforce_parallax, should_cancel=should_cancel,
+    )
     return PrivateRGBRTKWindowedBA(
         network.frame_ids, result_poses, xyz, fitted.before_rmse_px,
         fitted.after_rmse_px, aligned.withheld_p95_m,
@@ -187,8 +202,11 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
         fitted.rtk_windows_without_improvement,
         state=("rtk_camera_reprojection_quality_failed_unverified"
                if pixel_audit.cameras_above_p95_limit else
+               "rtk_multiview_parallax_quality_failed_unverified"
+               if not parallax_audit.privacy_safe_summary()["parallax_quality_passed"] else
                "rtk_regularized_windows_with_rejections_unverified"
                if fitted.rtk_windows_without_improvement else
                "rtk_regularized_multiview_windowed_ba_unverified"),
         camera_reprojection_audit=pixel_audit,
+        multiview_parallax_audit=parallax_audit,
     )
