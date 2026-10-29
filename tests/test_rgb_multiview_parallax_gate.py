@@ -20,8 +20,12 @@ def _scene(n=12, baseline=.70, count=32):
         ))
         for i in range(n)
     )
+    # Tracks follow their camera neighborhood along the full synthetic
+    # 160-image strip. Fixed world-origin points would be extremely far
+    # off-axis near the far end and wrongly simulate near-zero parallax.
+    track_start = np.arange(count) % (n - 2)
     xyz = np.column_stack((
-        rng.uniform(-1., 1., count),
+        baseline * track_start + rng.uniform(-1., 1., count),
         rng.uniform(-1., 1., count),
         rng.uniform(8., 14., count),
     ))
