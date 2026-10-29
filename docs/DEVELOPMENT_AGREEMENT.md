@@ -1,5 +1,8 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **29.10.2026 – gefundenen Einzelkamera-Fehler nicht wegkonfigurieren:** Die synthetische RTK-BA-Integration enthüllte per neuem Post-BA-Gate eine Kamera über 6px-p95. Nur ausdrücklich als unsicher gekennzeichnete diagnostische BA-Kandidaten dürfen zu Testzwecken die individuelle Qualitätsschwelle überschreiten und tragen einen eindeutigen Fail-Status. Der produktive private 160-RGB-ZIP→SfM→RTK-BA-CLI-Pfad erzwingt das Gate weiterhin strikt. Regressionen für beide Modi; Python-/Windows-CI des jüngsten HEAD noch prüfen, keine echte 160-RGB-Fachabnahme, keine eigenen Kundendaten im Repo. Kein ODM/ODX/Main-Merge. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **29.10.2026 – zusätzliches individuelles Kamera-Reprojektionsgate auf Draft PR #9:** Nach der robusten RTK-gewichteten RGB-Fenster-BA wird nun jede gespeicherte Pixelbeobachtung gegen ihre finale Kamera-/3D-Punktprojektion geprüft. Ein einzelnes schlechtes Bild (p95 über 6 px), negative Tiefe, zu wenige beobachtete Punkte oder nur ein Blick auf einen angeblichen 3D-Landmark führen zu FAIL, auch bei gutem Gesamtflug-Mittelwert. Ausschließlich aggregierte Qualitätszahlen werden ausgegeben. Neue synthetische Tests inkl. 160-Kamera-Ausreißer; CI des aktuellen HEAD noch prüfen. Keine privaten Daten auf GitHub, keine echte 160-RGB-Rekonstruktion/Dach-/Ortho-/PV-/Thermalfreigabe, kein ODM/ODX und kein Main-Merge. Aktuell: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
