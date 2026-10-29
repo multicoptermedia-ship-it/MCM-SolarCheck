@@ -1,5 +1,14 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 29.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – individuelles Kamera-/3D-Track-Gate nach RTK-BA
+- Aktiver Branch/PR: `feature/orthofoto-license-neutral-rgb-first-20261028` / Draft PR #9. Keine Änderung an `main`. Vorheriger HEAD `a80910e` Python 3.11/3.12 und Windows 3.11/3.12 CI grün.
+- Neue Module/Commits: `rgb_per_camera_reprojection_gate.py` (`8baf275`), Integration in `rgb_rtk_joint_bundle_adjustment.py` (`53850cc`), synthetische Negativ-/Stresstests `tests/test_rgb_per_camera_reprojection_gate.py` (`5fe9470`), echte synthetische Schur-/RTK-BA-Anbindung in `tests/test_rgb_rtk_joint_bundle_adjustment.py` (`5c0926c`).
+- Zweck: durchschnittlicher Gesamtflug-Reprojektionsfehler kann eine einzelne verdorbene Kamera verdecken. Deshalb nach der vollständigen GNSS-gewichteten lokalen Fenster-BA ALLE privaten gespeicherten Pixelbeobachtungen gegen finale Kamera- und Punktgeometrie prüfen. Jede Kamera benötigt ≥8 Pixelbeobachtungen, jeder erhaltene 3D-Landmark ≥2 **unterschiedliche** Kameras, jede Tiefe muss positiv sein, jede Rotation SO(3); schlechteste Kamera-p95 ≤6 px. Sonst Fail-Closed vor lokalem Erfolgsmeldungs-JSON. Synthetischer 160-Kamera-Fall mit einer absichtlich 25-px-verfälschten Kamera darf nicht hinter gutem globalem p95 verschwinden.
+- Privatsphäre: Report nur aggregierte Counts, p95 und max; keine privaten Bild-IDs/GPS/Originalbilder/3D-Punkte, keine SQLite-Änderung, keine neue Abhängigkeit, keine ODM/WebODM/ODX-Nutzung.
+- Bewertung: **CI des aktuellen HEAD ausstehend**, keine lokale reale 160-Hummintech-Rekonstruktion; interne RTK-Hold-outs sind kein unabhängiger GCP-/Survey-Beleg. Keine Dachflächen-/Orthofoto-/PV-/Thermalfreigabe.
+- EINZIGER nächste Schritt: exakte Python-/Windows-CI prüfen/bei Fehlern gezielt reparieren, danach 160 Originale mit überprüfter Optikkalibrierung lokal read-only durch bekannten ZIP→SfM→RTK-BA-Pfad verarbeiten, individuellen Kamera-p95 und GNSS-Hold-outs zusammen bewerten.
+
+
 ### 29.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – verpflichtende 160-Frame-/6-Archiv-Gesamtflug-Deckung
 - Branch `feature/orthofoto-license-neutral-rgb-first-20261028`, Draft PR #9; `main` bleibt `5f2de8fa` und wird nicht gemergt. Voriger vollständiger Graph-/Fenster-BA-Stand `6b72e8f`: Python 3.11/3.12 und Windows 3.11/3.12 CI grün.
 - Wiederverwendeter kompletter Nutzerpfad: private DJI-ZIP/`.tip` → einmaliger bereits vorhandener DJI-XMP-Intake → direkte ORB-JPEG-Feature-Extraktion im RAM → geometrisch akzeptierter vollständiger SfM-Linkgraph → bestehende unskalierte und GNSS-gewichtete Fenster-BA.
