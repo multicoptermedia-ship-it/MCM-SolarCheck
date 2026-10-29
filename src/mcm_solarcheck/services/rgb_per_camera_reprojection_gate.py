@@ -49,6 +49,22 @@ class RGBPerCameraReprojectionAudit:
         }
 
 
+class RGBPerCameraReprojectionQualityError(ValueError):
+    """Strict pixel-quality rejection with an aggregate-only private audit.
+
+    The message never contains camera identifiers, GPS, paths or point data.
+    Callers may publish ONLY audit.privacy_safe_summary(), not the geometry.
+    """
+
+    def __init__(self, audit: RGBPerCameraReprojectionAudit):
+        if not isinstance(audit, RGBPerCameraReprojectionAudit):
+            raise TypeError("camera pixel quality diagnostics required")
+        if audit.cameras_above_p95_limit < 1:
+            raise ValueError("cannot reject a passing camera pixel audit")
+        self.audit = audit
+        super().__init__("individual RGB camera reprojection p95 exceeds tolerance")
+
+
 def audit_rgb_per_camera_reprojection(
     poses_world_to_camera: tuple[np.ndarray, ...],
     landmarks_xyz: np.ndarray,
@@ -134,11 +150,12 @@ def audit_rgb_per_camera_reprojection(
     ]
     worst = max(per_camera_p95)
     above = sum(value > max_camera_p95_px for value in per_camera_p95)
-    if above and enforce_camera_p95:
-        raise ValueError("individual RGB camera reprojection p95 exceeds tolerance")
-    return RGBPerCameraReprojectionAudit(
+    audit = RGBPerCameraReprojectionAudit(
         count, len(xyz), len(fid), int(np.min(per_camera)),
         int(np.min(per_landmark)), worst,
         float(np.percentile(error, 95)), float(np.max(error)),
         above, float(max_camera_p95_px),
     )
+    if above and enforce_camera_p95:
+        raise RGBPerCameraReprojectionQualityError(audit)
+    return audit
