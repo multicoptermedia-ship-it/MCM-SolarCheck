@@ -557,8 +557,52 @@ def test_opt_in_original_zip_rgb_to_fitted_pitched_plane_preview_read_only(
             archives, camera, replace(metric, frame_ids=metric.frame_ids[::-1]),
             0, (0,1),
         )
+    # New vertical multi-facet path: same unchanged synthetic source ZIP
+    # set, but the fitted BA camera poses select the source photos for each
+    # half of the candidate pitched roof automatically.
+    left = replace(
+        plane,
+        footprint_xy_private_m=np.array([
+            [-.5,-.5], [0.,-.5], [0.,.5], [-.5,.5],
+        ],dtype=np.float64),
+        footprint_area_m2=.5,
+    )
+    right = replace(
+        plane,
+        footprint_xy_private_m=np.array([
+            [0.,-.5], [.5,-.5], [.5,.5], [0.,.5],
+        ],dtype=np.float64),
+        footprint_area_m2=.5,
+    )
+    multi_metric = replace(
+        metric, pitched_plane_candidates=PrivateRGBPitchedPlaneCandidates(
+            (left,right),32,
+        ),
+    )
+    combined = process.render_private_multiplane_preview_from_original_rgb_archives(
+        archives, camera, multi_metric, meters_per_pixel=.025,
+    )
+    assert combined.rgb_private.shape == (40,40,3)
+    assert combined.plane_count == 2
+    assert combined.valid_pixel_count > 1200
+    assert combined.ambiguous_overlap_pixels == 0
+    assert combined.source_camera_counts[0] >= 2
+    assert combined.source_camera_counts[1] >= 2
+    np.testing.assert_allclose(
+        np.median(combined.rgb_private[combined.valid_mask_private],axis=0),
+        (60.,80.,100.), atol=3.,
+    )
+    assert not combined.rgb_private.flags.writeable
+    assert combined.privacy_safe_summary()["orthophoto_verified"] is False
+    assert "V-0001" not in json.dumps(combined.privacy_safe_summary())
+    assert tuple(path.read_bytes() for path in archives) == original
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["RGB2.tip","RGB7.zip"]
     camera["lens_calibration_verified"] = False
     with pytest.raises(ValueError, match="independent calibrated"):
         process.render_private_pitched_preview_from_original_rgb_archives(
             archives, camera, metric, 0, (0,1),
+        )
+    with pytest.raises(ValueError, match="independent calibrated"):
+        process.render_private_multiplane_preview_from_original_rgb_archives(
+            archives, camera, multi_metric,
         )
