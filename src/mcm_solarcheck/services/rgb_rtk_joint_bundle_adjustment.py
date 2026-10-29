@@ -102,6 +102,70 @@ class PrivateRGBRTKWindowedBA:
             max_side=max_side, should_cancel=should_cancel,
         )
 
+    def render_private_multi_plane_preview(
+        self,
+        undistorted_rgb_by_camera: dict[int, np.ndarray],
+        intrinsics: PinholeIntrinsics,
+        *,
+        meters_per_pixel: float = .05,
+        max_side: int = 1024,
+        max_cameras_per_plane: int = 4,
+        should_cancel=None,
+    ):
+        """Auto-pick fitted cameras, render each pitched facet, align in ENU.
+
+        The mapping contains ONLY already decoded+undistorted private RGB
+        images; missing cameras are not invented. No persistence or roof
+        verification. For ZIP read-only auto-decode use the companion helper
+        in rgb_zip_whole_flight_reconstruction.
+        """
+        from mcm_solarcheck.services.rgb_private_multi_plane_preview import (
+            choose_private_pitched_plane_cameras,
+            compose_private_pitched_rgb_orthopatches,
+        )
+        if (self.pitched_plane_candidates is None
+                or not 2 <= len(self.pitched_plane_candidates.planes_private) <= 6
+                or self.camera_reprojection_audit is None
+                or self.camera_reprojection_audit.cameras_above_p95_limit
+                or self.multiview_parallax_audit is None
+                or not self.multiview_parallax_audit.privacy_safe_summary()[
+                    "parallax_quality_passed"
+                ]
+                or type(undistorted_rgb_by_camera) is not dict
+                or not 2 <= len(undistorted_rgb_by_camera) <= self.total_cameras
+                or any(type(i) is not int or not 0 <= i < self.total_cameras
+                       for i in undistorted_rgb_by_camera)
+                or not isinstance(intrinsics, PinholeIntrinsics)):
+            raise ValueError("complete private RTK-BA stereo and pitched planes required")
+        available = tuple(sorted(undistorted_rgb_by_camera))
+        images = tuple(undistorted_rgb_by_camera[i] for i in available)
+        if (any(not isinstance(im, np.ndarray) or im.ndim != 3
+                or im.dtype != np.uint8 or im.shape[2] != 3
+                for im in images)
+                or len({im.shape for im in images}) != 1):
+            raise ValueError("aligned calibrated undistorted RGB images required")
+        height, width = images[0].shape[:2]
+        poses = tuple(self.world_enu_to_camera_private[i] for i in available)
+        planes = self.pitched_plane_candidates.planes_private
+        patches = []
+        for plane_id, plane in enumerate(planes):
+            selected_local = choose_private_pitched_plane_cameras(
+                plane, poses, intrinsics, width, height,
+                max_cameras=max_cameras_per_plane,
+                should_cancel=should_cancel,
+            )
+            global_indices = tuple(available[i] for i in selected_local)
+            patches.append(self.render_private_pitched_plane_preview(
+                plane_id, tuple(images[i] for i in selected_local),
+                global_indices, intrinsics,
+                meters_per_pixel=meters_per_pixel,
+                max_side=max_side, should_cancel=should_cancel,
+            ))
+        return compose_private_pitched_rgb_orthopatches(
+            planes, tuple(patches), max_side=max_side,
+            should_cancel=should_cancel,
+        )
+
     def privacy_safe_summary(self):
         return {
             "schema": "mcm.rgb_rtk_windowed_ba.v1",
