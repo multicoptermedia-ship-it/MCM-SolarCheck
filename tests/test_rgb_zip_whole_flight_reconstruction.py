@@ -92,11 +92,15 @@ def _stub_pipeline(monkeypatch, traced, *, accepted_nonadjacent=True):
             tuple(f.frame_id for f in frames), poses,
             16, 16, len(links), .7, 1.1,
             landmark_xyz_unit_baseline=np.ones((16,3), np.float64),
-            observation_frame_indices=np.zeros(32, np.int32),
-            observation_landmark_indices=np.tile(
-                np.arange(16, dtype=np.int32), 2,
+            # A successful synthetic SfM stub must represent real shared
+            # multiview 3D IDs across all 12 cameras, not one camera only.
+            observation_frame_indices=np.repeat(
+                np.arange(12, dtype=np.int32), 16,
             ),
-            observation_pixels_xy=np.ones((32,2), np.float64),
+            observation_landmark_indices=np.tile(
+                np.arange(16, dtype=np.int32), 12,
+            ),
+            observation_pixels_xy=np.ones((192,2), np.float64),
             accepted_link_pairs=tuple(
                 (link.first_id, link.second_id) for link in links
                 if accepted_nonadjacent or abs(
@@ -110,7 +114,7 @@ def _stub_pipeline(monkeypatch, traced, *, accepted_nonadjacent=True):
         traced.append(("windowed", len(network.frame_ids)))
         return RGBWindowedBAResult(
             network.world_to_camera, network.landmark_xyz_unit_baseline,
-            1.2, .7, 2., 1., 12, 16, 32, 3, 6,
+            1.2, .7, 2., 1., 12, 16, 192, 3, 6,
         )
     monkeypatch.setattr(
         process, "adjust_windowed_unscaled_rgb_network", fake_unscaled,
@@ -153,6 +157,9 @@ def test_private_zip_rgb_pipeline_uses_all_frames_without_extracting(tmp_path, m
     assert report["sfm_accepted_spatial_nonadjacent_pairs"] >= 2
     assert report["sfm_geometric_nonadjacent_supported_cameras"] >= 3
     assert report["sfm_graph_connected"] is True
+    assert report["sfm_3d_track_graph_connected"] is True
+    assert report["sfm_3d_supported_spatial_nonadjacent_pairs"] >= 2
+    assert report["sfm_3d_min_shared_landmarks_supported_edge"] >= 8
     assert report["sfm_track_conflicting_merges_rejected"] == 0
     assert report["sfm_accepted_geometric_feature_correspondences"] == 0
     assert report["sfm_graph_min_camera_degree"] >= 1
@@ -443,3 +450,46 @@ def test_private_zip_cli_rejects_weak_multiview_depth_and_reports_only_angles(
                    "latitude", "longitude", "path", "private/"):
         assert secret not in content
     assert [archive.read_bytes() for archive in archives] == originals
+
+
+def test_geometry_only_spatial_links_cannot_pass_without_shared_3d_points(
+    tmp_path, monkeypatch,
+):
+    archives, camera = _fixture(tmp_path)
+    seen = []
+    _stub_pipeline(monkeypatch, seen)
+    original_solver = process.solve_global_rgb_camera_network
+
+    def geometrically_accepted_but_disconnected_tracks(*args, **kwargs):
+        network = original_solver(*args, **kwargs)
+        # Each adjacent camera pair sees 8 genuine common 3D points.
+        # Their landmark IDs are private, unique to that adjacent pair:
+        # only sequential links have shared 3D support. All essential
+        # spatial links still claim geometry acceptance in this stub.
+        fid, lid = [], []
+        for i in range(11):
+            for p in range(8):
+                for camera_id in (i, i+1):
+                    fid.append(camera_id)
+                    lid.append(8*i+p)
+        return replace(
+            network,
+            reconstructed_landmarks=88,
+            landmark_xyz_unit_baseline=np.ones((88, 3), dtype=np.float64),
+            observation_frame_indices=np.asarray(fid, dtype=np.int32),
+            observation_landmark_indices=np.asarray(lid, dtype=np.int32),
+            observation_pixels_xy=np.ones((len(fid), 2), dtype=np.float64),
+        )
+
+    monkeypatch.setattr(
+        process, "solve_global_rgb_camera_network",
+        geometrically_accepted_but_disconnected_tracks,
+    )
+    with pytest.raises(process.PrivateRGBFlightStageError) as error:
+        process.reconstruct_private_complete_rgb_zip_flight(
+            archives, camera, max_side=400, max_features=500,
+        )
+    assert error.value.stage == "global_sfm"
+    assert any(stage[0] == "sfm" for stage in seen)
+    assert not any(stage[0] in ("windowed", "rtk") for stage in seen)
+    assert "V-0001" not in str(error.value)
