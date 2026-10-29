@@ -37,6 +37,9 @@ from mcm_solarcheck.services.rgb_rtk_joint_bundle_adjustment import (
 from mcm_solarcheck.services.rgb_per_camera_reprojection_gate import (
     RGBPerCameraReprojectionAudit, RGBPerCameraReprojectionQualityError,
 )
+from mcm_solarcheck.services.rgb_multiview_parallax_gate import (
+    RGBMultiviewParallaxAudit, RGBMultiviewParallaxQualityError,
+)
 
 
 class PrivateRGBFlightStageError(ValueError):
@@ -45,6 +48,7 @@ class PrivateRGBFlightStageError(ValueError):
     def __init__(
         self, stage: str,
         camera_reprojection_audit: RGBPerCameraReprojectionAudit | None = None,
+        multiview_parallax_audit: RGBMultiviewParallaxAudit | None = None,
     ):
         if stage not in ("intake", "calibration", "feature_extraction",
                          "overlap_matching", "global_sfm", "unscaled_ba",
@@ -56,8 +60,17 @@ class PrivateRGBFlightStageError(ValueError):
             camera_reprojection_audit.cameras_above_p95_limit < 1
         ):
             raise ValueError("only failed final camera pixel audit may be attached")
+        if multiview_parallax_audit is not None and (
+            stage != "rtk_weighted_ba" or
+            not isinstance(multiview_parallax_audit, RGBMultiviewParallaxAudit) or
+            multiview_parallax_audit.privacy_safe_summary()["parallax_quality_passed"]
+        ):
+            raise ValueError("only failed final multiview parallax audit may be attached")
+        if camera_reprojection_audit is not None and multiview_parallax_audit is not None:
+            raise ValueError("only one final RGB quality failure may be reported")
         self.stage = stage
         self.camera_reprojection_audit = camera_reprojection_audit
+        self.multiview_parallax_audit = multiview_parallax_audit
         super().__init__(f"whole-flight RGB {stage} gate not passed")
 
 
@@ -357,7 +370,7 @@ def reconstruct_private_complete_rgb_zip_flight(
         stage = "rtk_weighted_ba"
         metric = adjust_rgb_windowed_bundle_with_private_rtk(
             network, unscaled, priors, intrinsics,
-            enforce_camera_p95=True,
+            enforce_camera_p95=True, enforce_parallax=True,
             windowed_options={
                 "max_landmarks_total": 200000,
                 "max_observations_total": 800000,
@@ -374,6 +387,10 @@ def reconstruct_private_complete_rgb_zip_flight(
     except RGBPerCameraReprojectionQualityError as exc:
         raise PrivateRGBFlightStageError(
             stage, camera_reprojection_audit=exc.audit,
+        ) from None
+    except RGBMultiviewParallaxQualityError as exc:
+        raise PrivateRGBFlightStageError(
+            stage, multiview_parallax_audit=exc.audit,
         ) from None
     except (ValueError, TypeError, KeyError, IndexError, cv2.error):
         raise PrivateRGBFlightStageError(stage) from None
