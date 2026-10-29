@@ -124,6 +124,15 @@ def test_rtk_weighted_window_ba_reuses_full_multiview_network_and_withholds_rtk(
             == (answer.camera_reprojection_audit.cameras_above_p95_limit == 0))
     if answer.camera_reprojection_audit.cameras_above_p95_limit:
         assert answer.state == "rtk_camera_reprojection_quality_failed_unverified"
+    # The real synthetic Schur/RTK BA must reach the next vertical geometry
+    # stage and retain PRIVATE 3D hypotheses, without claiming roof success.
+    assert answer.pitched_plane_candidates is not None
+    assert answer.pitched_plane_candidates.landmark_count == len(
+        answer.landmarks_enu_private_m
+    )
+    assert report["pitched_plane_hypotheses"]["roof_geometry_verified"] is False
+    assert report["pitched_plane_hypotheses"]["orthophoto_verified"] is False
+    assert report["pitched_plane_hypotheses"]["independent_survey_verified"] is False
     assert report["multiview_parallax"]["parallax_audit_completed"] is True
     assert report["multiview_parallax"]["independent_survey_verified"] is False
     assert report["multiview_parallax"]["roof_geometry_verified"] is False
