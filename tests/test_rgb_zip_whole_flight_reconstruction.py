@@ -493,3 +493,72 @@ def test_geometry_only_spatial_links_cannot_pass_without_shared_3d_points(
     assert any(stage[0] == "sfm" for stage in seen)
     assert not any(stage[0] in ("windowed", "rtk") for stage in seen)
     assert "V-0001" not in str(error.value)
+
+
+def test_opt_in_original_zip_rgb_to_fitted_pitched_plane_preview_read_only(
+    tmp_path,
+):
+    """Actual synthetic ZIP/JPEG decode+distortion+project, no stubbed remap."""
+    from mcm_solarcheck.services.rgb_rtk_joint_bundle_adjustment import (
+        PrivateRGBRTKWindowedBA,
+    )
+    from mcm_solarcheck.services.rgb_per_camera_reprojection_gate import (
+        RGBPerCameraReprojectionAudit,
+    )
+    from mcm_solarcheck.services.rgb_multiview_parallax_gate import (
+        RGBMultiviewParallaxAudit,
+    )
+    from mcm_solarcheck.services.rgb_private_pitched_plane_candidates import (
+        PrivateRGBPitchedPlaneCandidate, PrivateRGBPitchedPlaneCandidates,
+    )
+    archives, camera = _fixture(tmp_path)
+    original = tuple(path.read_bytes() for path in archives)
+    n = np.array((-.2,0.,1.), dtype=np.float64)
+    n /= np.linalg.norm(n)
+    plane = PrivateRGBPitchedPlaneCandidate(
+        n, -1./np.sqrt(1.04), np.arange(32, dtype=np.int32),
+        np.array([[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5]]),
+        11.3, 4, .01, 1.,
+    )
+    poses = []
+    r = np.diag((1.,-1.,-1.))
+    for i in range(12):
+        center = np.array((.05*i,0.,5.))
+        poses.append(np.column_stack((r,-r @ center)))
+    metric = PrivateRGBRTKWindowedBA(
+        tuple(f"V-{i:04d}" for i in range(1,13)), tuple(poses),
+        np.zeros((32,3)), 1., .5, .1, .1, .2, 10, 2, 12, 3, 20., 10.,
+        camera_reprojection_audit=RGBPerCameraReprojectionAudit(
+            12,32,384,32,12,1.,1.,1.,
+        ),
+        multiview_parallax_audit=RGBMultiviewParallaxAudit(
+            12,32,384,.25,.75,32,0,2.,3.,
+        ),
+        pitched_plane_candidates=PrivateRGBPitchedPlaneCandidates((plane,),32),
+    )
+    patch = process.render_private_pitched_preview_from_original_rgb_archives(
+        archives, camera, metric, 0, (0,1), meters_per_pixel=.025,
+    )
+    assert patch.rgb_private.shape == (40,40,3)
+    assert patch.valid_pixel_count > 1200
+    assert patch.multi_camera_pixel_count == patch.valid_pixel_count
+    values = patch.rgb_private[patch.valid_mask_private]
+    np.testing.assert_allclose(np.median(values,axis=0),
+                               (60.,80.,100.), atol=3.)
+    report = patch.privacy_safe_summary()
+    assert report["source_camera_count"] == 2
+    assert report["orthophoto_verified"] is False
+    assert "V-0001" not in json.dumps(report)
+    assert "RGB2.tip" not in json.dumps(report)
+    assert tuple(path.read_bytes() for path in archives) == original
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["RGB2.tip","RGB7.zip"]
+    with pytest.raises(ValueError, match="identities differ"):
+        process.render_private_pitched_preview_from_original_rgb_archives(
+            archives, camera, replace(metric, frame_ids=metric.frame_ids[::-1]),
+            0, (0,1),
+        )
+    camera["lens_calibration_verified"] = False
+    with pytest.raises(ValueError, match="independent calibrated"):
+        process.render_private_pitched_preview_from_original_rgb_archives(
+            archives, camera, metric, 0, (0,1),
+        )
