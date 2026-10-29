@@ -1,5 +1,8 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **29.10.2026 – strikter Kamera-FAIL mit privater Diagnose (PR #9):** Der bisherige Einzelkamera-p95≤6px-Qualitätswächter ist auf `4b6f92e` Python-/Windows-CI-grün. Neu gibt ein echter strenger Fehler (Exit 2, `failed_stage=rtk_weighted_ba`) ausschließlich aggregierte Reprojektions-Residuals und die Anzahl auffälliger Kameras lokal im Bericht aus, ohne den Kandidaten freizugeben oder IDs/GPS/Posen preiszugeben. Typisierter Fehlertransport und synthetischer vollständiger ZIP-/CLI-Test; neue CI des exakten HEAD prüfen. Originale unverändert, keine echte 160-Hummintech-Rekonstruktion, keine Dach/Ortho/PV/Thermal-Freigabe, kein ODM/WebODM/ODX und kein Main-Merge. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **29.10.2026 – gefundenen Einzelkamera-Fehler nicht wegkonfigurieren:** Die synthetische RTK-BA-Integration enthüllte per neuem Post-BA-Gate eine Kamera über 6px-p95. Nur ausdrücklich als unsicher gekennzeichnete diagnostische BA-Kandidaten dürfen zu Testzwecken die individuelle Qualitätsschwelle überschreiten und tragen einen eindeutigen Fail-Status. Der produktive private 160-RGB-ZIP→SfM→RTK-BA-CLI-Pfad erzwingt das Gate weiterhin strikt. Regressionen für beide Modi sowie ein expliziter vollständiger ZIP-CLI-Test mit erzwungenem `enforce_camera_p95=True` (`8798d90`); Python-/Windows-CI des jüngsten HEAD noch prüfen, keine echte 160-RGB-Fachabnahme, keine eigenen Kundendaten im Repo. Kein ODM/ODX/Main-Merge. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
