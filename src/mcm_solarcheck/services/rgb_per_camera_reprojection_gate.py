@@ -23,6 +23,8 @@ class RGBPerCameraReprojectionAudit:
     worst_camera_p95_px: float
     flight_p95_px: float
     flight_max_px: float
+    cameras_above_p95_limit: int = 0
+    camera_p95_limit_px: float = 6.
     state: str = "per_camera_reprojection_checked_not_an_orthophoto"
 
     def privacy_safe_summary(self) -> dict:
@@ -36,6 +38,11 @@ class RGBPerCameraReprojectionAudit:
             "worst_camera_reprojection_p95_px": self.worst_camera_p95_px,
             "all_camera_reprojection_p95_px": self.flight_p95_px,
             "all_camera_reprojection_max_px": self.flight_max_px,
+            "cameras_above_p95_limit": self.cameras_above_p95_limit,
+            "camera_p95_limit_px": self.camera_p95_limit_px,
+            "camera_reprojection_quality_passed": (
+                self.cameras_above_p95_limit == 0
+            ),
             "independent_survey_verified": False,
             "roof_geometry_verified": False,
             "orthophoto_verified": False,
@@ -52,6 +59,7 @@ def audit_rgb_per_camera_reprojection(
     *,
     max_camera_p95_px: float = 6.,
     min_observations_per_camera: int = 8,
+    enforce_camera_p95: bool = True,
     should_cancel=None,
 ) -> RGBPerCameraReprojectionAudit:
     """Reject invalid/out-of-view geometry and sparse single-view landmarks.
@@ -65,6 +73,7 @@ def audit_rgb_per_camera_reprojection(
     if (not 3 <= count <= 1000 or
             type(min_observations_per_camera) is not int or
             not 8 <= min_observations_per_camera <= 1000 or
+            type(enforce_camera_p95) is not bool or
             type(max_camera_p95_px) not in (int, float) or
             not np.isfinite(max_camera_p95_px) or
             not .25 <= max_camera_p95_px <= 20 or
@@ -124,10 +133,12 @@ def audit_rgb_per_camera_reprojection(
         float(np.percentile(error[fid == i], 95)) for i in range(count)
     ]
     worst = max(per_camera_p95)
-    if worst > max_camera_p95_px:
+    above = sum(value > max_camera_p95_px for value in per_camera_p95)
+    if above and enforce_camera_p95:
         raise ValueError("individual RGB camera reprojection p95 exceeds tolerance")
     return RGBPerCameraReprojectionAudit(
         count, len(xyz), len(fid), int(np.min(per_camera)),
         int(np.min(per_landmark)), worst,
         float(np.percentile(error, 95)), float(np.max(error)),
+        above, float(max_camera_p95_px),
     )
