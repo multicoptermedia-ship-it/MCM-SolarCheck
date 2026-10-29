@@ -83,6 +83,27 @@ Im erfolgreichen Diagnosebericht stehen
 Fehlerstufe und Nichtfreigabe geschrieben; keine vertraulichen
 Merkmals- oder GPS-Daten für den Fehlersuchlauf in CI hochladen.
 
+## Auch der gemeinsame 3D-Trackgraph muss verbunden sein
+
+Ein über Essential-RANSAC akzeptiertes Kamerapaar allein genügt noch nicht:
+Nach dem SfM-Triangulieren müssen dieselben beiden Kameras mindestens
+**acht unterschiedliche tatsächlich behaltene 3D-Punkt-IDs** teilen, damit
+ihre Verbindung im 3D-Trackgraphen zählt. Die durch diese 3D-Punkte
+bestätigten Kameraverbindungen müssen **alle 160 Kameras** umfassen;
+mindestens zwei räumlich nichtbenachbarte, durch gemeinsame 3D-Punkte
+bestätigte Verbindungen müssen mindestens drei Kameras beteiligen.
+
+Ein Scheitern führt zum anonymen `failed_stage=global_sfm` und Exit 2,
+**bevor** die aufwendige Fenster-/RTK-Bundle-Adjustment beginnt. Bei
+erfolgreichem Durchlauf stehen nur die aggregierten Felder
+`sfm_3d_track_graph_connected`,
+`sfm_3d_supported_pair_count`,
+`sfm_3d_weak_geometric_pair_count` und
+`sfm_3d_supported_spatial_nonadjacent_pairs` im lokalen JSON.
+Keine Bild-IDs, Koordinaten, Kameraposen oder private Trackdetails werden
+ausgegeben; die 3D-Punktübereinstimmung allein beweist außerdem weder
+physische Flugstreifenzugehörigkeit noch Dach-/Surveygenauigkeit.
+
 ## Falls ein einzelnes Kamerabild das Qualitätsgate nicht besteht
 
 Auch beim Scheitern ist der **neue lokale JSON-Bericht** vorhanden
