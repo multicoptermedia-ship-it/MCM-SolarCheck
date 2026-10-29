@@ -88,6 +88,7 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
     *,
     max_rtk_holdout_m: float = 2.,
     windowed_options: dict | None = None,
+    enforce_camera_p95: bool = True,
     should_cancel=None,
 ) -> PrivateRGBRTKWindowedBA:
     """One complete existing SfM flight -> aligned ENU -> robust GNSS window BA.
@@ -96,6 +97,8 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
     optimization priors; they still participate in the common pixel tracks.
     Changes to camera zero and one are allowed, unlike unscaled legacy BA.
     """
+    if type(enforce_camera_p95) is not bool:
+        raise ValueError("explicit final RGB camera quality policy required")
     if should_cancel is not None and should_cancel():
         raise RuntimeError("RTK-weighted RGB flight cancelled")
     if (not isinstance(network, RGBUnscaledNetwork)
@@ -170,7 +173,8 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
         network.observation_frame_indices,
         network.observation_landmark_indices,
         network.observation_pixels_xy,
-        intrinsics, should_cancel=should_cancel,
+        intrinsics, enforce_camera_p95=enforce_camera_p95,
+        should_cancel=should_cancel,
     )
     return PrivateRGBRTKWindowedBA(
         network.frame_ids, result_poses, xyz, fitted.before_rmse_px,
@@ -181,7 +185,9 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
         float(fitted.weighted_objective_after),
         fitted.rtk_windows_with_updates,
         fitted.rtk_windows_without_improvement,
-        state=("rtk_regularized_windows_with_rejections_unverified"
+        state=("rtk_camera_reprojection_quality_failed_unverified"
+               if pixel_audit.cameras_above_p95_limit else
+               "rtk_regularized_windows_with_rejections_unverified"
                if fitted.rtk_windows_without_improvement else
                "rtk_regularized_multiview_windowed_ba_unverified"),
         camera_reprojection_audit=pixel_audit,
