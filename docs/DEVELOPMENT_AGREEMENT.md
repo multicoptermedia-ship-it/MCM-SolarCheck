@@ -1,5 +1,8 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **29.10.2026 – neues konsistentes 3D-SfM-Track-Gate auf Draft PR #9:** Ein geometrisch akzeptierter Essential-RANSAC-/Pose-Bildlink darf die Kameraverknüpfungen nicht still durch widersprüchliche ORB-Feature-Zusammenführungen verfälschen. 1:1-Keypoint-Indizes je Bildpaar sind jetzt verpflichtend; >1/3 widersprüchliche Track-Merges pro Bildlink oder gesamt → FAIL vor weiterer Mehrbild-Photogrammetrie. Nur anonyme Merge-/Korrespondenzzahlen im lokalen Bericht, keine Kamera-/Feature-IDs, Bilddateien oder GPS. Test inkl. künstlich falschem Drei-Kamera-Zyklus und gültigen synthetischen 3D-Views; aktuelle Code-CI auf PR #9 prüfen. Das Parallaxen-/Einzelkamera-Gate `cfedc42` war zuvor Python/Windows 3.11/3.12 komplett grün. Keine reale 160-Hummintech-Rekonstruktion, keine bestätigte Optikkalibrierung im Chat, keine Dach-/Ortho-/PV-/Thermalfreigabe, kein ODM/ODX/Main-Merge. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **29.10.2026 – zusätzliche Einzelkamera-Tiefenstützung auf PR #9:** Das globale 3D-Parallaxen-Gate allein kann einen schwachen Flugabschnitt hinter 75 % gut triangulierten Punkten verstecken. Deshalb muss jede Kamera nun mindestens 25 % Beobachtungen an stark triangulierten 3D-Punkten haben; fehlende Kamera-Tracks scheitern ebenfalls. `5507b4a` + Negativtest `cfedc42`: 80 % global gute Landmarks, aber drei Kameras ohne ausreichende 3D-Winkelstützung → FAIL. Kein Absenken der globalen 0,25°/75%- oder Kamera-6px-Grenze. Nur anonyme Gesamt-/Minimal-Zählwerte, keine Bild-/GPS-/Kundendaten. Aktuelle CI prüfen; kein echter 160-Bild-Lauf, keine Dach-/Ortho-/PV-/Thermalfreigabe, kein ODM/ODX oder Main-Merge. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
