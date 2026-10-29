@@ -23,6 +23,9 @@ class RGBMultiviewParallaxAudit:
     weak_landmark_count: int
     observed_landmark_p10_parallax_deg: float
     observed_landmark_median_parallax_deg: float
+    minimum_supported_camera_observation_fraction: float = 0.25
+    cameras_below_supported_observation_fraction: int = 0
+    minimum_camera_supported_observation_fraction: float = 1.
 
     def privacy_safe_summary(self) -> dict:
         return {
@@ -46,9 +49,19 @@ class RGBMultiviewParallaxAudit:
             "landmark_parallax_median_deg": (
                 self.observed_landmark_median_parallax_deg
             ),
+            "minimum_supported_camera_observation_fraction": (
+                self.minimum_supported_camera_observation_fraction
+            ),
+            "cameras_below_supported_observation_fraction": (
+                self.cameras_below_supported_observation_fraction
+            ),
+            "worst_camera_supported_observation_fraction": (
+                self.minimum_camera_supported_observation_fraction
+            ),
             "parallax_quality_passed": (
                 self.supported_landmark_count / self.landmark_count
                 >= self.minimum_supported_landmark_fraction
+                and self.cameras_below_supported_observation_fraction == 0
             ),
             "independent_survey_verified": False,
             "roof_geometry_verified": False,
@@ -75,6 +88,7 @@ def audit_rgb_multiview_parallax(
     *,
     min_parallax_deg: float = 0.25,
     min_supported_landmark_fraction: float = 0.75,
+    min_supported_camera_fraction: float = 0.25,
     enforce_parallax: bool = True,
     should_cancel=None,
 ) -> RGBMultiviewParallaxAudit:
@@ -95,7 +109,10 @@ def audit_rgb_multiview_parallax(
             or not 0.05 <= min_parallax_deg <= 5.
             or type(min_supported_landmark_fraction) not in (int, float)
             or not np.isfinite(min_supported_landmark_fraction)
-            or not .5 <= min_supported_landmark_fraction <= 1.):
+            or not .5 <= min_supported_landmark_fraction <= 1.
+            or type(min_supported_camera_fraction) not in (int, float)
+            or not np.isfinite(min_supported_camera_fraction)
+            or not .05 <= min_supported_camera_fraction <= 1.):
         raise ValueError("invalid bounded full-flight parallax policy")
     count = len(poses_world_to_camera)
     poses = np.asarray(poses_world_to_camera, dtype=np.float64)
@@ -145,12 +162,27 @@ def audit_rgb_multiview_parallax(
     if not np.isfinite(angles).all():
         raise ValueError("nonfinite private multiview viewing-ray angles")
 
-    supported = int(np.count_nonzero(angles >= min_parallax_deg))
+    supported_mask = angles >= min_parallax_deg
+    supported = int(np.count_nonzero(supported_mask))
+    observations_per_camera = np.bincount(fid, minlength=count)
+    if np.any(observations_per_camera == 0):
+        raise ValueError("some RGB cameras lack any 3D track observations")
+    strong_observations_per_camera = np.bincount(
+        fid, weights=supported_mask[lid].astype(np.float64),
+        minlength=count,
+    )
+    camera_strong_fraction = (
+        strong_observations_per_camera / observations_per_camera
+    )
+    weak_cameras = int(np.count_nonzero(
+        camera_strong_fraction < min_supported_camera_fraction
+    ))
     audit = RGBMultiviewParallaxAudit(
         count, len(xyz), len(fid), float(min_parallax_deg),
         float(min_supported_landmark_fraction), supported,
         len(xyz) - supported, float(np.percentile(angles, 10)),
-        float(np.median(angles)),
+        float(np.median(angles)), float(min_supported_camera_fraction),
+        weak_cameras, float(np.min(camera_strong_fraction)),
     )
     if enforce_parallax and not audit.privacy_safe_summary()["parallax_quality_passed"]:
         raise RGBMultiviewParallaxQualityError(audit)
