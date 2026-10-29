@@ -64,6 +64,25 @@ Dieser Aufruf **extrahiert keine** ZIP-Mitglieder auf die Festplatte,
 verändert keine Originale und schreibt keine SQLite. Der **einzige**
 geplante Schreibzugriff ist der angegebene neue lokale JSON-Bericht.
 
+## SfM-Feature-Tracks: widersprüchliche Bildverknüpfungen
+
+Auch ein kalibriert per Essential-RANSAC/Pose akzeptiertes Bildpaar ist nur
+dann brauchbare Mehrbild-Track-Evidenz, wenn jeder beteiligte ORB-Keypoint
+pro Bildpaar **eindeutig** zugeordnet ist. Die aktuelle SfM-Implementierung
+lehnt one-to-many-Keypoint-Zuordnungen schon vor der Triangulation ab; bei
+mehr als einem Drittel widersprüchlicher Track-Verschmelzungen in einem
+akzeptierten Bildpaar oder insgesamt stoppt sie am `global_sfm`-Gate.
+Ein solcher Fehler darf nicht durch bloßes Ignorieren der konflikthaften
+Merkmalspaare zu einem „guten“ Dachmodell umgedeutet werden.
+
+Im erfolgreichen Diagnosebericht stehen
+`sfm_track_conflicting_merges_rejected` und
+`sfm_accepted_geometric_feature_correspondences`. Beide Zahlen sind
+**aggregiert**, ohne Keypoint-, Frame-, Kamera- oder Weltkoordinaten. Bei
+`failed_stage=global_sfm` werden wie bisher nur anonymisierte
+Fehlerstufe und Nichtfreigabe geschrieben; keine vertraulichen
+Merkmals- oder GPS-Daten für den Fehlersuchlauf in CI hochladen.
+
 ## Falls ein einzelnes Kamerabild das Qualitätsgate nicht besteht
 
 Auch beim Scheitern ist der **neue lokale JSON-Bericht** vorhanden
