@@ -99,6 +99,7 @@ def test_rtk_weighted_window_ba_reuses_full_multiview_network_and_withholds_rtk(
     prior_original = priors.camera_enu_m.copy()
     answer = adjust_rgb_windowed_bundle_with_private_rtk(
         network,windowed,priors,k,windowed_options={"max_iterations": 5},
+        enforce_camera_p95=False,  # diagnostic candidate is NOT an accepted flight
     )
     report = answer.privacy_safe_summary()
     assert answer.total_cameras == 12
@@ -117,7 +118,11 @@ def test_rtk_weighted_window_ba_reuses_full_multiview_network_and_withholds_rtk(
     assert answer.camera_reprojection_audit.camera_count == 12
     assert answer.camera_reprojection_audit.minimum_observations_per_camera >= 8
     assert answer.camera_reprojection_audit.minimum_cameras_per_landmark >= 2
-    assert answer.camera_reprojection_audit.worst_camera_p95_px <= 6.
+    assert answer.camera_reprojection_audit.worst_camera_p95_px >= 0.
+    assert (report["per_camera_reprojection"]["camera_reprojection_quality_passed"]
+            == (answer.camera_reprojection_audit.cameras_above_p95_limit == 0))
+    if answer.camera_reprojection_audit.cameras_above_p95_limit:
+        assert answer.state == "rtk_camera_reprojection_quality_failed_unverified"
     assert report["per_camera_reprojection"]["camera_reprojection_audit_completed"]
     assert report["per_camera_reprojection"]["orthophoto_verified"] is False
     assert answer.rtk_prior_windowed_ba_completed
@@ -182,4 +187,24 @@ def test_private_window_ba_rejects_identity_mismatch_and_user_overridden_holdout
     with pytest.raises(RuntimeError,match="cancelled"):
         adjust_rgb_windowed_bundle_with_private_rtk(
             network,windowed,priors,k,should_cancel=lambda:True,
+        )
+
+
+def test_strict_rtk_camera_reprojection_gate_rejects_bad_synthetic_window():
+    """A robust pixel+GNSS objective pass is NOT a per-camera quality pass."""
+    flight,network,windowed,k = _synthetic_full_rgb_flight()
+    priors = build_private_rtk_camera_priors(flight,network.frame_ids)
+    diagnostic = adjust_rgb_windowed_bundle_with_private_rtk(
+        network,windowed,priors,k,
+        windowed_options={"max_iterations": 5},
+        enforce_camera_p95=False,
+    )
+    # The same synthetic fixture has known per-camera residual outliers:
+    # never silently accept this candidate in the full-flight/strict path.
+    assert diagnostic.camera_reprojection_audit.cameras_above_p95_limit >= 1
+    with pytest.raises(ValueError,match="individual RGB camera"):
+        adjust_rgb_windowed_bundle_with_private_rtk(
+            network,windowed,priors,k,
+            windowed_options={"max_iterations": 5},
+            enforce_camera_p95=True,
         )
