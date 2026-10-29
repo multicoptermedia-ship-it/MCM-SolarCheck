@@ -113,6 +113,13 @@ def test_rtk_weighted_window_ba_reuses_full_multiview_network_and_withholds_rtk(
     assert answer.joint_objective_after <= answer.joint_objective_before + 1e-8
     assert answer.after_rtk_holdout_max_m < 2.
     assert np.isfinite(answer.after_reprojection_rmse_px)
+    assert answer.camera_reprojection_audit is not None
+    assert answer.camera_reprojection_audit.camera_count == 12
+    assert answer.camera_reprojection_audit.minimum_observations_per_camera >= 8
+    assert answer.camera_reprojection_audit.minimum_cameras_per_landmark >= 2
+    assert answer.camera_reprojection_audit.worst_camera_p95_px <= 6.
+    assert report["per_camera_reprojection"]["camera_reprojection_audit_completed"]
+    assert report["per_camera_reprojection"]["orthophoto_verified"] is False
     assert answer.rtk_prior_windowed_ba_completed
     assert not answer.full_global_joint_ba_completed
     assert not answer.independent_survey_verified
