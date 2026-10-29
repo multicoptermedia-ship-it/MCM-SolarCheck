@@ -55,6 +55,9 @@ class RGBUnscaledNetwork:
     # Pairs that survived calibrated essential-matrix RANSAC and pose recovery;
     # these are geometric link candidates, NOT independent roof/strip proof.
     accepted_link_pairs: tuple[tuple[str, str], ...] = ()
+    # Strictly internal feature provenance; counts alone are reportable.
+    rejected_conflicting_track_merges: int = 0
+    accepted_geometric_feature_correspondences: int = 0
 
 
 def _project(pose, point, k):
@@ -160,13 +163,17 @@ def solve_global_rgb_camera_network(
     def join(a,b):
         ra, rb = find(a), find(b)
         if ra == rb:
-            return
+            return True
         if owners[ra].keys() & owners[rb].keys():
-            return
+            # These components already claim different ORB keypoints from
+            # the same RGB frame. Silently ignoring this edge would let a
+            # geometrically accepted pair masquerade as valid 3D track proof.
+            return False
         if len(owners[ra]) < len(owners[rb]):
             ra,rb = rb,ra
         parent[rb] = ra
         owners[ra].update(owners.pop(rb))
+        return True
     accepted = []
     used_pairs = set()
     for link in links:
@@ -188,6 +195,9 @@ def solve_global_rgb_camera_network(
             raise ValueError("bounded valid feature correspondence indices required")
         if len(set(map(tuple,indices.tolist()))) != len(indices):
             raise ValueError("duplicate feature correspondence in RGB pair")
+        if (len(np.unique(indices[:, 0])) != len(indices)
+                or len(np.unique(indices[:, 1])) != len(indices)):
+            raise ValueError("ambiguous one-to-many feature correspondence in RGB pair")
         pi,pj = frames[i].points_xy[indices[:,0]], frames[j].points_xy[indices[:,1]]
         e,mask = cv2.findEssentialMat(pi,pj,k,cv2.RANSAC,0.999,max_reprojection_px)
         if e is None or mask is None or len(e) < 3:
@@ -201,11 +211,24 @@ def solve_global_rgb_camera_network(
     if not accepted:
         raise ValueError("no calibrated multi-image essential geometry")
     # All pair links feed one GLOBAL track graph, not separate mosaics.
+    # A conflicting pair of multi-frame feature tracks is NEVER merged.
+    # If a geometric pair contradicts the existing track graph on too many
+    # correspondences, it cannot count as reliable multi-view evidence.
+    conflicts = 0
+    geometric_correspondences = 0
     for i,j,_,_,match_indices in sorted(accepted,key=lambda v:-len(v[4])):
+        pair_conflicts = 0
+        geometric_correspondences += len(match_indices)
         for a,b in match_indices:
-            join((i,int(a)),(j,int(b)))
+            if not join((i,int(a)),(j,int(b))):
+                pair_conflicts += 1
             if len(parent)>max_track_count*5:
                 raise ValueError("RGB feature graph exceeds track resource budget")
+        conflicts += pair_conflicts
+        if pair_conflicts * 3 > len(match_indices):
+            raise ValueError("contradictory multiview RGB feature track associations")
+    if conflicts * 3 > geometric_correspondences:
+        raise ValueError("contradictory global RGB multiview feature tracks")
     tracks = list(owners.values())
     if len(tracks)>max_track_count:
         raise ValueError("RGB network exceeds landmark budget")
@@ -330,4 +353,6 @@ def solve_global_rgb_camera_network(
         accepted_link_pairs=tuple(
             (frame_ids[i], frame_ids[j]) for i, j, _, _, _ in accepted
         ),
+        rejected_conflicting_track_merges=conflicts,
+        accepted_geometric_feature_correspondences=geometric_correspondences,
     )
