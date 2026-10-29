@@ -119,6 +119,7 @@ def _stub_pipeline(monkeypatch, traced, *, accepted_nonadjacent=True):
                 "orthophoto_verified": False,
             }
     def fake_rtk(network, unscaled, priors, intrinsics, **kwargs):
+        assert kwargs["enforce_camera_p95"] is True
         traced.append(("rtk", len(priors.frame_ids)))
         assert priors.frame_ids == network.frame_ids
         assert priors.camera_enu_m.shape == (12, 3)
