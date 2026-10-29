@@ -59,6 +59,49 @@ class PrivateRGBRTKWindowedBA:
     multiview_parallax_audit: RGBMultiviewParallaxAudit | None = None
     pitched_plane_candidates: PrivateRGBPitchedPlaneCandidates | None = None
 
+    def render_private_pitched_plane_preview(
+        self, candidate_index: int,
+        undistorted_rgb_images: tuple[np.ndarray, ...],
+        camera_indices: tuple[int, ...],
+        intrinsics: PinholeIntrinsics,
+        *, meters_per_pixel: float = .05, max_side: int = 1024,
+        should_cancel=None,
+    ):
+        """Vertical BA->plane->RGB raster preview, PRIVATE memory only.
+
+        Source JPEGs must be independently calibrated and undistorted before
+        passing them here. No roof/GCP/orthophoto validation is implied.
+        """
+        from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
+            render_private_pitched_rgb_orthopatch,
+        )
+        if (self.pitched_plane_candidates is None
+                or type(candidate_index) is not int
+                or not 0 <= candidate_index < len(
+                    self.pitched_plane_candidates.planes_private
+                )
+                or type(camera_indices) is not tuple
+                or not 2 <= len(camera_indices) <= 8
+                or len(set(camera_indices)) != len(camera_indices)
+                or any(type(i) is not int or i < 0
+                       or i >= self.total_cameras for i in camera_indices)
+                or self.camera_reprojection_audit is None
+                or self.camera_reprojection_audit.cameras_above_p95_limit
+                or self.multiview_parallax_audit is None
+                or not self.multiview_parallax_audit.privacy_safe_summary()[
+                    "parallax_quality_passed"
+                ]):
+            raise ValueError("valid fitted RGB plane and verified stereo quality gates required")
+        # Selected camera indices refer to the same frame order as the full
+        # immutable BA result, no EXIF/gimbal pose recomputation.
+        return render_private_pitched_rgb_orthopatch(
+            self.pitched_plane_candidates.planes_private[candidate_index],
+            undistorted_rgb_images,
+            tuple(self.world_enu_to_camera_private[i] for i in camera_indices),
+            intrinsics, meters_per_pixel=meters_per_pixel,
+            max_side=max_side, should_cancel=should_cancel,
+        )
+
     def privacy_safe_summary(self):
         return {
             "schema": "mcm.rgb_rtk_windowed_ba.v1",
