@@ -1,5 +1,16 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 29.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – anonymer Qualitätsbericht auch bei strengem Kamera-FAIL
+- Ausgangsstand PR #9 `4b6f92e`: Python-3.11/3.12- und Windows-3.11/3.12-CI grün. `main` unverändert, kein Merge.
+- Neuer Bedarf aus dem echten Qualitäts-Gate: ein 160-Bild-Flug mit einer Einzelkamera-p95 >6 px muss strikt scheitern, aber lokale aggregierte Residualwerte sollen die Diagnose ermöglichen; kein Wiederholen von ZIP-/EXIF-Bestandsaufnahmen.
+- `rgb_per_camera_reprojection_gate.py` `9ee3ac0`: typisierte `RGBPerCameraReprojectionQualityError` hält NUR ein `RGBPerCameraReprojectionAudit` bereit (Anzahl über 6px, schlechtestes p95, Gesamt-p95/max, Zählwerte), keine Kamera-IDs oder Koordinaten. Die volle 6px-Schranke bleibt unverändert.
+- `rgb_zip_whole_flight_reconstruction.py` `f1b49d3`: ausschließlich am finalen RTK-BA-Gate weitergereichte Aggregate in `PrivateRGBFlightStageError`; andere Fehlerstufen geben keine Zusatzgeometrie aus.
+- `rgb_zip_whole_flight_cli.py` `e65331c`: bei Quality-FAIL Exit 2, Status `whole_flight_rgb_quality_gate_failed`, `failed_stage=rtk_weighted_ba`, zusätzlich `per_camera_reprojection` aus dem originalen typisierten Audit; keine teilweise „erfolgreiche“ 160-Bild-Rekonstruktion.
+- `tests/test_rgb_per_camera_reprojection_gate.py` `59dfb12` bestätigt 160 Kameras und einen einzelnen absichtlichen 25px-Ausreißer, gleiche diagnostische Aggregate, keinerlei Bild-/GPS-IDs; `tests/test_rgb_zip_whole_flight_reconstruction.py` `5361e20` prüft den vollständigen synthetischen ZIP→CLI-Fehlertransport, Report/Stdout, unveränderte Archive und lokale Berichtdatei.
+- Status: aktuelle Python-/Windows-CI am exakten HEAD prüfen; echte 160 Hummintech-Originale und unabhängig überprüfte Optikkalibrierung stehen in dieser Laufzeit nicht zur Verfügung. Kein Dach-/Orthofoto-/PV-/Thermal-/Survey-Nachweis; keine ODM/WebODM/ODX-Integration.
+- EINZIGER nächster Schritt: neue CI prüfen/reparieren, dann originalen vollständigen 160-Bild-Flug in der privaten Windows-Umgebung laufen lassen und p95-/RTK-/Graph-Qualität auswerten.
+
+
 ### 29.10.2026 · Kamera-p95-Gate: echter CI-Befund und fachlich strikte Korrektur
 - Initiale Python-3.11-CI des neuen individuellen Kamera-Gates auf `53850cc`: Integrationstest mit einer unzureichend passenden **synthetischen** RTK-Fenster-BA-Szene überschreitet 6px-p95 in mindestens einer Kamera (1 fehlgeschlagener Test; alle anderen bestanden). Fehler **nicht** durch Erhöhung des Grenzwerts/Abschalten des produktiven Gates verdecken.
 - `rgb_per_camera_reprojection_gate.py` (`bbbbf36`) dokumentiert `cameras_above_p95_limit`, `camera_reprojection_quality_passed` und p95-Grenzwert in privater Aggregatdiagnose. Nur ausdrückliche `enforce_camera_p95=False`-Diagnoseläufe dürfen den mangelhaften nicht freigegebenen Kandidaten zurückliefern.
