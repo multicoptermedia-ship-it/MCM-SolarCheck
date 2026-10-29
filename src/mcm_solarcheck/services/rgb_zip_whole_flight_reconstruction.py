@@ -34,17 +34,30 @@ from mcm_solarcheck.services.rgb_windowed_bundle_adjustment import (
 from mcm_solarcheck.services.rgb_rtk_joint_bundle_adjustment import (
     adjust_rgb_windowed_bundle_with_private_rtk,
 )
+from mcm_solarcheck.services.rgb_per_camera_reprojection_gate import (
+    RGBPerCameraReprojectionAudit, RGBPerCameraReprojectionQualityError,
+)
 
 
 class PrivateRGBFlightStageError(ValueError):
     """A public-safe processing stage; never embed source paths or GPS values."""
 
-    def __init__(self, stage: str):
+    def __init__(
+        self, stage: str,
+        camera_reprojection_audit: RGBPerCameraReprojectionAudit | None = None,
+    ):
         if stage not in ("intake", "calibration", "feature_extraction",
                          "overlap_matching", "global_sfm", "unscaled_ba",
                          "rtk_weighted_ba"):
             raise ValueError("unrecognized private RGB processing stage")
+        if camera_reprojection_audit is not None and (
+            stage != "rtk_weighted_ba" or
+            not isinstance(camera_reprojection_audit, RGBPerCameraReprojectionAudit) or
+            camera_reprojection_audit.cameras_above_p95_limit < 1
+        ):
+            raise ValueError("only failed final camera pixel audit may be attached")
         self.stage = stage
+        self.camera_reprojection_audit = camera_reprojection_audit
         super().__init__(f"whole-flight RGB {stage} gate not passed")
 
 
@@ -358,5 +371,9 @@ def reconstruct_private_complete_rgb_zip_flight(
             unscaled.after_rmse_px, metric, audit,
             exact_coverage, expected_frame_count,
         )
-    except (ValueError, TypeError, KeyError, IndexError, cv2.error) as exc:
+    except RGBPerCameraReprojectionQualityError as exc:
+        raise PrivateRGBFlightStageError(
+            stage, camera_reprojection_audit=exc.audit,
+        ) from None
+    except (ValueError, TypeError, KeyError, IndexError, cv2.error):
         raise PrivateRGBFlightStageError(stage) from None
