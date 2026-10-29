@@ -28,6 +28,9 @@ from mcm_solarcheck.services.rgb_global_camera_network import (
 from mcm_solarcheck.services.rgb_sfm_link_graph_gate import (
     audit_complete_rgb_sfm_link_graph,
 )
+from mcm_solarcheck.services.rgb_sfm_track_support_gate import (
+    audit_complete_rgb_sfm_track_support,
+)
 from mcm_solarcheck.services.rgb_windowed_bundle_adjustment import (
     adjust_windowed_unscaled_rgb_network,
 )
@@ -91,6 +94,7 @@ class PrivateRGBFlightReconstruction:
     expected_flight_frame_count: int | None = None
     sfm_rejected_conflicting_track_merges: int = 0
     sfm_accepted_geometric_feature_correspondences: int = 0
+    sfm_3d_track_support_audit: object = None
 
     def privacy_safe_summary(self) -> dict:
         ba = self.rtk_windowed_ba.privacy_safe_summary()
@@ -107,6 +111,8 @@ class PrivateRGBFlightReconstruction:
             ),
             "physical_cross_strip_identity_verified": False,
             **self.geometric_link_graph_audit.privacy_safe_summary(),
+            **(self.sfm_3d_track_support_audit.privacy_safe_summary()
+               if self.sfm_3d_track_support_audit is not None else {}),
             "sfm_track_conflicting_merges_rejected": (
                 self.sfm_rejected_conflicting_track_merges
             ),
@@ -370,6 +376,16 @@ def reconstruct_private_complete_rgb_zip_flight(
                   if p.reason == "cross_strip"),
         )
         actual_count = audit.spatial_nonadjacent_geometric_pairs
+        # Essential-matrix pair links do not themselves prove that global
+        # triangulation kept genuine shared 3D points on those same edges.
+        track_audit = audit_complete_rgb_sfm_track_support(
+            ids, tuple(network.accepted_link_pairs),
+            tuple((p.first_id, p.second_id) for p in candidates
+                  if p.reason == "cross_strip"),
+            network.observation_frame_indices,
+            network.observation_landmark_indices,
+            should_cancel=should_cancel,
+        )
         stage = "unscaled_ba"
         unscaled = adjust_windowed_unscaled_rgb_network(
             network, intrinsics, max_landmarks_total=200000,
@@ -393,6 +409,7 @@ def reconstruct_private_complete_rgb_zip_flight(
             exact_coverage, expected_frame_count,
             network.rejected_conflicting_track_merges,
             network.accepted_geometric_feature_correspondences,
+            track_audit,
         )
     except RGBPerCameraReprojectionQualityError as exc:
         raise PrivateRGBFlightStageError(
