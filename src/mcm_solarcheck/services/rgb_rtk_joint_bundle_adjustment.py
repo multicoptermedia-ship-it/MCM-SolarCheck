@@ -18,6 +18,9 @@ from mcm_solarcheck.services.rgb_rtk_camera_priors import (
     PrivateRGBRTKPriors, anchor_windowed_rgb_network_to_rtk,
 )
 from mcm_solarcheck.services.module_plane_projection import PinholeIntrinsics
+from mcm_solarcheck.services.rgb_per_camera_reprojection_gate import (
+    RGBPerCameraReprojectionAudit, audit_rgb_per_camera_reprojection,
+)
 
 
 @dataclass(frozen=True)
@@ -46,6 +49,7 @@ class PrivateRGBRTKWindowedBA:
     independent_survey_verified: bool = False
     roof_geometry_verified: bool = False
     orthophoto_verified: bool = False
+    camera_reprojection_audit: RGBPerCameraReprojectionAudit | None = None
 
     def privacy_safe_summary(self):
         return {
@@ -59,6 +63,10 @@ class PrivateRGBRTKWindowedBA:
             "gnss_withheld_camera_count": self.withheld_rtk_camera_count,
             "before_reprojection_rmse_px": self.before_reprojection_rmse_px,
             "after_reprojection_rmse_px": self.after_reprojection_rmse_px,
+            "per_camera_reprojection": (
+                self.camera_reprojection_audit.privacy_safe_summary()
+                if self.camera_reprojection_audit is not None else None
+            ),
             "before_rtk_holdout_p95_m": self.before_rtk_holdout_p95_m,
             "after_rtk_holdout_p95_m": self.after_rtk_holdout_p95_m,
             "after_rtk_holdout_max_m": self.after_rtk_holdout_max_m,
@@ -157,6 +165,13 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
     xyz = np.array(fitted.landmark_xyz_unit_baseline,copy=True)
     for array in (*result_poses,xyz):
         array.setflags(write=False)
+    pixel_audit = audit_rgb_per_camera_reprojection(
+        result_poses, xyz,
+        network.observation_frame_indices,
+        network.observation_landmark_indices,
+        network.observation_pixels_xy,
+        intrinsics, should_cancel=should_cancel,
+    )
     return PrivateRGBRTKWindowedBA(
         network.frame_ids, result_poses, xyz, fitted.before_rmse_px,
         fitted.after_rmse_px, aligned.withheld_p95_m,
@@ -169,4 +184,5 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
         state=("rtk_regularized_windows_with_rejections_unverified"
                if fitted.rtk_windows_without_improvement else
                "rtk_regularized_multiview_windowed_ba_unverified"),
+        camera_reprojection_audit=pixel_audit,
     )
