@@ -1,5 +1,13 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 29.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – lokale Kamera-Stützung des 3D-Parallaxen-Gates
+- Zusätzlich zum bereits implementierten globalen Winkelgate (≥75 % der Landmark-Punkte mit ≥0,25° Sichtstrahlwinkel) werden jetzt **sämtliche** Kameras einzeln auditiert. Für jede Kamera müssen mindestens **25 % der zugeordneten 3D-Beobachtungen** auf stark winkelseparierten Landmark-Punkten beruhen, andernfalls FAIL; auch Kameras ohne jeden 3D-Track werden zurückgewiesen.
+- `rgb_multiview_parallax_gate.py` (`5507b4a`): führt je Kamera Zählung über den bestehenden bereits privaten `fid/lid`-Trackgraphen durch; nur minimale gestützte Kameraquote und Anzahl unter der Quote im anonymen JSON. Kein Export von Kamera-IDs, Bildpfaden, GNSS oder 3D-Punktkoordinaten, keine neue Abhängigkeit.
+- `tests/test_rgb_multiview_parallax_gate.py` (`cfedc42`): 40 3D-Punkte, 32 geometrisch stark (80 %: globale Regel PASS), 8 schwach in einem 3-Kamera-Teilbereich (8 Beobachtungen je Kamera: alle drei Kamera-Gates FAIL). Ungültige Grenzwerte/fehlende Kamera-3D-Stützung ebenfalls FAIL. Die 6px-Einzelkamera-Reprojektionsregel bleibt strikt.
+- Aktueller HEAD-CI-Status noch offen; der Vorgänger `5f9e6cb` mit korrigierter NumPy-Testfixture war Python/Windows 3.11/3.12 vollständig grün. Keine reale 160-Hummintech-Ausführung, keine unabhängige 3D-Dach-/Ortho-/PV-/Thermal-/Survey-Freigabe.
+- Nächster Schritt: CI des aktuellen Branch-HEAD prüfen/reparieren; dann sechs Originalarchive mit tatsächlich unabhängig bestätigter DJI-Optikkalibrierung auf dem lokalen Windows-10-Rechner read-only durch SfM, RTK-/Fenster-BA und die zusätzlichen Geometriegates laufen lassen. Kein ODM/ODX, kein Merge nach `main`.
+
+
 ### 29.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – echte Mehrblick-Parallaxe als Tiefen-Gate
 - Draft PR #9, `main` unverändert. Voriger vollständiger HEAD `a248475`: Python 3.11/3.12 und Windows 3.11/3.12 CI grün. **Neue CI für Parallaxen-Code am aktuellen HEAD prüfen.**
 - Fachliches Problem: niedriger Reprojektionsfehler plus ≥2 Kamera-IDs kann bei fast identischen Kamerastandorten beliebige/unsichere 3D-Tiefen maskieren. Ein schwach triangulierter Punkt taugt noch nicht als belastbare Grundlage für PV-Dachflächen.
