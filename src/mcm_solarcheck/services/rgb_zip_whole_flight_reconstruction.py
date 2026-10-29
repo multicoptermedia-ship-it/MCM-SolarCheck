@@ -61,6 +61,8 @@ class PrivateRGBFlightReconstruction:
     unscaled_ba_reprojection_rmse_px: float
     rtk_windowed_ba: object
     geometric_link_graph_audit: object
+    required_flight_coverage_verified: bool = False
+    expected_flight_frame_count: int | None = None
 
     def privacy_safe_summary(self) -> dict:
         ba = self.rtk_windowed_ba.privacy_safe_summary()
@@ -82,6 +84,10 @@ class PrivateRGBFlightReconstruction:
             "unscaled_ba_reprojection_rmse_px": self.unscaled_ba_reprojection_rmse_px,
             "rtk_windowed_ba": ba,
             "all_input_rgb_frames_processed": True,
+            "required_flight_coverage_verified": (
+                self.required_flight_coverage_verified
+            ),
+            "expected_flight_frame_count": self.expected_flight_frame_count,
             "independent_survey_verified": False,
             "roof_geometry_verified": False,
             "rgb_orthophoto_verified": False,
@@ -205,6 +211,41 @@ def _orb_from_private_zip(series, intrinsics, distortion, *,
     return tuple(observations), descriptors
 
 
+def _check_expected_rgb_flight(
+    series: PrivateRGBFlightSeries, *,
+    expected_frame_count: int | None,
+    expected_archive_count: int | None,
+    first_counter: int,
+) -> bool:
+    """Compare already-indexed camera identities to exact user-expected flight.
+
+    No additional archive or image read. Refuse incomplete ZIP sets, gaps,
+    substitutions or reordered/duplicate IDs before expensive ORB/SfM.
+    """
+    if (type(first_counter) is not int or not 0 <= first_counter <= 9999):
+        raise ValueError("bounded RGB counter start required")
+    if (expected_frame_count is None) != (expected_archive_count is None):
+        raise ValueError("whole-flight frame and archive counts required together")
+    if expected_frame_count is None:
+        return False
+    if (type(expected_frame_count) is not int or
+            not 12 <= expected_frame_count <= 1000 or
+            first_counter + expected_frame_count > 10000 or
+            type(expected_archive_count) is not int or
+            not 1 <= expected_archive_count <= 32):
+        raise ValueError("bounded explicit complete RGB flight expectation required")
+    expected_ids = tuple(
+        f"V-{number:04d}"
+        for number in range(first_counter, first_counter + expected_frame_count)
+    )
+    if (len(series.frames) != expected_frame_count or
+            series.archives_read != expected_archive_count or
+            tuple(f.frame_id for f in series.frames) != expected_ids or
+            len({f.source_archive for f in series.frames}) != expected_archive_count):
+        raise ValueError("complete RGB flight archive/count/counter gate failed")
+    return True
+
+
 def reconstruct_private_complete_rgb_zip_flight(
     archives: tuple[str | Path, ...],
     calibration: dict,
@@ -212,6 +253,9 @@ def reconstruct_private_complete_rgb_zip_flight(
     max_side: int = 1200,
     max_features: int = 1600,
     max_neighbours: int = 10,
+    expected_frame_count: int | None = None,
+    expected_archive_count: int | None = None,
+    first_counter: int = 1,
     should_cancel=None,
     on_progress=None,
 ) -> PrivateRGBFlightReconstruction:
@@ -224,6 +268,12 @@ def reconstruct_private_complete_rgb_zip_flight(
     try:
         series = read_private_rgb_zip_series(
             archives, should_cancel=should_cancel,
+        )
+        exact_coverage = _check_expected_rgb_flight(
+            series,
+            expected_frame_count=expected_frame_count,
+            expected_archive_count=expected_archive_count,
+            first_counter=first_counter,
         )
         ids = tuple(frame.frame_id for frame in series.frames)
         if len(ids) < 12:
@@ -305,6 +355,7 @@ def reconstruct_private_complete_rgb_zip_flight(
             len(ids), len(candidates), len(links), across, actual_count,
             network.reconstructed_landmarks, network.reprojection_p95_px,
             unscaled.after_rmse_px, metric, audit,
+            exact_coverage, expected_frame_count,
         )
     except (ValueError, TypeError, KeyError, IndexError, cv2.error) as exc:
         raise PrivateRGBFlightStageError(stage) from None
