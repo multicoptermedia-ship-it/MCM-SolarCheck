@@ -171,6 +171,38 @@ und kein Export angeblicher georeferenzierter Dachpolygone. Lokale echte
 160-Kamera-Bilddaten sind weiterhin notwendig, bevor man die Geometrie
 fachlich gegen reale Dachflächen prüfen kann.
 
+## Mehrere geneigte Flächen im selben privaten RGB-Vorschauraster
+
+Der neue **optionale In-Memory-Preview**, nicht der automatische 160-RGB-CLI-
+Produktexport, setzt mehrere bereits im erfolgreichen RTK-BA-Objekt vorhandene
+geneigte 3D-Kandidaten in ein gemeinsames metrisches **nordorientiertes**
+ENU-RGB-Raster. `render_private_multiplane_preview_from_original_rgb_archives`
+wählt pro Kandidat automatisch 2–8 Kameras anhand der **finalen optimierten
+BA-Posen, echten externen Intrinsics und des projizierten 3D-Footprints**
+aus, dekodiert nur deren Originale direkt aus den bekannten ZIP/`.tip`-
+Archiven, entzerrt mit der verifizierten Kalibrierung und projiziert RGB
+auf die jeweilige geneigte Fläche. Keine ZIP-Extraktion, keine Original- oder
+SQLite-Veränderung, **kein** Bilddateiexport durch diese Funktion. Die
+Funktion benötigt das tatsächlich noch im Arbeitsspeicher befindliche
+`PrivateRGBRTKWindowedBA`-Objekt und ist daher **nicht** mit einem
+bereits gespeicherten CLI-JSON allein aufrufbar. Keine Optik-Kalibrierung
+aus EXIF schätzen.
+
+Die Rastermaske enthält nur gültige, wirklich projizierbare Pixel. Bei
+überlappenden Flächenhypothesen wird **nicht** blind gemittelt: Liegen ihre
+Z-Höhen weniger als 0,15 m auseinander, bleiben solche Übergangspixel
+`ambiguous_overlap_mask_private` und damit ungültig. Das ist eine
+konservative Preview-Heuristik, **keine** physikalische Okklusionslösung
+und **keine** verifizierte Dachkante. In der anonymen privaten
+`privacy_safe_summary()` erscheinen allein Anzahl Kandidaten,
+Quellkameras sowie gültige/mehrdeutige Pixelanteile; tatsächliche RGB-Daten,
+ENU-Lage, Posen und Dachpolygone niemals im CLI/CI-Log.
+
+Das nächste reale Ziel bleibt **der komplette lokale 160-Bild-Lauf** mit
+geprüfter externer Objektivkalibrierung; erst daraus können reale Flächen
+und Übergänge beurteilt werden. Bis zur unabhängigen Dach-/Naht-/
+Geometrieprüfung weiterhin **kein** Dachorthofoto-/PV-/Thermal-PASS.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
