@@ -59,6 +59,7 @@ def audit_complete_rgb_sfm_track_support(
     observation_frame_indices: np.ndarray,
     observation_landmark_indices: np.ndarray,
     *,
+    landmark_count: int,
     min_shared_landmarks: int = 8,
     should_cancel=None,
 ) -> RGBSfMTrackSupportAudit:
@@ -75,7 +76,9 @@ def audit_complete_rgb_sfm_track_support(
             or any(type(fid) is not str or not fid for fid in frame_ids)
             or len(set(frame_ids)) != len(frame_ids)
             or type(min_shared_landmarks) is not int
-            or not 4 <= min_shared_landmarks <= 64):
+            or not 4 <= min_shared_landmarks <= 64
+            or type(landmark_count) is not int
+            or not 8 <= landmark_count <= 200000):
         raise ValueError("bounded unique RGB track-support frames required")
     names = {name: index for index, name in enumerate(frame_ids)}
 
@@ -105,7 +108,7 @@ def audit_complete_rgb_sfm_track_support(
             or not np.issubdtype(fid.dtype, np.integer)
             or not np.issubdtype(lid.dtype, np.integer)
             or np.any(fid < 0) or np.any(fid >= len(frame_ids))
-            or np.any(lid < 0) or np.any(lid >= 200000)):
+            or np.any(lid < 0) or np.any(lid >= landmark_count)):
         raise ValueError("complete bounded retained SfM 3D observations required")
     # Real integer 3D landmark IDs, never a reprojected descriptor count.
     # Set intersection counts each shared landmark once even if the original
