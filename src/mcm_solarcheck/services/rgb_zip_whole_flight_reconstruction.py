@@ -89,6 +89,8 @@ class PrivateRGBFlightReconstruction:
     geometric_link_graph_audit: object
     required_flight_coverage_verified: bool = False
     expected_flight_frame_count: int | None = None
+    sfm_rejected_conflicting_track_merges: int = 0
+    sfm_accepted_geometric_feature_correspondences: int = 0
 
     def privacy_safe_summary(self) -> dict:
         ba = self.rtk_windowed_ba.privacy_safe_summary()
@@ -105,6 +107,12 @@ class PrivateRGBFlightReconstruction:
             ),
             "physical_cross_strip_identity_verified": False,
             **self.geometric_link_graph_audit.privacy_safe_summary(),
+            "sfm_track_conflicting_merges_rejected": (
+                self.sfm_rejected_conflicting_track_merges
+            ),
+            "sfm_accepted_geometric_feature_correspondences": (
+                self.sfm_accepted_geometric_feature_correspondences
+            ),
             "sfm_landmarks": self.network_landmark_count,
             "sfm_reprojection_p95_px": self.sfm_reprojection_p95_px,
             "unscaled_ba_reprojection_rmse_px": self.unscaled_ba_reprojection_rmse_px,
@@ -383,6 +391,8 @@ def reconstruct_private_complete_rgb_zip_flight(
             network.reconstructed_landmarks, network.reprojection_p95_px,
             unscaled.after_rmse_px, metric, audit,
             exact_coverage, expected_frame_count,
+            network.rejected_conflicting_track_merges,
+            network.accepted_geometric_feature_correspondences,
         )
     except RGBPerCameraReprojectionQualityError as exc:
         raise PrivateRGBFlightStageError(
