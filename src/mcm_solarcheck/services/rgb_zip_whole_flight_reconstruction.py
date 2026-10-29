@@ -35,7 +35,7 @@ from mcm_solarcheck.services.rgb_windowed_bundle_adjustment import (
     adjust_windowed_unscaled_rgb_network,
 )
 from mcm_solarcheck.services.rgb_rtk_joint_bundle_adjustment import (
-    adjust_rgb_windowed_bundle_with_private_rtk,
+    PrivateRGBRTKWindowedBA, adjust_rgb_windowed_bundle_with_private_rtk,
 )
 from mcm_solarcheck.services.rgb_per_camera_reprojection_gate import (
     RGBPerCameraReprojectionAudit, RGBPerCameraReprojectionQualityError,
@@ -422,3 +422,74 @@ def reconstruct_private_complete_rgb_zip_flight(
         ) from None
     except (ValueError, TypeError, KeyError, IndexError, cv2.error):
         raise PrivateRGBFlightStageError(stage) from None
+
+
+def render_private_pitched_preview_from_original_rgb_archives(
+    archives: tuple[str | Path, ...],
+    calibration: dict,
+    metric_candidate: PrivateRGBRTKWindowedBA,
+    candidate_index: int,
+    camera_indices: tuple[int, ...],
+    *,
+    meters_per_pixel: float = .05,
+    max_side: int = 1024,
+    should_cancel=None,
+):
+    """Private *opt-in* ZIP JPEG -> undistort -> pitched 3D RGB raster preview.
+
+    Caller reuses the completed private RTK BA object (with its private plane
+    hypotheses), never infers poses from DJI EXIF/Gimbal. Source ZIP/.tip
+    archives and JPEG members are READ ONLY. No output/image serialization.
+    Only selected cameras are decoded, bounded to 2..8 private images.
+    """
+    if (not isinstance(metric_candidate, PrivateRGBRTKWindowedBA)
+            or type(camera_indices) is not tuple
+            or not 2 <= len(camera_indices) <= 8
+            or len(set(camera_indices)) != len(camera_indices)
+            or any(type(i) is not int or i < 0
+                   or i >= metric_candidate.total_cameras for i in camera_indices)):
+        raise ValueError("complete RTK BA and unique private preview cameras required")
+    if should_cancel is not None and should_cancel():
+        raise RuntimeError("private RGB orthopatch ZIP decoding cancelled")
+    flight = read_private_rgb_zip_series(
+        archives, should_cancel=should_cancel,
+    )
+    ids = tuple(frame.frame_id for frame in flight.frames)
+    if (ids != metric_candidate.frame_ids
+            or len(ids) != metric_candidate.total_cameras):
+        raise ValueError("private RGB source identities differ from fitted 3D cameras")
+    k, distortion = _calibrated_camera(calibration, flight)
+    matrix = np.array((
+        (k.fx, 0., k.cx),
+        (0., k.fy, k.cy),
+        (0., 0., 1.),
+    ), dtype=np.float64)
+    images = []
+    for i in camera_indices:
+        if should_cancel is not None and should_cancel():
+            raise RuntimeError("private RGB orthopatch ZIP decoding cancelled")
+        frame = flight.frames[i]
+        with ZipFile(frame.source_archive) as archive:
+            entry = archive.getinfo(frame.member_name)
+            if not 128 <= entry.file_size <= 40_000_000:
+                raise ValueError("original RGB member exceeds preview budget")
+            with archive.open(entry) as source:
+                encoded = source.read(40_000_001)
+            if len(encoded) != entry.file_size:
+                raise ValueError("original RGB JPEG changed since flight intake")
+        bgr = cv2.imdecode(np.frombuffer(encoded, np.uint8), cv2.IMREAD_COLOR)
+        del encoded
+        if bgr is None or bgr.shape != (frame.height, frame.width, 3):
+            raise ValueError("unreadable original calibrated RGB JPEG")
+        # Feature SfM pixels are in UNDISTORTED full-resolution sensor K.
+        # Apply the exact same K/distortion convention on the RGB preview.
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        del bgr
+        undistorted = cv2.undistort(rgb, matrix, distortion, None, matrix)
+        del rgb
+        images.append(undistorted)
+    return metric_candidate.render_private_pitched_plane_preview(
+        candidate_index, tuple(images), camera_indices, k,
+        meters_per_pixel=meters_per_pixel, max_side=max_side,
+        should_cancel=should_cancel,
+    )
