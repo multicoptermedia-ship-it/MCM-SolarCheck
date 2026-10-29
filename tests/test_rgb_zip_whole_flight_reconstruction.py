@@ -1,5 +1,6 @@
 """Private RGB ZIP -> full 12-frame feature/RTK/BA handoff; synthetic only."""
 from io import BytesIO
+from dataclasses import replace
 import json
 from pathlib import Path
 from zipfile import ZipFile
@@ -11,6 +12,7 @@ from PIL import Image
 from mcm_solarcheck.services.module_plane_projection import PinholeIntrinsics
 from mcm_solarcheck.services.rgb_global_camera_network import RGBUnscaledNetwork
 from mcm_solarcheck.services.rgb_windowed_bundle_adjustment import RGBWindowedBAResult
+from mcm_solarcheck.services.rgb_flight_zip_series import read_private_rgb_zip_series
 from mcm_solarcheck.services import rgb_zip_whole_flight_reconstruction as process
 from mcm_solarcheck.services.rgb_zip_whole_flight_cli import main
 
@@ -177,6 +179,7 @@ def test_cli_writes_only_aggregate_and_never_changes_private_jpegs(tmp_path, mon
         "--calibration-json", str(calibration),
         "--report", str(report), "--max-side", "400",
         "--max-features", "500",
+        "--expected-frames", "12", "--expected-archives", "2",
     ]
     assert main(args) == 0
     output = report.read_text(encoding="utf-8")
@@ -199,6 +202,7 @@ def test_missing_external_calibration_blocks_real_rgb_sfm(tmp_path, capsys):
         "--rgb-archive", str(archives[0]),
         "--rgb-archive", str(archives[1]),
         "--calibration-json", str(evidence),
+        "--expected-frames", "12", "--expected-archives", "2",
     ])
     assert status == 2
     result = json.loads(capsys.readouterr().out)
@@ -242,3 +246,70 @@ def test_descriptor_only_spatial_links_are_not_geometry_evidence(tmp_path, monke
     assert any(stage[0] == "sfm" for stage in seen)
     assert not any(stage[0] == "rtk" for stage in seen)
     assert "flight/" not in str(error.value)
+
+
+def test_complete_flight_gate_rejects_partial_archives_before_feature_work(tmp_path, monkeypatch):
+    archives, camera = _fixture(tmp_path)
+    def must_not_extract(*args, **kwargs):
+        raise AssertionError("ORB feature decode must not start for partial flight")
+    monkeypatch.setattr(process, "_orb_from_private_zip", must_not_extract)
+    with pytest.raises(process.PrivateRGBFlightStageError) as error:
+        process.reconstruct_private_complete_rgb_zip_flight(
+            archives, camera, max_side=400, max_features=500,
+            expected_frame_count=160, expected_archive_count=6,
+        )
+    assert error.value.stage == "intake"
+    with pytest.raises(process.PrivateRGBFlightStageError) as error:
+        process.reconstruct_private_complete_rgb_zip_flight(
+            archives, camera, max_side=400, max_features=500,
+            expected_frame_count=12, expected_archive_count=3,
+        )
+    assert error.value.stage == "intake"
+
+
+def test_exact_counter_gate_rejects_gaps_substitutions_and_unsafe_expectation(tmp_path):
+    archives, _ = _fixture(tmp_path)
+    series = read_private_rgb_zip_series(archives)
+    assert process._check_expected_rgb_flight(
+        series, expected_frame_count=12,
+        expected_archive_count=2, first_counter=1,
+    )
+    assert not process._check_expected_rgb_flight(
+        series, expected_frame_count=None,
+        expected_archive_count=None, first_counter=1,
+    )
+    altered = replace(series, frames=tuple(
+        replace(f, frame_id="V-0900") if i == 6 else f
+        for i, f in enumerate(series.frames)
+    ))
+    with pytest.raises(ValueError, match="archive/count/counter"):
+        process._check_expected_rgb_flight(
+            altered, expected_frame_count=12,
+            expected_archive_count=2, first_counter=1,
+        )
+    with pytest.raises(ValueError, match="together"):
+        process._check_expected_rgb_flight(
+            series, expected_frame_count=12,
+            expected_archive_count=None, first_counter=1,
+        )
+    with pytest.raises(ValueError, match="bounded"):
+        process._check_expected_rgb_flight(
+            series, expected_frame_count=12,
+            expected_archive_count=2, first_counter=10000,
+        )
+
+
+def test_offline_cli_defaults_to_full_160_and_six_archives(tmp_path, capsys):
+    archives, camera = _fixture(tmp_path)
+    calibration = tmp_path / "lens.json"
+    calibration.write_text(json.dumps(camera), encoding="utf-8")
+    status = main([
+        "--rgb-archive", str(archives[0]),
+        "--rgb-archive", str(archives[1]),
+        "--calibration-json", str(calibration),
+    ])
+    assert status == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["failed_stage"] == "intake"
+    assert report["rgb_orthophoto_verified"] is False
+    assert "DJI_" not in json.dumps(report)
