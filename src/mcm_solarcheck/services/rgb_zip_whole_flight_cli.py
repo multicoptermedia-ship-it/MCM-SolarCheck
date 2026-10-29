@@ -80,6 +80,11 @@ def main(argv=None):
             result["per_camera_reprojection"] = (
                 failed.camera_reprojection_audit.privacy_safe_summary()
             )
+        if failed.multiview_parallax_audit is not None:
+            # Aggregate angular separation, never landmark coordinates/IDs.
+            result["multiview_parallax"] = (
+                failed.multiview_parallax_audit.privacy_safe_summary()
+            )
         status = 2
     except (ValueError, TypeError, json.JSONDecodeError):
         result = {
