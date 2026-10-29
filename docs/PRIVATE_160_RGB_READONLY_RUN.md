@@ -150,6 +150,27 @@ Punkt-/Kamerakoordinaten bleiben im Arbeitsspeicher. `parallax_quality_passed`
 ist ausdrücklich `false`, selbst wenn die Kameras pixelweise gut passen.
 Bei echtem Versagen **nicht** einfach den Winkelgrenzwert absenken.
 
+## Erste vertikale 3D-Geometrieresultate (nur Hypothesen)
+
+Nach dem RTK-gewichteten Bundle Adjustment und den bestehenden Pixel- und
+Parallaxenprüfungen passt der lokale Algorithmus mit RANSAC+SVD erstmals
+**geneigte Ebenenhypothesen an tatsächlich rekonstruierte metrische 3D-Punkte**
+an. Im nur lokal gespeicherten Bericht stehen diese Werte unter
+`rtk_windowed_ba.pitched_plane_hypotheses`:
+`plane_candidate_count`, `total_supported_landmarks`,
+`candidate_slope_min_deg`, `candidate_slope_max_deg` und
+`worst_candidate_plane_residual_p95_m`. Die privaten Ebenennormalen,
+Höhen-/Abstandsparameter, Stützpunkt-IDs und XY-Footprints werden
+**nicht als JSON exportiert**. Sie bleiben ausschließlich im in-memory
+BA-Objekt für die anschließende Entwicklung der echten Dachorthorektifizierung.
+
+**0 Hypothesen ist kein erkanntes Dach; auch mehrere Ebenenhypothesen sind
+keine verifizierten Dachflächen.** Sie könnten ebenso geneigtes Gelände
+oder andere Flächen sein. Keine Survey-/Dachflächen-/Ortho-/PV-/Thermalfreigabe
+und kein Export angeblicher georeferenzierter Dachpolygone. Lokale echte
+160-Kamera-Bilddaten sind weiterhin notwendig, bevor man die Geometrie
+fachlich gegen reale Dachflächen prüfen kann.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
