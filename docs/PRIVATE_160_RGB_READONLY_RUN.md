@@ -91,15 +91,21 @@ Nach der Einzelkamera-Reprojektion prüft das neue
 `rgb_multiview_parallax_gate.py` die Sichtstrahltrennung mehrerer Kameras
 für alle behaltenen 3D-Punkte. Standardmäßig müssen wenigstens 75 % der
 Punkte aus mindestens zwei **verschiedenen** Kameras mit einer konservativen
-Winkeluntergrenze von 0,25° gestützt sein. Dieses Gate prüft lediglich
-Photogrammetrie-Parallaxe, **keine unabhängige GCP-/Dachgenauigkeit**.
+Winkeluntergrenze von 0,25° gestützt sein. Zusätzlich muss **jede Kamera**
+mindestens **25 % ihrer 3D-Beobachtungen** auf solchen stark triangulierten
+Punkten haben. Damit kann eine schwache Bildgruppe nicht von einem sonst guten
+Gesamtflug verdeckt werden. Kameras ohne jegliche 3D-Beobachtung scheitern.
+Dieses Gate prüft lediglich Photogrammetrie-Parallaxe,
+**keine unabhängige GCP-/Dachgenauigkeit**.
 
 Beim Scheitern steht `status=whole_flight_rgb_quality_gate_failed`,
 `failed_stage=rtk_weighted_ba`, Exitcode **2** und zusätzlich
 `multiview_parallax` im nur lokal gespeicherten JSON. Die Felder
 `supported_landmark_count`, `weak_landmark_count`,
-`supported_landmark_fraction`, `landmark_parallax_p10_deg` und
-`landmark_parallax_median_deg` enthalten **nur Aggregate**; die realen
+`supported_landmark_fraction`, `landmark_parallax_p10_deg`,
+`landmark_parallax_median_deg`,
+`cameras_below_supported_observation_fraction` und
+`worst_camera_supported_observation_fraction` enthalten **nur Aggregate**; die realen
 Punkt-/Kamerakoordinaten bleiben im Arbeitsspeicher. `parallax_quality_passed`
 ist ausdrücklich `false`, selbst wenn die Kameras pixelweise gut passen.
 Bei echtem Versagen **nicht** einfach den Winkelgrenzwert absenken.
