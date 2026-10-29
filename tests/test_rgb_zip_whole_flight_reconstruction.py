@@ -16,6 +16,9 @@ from mcm_solarcheck.services.rgb_flight_zip_series import read_private_rgb_zip_s
 from mcm_solarcheck.services.rgb_per_camera_reprojection_gate import (
     audit_rgb_per_camera_reprojection,
 )
+from mcm_solarcheck.services.rgb_multiview_parallax_gate import (
+    audit_rgb_multiview_parallax,
+)
 from mcm_solarcheck.services import rgb_zip_whole_flight_reconstruction as process
 from mcm_solarcheck.services.rgb_zip_whole_flight_cli import main
 
@@ -123,6 +126,7 @@ def _stub_pipeline(monkeypatch, traced, *, accepted_nonadjacent=True):
             }
     def fake_rtk(network, unscaled, priors, intrinsics, **kwargs):
         assert kwargs["enforce_camera_p95"] is True
+        assert kwargs["enforce_parallax"] is True
         traced.append(("rtk", len(priors.frame_ids)))
         assert priors.frame_ids == network.frame_ids
         assert priors.camera_enu_m.shape == (12, 3)
@@ -383,3 +387,57 @@ def test_cli_strict_pixel_failure_preserves_only_aggregate_camera_metrics(
         assert private not in target.read_text(encoding="utf-8")
     assert [p.read_bytes() for p in archives] == originals
     assert list(local.iterdir()) == [target]
+
+
+def test_private_zip_cli_rejects_weak_multiview_depth_and_reports_only_angles(
+    tmp_path, monkeypatch, capsys,
+):
+    archives, camera = _fixture(tmp_path)
+    originals = [archive.read_bytes() for archive in archives]
+    _stub_pipeline(monkeypatch, [])
+    def weak_parallax(network, unscaled, priors, intrinsics, **kwargs):
+        assert kwargs["enforce_camera_p95"] is True
+        assert kwargs["enforce_parallax"] is True
+        poses = tuple(
+            np.column_stack((np.eye(3), np.array((-1e-5*i, 0., 0.))))
+            for i in range(12)
+        )
+        xyz = np.column_stack((
+            np.linspace(-1., 1., 16), np.zeros(16), np.full(16, 10.)
+        ))
+        fid = np.repeat(np.arange(12, dtype=np.int32), 16)
+        lid = np.tile(np.arange(16, dtype=np.int32), 12)
+        return audit_rgb_multiview_parallax(
+            poses, xyz, fid, lid, enforce_parallax=kwargs["enforce_parallax"],
+        )
+    monkeypatch.setattr(
+        process, "adjust_rgb_windowed_bundle_with_private_rtk", weak_parallax,
+    )
+    calibration = tmp_path / "lens.json"
+    calibration.write_text(json.dumps(camera), encoding="utf-8")
+    local = tmp_path / "output"
+    local.mkdir()
+    target = local / "failed-parallax.json"
+    args = [
+        "--rgb-archive", str(archives[0]),
+        "--rgb-archive", str(archives[1]),
+        "--calibration-json", str(calibration),
+        "--report", str(target),
+        "--max-side", "400", "--max-features", "500",
+        "--expected-frames", "12", "--expected-archives", "2",
+    ]
+    assert main(args) == 2
+    report = json.loads(target.read_text(encoding="utf-8"))
+    assert report == json.loads(capsys.readouterr().out)
+    assert report["status"] == "whole_flight_rgb_quality_gate_failed"
+    assert report["failed_stage"] == "rtk_weighted_ba"
+    assert report["multiview_parallax"]["parallax_quality_passed"] is False
+    assert report["multiview_parallax"]["weak_landmark_count"] == 16
+    assert report["multiview_parallax"]["roof_geometry_verified"] is False
+    assert report["rgb_orthophoto_verified"] is False
+    assert report["all_input_rgb_frames_processed"] is False
+    content = target.read_text(encoding="utf-8")
+    for secret in ("DJI_", "RGB2.tip", "RGB7.zip", "flight/", "V-0006",
+                   "latitude", "longitude", "path", "private/"):
+        assert secret not in content
+    assert [archive.read_bytes() for archive in archives] == originals
