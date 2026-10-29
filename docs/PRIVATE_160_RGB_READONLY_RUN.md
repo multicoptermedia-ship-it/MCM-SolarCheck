@@ -64,6 +64,27 @@ Dieser Aufruf **extrahiert keine** ZIP-Mitglieder auf die Festplatte,
 verändert keine Originale und schreibt keine SQLite. Der **einzige**
 geplante Schreibzugriff ist der angegebene neue lokale JSON-Bericht.
 
+## Falls ein einzelnes Kamerabild das Qualitätsgate nicht besteht
+
+Auch beim Scheitern ist der **neue lokale JSON-Bericht** vorhanden
+(sofern `--report` auf eine noch freie Datei zeigt). Dann gilt
+`status=whole_flight_rgb_quality_gate_failed` und der CLI-Exitcode ist **2**.
+Falls `failed_stage=rtk_weighted_ba` und die einzelne Kamera-p95-Prüfung
+fehlgeschlagen ist, enthält der Bericht zusätzlich `per_camera_reprojection`
+mit `cameras_above_p95_limit`, `camera_p95_limit_px`,
+`worst_camera_reprojection_p95_px`, `all_camera_reprojection_p95_px` und
+`all_camera_reprojection_max_px`. `camera_reprojection_quality_passed=false`
+bleibt zwingend. **Keine Bild-ID, Position, Originalaufnahme oder Landmark**
+wird in diesen JSON-Zusatz geschrieben.
+
+Einige andere Fehler (z. B. fehlende Kalibrierung, unvollständiges
+Bildarchiv, nicht zusammenhängende 3D-Spuren oder negative Tiefen) liefern
+weiterhin nur einen **anonymen Fehlerabschnitt**, ohne Pixelwerte.
+Keines dieser Scheitern darf durch eine nachträgliche Änderung der
+6-Pixel-Grenze oder Wiederholung des alten 2D-Stitching kaschiert werden.
+Einen lokalen Fehlerbericht gegebenenfalls **nur anonymisiert** teilen;
+private Pfade, GPS, DJI-XMP und JPEG-Originale niemals in PR-/CI-Logs stellen.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
