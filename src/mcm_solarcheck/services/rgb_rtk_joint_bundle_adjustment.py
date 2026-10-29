@@ -24,6 +24,9 @@ from mcm_solarcheck.services.rgb_per_camera_reprojection_gate import (
 from mcm_solarcheck.services.rgb_multiview_parallax_gate import (
     RGBMultiviewParallaxAudit, audit_rgb_multiview_parallax,
 )
+from mcm_solarcheck.services.rgb_private_pitched_plane_candidates import (
+    PrivateRGBPitchedPlaneCandidates, propose_private_rgb_pitched_planes,
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,7 @@ class PrivateRGBRTKWindowedBA:
     orthophoto_verified: bool = False
     camera_reprojection_audit: RGBPerCameraReprojectionAudit | None = None
     multiview_parallax_audit: RGBMultiviewParallaxAudit | None = None
+    pitched_plane_candidates: PrivateRGBPitchedPlaneCandidates | None = None
 
     def privacy_safe_summary(self):
         return {
@@ -74,6 +78,10 @@ class PrivateRGBRTKWindowedBA:
             "multiview_parallax": (
                 self.multiview_parallax_audit.privacy_safe_summary()
                 if self.multiview_parallax_audit is not None else None
+            ),
+            "pitched_plane_hypotheses": (
+                self.pitched_plane_candidates.privacy_safe_summary()
+                if self.pitched_plane_candidates is not None else None
             ),
             "before_rtk_holdout_p95_m": self.before_rtk_holdout_p95_m,
             "after_rtk_holdout_p95_m": self.after_rtk_holdout_p95_m,
@@ -191,6 +199,14 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
         network.observation_landmark_indices,
         enforce_parallax=enforce_parallax, should_cancel=should_cancel,
     )
+    # The next vertical step derives *actual private geometric hypotheses*
+    # from the fitted ENU SfM landmarks. No roof semantics or survey truth
+    # is inferred, and an empty set is NOT an orthophoto-quality pass.
+    pitched = propose_private_rgb_pitched_planes(
+        xyz, network.observation_frame_indices,
+        network.observation_landmark_indices,
+        should_cancel=should_cancel,
+    )
     return PrivateRGBRTKWindowedBA(
         network.frame_ids, result_poses, xyz, fitted.before_rmse_px,
         fitted.after_rmse_px, aligned.withheld_p95_m,
@@ -209,4 +225,5 @@ def adjust_rgb_windowed_bundle_with_private_rtk(
                "rtk_regularized_multiview_windowed_ba_unverified"),
         camera_reprojection_audit=pixel_audit,
         multiview_parallax_audit=parallax_audit,
+        pitched_plane_candidates=pitched,
     )
