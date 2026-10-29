@@ -30,10 +30,10 @@ def _scene(n=12, baseline=.70, count=32):
         rng.uniform(8., 14., count),
     ))
     # Each 3D point is triangulated from 3 genuine, distinct cameras.
-    fid = np.concatenate((
+    fid = np.concatenate([
         np.array((i, i+1, i+2), dtype=np.int32)
-        for i in (np.arange(count) % (n - 2))
-    ))
+        for i in track_start
+    ])
     lid = np.repeat(np.arange(count, dtype=np.int32), 3)
     return poses, xyz, fid, lid
 
