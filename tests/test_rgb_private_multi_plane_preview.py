@@ -86,7 +86,7 @@ def test_geometric_camera_selection_uses_real_3d_poses_and_full_image_bounds():
     assert len(set(selected)) == 2
     assert all(0 <= i < 3 for i in selected)
     bad = tuple(np.column_stack(
-        (np.diag((1.,-1.,-1.)), np.array((0.,0.,5.)))
+        (np.diag((1.,-1.,-1.)), np.array((0.,0.,-5.)))
     ) for _ in range(3))
     with pytest.raises(ValueError, match="fewer than two"):
         choose_private_pitched_plane_cameras(
@@ -143,9 +143,11 @@ def test_bad_alignment_or_overbudget_grid_fails_without_writing():
         compose_private_pitched_rgb_orthopatches(
             (a,b),(p,replace(q,top_left_xy_enu_private_m=(22.,1.))),
         )
+    far = _facet(0.,10.)
+    large = _patch(far,(0,100,0))
     with pytest.raises(ValueError,match="resource budget"):
         compose_private_pitched_rgb_orthopatches(
-            (a,b),(p,q),max_side=64,
+            (a,far),(p,large),max_side=64,
         )
 
 
