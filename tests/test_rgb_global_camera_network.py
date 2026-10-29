@@ -50,6 +50,8 @@ def test_four_real_3d_views_form_one_global_camera_and_landmark_network():
     proposed = {(link.first_id, link.second_id) for link in links}
     assert set(result.accepted_link_pairs).issubset(proposed)
     assert len(set(result.accepted_link_pairs)) == len(result.accepted_link_pairs)
+    assert result.rejected_conflicting_track_merges == 0
+    assert result.accepted_geometric_feature_correspondences >= 90
     assert result.reprojection_p95_px < 2.
     assert all(np.isfinite(pose).all() and pose.shape==(3,4)
                for pose in result.world_to_camera)
@@ -175,3 +177,46 @@ def test_cli_saves_reusable_unscaled_3d_track_bundle(tmp_path,monkeypatch,capsys
         assert arrays["observation_pixels_xy"].shape[1]==2
         assert len(arrays["observation_landmark_indices"])==len(arrays["observation_frame_indices"])
     assert "orthophoto_verified" in capsys.readouterr().out
+
+
+def test_one_to_many_orb_feature_indices_are_rejected_before_essential_ransac():
+    frames, links, k = synthetic_observations()
+    bad_indices = links[0].feature_indices.copy()
+    # Each pair row is different, but two rows claim the same keypoint
+    # in the first frame. This cannot be a one-to-one ORB cross-check.
+    bad_indices[1, 0] = bad_indices[0, 0]
+    assert len(set(map(tuple, bad_indices.tolist()))) == len(bad_indices)
+    bad_link = RGBNetworkLink(
+        links[0].first_id, links[0].second_id, bad_indices
+    )
+    with pytest.raises(ValueError, match="one-to-many"):
+        solve_global_rgb_camera_network(
+            frames, (bad_link,) + links[1:], k,
+        )
+
+
+def test_geometrically_marked_cycles_cannot_silently_discard_contradictory_tracks(
+    monkeypatch,
+):
+    frames, links, k = synthetic_observations()
+    corrupt = []
+    for link in links:
+        indices = link.feature_indices.copy()
+        if (link.first_id, link.second_id) == ("frame-0", "frame-2"):
+            # Invalid cycle mapping: the same 90 features appear in different
+            # camera-2 tracks compared with camera-1/2 correspondences.
+            indices[:, 1] = np.roll(indices[:, 1], 45)
+        corrupt.append(RGBNetworkLink(
+            link.first_id, link.second_id, indices,
+        ))
+    # Force artificial geometric acceptance to isolate the UNION/TRACK gate;
+    # this is NOT proof that these index mappings satisfy a real E-matrix.
+    monkeypatch.setattr(cv2, "findEssentialMat", lambda pi, pj, *args, **kwargs: (
+        np.eye(3), np.ones((len(pi), 1), dtype=np.uint8),
+    ))
+    monkeypatch.setattr(cv2, "recoverPose", lambda e, pi, pj, *args, **kwargs: (
+        len(pi), np.eye(3), np.array([[1.], [0.], [0.]]),
+        np.ones((len(pi), 1), dtype=np.uint8),
+    ))
+    with pytest.raises(ValueError, match="contradictory multiview"):
+        solve_global_rgb_camera_network(frames, tuple(corrupt), k)
