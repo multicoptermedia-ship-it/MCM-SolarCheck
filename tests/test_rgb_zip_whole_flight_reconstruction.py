@@ -13,6 +13,9 @@ from mcm_solarcheck.services.module_plane_projection import PinholeIntrinsics
 from mcm_solarcheck.services.rgb_global_camera_network import RGBUnscaledNetwork
 from mcm_solarcheck.services.rgb_windowed_bundle_adjustment import RGBWindowedBAResult
 from mcm_solarcheck.services.rgb_flight_zip_series import read_private_rgb_zip_series
+from mcm_solarcheck.services.rgb_per_camera_reprojection_gate import (
+    audit_rgb_per_camera_reprojection,
+)
 from mcm_solarcheck.services import rgb_zip_whole_flight_reconstruction as process
 from mcm_solarcheck.services.rgb_zip_whole_flight_cli import main
 
@@ -314,3 +317,69 @@ def test_offline_cli_defaults_to_full_160_and_six_archives(tmp_path, capsys):
     assert report["failed_stage"] == "intake"
     assert report["rgb_orthophoto_verified"] is False
     assert "DJI_" not in json.dumps(report)
+
+
+def test_cli_strict_pixel_failure_preserves_only_aggregate_camera_metrics(
+    tmp_path, monkeypatch, capsys,
+):
+    archives, camera = _fixture(tmp_path)
+    originals = [path.read_bytes() for path in archives]
+    _stub_pipeline(monkeypatch, [])
+    def fail_camera_p95(network, windowed, priors, intrinsics, **kwargs):
+        assert kwargs["enforce_camera_p95"] is True
+        # Synthetic fitted 12-camera geometry: all images see multiple shared
+        # 3D points, with exactly one corrupted camera at the final gate.
+        poses = tuple(
+            np.column_stack((np.eye(3), np.array([-.02*i, 0., 0.])))
+            for i in range(12)
+        )
+        xyz = np.column_stack((
+            np.linspace(-1., 1., 12), np.zeros(12), np.full(12, 10.)
+        ))
+        fid = np.repeat(np.arange(12, dtype=np.int32), 12)
+        lid = np.tile(np.arange(12, dtype=np.int32), 12)
+        cam_xyz = xyz[lid] + np.asarray(poses)[fid, :, 3]
+        xy = np.column_stack((
+            intrinsics.fx*cam_xyz[:, 0]/cam_xyz[:, 2]+intrinsics.cx,
+            intrinsics.fy*cam_xyz[:, 1]/cam_xyz[:, 2]+intrinsics.cy,
+        ))
+        xy[fid == 5, 0] += 25.
+        return audit_rgb_per_camera_reprojection(
+            poses, xyz, fid, lid, xy, intrinsics,
+            enforce_camera_p95=kwargs["enforce_camera_p95"],
+        )
+    monkeypatch.setattr(
+        process, "adjust_rgb_windowed_bundle_with_private_rtk",
+        fail_camera_p95,
+    )
+    calibration = tmp_path / "lens.json"
+    calibration.write_text(json.dumps(camera), encoding="utf-8")
+    local = tmp_path / "private_report"
+    local.mkdir()
+    target = local / "reconstruction-failed.json"
+    argv = [
+        "--rgb-archive", str(archives[0]),
+        "--rgb-archive", str(archives[1]),
+        "--calibration-json", str(calibration),
+        "--report", str(target),
+        "--max-side", "400", "--max-features", "500",
+        "--expected-frames", "12", "--expected-archives", "2",
+    ]
+    assert main(argv) == 2
+    report = json.loads(target.read_text(encoding="utf-8"))
+    assert report == json.loads(capsys.readouterr().out)
+    assert report["status"] == "whole_flight_rgb_quality_gate_failed"
+    assert report["failed_stage"] == "rtk_weighted_ba"
+    audit = report["per_camera_reprojection"]
+    assert audit["cameras_above_p95_limit"] == 1
+    assert audit["camera_p95_limit_px"] == 6.
+    assert audit["worst_camera_reprojection_p95_px"] >= 20.
+    assert audit["camera_reprojection_quality_passed"] is False
+    assert report["rgb_orthophoto_verified"] is False
+    assert report["all_input_rgb_frames_processed"] is False
+    for private in ("DJI_", "RGB2.tip", "RGB7.zip", "flight/",
+                    "V-0006", "latitude", "longitude", "50.00001",
+                    "7.00002", "path", "private/"):
+        assert private not in target.read_text(encoding="utf-8")
+    assert [p.read_bytes() for p in archives] == originals
+    assert list(local.iterdir()) == [target]
