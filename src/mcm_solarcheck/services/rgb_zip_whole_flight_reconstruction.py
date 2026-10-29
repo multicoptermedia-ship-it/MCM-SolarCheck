@@ -384,6 +384,7 @@ def reconstruct_private_complete_rgb_zip_flight(
                   if p.reason == "cross_strip"),
             network.observation_frame_indices,
             network.observation_landmark_indices,
+            landmark_count=len(network.landmark_xyz_unit_baseline),
             should_cancel=should_cancel,
         )
         stage = "unscaled_ba"
