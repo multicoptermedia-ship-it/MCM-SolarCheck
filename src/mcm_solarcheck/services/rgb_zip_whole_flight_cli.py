@@ -31,6 +31,12 @@ def main(argv=None):
                         help="optional NEW absolute local JSON (no GPS/images)")
     parser.add_argument("--max-side", type=int, default=1200)
     parser.add_argument("--max-features", type=int, default=1600)
+    parser.add_argument("--expected-frames", type=int, default=160,
+                        help="required complete RGB frame count; Hummintech default 160")
+    parser.add_argument("--expected-archives", type=int, default=6,
+                        help="required private RGB ZIP/.tip count; Hummintech default 6")
+    parser.add_argument("--first-counter", type=int, default=1,
+                        help="first exact DJI V-JPEG four-digit counter; default 0001")
     args = parser.parse_args(argv)
     archives = tuple(Path(value) for value in args.rgb_archive)
     calibration_file = args.calibration_json
@@ -51,6 +57,9 @@ def main(argv=None):
         outcome = reconstruct_private_complete_rgb_zip_flight(
             archives, calibration,
             max_side=args.max_side, max_features=args.max_features,
+            expected_frame_count=args.expected_frames,
+            expected_archive_count=args.expected_archives,
+            first_counter=args.first_counter,
         )
         result = outcome.privacy_safe_summary()
         status = 0
