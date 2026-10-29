@@ -344,6 +344,7 @@ def reconstruct_private_complete_rgb_zip_flight(
         stage = "rtk_weighted_ba"
         metric = adjust_rgb_windowed_bundle_with_private_rtk(
             network, unscaled, priors, intrinsics,
+            enforce_camera_p95=True,
             windowed_options={
                 "max_landmarks_total": 200000,
                 "max_observations_total": 800000,
