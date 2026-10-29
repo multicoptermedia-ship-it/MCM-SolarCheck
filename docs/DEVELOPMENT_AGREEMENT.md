@@ -1,5 +1,8 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **29.10.2026 – zusätzliches individuelles Kamera-Reprojektionsgate auf Draft PR #9:** Nach der robusten RTK-gewichteten RGB-Fenster-BA wird nun jede gespeicherte Pixelbeobachtung gegen ihre finale Kamera-/3D-Punktprojektion geprüft. Ein einzelnes schlechtes Bild (p95 über 6 px), negative Tiefe, zu wenige beobachtete Punkte oder nur ein Blick auf einen angeblichen 3D-Landmark führen zu FAIL, auch bei gutem Gesamtflug-Mittelwert. Ausschließlich aggregierte Qualitätszahlen werden ausgegeben. Neue synthetische Tests inkl. 160-Kamera-Ausreißer; CI des aktuellen HEAD noch prüfen. Keine privaten Daten auf GitHub, keine echte 160-RGB-Rekonstruktion/Dach-/Ortho-/PV-/Thermalfreigabe, kein ODM/ODX und kein Main-Merge. Aktuell: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **29.10.2026 – vollständiger privater 160-RGB-Windows-Lauf, Draft PR #9:** Der vorhandene ZIP→SfM→RTK-BA-Pfad verlangt nun optional explizit den vollständigen archiv-/bildzählungs-/countergeprüften Flug; das lokale Windows-CLI fordert standardmäßig sechs ZIP/`.tip`-Archive und **exakt V-0001..V-0160**, bevor JPEGs für ORB dekodiert werden. Eine 33-Bild-Teilserie darf niemals als erfolgreicher Gesamtflug erscheinen. Aggregatdiagnose trennt Eingangsverarbeitung von verifizierter Sollvollständigkeit. `docs/PRIVATE_160_RGB_READONLY_RUN.md` enthält den datenschutzkonformen lokalen Ablauf. Neuer Code unter CI, echter Nutzer-Windows-160-RGB-Test mangels Originaldaten/kalibrierter Optik noch offen. Keine erfundenen Intrinsics, keine Survey-/Dach-/Orthofoto-/PV-/Thermal-Freigabe, kein ODM/ODX, kein Main-Merge. Verbindlicher Einstieg: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
