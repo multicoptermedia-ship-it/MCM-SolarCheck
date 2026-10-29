@@ -1,5 +1,8 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
+> **29.10.2026 – zusätzliche Photogrammetrie-Tiefenbedingung (PR #9):** Post-RTK-BA überprüft `rgb_multiview_parallax_gate.py` die tatsächlichen Blickstrahlen zu allen gespeicherten 3D-Landmarks; ≥2 verschiedene Kameras, konservative Winkeluntergrenze mindestens 0,25° für mindestens 75 % der Punkte. Nahezu identische Kamerazentren dürfen trotz gutem Pixel-p95 keinen tragfähigen Dach-3D-Kandidaten vortäuschen. Erfolgsbericht nur Aggregate, bei Schwäche weiterhin Exit 2 + anonymes lokales `multiview_parallax`-Audit. Neue synthetische 12-/160-Kamera- und ZIP-CLI-Tests; Python-/Windows-CI des neuen HEAD getrennt prüfen. Schwellen sind vorläufiges Qualitätsgate, **keine** Survey-/GCP-/Dach-/Ortho-/PV-/Thermal-Freigabe. Keine Kundendaten/ODM/ODX, kein Main-Merge. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **29.10.2026 – strikter Kamera-FAIL mit privater Diagnose (PR #9):** Der bisherige Einzelkamera-p95≤6px-Qualitätswächter ist auf `4b6f92e` Python-/Windows-CI-grün. Neu gibt ein echter strenger Fehler (Exit 2, `failed_stage=rtk_weighted_ba`) ausschließlich aggregierte Reprojektions-Residuals und die Anzahl auffälliger Kameras lokal im Bericht aus, ohne den Kandidaten freizugeben oder IDs/GPS/Posen preiszugeben. Typisierter Fehlertransport und synthetischer vollständiger ZIP-/CLI-Test; neue CI des exakten HEAD prüfen. Originale unverändert, keine echte 160-Hummintech-Rekonstruktion, keine Dach/Ortho/PV/Thermal-Freigabe, kein ODM/WebODM/ODX und kein Main-Merge. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
