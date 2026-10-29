@@ -100,6 +100,7 @@ def test_rtk_weighted_window_ba_reuses_full_multiview_network_and_withholds_rtk(
     answer = adjust_rgb_windowed_bundle_with_private_rtk(
         network,windowed,priors,k,windowed_options={"max_iterations": 5},
         enforce_camera_p95=False,  # diagnostic candidate is NOT an accepted flight
+        enforce_parallax=False,
     )
     report = answer.privacy_safe_summary()
     assert answer.total_cameras == 12
@@ -123,6 +124,9 @@ def test_rtk_weighted_window_ba_reuses_full_multiview_network_and_withholds_rtk(
             == (answer.camera_reprojection_audit.cameras_above_p95_limit == 0))
     if answer.camera_reprojection_audit.cameras_above_p95_limit:
         assert answer.state == "rtk_camera_reprojection_quality_failed_unverified"
+    assert report["multiview_parallax"]["parallax_audit_completed"] is True
+    assert report["multiview_parallax"]["independent_survey_verified"] is False
+    assert report["multiview_parallax"]["roof_geometry_verified"] is False
     assert report["per_camera_reprojection"]["camera_reprojection_audit_completed"]
     assert report["per_camera_reprojection"]["orthophoto_verified"] is False
     assert answer.rtk_prior_windowed_ba_completed
@@ -198,6 +202,7 @@ def test_strict_rtk_camera_reprojection_gate_rejects_bad_synthetic_window():
         network,windowed,priors,k,
         windowed_options={"max_iterations": 5},
         enforce_camera_p95=False,
+        enforce_parallax=False,
     )
     # The same synthetic fixture has known per-camera residual outliers:
     # never silently accept this candidate in the full-flight/strict path.
