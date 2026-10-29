@@ -105,8 +105,17 @@ def test_multiview_parallax_of_160_images_is_bounded_and_deterministic():
     shuffled_result = audit_rgb_multiview_parallax(
         poses, xyz, fid[shuffled], lid[shuffled],
     )
-    # Starting from a different reference camera is conservative and might
-    # alter the measured lower-bound angle, but not this strong scene's status.
+    # Observations may arrive in any order: selecting the lowest-index
+    # observing camera makes all angles and the quality decision stable.
+    np.testing.assert_allclose(
+        shuffled_result.observed_landmark_p10_parallax_deg,
+        result.observed_landmark_p10_parallax_deg, atol=1e-8,
+    )
+    np.testing.assert_allclose(
+        shuffled_result.observed_landmark_median_parallax_deg,
+        result.observed_landmark_median_parallax_deg, atol=1e-8,
+    )
+    assert shuffled_result.supported_landmark_count == result.supported_landmark_count
     assert shuffled_result.privacy_safe_summary()["parallax_quality_passed"] is True
 
 
