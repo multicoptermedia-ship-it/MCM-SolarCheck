@@ -6,7 +6,7 @@ import pytest
 
 from mcm_solarcheck.services.module_plane_projection import PinholeIntrinsics
 from mcm_solarcheck.services.rgb_per_camera_reprojection_gate import (
-    audit_rgb_per_camera_reprojection,
+    RGBPerCameraReprojectionQualityError, audit_rgb_per_camera_reprojection,
 )
 
 
@@ -117,3 +117,31 @@ def test_three_d_point_is_not_multiview_when_same_camera_repeated():
             np.vstack((xy[keep], repeat_xy)),
             k,
         )
+
+
+def test_strict_camera_failure_contains_only_aggregate_quality_diagnostics():
+    pose, pts, fid, lid, xy, k = _flight(n=160)
+    corrupted = xy.copy()
+    corrupted[fid == 83, 0] += 25.
+    with pytest.raises(RGBPerCameraReprojectionQualityError) as error:
+        audit_rgb_per_camera_reprojection(pose, pts, fid, lid, corrupted, k)
+    audit = error.value.audit
+    summary = audit.privacy_safe_summary()
+    assert audit.camera_count == 160
+    assert summary["cameras_above_p95_limit"] == 1
+    assert summary["camera_p95_limit_px"] == 6.
+    assert summary["worst_camera_reprojection_p95_px"] > 20.
+    assert summary["camera_reprojection_quality_passed"] is False
+    assert summary["independent_survey_verified"] is False
+    assert summary["roof_geometry_verified"] is False
+    assert summary["orthophoto_verified"] is False
+    assert "83" not in str(error.value)
+    for private in ("V-0084", "frame_ids", "latitude", "longitude", "GPS",
+                    "positions", "camera_to_enu", "private/"):
+        assert private not in json.dumps(summary)
+    # Explicit diagnostic mode has exactly the same failed quantitative audit,
+    # but is never acceptable to the real 160-JPEG CLI.
+    diagnostic = audit_rgb_per_camera_reprojection(
+        pose, pts, fid, lid, corrupted, k, enforce_camera_p95=False,
+    )
+    assert diagnostic.privacy_safe_summary() == summary
