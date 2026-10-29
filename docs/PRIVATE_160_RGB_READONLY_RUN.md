@@ -85,6 +85,25 @@ Keines dieser Scheitern darf durch eine nachträgliche Änderung der
 Einen lokalen Fehlerbericht gegebenenfalls **nur anonymisiert** teilen;
 private Pfade, GPS, DJI-XMP und JPEG-Originale niemals in PR-/CI-Logs stellen.
 
+## Falls trotz guter Pixelwerte die 3D-Tiefenstützung zu schwach ist
+
+Nach der Einzelkamera-Reprojektion prüft das neue
+`rgb_multiview_parallax_gate.py` die Sichtstrahltrennung mehrerer Kameras
+für alle behaltenen 3D-Punkte. Standardmäßig müssen wenigstens 75 % der
+Punkte aus mindestens zwei **verschiedenen** Kameras mit einer konservativen
+Winkeluntergrenze von 0,25° gestützt sein. Dieses Gate prüft lediglich
+Photogrammetrie-Parallaxe, **keine unabhängige GCP-/Dachgenauigkeit**.
+
+Beim Scheitern steht `status=whole_flight_rgb_quality_gate_failed`,
+`failed_stage=rtk_weighted_ba`, Exitcode **2** und zusätzlich
+`multiview_parallax` im nur lokal gespeicherten JSON. Die Felder
+`supported_landmark_count`, `weak_landmark_count`,
+`supported_landmark_fraction`, `landmark_parallax_p10_deg` und
+`landmark_parallax_median_deg` enthalten **nur Aggregate**; die realen
+Punkt-/Kamerakoordinaten bleiben im Arbeitsspeicher. `parallax_quality_passed`
+ist ausdrücklich `false`, selbst wenn die Kameras pixelweise gut passen.
+Bei echtem Versagen **nicht** einfach den Winkelgrenzwert absenken.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
