@@ -1,5 +1,16 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 29.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – verpflichtende 160-Frame-/6-Archiv-Gesamtflug-Deckung
+- Branch `feature/orthofoto-license-neutral-rgb-first-20261028`, Draft PR #9; `main` bleibt `5f2de8fa` und wird nicht gemergt. Voriger vollständiger Graph-/Fenster-BA-Stand `6b72e8f`: Python 3.11/3.12 und Windows 3.11/3.12 CI grün.
+- Wiederverwendeter kompletter Nutzerpfad: private DJI-ZIP/`.tip` → einmaliger bereits vorhandener DJI-XMP-Intake → direkte ORB-JPEG-Feature-Extraktion im RAM → geometrisch akzeptierter vollständiger SfM-Linkgraph → bestehende unskalierte und GNSS-gewichtete Fenster-BA.
+- Konkrete neue Sicherung: `rgb_zip_whole_flight_reconstruction.py` verifiziert bereits nach Intake die **explizit erwartete** Archivzahl, Gesamtbildzahl und fortlaufenden `V-xxxx`-Counter ohne zusätzliche Archivsuche. `rgb_zip_whole_flight_cli.py` verwendet für den bekannten echten Hummintech-Flug standardmäßig **6 Archive / V-0001–V-0160**; unvollständige Teilserie (z.B. 33 Bilder), fehlende Counter oder fehlende ZIPs FAIL bereits vor ORB.
+- Aggregat-JSON enthält separate `required_flight_coverage_verified`-/`expected_flight_frame_count`-Felder; `all_input_rgb_frames_processed` allein gilt nicht als Beweis vollständiger Ausgangsserie. Programmgesteuerter Testpfad darf explizite andere Sollzahlen nutzen.
+- Regressionen in `tests/test_rgb_zip_whole_flight_reconstruction.py`: unvollständige Eingaben und falsche Sollzahlen stoppen vor Feature-Extraktion, echte synthetische DJI-Counter-Lücken, CLI-Standards 160/6, Negativtest ohne Kalibrierung. Commits `d3a8959`, `8994063`, `94a5019`.
+- Neuer lokaler Ausführungsleitfaden `docs/PRIVATE_160_RGB_READONLY_RUN.md` (Commit `218243b`): Windows-10-PowerShell mit sechs lokalen Originalarchiven, tatsächlich verifizierter Objektivkalibrierung und nur lokalem aggregierten Output; keine privaten JPG/GPS/SQLite/NPZ auf GitHub.
+- **Neue CI am exakten HEAD prüfen; Status bis Abschluss offen.** Originalarchive und unabhängig bestätigte DJI-Intrinsics im Chat nicht vorhanden, daher kein echter 160-Bild-BA- oder Dach-/Ortho-/PV-/Thermal-Nachweis. Keine ODM/ODX-Integration, keine Main-Änderung.
+- Einziger nächster Schritt: CI reparieren/verifizieren; dann mit den vorhandenen sechs Originalarchiven und echter unabhängiger Kalibrierung lokal die 160-Bild-Rekonstruktion ausführen und Geometrie-/Reprojektions-/RTK-Hold-out-Werte prüfen.
+
+
 ### 28.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – geometrisches Ganzflug-Graph-Gate
 - PR #9, `main` bleibt unverändert. Bestehendes ZIP→SfM→RTK-BA und dessen vorherige Tests werden wiederverwendet, nicht wiederholt.
 - Neu: `rgb_sfm_link_graph_gate.py` analysiert den vollständigen Graphen aus durch kalibrierte Essential-Matrix-RANSAC / Pose akzeptierten RGB-Paaren, validiert tatsächliche ORB-Match-Provenienz, prüft Zusammenhang aller Kamera-IDs und fordert mindestens 2 geometrisch akzeptierte räumlich nicht benachbarte Verbindungen mit mindestens 3 beteiligten Kameras. Iterativer DFS-Bridge-Audit für bis zu 1.000 Bilder, Kantenbrücken nur als Qualitätsdiagnose.
