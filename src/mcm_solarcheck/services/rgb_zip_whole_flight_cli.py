@@ -74,6 +74,12 @@ def main(argv=None):
             "module_analysis_verified": False,
             "thermal_registration_verified": False,
         }
+        if failed.camera_reprojection_audit is not None:
+            # The only permitted failure details are aggregate counts/pixel
+            # percentiles produced by the strict post-BA quality audit.
+            result["per_camera_reprojection"] = (
+                failed.camera_reprojection_audit.privacy_safe_summary()
+            )
         status = 2
     except (ValueError, TypeError, json.JSONDecodeError):
         result = {
