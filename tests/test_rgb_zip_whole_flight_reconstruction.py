@@ -153,6 +153,8 @@ def test_private_zip_rgb_pipeline_uses_all_frames_without_extracting(tmp_path, m
     assert report["sfm_accepted_spatial_nonadjacent_pairs"] >= 2
     assert report["sfm_geometric_nonadjacent_supported_cameras"] >= 3
     assert report["sfm_graph_connected"] is True
+    assert report["sfm_track_conflicting_merges_rejected"] == 0
+    assert report["sfm_accepted_geometric_feature_correspondences"] == 0
     assert report["sfm_graph_min_camera_degree"] >= 1
     assert report["physical_flight_strip_identity_verified"] is False
     assert report["physical_cross_strip_identity_verified"] is False
