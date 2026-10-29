@@ -1,5 +1,15 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 29.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – echte Mehrblick-Parallaxe als Tiefen-Gate
+- Draft PR #9, `main` unverändert. Voriger vollständiger HEAD `a248475`: Python 3.11/3.12 und Windows 3.11/3.12 CI grün. **Neue CI für Parallaxen-Code am aktuellen HEAD prüfen.**
+- Fachliches Problem: niedriger Reprojektionsfehler plus ≥2 Kamera-IDs kann bei fast identischen Kamerastandorten beliebige/unsichere 3D-Tiefen maskieren. Ein schwach triangulierter Punkt taugt noch nicht als belastbare Grundlage für PV-Dachflächen.
+- `rgb_multiview_parallax_gate.py` (`87bffa1`): vollflächiges privates Sichtstrahl-Audit mit bis zu 1000 Kameras, 200000 Landmarks, 800000 Beobachtungen. Mindestens 2 unterschiedliche Kameras je 3D-Punkt; Winkeluntergrenze aus erster Kamera gegen alle übrigen (bewusst konservativer als der tatsächliche maximale Parallaxenwinkel); vorläufige Schranke 0,25° auf ≥75 % der Landmarks. Positive finite Strahlen und SO(3)-Kameraposen verlangt. Zahlen nur als anonymes Count/Prozent/p10/Median-JSON, nie Koordinaten/IDs, keinerlei Vermessungsfreigabe.
+- `rgb_rtk_joint_bundle_adjustment.py` (`f369bbe`): bewertet Parallaxe direkt **nach** erfolgreicher RTK-BA und Kamera-p95-Prüfung, markiert erzwungenen Fehlstatus oder expliziten diagnostischen nicht freigegebenen Kandidaten. `rgb_zip_whole_flight_reconstruction.py` (`5e73a11`) erzwingt für die private Komplettserie `enforce_parallax=True`; `rgb_zip_whole_flight_cli.py` (`b9d1ad0`) zeigt bei Versagen Exit 2 und nur aggregierte `multiview_parallax`-Werte.
+- `tests/test_rgb_multiview_parallax_gate.py` (`4d10727`): synthetische weit getrennte vs. nahezu identische Kamerazentren, 160-Kamera-Grenzfall, gemischte schwache/tragfähige Landmarks, ungültige/abgebrochene Beobachtungen. `tests/test_rgb_rtk_joint_bundle_adjustment.py` (`936b5ff`) und `tests/test_rgb_zip_whole_flight_reconstruction.py` (`8b271b1`) prüfen BA- und anonymen lokalen CLI-Fehlertransport.
+- Nach wie vor fehlen reale 160 Hummintech-Originale/extern nachgewiesene echte DJI-RGB-Optikkalibrierung in dieser Chat-Umgebung. Kein vermessungsvalidierter Tiefen-/Dach-/RGB-Ortho-/PV-/Thermal-Nachweis, kein ODM/WebODM/ODX, kein Main-Merge.
+- Nächster Pflichtschritt: Python-/Windows-CI exakt auf neuem HEAD prüfen und gegebenenfalls gezielt fixen; danach echter privater 160-RGB-Lauf, erst bei tragfähigen SfM-/Parallaxen-/GNSS-/Reprojektions-Gates mehrere Dachflächen entwickeln.
+
+
 ### 29.10.2026 · DEV-RGB-ORTHO-ENGINE-001 – anonymer Qualitätsbericht auch bei strengem Kamera-FAIL
 - Ausgangsstand PR #9 `4b6f92e`: Python-3.11/3.12- und Windows-3.11/3.12-CI grün. `main` unverändert, kein Merge.
 - Neuer Bedarf aus dem echten Qualitäts-Gate: ein 160-Bild-Flug mit einer Einzelkamera-p95 >6 px muss strikt scheitern, aber lokale aggregierte Residualwerte sollen die Diagnose ermöglichen; kein Wiederholen von ZIP-/EXIF-Bestandsaufnahmen.
