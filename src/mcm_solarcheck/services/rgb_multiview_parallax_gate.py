@@ -129,13 +129,15 @@ def audit_rgb_multiview_parallax(
     if not np.isfinite(length).all() or np.any(length <= 1e-8):
         raise ValueError("degenerate private camera to 3D point rays")
     rays /= length[:, None]
-    # Deterministic first observation per landmark, even when the upstream
-    # observation array is not ordered by landmark ID.
-    present, first = np.unique(lid, return_index=True)
+    # Choose the lowest-index OBSERVING CAMERA per landmark, NOT whatever
+    # happens to be first in a shuffled observation array. Otherwise merely
+    # changing track ordering could change a strict pass/fail decision.
+    ordered = np.lexsort((fid, lid))
+    present, first = np.unique(lid[ordered], return_index=True)
     if len(present) != len(xyz):
         raise ValueError("all retained RGB landmarks require observations")
     reference = np.empty_like(xyz)
-    reference[present] = rays[first]
+    reference[present] = rays[ordered[first]]
     cosine = np.einsum("ij,ij->i", rays, reference[lid])
     smallest_cosine = np.ones(len(xyz), dtype=np.float64)
     np.minimum.at(smallest_cosine, lid, np.clip(cosine, -1., 1.))
