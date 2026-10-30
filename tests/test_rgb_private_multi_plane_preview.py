@@ -172,3 +172,24 @@ def test_metric_ba_auto_selects_and_renders_two_facets_from_undistorted_cameras(
     with pytest.raises(ValueError,match="complete private"):
         replace(metric,camera_reprojection_audit=None
                 ).render_private_multi_plane_preview(frames,k)
+
+
+
+def test_multiplane_composition_keeps_private_photometric_aggregate_only():
+    left,right = _facet(-1.,0.),_facet(0.,1.,slope=-.2)
+    a,b = _patch(left,(100,100,100)),_patch(right,(100,100,100))
+    fused = compose_private_pitched_rgb_orthopatches(
+        (left,right),
+        (replace(a, radiometric_corrected_source_count=1,
+                 radiometric_overlap_support_pixels=256),
+         replace(b, radiometric_corrected_source_count=2,
+                 radiometric_overlap_support_pixels=300)),
+    )
+    assert fused.radiometric_corrected_source_count == 3
+    assert fused.radiometric_overlap_support_pixels == 556
+    report = fused.privacy_safe_summary()
+    assert report["radiometric_corrected_source_count"] == 3
+    assert report["radiometric_overlap_support_pixels"] == 556
+    assert report["orthophoto_verified"] is False
+    for forbidden in ("top_left_xy","selected_plane_index","GPS","DJI_"):
+        assert forbidden not in json.dumps(report)

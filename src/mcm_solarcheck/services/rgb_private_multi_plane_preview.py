@@ -143,6 +143,8 @@ class PrivateRGBMultiPlaneOrthopreview:
     ambiguous_overlap_pixels: int
     valid_pixel_count: int
     state: str = "private_multi_pitched_3d_rgb_preview_unverified"
+    radiometric_corrected_source_count: int = 0
+    radiometric_overlap_support_pixels: int = 0
 
     def privacy_safe_summary(self) -> dict:
         total = int(self.valid_mask_private.size)
@@ -154,6 +156,12 @@ class PrivateRGBMultiPlaneOrthopreview:
             "source_cameras_min": min(self.source_camera_counts),
             "source_cameras_max": max(self.source_camera_counts),
             "valid_pixel_count": self.valid_pixel_count,
+            "radiometric_corrected_source_count": (
+                self.radiometric_corrected_source_count
+            ),
+            "radiometric_overlap_support_pixels": (
+                self.radiometric_overlap_support_pixels
+            ),
             "valid_fraction_of_union_bbox": self.valid_pixel_count/total,
             "ambiguous_plane_overlap_pixels": self.ambiguous_overlap_pixels,
             "ambiguous_fraction_of_union_bbox": self.ambiguous_overlap_pixels/total,
@@ -280,4 +288,10 @@ def compose_private_pitched_rgb_orthopatches(
         (min_x,max_y), resolution, len(planes),
         tuple(p.source_camera_count for p in patches),
         int(np.count_nonzero(ambiguous)), int(np.count_nonzero(valid)),
+        radiometric_corrected_source_count=sum(
+            p.radiometric_corrected_source_count for p in patches
+        ),
+        radiometric_overlap_support_pixels=sum(
+            p.radiometric_overlap_support_pixels for p in patches
+        ),
     )

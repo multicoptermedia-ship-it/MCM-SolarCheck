@@ -560,7 +560,7 @@ def render_private_multiplane_preview_from_original_rgb_archives(
             occluder_planes=tuple(
                 other for j, other in enumerate(planes) if j != candidate_index
             ),
-            source_fusion="priority",
+            source_fusion="priority_overlap",
             should_cancel=should_cancel,
         ))
     return compose_private_pitched_rgb_orthopatches(

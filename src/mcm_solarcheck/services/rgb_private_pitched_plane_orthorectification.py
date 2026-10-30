@@ -35,6 +35,8 @@ class PrivateRGBPitchedPlaneOrthopatch:
     candidate_occluded_source_pixels: int = 0
     secondary_source_pixel_count: int = 0
     source_fusion: str = "mean"
+    radiometric_corrected_source_count: int = 0
+    radiometric_overlap_support_pixels: int = 0
 
     def privacy_safe_summary(self) -> dict:
         return {
@@ -45,6 +47,12 @@ class PrivateRGBPitchedPlaneOrthopatch:
             "candidate_occluded_source_pixels": self.candidate_occluded_source_pixels,
             "secondary_source_pixel_count": self.secondary_source_pixel_count,
             "source_fusion": self.source_fusion,
+            "radiometric_corrected_source_count": (
+                self.radiometric_corrected_source_count
+            ),
+            "radiometric_overlap_support_pixels": (
+                self.radiometric_overlap_support_pixels
+            ),
             "planar_pixel_count": self.planar_pixel_count,
             "valid_pixel_count": self.valid_pixel_count,
             "multi_camera_pixel_count": self.multi_camera_pixel_count,
@@ -127,6 +135,58 @@ def _candidate_plane_occlusion_mask(
     return blocked
 
 
+
+def _private_robust_overlap_color_offset(
+    reference_rgb: np.ndarray,
+    candidate_rgb: np.ndarray,
+    reference_valid: np.ndarray,
+    candidate_valid: np.ndarray,
+    height: int,
+    width: int,
+) -> tuple[np.ndarray, int] | None:
+    """Estimate a conservative RGB OFFSET from matching valid roof pixels.
+
+    Reference is the already-selected camera mosaic. Sample only actual
+    geometrical overlap, away from coverage edges and camera saturation.
+    Large illumination disagreements and geometrically unstable differences
+    are left UNCORRECTED, never silently declared seam-free.
+    """
+    common = (reference_valid & candidate_valid).reshape(height, width)
+    # Erode away uncertain interpolation/visibility boundaries.
+    core = cv2.erode(
+        common.astype(np.uint8),
+        np.ones((3, 3), dtype=np.uint8),
+        iterations=1, borderType=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    ).ravel().astype(bool)
+    indices = np.flatnonzero(core)
+    if len(indices) < 128:
+        return None
+    if len(indices) > 4096:
+        indices = indices[np.linspace(
+            0, len(indices)-1, 4096, dtype=np.intp,
+        )]
+    reference = reference_rgb[indices].astype(np.int16)
+    candidate = candidate_rgb[indices].astype(np.int16)
+    # Midtones constrain exposure offsets better than clipped PV/sky pixels.
+    unsaturated = np.all(
+        (reference >= 8) & (reference <= 247)
+        & (candidate >= 8) & (candidate <= 247),
+        axis=1,
+    )
+    reference, candidate = reference[unsaturated], candidate[unsaturated]
+    if len(reference) < 128:
+        return None
+    differences = reference - candidate
+    shift = np.median(differences, axis=0)
+    mad = np.median(np.abs(differences-shift), axis=0)
+    # Do not force alignment where perspective errors, reflections or large
+    # scene differences make a single channel offset untrustworthy.
+    if np.any(np.abs(shift) > 24.) or np.any(mad > 12.):
+        return None
+    return np.rint(shift).astype(np.int16), int(len(reference))
+
+
 def render_private_pitched_rgb_orthopatch(
     plane: PrivateRGBPitchedPlaneCandidate,
     undistorted_rgb_images: tuple[np.ndarray, ...],
@@ -148,6 +208,9 @@ def render_private_pitched_rgb_orthopatch(
     in the geometric ranking, with fallback when the primary is not visible.
     This suppresses multiview averaging ghosting, but does NOT guarantee
     radiometric seam alignment or optimal local sharpness.
+    'priority_overlap' additionally estimates a small robust color offset
+    from genuine 3D-projected same-plane overlap before filling uncovered
+    pixels. If there is no stable overlap, use the source UNCORRECTED.
     """
     if should_cancel is not None and should_cancel():
         raise RuntimeError("private pitched RGB projection cancelled")
@@ -161,7 +224,9 @@ def render_private_pitched_rgb_orthopatch(
             or not np.isfinite(meters_per_pixel)
             or not .01 <= meters_per_pixel <= .50
             or type(max_side) is not int or not 64 <= max_side <= 2048
-            or source_fusion not in ("mean", "priority")
+            or source_fusion not in (
+                "mean", "priority", "priority_overlap"
+            )
             or type(occluder_planes) is not tuple or len(occluder_planes) > 5
             or any(not isinstance(p, PrivateRGBPitchedPlaneCandidate)
                    for p in occluder_planes)):
@@ -220,6 +285,8 @@ def render_private_pitched_rgb_orthopatch(
     priority_covered = np.zeros(height*width, dtype=bool)
     secondary_pixel_count = 0
     candidate_occluded = 0
+    radiometric_corrected = 0
+    radiometric_support = 0
     for source_index, (image, pose) in enumerate(zip(
         undistorted_rgb_images, world_enu_to_camera_poses
     )):
@@ -272,13 +339,27 @@ def render_private_pitched_rgb_orthopatch(
         # final single-source choice. Reprojection and occlusion masks both
         # apply BEFORE making a choice; no hidden pixels can fill a gap.
         views[in_image] += 1
-        if source_fusion == "priority":
+        if source_fusion in ("priority", "priority_overlap"):
             # The upstream camera selector orders sources by whole-plane
             # coverage/baseline. One stable primary minimizes internal seams;
             # later cameras fill only genuinely missing/occluded samples.
             newly_covered = in_image & ~priority_covered
             if np.any(newly_covered):
-                priority_rgb[newly_covered] = sampled[newly_covered]
+                incoming = sampled
+                if source_fusion == "priority_overlap" and source_index:
+                    estimate = _private_robust_overlap_color_offset(
+                        priority_rgb, sampled, priority_covered, in_image,
+                        height, width,
+                    )
+                    if estimate is not None:
+                        shift, support = estimate
+                        incoming = np.clip(
+                            sampled.astype(np.int16) + shift[None, :],
+                            0, 255,
+                        ).astype(np.uint8)
+                        radiometric_corrected += 1
+                        radiometric_support += support
+                priority_rgb[newly_covered] = incoming[newly_covered]
                 priority_covered[newly_covered] = True
                 if source_index:
                     secondary_pixel_count += int(
@@ -287,7 +368,7 @@ def render_private_pitched_rgb_orthopatch(
         else:
             rgb_sum[in_image] += sampled[in_image]
             weights[in_image] += 1.
-    if source_fusion == "priority":
+    if source_fusion in ("priority", "priority_overlap"):
         covered = priority_covered
         rgb = priority_rgb
     else:
@@ -309,4 +390,6 @@ def render_private_pitched_rgb_orthopatch(
         candidate_occluded_source_pixels=candidate_occluded,
         secondary_source_pixel_count=secondary_pixel_count,
         source_fusion=source_fusion,
+        radiometric_corrected_source_count=radiometric_corrected,
+        radiometric_overlap_support_pixels=radiometric_support,
     )

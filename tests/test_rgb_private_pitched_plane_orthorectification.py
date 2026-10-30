@@ -322,3 +322,86 @@ def test_bad_source_fusion_mode_is_rejected_without_rendering():
             _plane(), (source,), (pose,), k,
             source_fusion="radiometric_quality_verified",
         )
+
+
+
+def test_priority_overlap_aligns_small_rgb_exposure_jump_without_blending():
+    """A real 3D-overlap shift adjusts ONLY later camera's fallback pixels."""
+    k = PinholeIntrinsics(200.,200.,64.,64.)
+    r = np.diag((1.,-1.,-1.))
+    centers = (np.array((-.9,0.,5.)),np.array((.9,0.,5.)))
+    poses = tuple(np.column_stack((r,-r @ center)) for center in centers)
+    base = np.array((110,120,130), dtype=np.uint8)
+    offset = np.array((12,14,16), dtype=np.uint8)
+    images = (
+        np.broadcast_to(base,(128,128,3)).copy(),
+        np.broadcast_to(base+offset,(128,128,3)).copy(),
+    )
+    raw = render_private_pitched_rgb_orthopatch(
+        _plane(),images,poses,k,meters_per_pixel=.05,
+        source_fusion="priority",
+    )
+    corrected = render_private_pitched_rgb_orthopatch(
+        _plane(),images,poses,k,meters_per_pixel=.05,
+        source_fusion="priority_overlap",
+    )
+    # The first camera's pixels remain byte-identical; no RGB blend.
+    np.testing.assert_array_equal(corrected.rgb_private[40, 15],base)
+    np.testing.assert_array_equal(raw.rgb_private[40, 75],base+offset)
+    np.testing.assert_array_equal(corrected.rgb_private[40, 75],base)
+    assert corrected.valid_pixel_count == raw.valid_pixel_count
+    assert corrected.multi_camera_pixel_count > 128
+    assert corrected.radiometric_corrected_source_count == 1
+    assert corrected.radiometric_overlap_support_pixels >= 128
+    assert corrected.source_fusion == "priority_overlap"
+    assert not corrected.rgb_private.flags.writeable
+    assert not corrected.valid_mask_private.flags.writeable
+    np.testing.assert_array_equal(images[1][0,0],base+offset)
+    safe = corrected.privacy_safe_summary()
+    assert safe["radiometric_corrected_source_count"] == 1
+    assert safe["orthophoto_verified"] is False
+    for secret in ("rgb_private","top_left_xy","GPS","DJI_"):
+        assert secret not in json.dumps(safe)
+
+
+def test_priority_overlap_does_not_invent_alignment_without_overlap():
+    k = PinholeIntrinsics(200.,200.,64.,64.)
+    r = np.diag((1.,-1.,-1.))
+    centers = (np.array((-1.35,0.,5.)),np.array((1.35,0.,5.)))
+    poses = tuple(np.column_stack((r,-r @ center)) for center in centers)
+    colors = ((110,120,130),(122,134,146))
+    images = tuple(np.full((128,128,3),color,dtype=np.uint8)
+                   for color in colors)
+    patch = render_private_pitched_rgb_orthopatch(
+        _plane(),images,poses,k,meters_per_pixel=.05,
+        source_fusion="priority_overlap",
+    )
+    assert patch.secondary_source_pixel_count > 0
+    assert patch.radiometric_corrected_source_count == 0
+    assert patch.radiometric_overlap_support_pixels == 0
+    np.testing.assert_array_equal(patch.rgb_private[40, 5],colors[0])
+    np.testing.assert_array_equal(patch.rgb_private[40, 75],colors[1])
+    assert patch.privacy_safe_summary()["orthophoto_verified"] is False
+
+
+def test_overlap_color_estimation_rejects_inconsistent_or_saturated_samples():
+    from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
+        _private_robust_overlap_color_offset,
+    )
+    h,w = 20,20
+    reference = np.full((h*w,3),125,dtype=np.uint8)
+    alternating = np.full((h,w,3),125,dtype=np.uint8)
+    alternating[::2,:,:] = 190
+    valid = np.ones(h*w,dtype=bool)
+    assert _private_robust_overlap_color_offset(
+        reference, alternating.reshape(-1,3), valid, valid, h,w
+    ) is None
+    # Clearly different scene, beyond the tight correction clamp.
+    too_far = np.full((h*w,3),175,dtype=np.uint8)
+    assert _private_robust_overlap_color_offset(
+        reference, too_far, valid, valid, h,w
+    ) is None
+    black = np.zeros((h*w,3),dtype=np.uint8)
+    assert _private_robust_overlap_color_offset(
+        black, reference, valid, valid, h,w
+    ) is None

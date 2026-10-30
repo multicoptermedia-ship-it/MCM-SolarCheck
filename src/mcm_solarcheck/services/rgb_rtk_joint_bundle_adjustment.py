@@ -169,7 +169,7 @@ class PrivateRGBRTKWindowedBA:
                 occluder_planes=tuple(
                     other for j, other in enumerate(planes) if j != plane_id
                 ),
-                source_fusion="priority",
+                source_fusion="priority_overlap",
                 should_cancel=should_cancel,
             ))
         return compose_private_pitched_rgb_orthopatches(
