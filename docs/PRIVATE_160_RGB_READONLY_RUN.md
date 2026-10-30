@@ -340,6 +340,39 @@ Die echte Beurteilung erfordert weiterhin den privaten Windows-
 Komplettflug mit allen 160 DJI-RGB-Originalen und nachgewiesener
 externer DJI-M3T-Objektivkalibrierung.
 
+## Geometrisch erfasste RGB-Nähte im lokalen Privatreport (30.10.2026)
+
+Beim **opt-in** privaten Mehrflächen-PNG (`--private-preview-png`)
+erzeugt der bereits bestehende Renderer jetzt auch anonymisierte
+Nahtindikatoren im lokalen JSON-Feld `private_multiplane_preview`.
+Dafür zählt er auf tatsächlich gerenderten und **beidseitig gültigen**
+4-Nachbar-Pixelpaaren die Quellwechsel: zwischen **zwei Kameras
+innerhalb einer geneigten Ebene** sowie separat zwischen **zwei
+verschiedenen geneigten Ebenenhypothesen** im gemeinsamen ENU-Raster.
+
+Im privaten JSON sind das die Felder
+`candidate_camera_seam_boundary_pairs`,
+`worst_candidate_camera_seam_rgb_jump_p95`,
+`candidate_facet_transition_boundary_pairs` und
+`candidate_facet_transition_rgb_jump_p95`.
+Der p95-Wert misst den **95. Perzentilwert des größten
+RGB-Kanalbetrags der Differenz** zwischen den gültigen benachbarten
+Zielpixeln (0 bis 255). Er ist **null**, wenn kein solcher
+Übergang vorliegt. Das ist ein lokaler **Prüfhinweis**, keine
+vorgegebene Freigabeschwelle. Hohe Werte können echte
+Dach-, Gauben- und PV-Kontraste sein; niedrige Werte beweisen
+keine korrekte Dachgeometrie, GSD oder ausgeblendete Doppelbilder.
+
+Die Kamera- und Flächen-Indexkarten bleiben vollständig in RAM,
+kein Kameraindex, Pixel, Bild, privater Pfad, ENU- oder GPS-Wert
+wird durch diese Diagnostik ausgegeben. Keine zusätzlichen Dateien,
+keine neuen PowerShell-Parameter; der normale Lauf ohne
+privates PNG bleibt wie zuvor ausschließlich aggregiert.
+Die echten 160 RGB-Originale und unabhängig bestätigte
+DJI-RGB-Objektivkalibrierung werden weiterhin **nur lokal** verarbeitet.
+Die Orthofoto-/Roof-/GSD-/Survey-/PV-/Thermalqualität ist
+damit **nicht** freigegeben.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
