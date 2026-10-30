@@ -41,8 +41,10 @@ def choose_private_pitched_plane_cameras(
 
     Uses a bounded 25x25 XY sample INSIDE the real 3D-supported pitched
     hypothesis (not just its convex hull), then projects exact plane heights
-    with final BA camera poses. Candidate occluders are considered BEFORE
-    selecting actual RGB JPEGs. Choose by newly visible target support;
+    with final BA camera poses. ALL geometrically eligible fitted cameras
+    are checked against candidate occluders BEFORE opening RGB JPEGs;
+    repeat point-distance grids are cached privately per selection call.
+    Choose by newly visible target support;
     prefer baseline only as a tie-breaker. This is STILL only a geometric
     visibility hypothesis, not a verified photograph or surveyed roof.
     """
@@ -123,18 +125,20 @@ def choose_private_pitched_plane_cameras(
     valid = [i for i, mask in enumerate(masks)
              if float(np.mean(mask)) >= min_sample_coverage]
     if occluder_planes and valid:
-        # Keep work bounded with up to 32 geometrically best of 160+ poses:
-        # do not decode the original JPEGs before candidate visibility.
-        shortlist = sorted(
-            valid, key=lambda i: (-int(np.count_nonzero(masks[i])), i),
-        )[:32]
+        # Examine ALL up to 1000 already-bounded fitted poses, not the top
+        # 32 by raw footprint coverage. A nadir shot can cover the whole
+        # footprint yet be totally hidden behind an upper candidate facet;
+        # the only useful oblique views might be ranked 33rd or later.
+        # Reuse at most five candidate distance grids within this call.
+        grid_cache = {}
         visible = []
-        for i in shortlist:
+        for i in valid:
             if should_cancel is not None and should_cancel():
                 raise RuntimeError("private multi-plane camera selection cancelled")
             blocked = _candidate_plane_occlusion_mask(
                 points, centers[i], masks[i], occluder_planes,
                 should_cancel=should_cancel,
+                _grid_cache=grid_cache,
             )
             masks[i] &= ~blocked
             if float(np.mean(masks[i])) >= min_sample_coverage:

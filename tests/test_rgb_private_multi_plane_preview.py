@@ -303,3 +303,55 @@ def test_camera_selection_rejects_unknown_occluders_and_is_cancellable():
             low,_poses(),k,128,128,occluder_planes=(low,),
             should_cancel=lambda: True,
         )
+
+
+
+def test_all_fitted_cameras_can_recover_visible_views_after_32_occluded_nadir(
+    monkeypatch,
+):
+    """A 160-frame roof flight must not drop camera 33+ by RAW coverage.
+
+    Thirty-two central cameras apparently see the entire target hull but a
+    supported upper plane hides it. Two more oblique frames are genuinely
+    visible; neither may be discarded before the visibility test. One
+    private OpenCV support grid is reused across all candidate view rays.
+    """
+    from mcm_solarcheck.services import (
+        rgb_private_pitched_plane_orthorectification as ortho,
+    )
+    low = _facet(-.5,.5)
+    upper = _facet(-.7,.7)
+    xx,yy = np.meshgrid(
+        np.linspace(-.65,.65,11),np.linspace(-.65,.65,11),
+    )
+    points = np.column_stack((xx.ravel(),yy.ravel()))
+    upper = replace(
+        upper,
+        signed_offset_enu_private_m=3*upper.signed_offset_enu_private_m,
+        landmark_indices_private=np.arange(len(points),dtype=np.int32),
+        inlier_xy_private_m=points,
+    )
+    r = np.diag((1.,-1.,-1.))
+    centers = (
+        [(float((i-16)*.005),0.,5.) for i in range(32)]
+        + [(3.,0.,5.),(-3.,0.,5.)]
+    )
+    poses = tuple(np.column_stack((r,-r @ np.asarray(x)))
+                  for x in centers)
+    original = ortho.cv2.distanceTransform
+    counter = [0]
+
+    def counted_distance(*args,**kwargs):
+        counter[0] += 1
+        return original(*args,**kwargs)
+
+    monkeypatch.setattr(ortho.cv2,"distanceTransform",counted_distance)
+    visible = choose_private_pitched_plane_cameras(
+        low,poses,PinholeIntrinsics(60.,60.,64.,64.),128,128,
+        max_cameras=2,occluder_planes=(upper,),
+    )
+    assert set(visible) == {32,33}
+    assert counter[0] == 1  # not 34 repeat distance transforms
+    # No RGB, private 3D coords or location are serialized by selection.
+    assert isinstance(visible,tuple)
+    assert len(visible) == 2

@@ -107,25 +107,22 @@ def _private_candidate_inlier_support(plane):
     return xy, radius
 
 
-def _private_candidate_supported_ray_hits(plane, hit_xy, *, should_cancel=None):
-    """Require an occluding ray intersection to be near real 3D inliers.
+def _private_candidate_support_grid(plane, *, should_cancel=None):
+    """Prepare one bounded private inlier-distance grid per candidate.
 
-    The polygon bounds the hypothesis, but convex gaps are not opaque roof.
-    A bounded OpenCV metric distance field keeps the test offline.
-    Unmodeled actual obstacles remain unknown and unverified.
+    It can be reused across all fitted camera rays of one selection/render
+    call. No global cache, persistence, private point or position logging.
     """
     support = _private_candidate_inlier_support(plane)
     if support is None:
-        return np.ones(len(hit_xy), dtype=bool)
-    xy, radius = support
-    if not len(hit_xy):
-        return np.zeros(0, dtype=bool)
+        return None  # Explicit legacy/synthetic convex-only candidate.
     if should_cancel is not None and should_cancel():
         raise RuntimeError("private candidate ray-visibility cancelled")
+    xy, radius = support
     hull = np.asarray(plane.footprint_xy_private_m, dtype=np.float64)
     lo, hi = hull.min(axis=0), hull.max(axis=0)
-    # 512 cells along the longest side; reject a grid too coarse to resolve
-    # the local planar point-support bound instead of inventing occlusion.
+    # 512 cells along the longest side; reject an insufficiently precise
+    # grid rather than treating unknown geometry as verified occlusion.
     spacing = max(.05, float(np.max(hi-lo))/512.)
     if spacing > radius/2.:
         raise ValueError("private candidate support grid too coarse")
@@ -141,13 +138,44 @@ def _private_candidate_supported_ray_hits(plane, hit_xy, *, should_cancel=None):
     distances = cv2.distanceTransform(
         marker, cv2.DIST_L2, cv2.DIST_MASK_PRECISE,
     )
+    distances.setflags(write=False)
+    return (origin, spacing, radius, distances)
+
+
+def _private_candidate_supported_ray_hits(
+    plane, hit_xy, *, should_cancel=None, _grid_cache=None,
+):
+    """Allow an occluder hit only near actual 3D point support.
+
+    A caller-local private cache prevents rebuilding an identical OpenCV
+    distance field for up to 160 fitted camera rays. No state escapes RAM.
+    """
+    if not len(hit_xy):
+        return np.zeros(0, dtype=bool)
+    if _grid_cache is None:
+        grid = _private_candidate_support_grid(
+            plane, should_cancel=should_cancel,
+        )
+    else:
+        key = id(plane)
+        if key not in _grid_cache:
+            _grid_cache[key] = _private_candidate_support_grid(
+                plane, should_cancel=should_cancel,
+            )
+        grid = _grid_cache[key]
+    if grid is None:
+        return np.ones(len(hit_xy), dtype=bool)
+    origin, spacing, radius, distances = grid
+    if should_cancel is not None and should_cancel():
+        raise RuntimeError("private candidate ray-visibility cancelled")
+    height, width = distances.shape
     qx = np.rint((hit_xy[:,0]-origin[0])/spacing).astype(np.intp)
     qy = np.rint((hit_xy[:,1]-origin[1])/spacing).astype(np.intp)
     inside = (qx >= 0) & (qx < width) & (qy >= 0) & (qy < height)
     supported = np.zeros(len(hit_xy),dtype=bool)
     ind = np.flatnonzero(inside)
     if len(ind):
-        # Conservative one-cell margin: uncertain outer ray hits cannot
+        # One-cell conservative margin: uncertain outer ray hits cannot
         # erase otherwise photographically visible roof pixel samples.
         supported[ind] = (
             distances[qy[ind],qx[ind]] * spacing
@@ -163,6 +191,7 @@ def _candidate_plane_occlusion_mask(
     other_planes: tuple[PrivateRGBPitchedPlaneCandidate, ...],
     *,
     should_cancel=None,
+    _grid_cache=None,
 ) -> np.ndarray:
     """Return source rays blocked by other finite fitted candidate facets.
 
@@ -224,6 +253,7 @@ def _candidate_plane_occlusion_mask(
         if len(hit_indices):
             supported = _private_candidate_supported_ray_hits(
                 plane, hit_xy[inside], should_cancel=should_cancel,
+                _grid_cache=_grid_cache,
             )
             blocked[hit_indices[supported]] = True
     return blocked
@@ -460,6 +490,8 @@ def render_private_pitched_rgb_orthopatch(
     candidate_occluded = 0
     radiometric_corrected = 0
     radiometric_support = 0
+    # Reuse candidate-distance grids across 2..8 source camera rays.
+    occlusion_grid_cache = {}
     for source_index, (image, pose) in enumerate(zip(
         undistorted_rgb_images, world_enu_to_camera_poses
     )):
@@ -495,6 +527,7 @@ def render_private_pitched_rgb_orthopatch(
             blocked = _candidate_plane_occlusion_mask(
                 points, -(rot.T @ tr), in_image, occluder_planes,
                 should_cancel=should_cancel,
+                _grid_cache=occlusion_grid_cache,
             )
             candidate_occluded += int(np.count_nonzero(blocked))
             in_image &= ~blocked
