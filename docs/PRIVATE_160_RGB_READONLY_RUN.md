@@ -1,6 +1,6 @@
 # Privater 160-RGB-Gesamtflug: Windows-10-Read-only-Lauf
 
-**Stand: 29.10.2026 – Entwicklungskandidat auf Draft PR #9.** Status und Sicherheitsgrenzen: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
+**Stand: 30.10.2026 – Entwicklungskandidat auf Draft PR #9.** Status und Sicherheitsgrenzen: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 ## Zweck und Ausgangslage
 
@@ -60,7 +60,47 @@ if ($LASTEXITCODE -ne 0) {
 }
 ```
 
-Dieser Aufruf **extrahiert keine** ZIP-Mitglieder auf die Festplatte,
+## Optional: gemeinsam ausgerichtetes privates RGB-Mehrflächen-Prüfbild (30.10.2026)
+
+Der **Standardaufruf oben bleibt reiner Qualitätsbericht**. Erst mit einer
+**ausdrücklichen zusätzlichen Option** verwendet das CLI unmittelbar nach
+bestandener SfM-/RTK-BA die bereits implementierte automatische Kameraauswahl,
+RGB-Orthorektifizierung pro geneigter 3D-Ebenenhypothese und gemeinsame
+metrische Rasterzusammenführung. Die BA-Geometrie bleibt im selben Prozess im
+RAM. Die Funktion benötigt **mindestens zwei** zulässige Flächenhypothesen.
+
+Nach Befüllen derselben sechs lokalen Archivpfade und derselben wirklich
+extern verifizierten Kalibrierung wie oben:
+
+```powershell
+# Neuen Dateinamen verwenden; der Ordner muss bereits privat existieren.
+$privatePreview = 'C:\PRIVATE-RESULTS\rgb-160-unverified-preview.png'
+$cliArgs += @('--private-preview-png', $privatePreview,
+              '--preview-meters-per-pixel', '0.05',
+              '--preview-max-side', '1024')
+python @cliArgs
+```
+
+**Wichtig:** Die separate PNG-Datei darf weder im Git-Checkout noch
+im Original-ZIP-Verzeichnis stehen, muss einen absoluten bislang nicht
+existierenden Pfad in einem bereits vorhandenen privaten Verzeichnis haben.
+Mit `--private-preview-png` ist `--report` Pflicht. Das Bild ist
+**RGBA**, ungültige und überlappende unklare Pixels sind transparent und
+deren verborgene RGB-Kanäle schwarz. **Keine ENU-Koordinaten oder GPS-Metadaten
+im PNG.** Der vollständige private Bildinhalt verlässt den lokalen Rechner
+nicht; niemals PNG oder Originalarchive nach GitHub/CI hochladen.
+
+Wenn der komplette BA-Lauf gut ist, aber der Mehrflächen-Renderer scheitert
+oder kein gültiger Pixel vorhanden ist: **Exit 2**, anonymes
+`failed_stage=multiplane_preview`, `private_preview_png_written=false`;
+kein neues PNG. Nach erfolgreichem Rendering erscheinen nur aggregierte
+`private_multiplane_preview`-Werte und
+`private_preview_png_written=true` im lokalen JSON. Ein optisch überzeugendes
+Preview ist **noch keine** freigegebene Dachfläche, echte Okklusions-,
+Naht-/GSD-/Survey-/RGB-Orthofoto-/PV-/Thermalprüfung. Die automatische
+Quellkameraauswahl ist projektiv, keine bereits bewiesene Sichtbarkeit.
+
+Dieser Standardaufruf **extrahiert keine** ZIP-Mitglieder auf die Festplatte,
 verändert keine Originale und schreibt keine SQLite. Der **einzige**
 geplante Schreibzugriff ist der angegebene neue lokale JSON-Bericht.
 
