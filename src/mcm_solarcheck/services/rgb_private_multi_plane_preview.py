@@ -20,6 +20,7 @@ from mcm_solarcheck.services.rgb_private_pitched_plane_candidates import (
 from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
     PrivateRGBPitchedPlaneOrthopatch,
     _private_label_transition_rgb_jump,
+    _private_candidate_inlier_support,
     _private_candidate_supported_ray_hits,
     _candidate_plane_occlusion_mask,
 )
@@ -39,8 +40,9 @@ def choose_private_pitched_plane_cameras(
 ) -> tuple[int, ...]:
     """Select 2..8 strongest visible cameras from fitted BA geometry alone.
 
-    Uses a bounded 25x25 XY sample INSIDE the real 3D-supported pitched
-    hypothesis (not just its convex hull), then projects exact plane heights
+    Uses a bounded 25x25 XY sample PLUS at most 64 stratified actual
+    3D landmarks on a fitted candidate (not just its convex hull), then
+    projects exact plane heights
     with final BA camera poses. ALL geometrically eligible fitted cameras
     are checked against candidate occluders BEFORE opening RGB JPEGs;
     repeat point-distance grids are cached privately per selection call.
@@ -95,11 +97,26 @@ def choose_private_pitched_plane_cameras(
     xy = xy[interior]
     # Honor the SAME fitted inlier support as the actual RGB target mask.
     # Otherwise cameras that only see unsupported convex-hull gaps win.
-    if plane.inlier_xy_private_m is not None and len(xy):
-        supported = _private_candidate_supported_ray_hits(
-            plane, xy, should_cancel=should_cancel,
+    if plane.inlier_xy_private_m is not None:
+        if len(xy):
+            supported = _private_candidate_supported_ray_hits(
+                plane, xy, should_cancel=should_cancel,
+            )
+            xy = xy[supported]
+        # Even 25x25 may MISS a real, narrow roof edge or detached
+        # triangulated landmark island, especially when the point-support
+        # radius is smaller than half the grid spacing. Add up to 64
+        # deterministic, spatially stratified REAL post-BA inlier anchors.
+        # This is still provisional plane support, NOT a roof boundary.
+        inliers = _private_candidate_inlier_support(plane)[0]
+        buckets = np.clip(
+            np.floor((inliers-minimum) / (maximum-minimum) * 8.)
+            .astype(np.int32), 0, 7,
         )
-        xy = xy[supported]
+        ids = buckets[:, 0] + 8*buckets[:, 1]
+        _, representative = np.unique(ids, return_index=True)
+        anchor_xy = inliers[np.sort(representative)]
+        xy = np.vstack((xy, anchor_xy))
     if len(xy) < 4:
         raise ValueError("insufficient pitched plane area for camera selection")
     z = (-offset - n[0]*xy[:, 0] - n[1]*xy[:, 1]) / n[2]

@@ -408,3 +408,68 @@ def test_primary_density_does_not_replace_baseline_for_secondary_camera():
         128,128,max_cameras=2,
     )
     assert chosen == (0,2)
+
+
+def test_real_3d_edge_landmarks_select_sources_missed_by_coarse_25_grid():
+    """Two narrow real support islands must survive an empty 25x25 sample.
+
+    Geometry is purely synthetic; the 37 m wide pitched candidate has
+    dense 3D inliers only at both lateral edges. Its supported radius
+    is LESS than the 0.73 m gap to the nearest 25x25 grid-center.
+    Neither strip should be lost just because the sample grid misses it.
+    """
+    plane = _facet(-18.5,18.5)
+    yy = np.linspace(-.96,.96,500)
+    xy = np.asarray(
+        [(x,y) for x in (-18.49,18.49) for y in yy],
+        dtype=np.float64,
+    )
+    plane = replace(
+        plane,
+        landmark_indices_private=np.arange(len(xy),dtype=np.int32),
+        inlier_xy_private_m=xy,
+    )
+    radius_m = min(
+        1.5, max(.35, 2.4*np.sqrt(plane.footprint_area_m2/len(xy))),
+    )
+    nearest_grid_center_m = 18.49-17.76
+    assert radius_m < nearest_grid_center_m
+    r = np.diag((1.,-1.,-1.))
+    centers = ((-18.5,0.,10.),(18.5,0.,10.))
+    poses = tuple(np.column_stack(
+        (r,-r @ np.asarray(center,dtype=np.float64))
+    ) for center in centers)
+    selected = choose_private_pitched_plane_cameras(
+        plane,poses,PinholeIntrinsics(60.,60.,64.,64.),
+        128,128,max_cameras=2,
+    )
+    assert set(selected) == {0,1}
+    assert len(selected) == 2
+
+
+def test_spatial_3d_anchor_selection_has_bounded_cost(monkeypatch):
+    """Only at most 64 extra real landmarks enter 25x25 selection."""
+    from mcm_solarcheck.services import rgb_private_multi_plane_preview as mod
+    plane = _facet(-18.5,18.5)
+    yy = np.linspace(-.96,.96,500)
+    xy = np.asarray([(x,y) for x in (-18.49,18.49) for y in yy])
+    plane = replace(
+        plane, landmark_indices_private=np.arange(len(xy)),
+        inlier_xy_private_m=xy,
+    )
+    original = mod._private_candidate_supported_ray_hits
+    checked = []
+
+    def count_check(candidate, points, **kwargs):
+        checked.append(len(points))
+        return original(candidate, points, **kwargs)
+
+    monkeypatch.setattr(mod, "_private_candidate_supported_ray_hits",count_check)
+    r = np.diag((1.,-1.,-1.))
+    poses = tuple(np.column_stack((r,-r @ np.array((x,0.,10.))))
+                  for x in (-18.5,18.5))
+    chosen = mod.choose_private_pitched_plane_cameras(
+        plane,poses,PinholeIntrinsics(60.,60.,64.,64.),128,128,
+    )
+    assert set(chosen) == {0,1}
+    assert checked and max(checked) <= 625
