@@ -44,7 +44,10 @@ def choose_private_pitched_plane_cameras(
     with final BA camera poses. ALL geometrically eligible fitted cameras
     are checked against candidate occluders BEFORE opening RGB JPEGs;
     repeat point-distance grids are cached privately per selection call.
-    Choose by newly visible target support;
+    Choose by newly visible target support. Where coverage ties, prefer
+    stronger geometric projected pixel sampling for the PRIMARY source,
+    and camera separation for redundancy. These are NOT measured GSD,
+    sharpness or true photometric visibility;
     prefer baseline only as a tie-breaker. This is STILL only a geometric
     visibility hypothesis, not a verified photograph or surveyed roof.
     """
@@ -103,6 +106,7 @@ def choose_private_pitched_plane_cameras(
     points = np.column_stack((xy, z))
     masks = []
     centers = []
+    projected_sampling = []
     for i, pose in enumerate(poses_enu_to_camera):
         if should_cancel is not None and i % 16 == 0 and should_cancel():
             raise RuntimeError("private multi-plane camera selection cancelled")
@@ -119,9 +123,27 @@ def choose_private_pitched_plane_cameras(
         safe = np.where(depth > 1.e-8, depth, 1.)
         u = k[0]*local[:, 0]/safe + k[2]
         v = k[1]*local[:, 1]/safe + k[3]
-        masks.append((depth > 1.e-8) & np.isfinite(u) & np.isfinite(v)
-                     & (u >= 0) & (v >= 0)
-                     & (u < image_width-1) & (v < image_height-1))
+        in_image = ((depth > 1.e-8) & np.isfinite(u) & np.isfinite(v)
+                    & (u >= 0) & (v >= 0)
+                    & (u < image_width-1) & (v < image_height-1))
+        masks.append(in_image)
+        # For a fitted plane, the pinhole area-Jacobian is
+        # fx*fy*|normal · (camera_center - plane_point)|/camera_depth**3.
+        # Its square root estimates projected source pixels per plane
+        # meter. Use a robust lower quartile, not inferred source-image
+        # sharpness or an independently measured ground sampling distance.
+        # Only an exact coverage tie may promote this geometric measure.
+        if np.any(in_image):
+            normal_distance = abs(float(n @ centers[-1]) + offset)
+            pixels_per_m = np.sqrt(
+                np.clip(k[0]*k[1]*normal_distance
+                        / depth[in_image]**3, 0., 1.e12)
+            )
+            projected_sampling.append(
+                float(np.percentile(pixels_per_m, 25))
+            )
+        else:
+            projected_sampling.append(0.)
     valid = [i for i, mask in enumerate(masks)
              if float(np.mean(mask)) >= min_sample_coverage]
     if occluder_planes and valid:
@@ -150,17 +172,24 @@ def choose_private_pitched_plane_cameras(
     selected: list[int] = []
     covered = np.zeros(len(xy), dtype=bool)
     radius = max(float(np.linalg.norm(maximum-minimum)), 1.)
-    # Prefer actual NEW, unoccluded supported cells, then separation.
-    # Still take two cameras for multi-view. Keep one primary to limit seams.
+    # Maximally cover actual visible 3D-supported targets first. For the
+    # primary (which actually supplies most RGB pixels) prefer a camera
+    # with more projected pixel sampling when coverage is equal. After
+    # that, retain genuinely different camera centers for redundancy.
+    # No resolution heuristic can override even one additional supported
+    # visible sample or force selection of an occluded camera.
     while len(selected) < min(max_cameras, len(valid)):
         def quality(i):
-            additional = np.count_nonzero(masks[i] & ~covered)/len(xy)
-            base = float(np.mean(masks[i]))
+            additional = int(np.count_nonzero(masks[i] & ~covered))
+            base = int(np.count_nonzero(masks[i]))
             separation = (max(
                 (float(np.linalg.norm(centers[i]-centers[j])) for j in selected),
                 default=0.
             ))
-            return (additional, min(separation/radius, 1.), base, -i)
+            if not selected:
+                return (additional, projected_sampling[i], base, -i)
+            return (additional, min(separation/radius, 1.),
+                    projected_sampling[i], base, -i)
         winner = max((i for i in valid if i not in selected), key=quality)
         selected.append(winner)
         covered |= masks[winner]

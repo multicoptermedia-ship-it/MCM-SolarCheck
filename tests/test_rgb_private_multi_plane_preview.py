@@ -355,3 +355,56 @@ def test_all_fitted_cameras_can_recover_visible_views_after_32_occluded_nadir(
     # No RGB, private 3D coords or location are serialized by selection.
     assert isinstance(visible,tuple)
     assert len(visible) == 2
+
+
+def _sampling_camera_pose(x, altitude):
+    r = np.diag((1.,-1.,-1.))
+    center = np.array((x,0.,altitude),dtype=np.float64)
+    return np.column_stack((r,-r @ center))
+
+
+def test_fitted_primary_prefers_geometrically_denser_camera_on_equal_coverage():
+    """A nearer fitted view should win full coverage over a far source first.
+
+    This is a pinhole projection-density surrogate only, NOT measured RGB
+    sharpness, DJI lens performance, true GSD or real roof orthorectification.
+    """
+    plane = _facet(-.5,.5)
+    poses = (_sampling_camera_pose(0.,9.),_sampling_camera_pose(0.,5.))
+    chosen = choose_private_pitched_plane_cameras(
+        plane,poses,PinholeIntrinsics(120.,120.,64.,64.),
+        128,128,max_cameras=2,
+    )
+    assert chosen == (1,0)
+    # A different insertion order must not favor the first frame.
+    reordered = choose_private_pitched_plane_cameras(
+        plane,tuple(reversed(poses)),
+        PinholeIntrinsics(120.,120.,64.,64.),
+        128,128,max_cameras=2,
+    )
+    assert reordered == (0,1)
+
+
+def test_any_additional_visible_roof_coverage_beats_projected_density():
+    """A sharper-looking partial view cannot replace a whole-roof source."""
+    plane = _facet(-.5,.5)
+    poses = (_sampling_camera_pose(2.2,5.),_sampling_camera_pose(0.,9.))
+    chosen = choose_private_pitched_plane_cameras(
+        plane,poses,PinholeIntrinsics(120.,120.,64.,64.),
+        128,128,max_cameras=2,
+    )
+    assert chosen[0] == 1
+    assert set(chosen) == {0,1}
+
+
+def test_primary_density_does_not_replace_baseline_for_secondary_camera():
+    """After a fully covering primary, preserve a different perspective."""
+    plane = _facet(-.5,.5)
+    poses = (_sampling_camera_pose(0.,5.),
+             _sampling_camera_pose(.05,5.),
+             _sampling_camera_pose(2.,6.))
+    chosen = choose_private_pitched_plane_cameras(
+        plane,poses,PinholeIntrinsics(60.,60.,64.,64.),
+        128,128,max_cameras=2,
+    )
+    assert chosen == (0,2)
