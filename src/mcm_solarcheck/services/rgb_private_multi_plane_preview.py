@@ -150,6 +150,7 @@ class PrivateRGBMultiPlaneOrthopreview:
     worst_candidate_camera_seam_rgb_jump_p95: float | None = None
     candidate_facet_transition_boundary_pairs: int = 0
     candidate_facet_transition_rgb_jump_p95: float | None = None
+    unsupported_convex_hull_pixels: int = 0
 
     def privacy_safe_summary(self) -> dict:
         total = int(self.valid_mask_private.size)
@@ -179,6 +180,7 @@ class PrivateRGBMultiPlaneOrthopreview:
             "candidate_facet_transition_rgb_jump_p95": (
                 self.candidate_facet_transition_rgb_jump_p95
             ),
+            "unsupported_convex_hull_pixels": self.unsupported_convex_hull_pixels,
             "valid_fraction_of_union_bbox": self.valid_pixel_count/total,
             "ambiguous_plane_overlap_pixels": self.ambiguous_overlap_pixels,
             "ambiguous_fraction_of_union_bbox": self.ambiguous_overlap_pixels/total,
@@ -327,4 +329,7 @@ def compose_private_pitched_rgb_orthopatches(
         ),
         candidate_facet_transition_boundary_pairs=facet_border_count,
         candidate_facet_transition_rgb_jump_p95=facet_border_p95,
+        unsupported_convex_hull_pixels=sum(
+            p.unsupported_convex_hull_pixels for p in patches
+        ),
     )

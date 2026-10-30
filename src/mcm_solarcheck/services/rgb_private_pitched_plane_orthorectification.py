@@ -39,6 +39,7 @@ class PrivateRGBPitchedPlaneOrthopatch:
     radiometric_overlap_support_pixels: int = 0
     candidate_camera_seam_boundary_pairs: int = 0
     candidate_camera_seam_rgb_jump_p95: float | None = None
+    unsupported_convex_hull_pixels: int = 0
 
     def privacy_safe_summary(self) -> dict:
         return {
@@ -61,6 +62,7 @@ class PrivateRGBPitchedPlaneOrthopatch:
             "candidate_camera_seam_rgb_jump_p95": (
                 self.candidate_camera_seam_rgb_jump_p95
             ),
+            "unsupported_convex_hull_pixels": self.unsupported_convex_hull_pixels,
             "planar_pixel_count": self.planar_pixel_count,
             "valid_pixel_count": self.valid_pixel_count,
             "multi_camera_pixel_count": self.multi_camera_pixel_count,
@@ -331,6 +333,45 @@ def render_private_pitched_rgb_orthopatch(
         footprint_mask, np.round(poly).astype(np.int32), 1,
     )
     footprint = footprint_mask.ravel().astype(bool)
+    unsupported_convex_hull_pixels = 0
+    if plane.inlier_xy_private_m is not None:
+        # Only REAL post-BA plane inliers support this provisional image.
+        # The convex hull can cross textureless gaps, courtyards or unrelated
+        # structures. Distance-to-nearest-point limits unsupported filling;
+        # this mask is NOT a semantic roof outline or surveyed boundary.
+        inlier_xy = np.asarray(plane.inlier_xy_private_m, dtype=np.float64)
+        if (inlier_xy.ndim != 2 or inlier_xy.shape[1:] != (2,)
+                or not 24 <= len(inlier_xy) <= 200000
+                or not np.isfinite(inlier_xy).all()
+                or np.any(inlier_xy < minimum - 1.e-4)
+                or np.any(inlier_xy > maximum + 1.e-4)):
+            raise ValueError("invalid private 3D plane inlier support")
+        columns = np.clip(
+            np.floor((inlier_xy[:, 0]-minimum[0]) / meters_per_pixel).astype(int),
+            0, width-1,
+        )
+        rows = np.clip(
+            np.floor((maximum[1]-inlier_xy[:, 1]) / meters_per_pixel).astype(int),
+            0, height-1,
+        )
+        marker = np.ones((height,width),dtype=np.uint8)
+        marker[rows,columns] = 0
+        # At most 1.5 m interpolation from the closest retained 3D
+        # landmark, tighter for dense landmarks and coarse grain size.
+        # No unconstrained convex-hull interior is converted to roof RGB.
+        radius_m = float(np.clip(
+            2.4 * np.sqrt(float(plane.footprint_area_m2)/len(inlier_xy)),
+            .35, 1.5,
+        ))
+        distances_px = cv2.distanceTransform(
+            marker, cv2.DIST_L2, cv2.DIST_MASK_PRECISE,
+        )
+        supported = (distances_px.ravel() * meters_per_pixel
+                     <= radius_m + 1.e-8)
+        unsupported_convex_hull_pixels = int(np.count_nonzero(
+            footprint & ~supported
+        ))
+        footprint &= supported
     planar_count = int(np.count_nonzero(footprint))
     if planar_count < 4:
         raise ValueError("private pitched plane has no usable raster footprint")
@@ -459,4 +500,5 @@ def render_private_pitched_rgb_orthopatch(
         radiometric_overlap_support_pixels=radiometric_support,
         candidate_camera_seam_boundary_pairs=candidate_seam_count,
         candidate_camera_seam_rgb_jump_p95=candidate_seam_p95,
+        unsupported_convex_hull_pixels=unsupported_convex_hull_pixels,
     )

@@ -58,6 +58,11 @@ def test_two_distinct_real_3d_pitched_hypotheses_from_common_enu_cloud():
         assert not plane.normal_enu_private.flags.writeable
         assert not plane.landmark_indices_private.flags.writeable
         assert not plane.footprint_xy_private_m.flags.writeable
+        assert plane.inlier_xy_private_m is not None
+        assert plane.inlier_xy_private_m.shape == (
+            len(plane.landmark_indices_private),2
+        )
+        assert not plane.inlier_xy_private_m.flags.writeable
     summary = answer.privacy_safe_summary()
     assert summary["plane_candidate_count"] == 2
     assert summary["roof_surface_identity_verified"] is False

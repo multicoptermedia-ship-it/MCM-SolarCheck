@@ -24,6 +24,9 @@ class PrivateRGBPitchedPlaneCandidate:
     supporting_cameras: int
     residual_p95_m: float
     footprint_area_m2: float
+    # Actual post-BA supporting ENU XY landmark positions, private in RAM.
+    # Optional only for legacy/synthetic candidates; NEVER serialized.
+    inlier_xy_private_m: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -198,11 +201,12 @@ def propose_private_rgb_pitched_planes(
         residual = float(np.percentile(
             np.abs(xyz[inliers] @ normal + offset), 95
         ))
-        for arr in (normal, inliers, hull):
+        inlier_xy = xyz[inliers, :2].copy()
+        for arr in (normal, inliers, hull, inlier_xy):
             arr.setflags(write=False)
         planes.append(PrivateRGBPitchedPlaneCandidate(
             normal, offset, inliers, hull, slope, len(cameras),
-            residual, area,
+            residual, area, inlier_xy,
         ))
         remaining = remaining[~np.isin(remaining, inliers)]
     return PrivateRGBPitchedPlaneCandidates(tuple(planes), len(xyz))

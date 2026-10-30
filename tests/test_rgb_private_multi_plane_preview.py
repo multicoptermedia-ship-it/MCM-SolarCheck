@@ -228,3 +228,21 @@ def test_transparent_ambiguity_cannot_form_fake_facet_seams():
     assert fused.valid_pixel_count == 0
     assert fused.candidate_facet_transition_boundary_pairs == 0
     assert fused.candidate_facet_transition_rgb_jump_p95 is None
+
+
+def test_multiplane_reports_only_aggregate_convex_hull_extrapolation():
+    first,second = _facet(-1.,0.),_facet(0.,1.,slope=-.2)
+    a = replace(_patch(first,(100,120,140)),
+                unsupported_convex_hull_pixels=35)
+    b = replace(_patch(second,(100,120,140)),
+                unsupported_convex_hull_pixels=28)
+    composed = compose_private_pitched_rgb_orthopatches(
+        (first,second),(a,b),
+    )
+    assert composed.unsupported_convex_hull_pixels == 63
+    safe = composed.privacy_safe_summary()
+    assert safe["unsupported_convex_hull_pixels"] == 63
+    assert safe["roof_geometry_verified"] is False
+    assert safe["orthophoto_verified"] is False
+    for private in ("inlier_xy","landmark_indices","top_left_xy","GPS"):
+        assert private not in json.dumps(safe)

@@ -511,3 +511,51 @@ def test_real_priority_rendering_exposes_seam_count_but_not_source_map():
     assert summary["orthophoto_verified"] is False
     for secret in ("source_map", "source_index", "top_left_xy", "GPS", "DJI_"):
         assert secret not in json.dumps(summary)
+
+
+def test_sparse_supported_3d_landmarks_leave_convex_hull_gap_transparent():
+    """The camera sees the gap, but post-BA point support does not."""
+    k = PinholeIntrinsics(120.,120.,160.,160.)
+    image, pose = _source(0.,k)
+    x = np.r_[np.linspace(-1.95,-1.65,4),
+              np.linspace(1.65,1.95,4)]
+    y = np.linspace(-1.85,1.85,12)
+    xx, yy = np.meshgrid(x,y)
+    points = np.column_stack((xx.ravel(),yy.ravel()))
+    point_supported = replace(
+        _plane(),
+        landmark_indices_private=np.arange(len(points),dtype=np.int32),
+        inlier_xy_private_m=points,
+    )
+    full = render_private_pitched_rgb_orthopatch(
+        _plane(),(image,),(pose,),k,meters_per_pixel=.05,
+    )
+    patch = render_private_pitched_rgb_orthopatch(
+        point_supported,(image,),(pose,),k,meters_per_pixel=.05,
+    )
+    assert full.valid_mask_private[40,40]
+    assert not patch.valid_mask_private[40,40]  # central convex-hull void
+    assert not np.any(patch.rgb_private[40,40])
+    assert patch.valid_mask_private[40,7]
+    assert patch.valid_mask_private[40,73]
+    assert patch.unsupported_convex_hull_pixels > 0
+    assert patch.valid_pixel_count < full.valid_pixel_count
+    assert not patch.valid_mask_private.flags.writeable
+    assert patch.privacy_safe_summary()["orthophoto_verified"] is False
+    for forbidden in ("inlier_xy", "landmark_indices", "top_left_xy", "GPS"):
+        assert forbidden not in json.dumps(patch.privacy_safe_summary())
+
+
+def test_invalid_3d_landmark_support_fails_closed_without_rgb_fabrication():
+    k = PinholeIntrinsics(120.,120.,160.,160.)
+    image,pose = _source(0.,k)
+    with pytest.raises(ValueError,match="inlier support"):
+        render_private_pitched_rgb_orthopatch(
+            replace(_plane(),inlier_xy_private_m=np.array([[0.,np.nan]])),
+            (image,),(pose,),k,
+        )
+    with pytest.raises(ValueError,match="inlier support"):
+        render_private_pitched_rgb_orthopatch(
+            replace(_plane(),inlier_xy_private_m=np.full((32,2),200.)),
+            (image,),(pose,),k,
+        )
