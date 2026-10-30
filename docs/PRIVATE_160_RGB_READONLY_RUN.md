@@ -493,6 +493,35 @@ Rekonstruktion aller 160 originalen DJI-M3T-JPEGs mit unabhängig
 verifizierter Objektivkalibrierung kann Dachpixel, Nahtqualität,
 PV-Details, GSD, Survey und Orthofoto real beurteilen.
 
+## Primäre Quellkamera: geometrische Projektion statt Dateireihenfolge (30.10.2026)
+
+Ab Code `a70bfd5b` nutzt die vollständig offline arbeitende
+Mehrflächen-RGB-Dachvorschau nach ihrer bereits eingebauten
+25×25-3D-Punktstützungs- und Occluder-Prüfung eine zusätzliche
+Priorisierungsregel: **Erst** gewinnt immer die Kamera mit mehr
+modelliert sichtbaren Dach-Zielsamples. Bei **identischer** Anzahl
+wird als **Primärquelle** die Kamera mit dem höheren robusten,
+geometrisch berechneten Quell-Abtastmaßstab bevorzugt:
+untere Quartile von `sqrt(fx*fy*|n·C+offset|/depth³)`, gewonnen
+aus BA-Posen, geneigter Plane und unabhängig geprüften Intrinsics.
+Die Ersatz-/Sekundärkameras behalten die Priorität räumlich
+unterschiedlicher Kamerastandorte, sodass eine zweite Perspektive
+bei tatsächlicher Verdeckung nutzbar bleibt.
+
+Das benötigt **keine neuen CLI-Optionen, Pakete, Dateien oder
+Schreibzugriffe**. Die sechs ZIP/`.tip`-Originalarchive,
+DJI-RGB-JPEGs, RTK-/GPS-/ENU-Punkte und Kalibrierung bleiben
+read-only privat; das opt-in PNG und die anonymen JSON-Zähler
+ändern ihr Format nicht.
+
+**Wichtig:** Diese Größe ist ein reines Projektionsmodell –
+kein Nachweis tatsächlicher JPEG-Bildschärfe, Fokus,
+Bewegungsunschärfe, unabhängig vermessener GSD oder echter
+Dach-/PV-Sichtbarkeit. Bei der privaten lokalen 160-RGB-
+Windows-Auswertung die echten Dachpixel/Nähte/PV-Strukturen
+sichtprüfen, keinesfalls aus synthetischem CI ein fertiges
+Dachorthofoto oder Survey-/Thermal-/PV-Freigabe ableiten.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
