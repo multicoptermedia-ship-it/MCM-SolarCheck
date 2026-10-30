@@ -245,3 +245,80 @@ def test_other_pitched_plane_can_make_hidden_pixels_transparent():
         target,(image,),(pose,),k,meters_per_pixel=.05,
     )
     assert unfiltered.valid_pixel_count > 0
+
+
+def test_priority_fusion_keeps_one_camera_color_and_only_falls_back_at_holes():
+    """Overlapping red/blue sources must never create purple PV ghosts."""
+    k = PinholeIntrinsics(200.,200.,64.,64.)
+    r = np.diag((1.,-1.,-1.))
+    centers = (np.array((-1.2,0.,5.)),np.array((1.2,0.,5.)))
+    poses = tuple(np.column_stack((r,-r @ center)) for center in centers)
+    images = (
+        np.full((128,128,3),(255,0,0),dtype=np.uint8),
+        np.full((128,128,3),(0,0,255),dtype=np.uint8),
+    )
+    preview = render_private_pitched_rgb_orthopatch(
+        _plane(),images,poses,k,meters_per_pixel=.05,
+        source_fusion="priority",
+    )
+    assert preview.source_fusion == "priority"
+    assert preview.multi_camera_pixel_count > 0
+    assert 0 < preview.secondary_source_pixel_count < preview.valid_pixel_count
+    assert preview.valid_mask_private[40, 10]
+    assert preview.valid_mask_private[40, 70]
+    np.testing.assert_array_equal(preview.rgb_private[40,10],(255,0,0))
+    np.testing.assert_array_equal(preview.rgb_private[40,70],(0,0,255))
+    # The overlap is guaranteed to be an existing camera sample, not mean.
+    assert np.all(preview.rgb_private[preview.valid_mask_private,1] == 0)
+    colors = set(map(tuple,preview.rgb_private[preview.valid_mask_private]))
+    assert colors == {(255,0,0),(0,0,255)}
+    safe = preview.privacy_safe_summary()
+    assert safe["source_fusion"] == "priority"
+    assert safe["secondary_source_pixel_count"] > 0
+    assert safe["orthophoto_verified"] is False
+    assert not preview.rgb_private.flags.writeable
+    for secret in ("top_left_xy","rgb_private","GPS","DJI_"):
+        assert secret not in json.dumps(safe)
+
+
+def test_priority_fusion_excludes_candidate_occluded_primary_before_fallback():
+    """Candidate visibility beats source preference even with constant RGB."""
+    k = PinholeIntrinsics(60.,60.,64.,64.)
+    n = np.array((-.2,0.,1.),dtype=np.float64)
+    n /= np.linalg.norm(n)
+    target = PrivateRGBPitchedPlaneCandidate(
+        n,-n[2],np.arange(32,dtype=np.int32),
+        np.array([[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5]]),
+        11.3,4,.01,1.,
+    )
+    occluder = PrivateRGBPitchedPlaneCandidate(
+        n,-3*n[2],np.arange(32,dtype=np.int32),
+        np.array([[-.7,-.7],[.7,-.7],[.7,.7],[-.7,.7]]),
+        11.3,4,.01,1.96,
+    )
+    r = np.diag((1.,-1.,-1.))
+    centers = (np.array((0.,0.,5.)),np.array((3.,0.,5.)))
+    poses = tuple(np.column_stack((r,-r @ center)) for center in centers)
+    images = (
+        np.full((128,128,3),(255,0,0),dtype=np.uint8),
+        np.full((128,128,3),(0,0,255),dtype=np.uint8),
+    )
+    preview = render_private_pitched_rgb_orthopatch(
+        target, images, poses, k, meters_per_pixel=.05,
+        occluder_planes=(occluder,), source_fusion="priority",
+    )
+    assert preview.valid_mask_private[10,10]
+    np.testing.assert_array_equal(preview.rgb_private[10,10],(0,0,255))
+    assert preview.candidate_occluded_source_pixels > 0
+    assert preview.secondary_source_pixel_count > 0
+    assert preview.privacy_safe_summary()["orthophoto_verified"] is False
+
+
+def test_bad_source_fusion_mode_is_rejected_without_rendering():
+    k = PinholeIntrinsics(120.,120.,160.,160.)
+    source,pose = _source(0.,k)
+    with pytest.raises(ValueError,match="bounded private pitched"):
+        render_private_pitched_rgb_orthopatch(
+            _plane(), (source,), (pose,), k,
+            source_fusion="radiometric_quality_verified",
+        )

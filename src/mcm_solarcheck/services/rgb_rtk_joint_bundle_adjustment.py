@@ -65,7 +65,8 @@ class PrivateRGBRTKWindowedBA:
         camera_indices: tuple[int, ...],
         intrinsics: PinholeIntrinsics,
         *, meters_per_pixel: float = .05, max_side: int = 1024,
-        occluder_planes=None, should_cancel=None,
+        occluder_planes=None, source_fusion: str = "mean",
+        should_cancel=None,
     ):
         """Vertical BA->plane->RGB raster preview, PRIVATE memory only.
 
@@ -103,6 +104,7 @@ class PrivateRGBRTKWindowedBA:
             occluder_planes=(
                 tuple(occluder_planes) if occluder_planes is not None else ()
             ),
+            source_fusion=source_fusion,
             should_cancel=should_cancel,
         )
 
@@ -167,6 +169,7 @@ class PrivateRGBRTKWindowedBA:
                 occluder_planes=tuple(
                     other for j, other in enumerate(planes) if j != plane_id
                 ),
+                source_fusion="priority",
                 should_cancel=should_cancel,
             ))
         return compose_private_pitched_rgb_orthopatches(

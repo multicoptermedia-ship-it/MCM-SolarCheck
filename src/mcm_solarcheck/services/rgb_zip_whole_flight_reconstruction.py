@@ -434,6 +434,7 @@ def render_private_pitched_preview_from_original_rgb_archives(
     meters_per_pixel: float = .05,
     max_side: int = 1024,
     occluder_planes=None,
+    source_fusion: str = "mean",
     should_cancel=None,
 ):
     """Private *opt-in* ZIP JPEG -> undistort -> pitched 3D RGB raster preview.
@@ -493,6 +494,7 @@ def render_private_pitched_preview_from_original_rgb_archives(
         candidate_index, tuple(images), camera_indices, k,
         meters_per_pixel=meters_per_pixel, max_side=max_side,
         occluder_planes=occluder_planes,
+        source_fusion=source_fusion,
         should_cancel=should_cancel,
     )
 
@@ -558,6 +560,7 @@ def render_private_multiplane_preview_from_original_rgb_archives(
             occluder_planes=tuple(
                 other for j, other in enumerate(planes) if j != candidate_index
             ),
+            source_fusion="priority",
             should_cancel=should_cancel,
         ))
     return compose_private_pitched_rgb_orthopatches(

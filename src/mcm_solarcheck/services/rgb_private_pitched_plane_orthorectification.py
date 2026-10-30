@@ -33,6 +33,8 @@ class PrivateRGBPitchedPlaneOrthopatch:
     multi_camera_pixel_count: int
     state: str = "private_pitched_rgb_orthopatch_unverified"
     candidate_occluded_source_pixels: int = 0
+    secondary_source_pixel_count: int = 0
+    source_fusion: str = "mean"
 
     def privacy_safe_summary(self) -> dict:
         return {
@@ -41,6 +43,8 @@ class PrivateRGBPitchedPlaneOrthopatch:
             "height_px": int(self.rgb_private.shape[0]),
             "source_camera_count": self.source_camera_count,
             "candidate_occluded_source_pixels": self.candidate_occluded_source_pixels,
+            "secondary_source_pixel_count": self.secondary_source_pixel_count,
+            "source_fusion": self.source_fusion,
             "planar_pixel_count": self.planar_pixel_count,
             "valid_pixel_count": self.valid_pixel_count,
             "multi_camera_pixel_count": self.multi_camera_pixel_count,
@@ -132,6 +136,7 @@ def render_private_pitched_rgb_orthopatch(
     meters_per_pixel: float = .05,
     max_side: int = 1024,
     occluder_planes: tuple[PrivateRGBPitchedPlaneCandidate, ...] = (),
+    source_fusion: str = "mean",
     should_cancel=None,
 ) -> PrivateRGBPitchedPlaneOrthopatch:
     """Render an ENU-north-up, pitched-plane preview; no disk writes.
@@ -139,6 +144,10 @@ def render_private_pitched_rgb_orthopatch(
     INPUT RGB IMAGES MUST ALREADY BE UNDISTORTED at the exact intrinsics
     resolution. No Gimbal/EXIF-derived camera orientation, no 2D homography
     over the entire flight, no blending of unrelated physical surfaces.
+    'priority' selects exactly one source per pixel: first eligible camera
+    in the geometric ranking, with fallback when the primary is not visible.
+    This suppresses multiview averaging ghosting, but does NOT guarantee
+    radiometric seam alignment or optimal local sharpness.
     """
     if should_cancel is not None and should_cancel():
         raise RuntimeError("private pitched RGB projection cancelled")
@@ -152,6 +161,7 @@ def render_private_pitched_rgb_orthopatch(
             or not np.isfinite(meters_per_pixel)
             or not .01 <= meters_per_pixel <= .50
             or type(max_side) is not int or not 64 <= max_side <= 2048
+            or source_fusion not in ("mean", "priority")
             or type(occluder_planes) is not tuple or len(occluder_planes) > 5
             or any(not isinstance(p, PrivateRGBPitchedPlaneCandidate)
                    for p in occluder_planes)):
@@ -206,8 +216,14 @@ def render_private_pitched_rgb_orthopatch(
     rgb_sum = np.zeros((height*width, 3), dtype=np.float64)
     weights = np.zeros(height*width, dtype=np.float64)
     views = np.zeros(height*width, dtype=np.uint8)
+    priority_rgb = np.zeros((height*width, 3), dtype=np.uint8)
+    priority_covered = np.zeros(height*width, dtype=bool)
+    secondary_pixel_count = 0
     candidate_occluded = 0
-    for image, pose in zip(undistorted_rgb_images, world_enu_to_camera_poses):
+    for source_index, (image, pose) in enumerate(zip(
+        undistorted_rgb_images, world_enu_to_camera_poses
+    )):
+
         if should_cancel is not None and should_cancel():
             raise RuntimeError("private pitched RGB projection cancelled")
         if (not isinstance(image, np.ndarray) or image.dtype != np.uint8
@@ -252,17 +268,35 @@ def render_private_pitched_rgb_orthopatch(
             image, mx, my, interpolation=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_CONSTANT, borderValue=(0,0,0),
         ).reshape(-1,3)
-        # Keep a deterministic arithmetic mean from all physically visible
-        # sources; no claim of occlusion handling or seam-quality validation.
-        rgb_sum[in_image] += sampled[in_image]
-        weights[in_image] += 1.
+        # Count the eligible physical source candidates separately from the
+        # final single-source choice. Reprojection and occlusion masks both
+        # apply BEFORE making a choice; no hidden pixels can fill a gap.
         views[in_image] += 1
-    covered = weights > 0
-    rgb = np.zeros((height*width,3), dtype=np.uint8)
-    if np.any(covered):
-        rgb[covered] = np.rint(
-            rgb_sum[covered] / weights[covered, None]
-        ).clip(0,255).astype(np.uint8)
+        if source_fusion == "priority":
+            # The upstream camera selector orders sources by whole-plane
+            # coverage/baseline. One stable primary minimizes internal seams;
+            # later cameras fill only genuinely missing/occluded samples.
+            newly_covered = in_image & ~priority_covered
+            if np.any(newly_covered):
+                priority_rgb[newly_covered] = sampled[newly_covered]
+                priority_covered[newly_covered] = True
+                if source_index:
+                    secondary_pixel_count += int(
+                        np.count_nonzero(newly_covered)
+                    )
+        else:
+            rgb_sum[in_image] += sampled[in_image]
+            weights[in_image] += 1.
+    if source_fusion == "priority":
+        covered = priority_covered
+        rgb = priority_rgb
+    else:
+        covered = weights > 0
+        rgb = np.zeros((height*width,3), dtype=np.uint8)
+        if np.any(covered):
+            rgb[covered] = np.rint(
+                rgb_sum[covered] / weights[covered, None]
+            ).clip(0,255).astype(np.uint8)
     rgb = rgb.reshape(height,width,3)
     mask = covered.reshape(height,width)
     for array in (rgb,mask):
@@ -273,4 +307,6 @@ def render_private_pitched_rgb_orthopatch(
         planar_count, int(np.count_nonzero(covered)),
         int(np.count_nonzero(views >= 2)),
         candidate_occluded_source_pixels=candidate_occluded,
+        secondary_source_pixel_count=secondary_pixel_count,
+        source_fusion=source_fusion,
     )
