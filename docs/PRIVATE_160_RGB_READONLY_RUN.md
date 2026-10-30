@@ -401,6 +401,36 @@ echten 160-RGB-Vor-Ort-Rekonstruktion das private PNG und den
 aggregierten Bericht gemeinsam beurteilen, keine Originalbilder
 oder GPS-/Kalibrierungsdaten nach GitHub hochladen.
 
+## Kandidaten-Verdeckung nur bei tatsächlicher 3D-Stützung (30.10.2026)
+
+Ab Code `a149edd8` nutzt die vorhandene private
+`--private-preview-png`-Mehrflächenprojektion die bereits
+rekonstruierten 3D-Inlier-XY nicht nur für die gültige **Ziel-RGB-Fläche**,
+sondern auch bei der Prüfung **verdeckt eine andere geneigte
+Flächenhypothese das betreffende Quellbild?**
+
+Wichtig: Eine konvexe Hülle allein ist keine durchgehende Dachfläche.
+Ein Kamera-Sichtstrahl gilt bei tatsächlichen rekonstruierten
+Kandidaten jetzt nur dann als durch eine andere Plane blockiert, wenn
+sein Schnittpunkt innerhalb von deren Hülle **und** ausreichend nahe
+an deren tatsächlich triangulierten, metrisch optimierten 3D-Punkten
+liegt. Der Abstand folgt der bestehenden dichteabhängigen Heuristik
+von **0,35 bis 1,5 m**. Eine begrenzte private OpenCV-Distanzkarte mit
+konservativer Zell-Sicherheitsmarge bewertet diese Nachbarschaft.
+Große ungestützte konvexe Zwischenräume löschen somit nicht länger
+willkürlich sichtbare RGB-Zielpixel. Physisch weiter entfernte oder
+nicht rekonstruierte Hindernisse bleiben jedoch **unbekannt**.
+
+Es gibt dafür **keine zusätzlichen CLI-Optionen** und keine neuen
+Schreibzugriffe. Die sechs Original-ZIP/`.tip`-Archive bleiben
+read-only, Pixel-/3D-Inlier-/GPS-/ENU-Daten im privaten RAM.
+Die bestehenden anonymisierten Aggregatwerte bleiben erhalten.
+Auch mit dieser Korrektur ist das Mehrflächen-PNG **keine** geprüfte
+reale Dach-/Occludergrenze und keine vermessene GSD-, RGB-Ortho-,
+PV- oder Thermal-Freigabe. Im echten privaten Windows-Lauf das
+gesamte 160-JPEG-Ergebnis visuell prüfen; ein synthetischer CI-Erfolg
+ersetzt diesen Nachweis nicht.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
