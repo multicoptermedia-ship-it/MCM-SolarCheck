@@ -373,6 +373,34 @@ DJI-RGB-Objektivkalibrierung werden weiterhin **nur lokal** verarbeitet.
 Die Orthofoto-/Roof-/GSD-/Survey-/PV-/Thermalqualität ist
 damit **nicht** freigegeben.
 
+## Dachflächenvorschau nur bei tatsächlicher 3D-Punktstützung (30.10.2026)
+
+Der bestehende private, opt-in `--private-preview-png`-Lauf behält ab
+Code `22650686` die **tatsächlichen optimierten 3D-Inlier-Punkte**
+der geneigten Ebenenhypothesen ausschließlich im RAM. Früher konnte
+eine konvexe Hülle zwischen auseinanderliegenden Punktgruppen trotz
+fehlender 3D-Messstützung als vollständige Dachfläche gerendert werden.
+Jetzt sind nur Pixel innerhalb des bisher geprüften Footprints **und**
+in einer metrisch begrenzten Nachbarschaft zu diesen wirklichen
+triangulierten Punkten gültig. Der maximale Abstand wird aus Fläche
+und Punktzahl berechnet und auf **0,35 bis 1,5 m** begrenzt. Deutlich
+ungestützte Bereiche bleiben **RGBA-transparent**; keine erfundenen
+Dach- oder PV-Pixel.
+
+Das private JSON-Feld `private_multiplane_preview` enthält dafür die
+reine Gesamtzahl `unsupported_convex_hull_pixels`. Die 3D-Punkte,
+Kamera-IDs, Polygon- und ENU-/GPS-Koordinaten werden weder exportiert
+noch in der Konsole angezeigt. Keine neuen CLI-Optionen, Abhängigkeiten
+oder Dateiänderungen an den sechs Original-ZIP/`.tip`-Archiven.
+
+**Einordnung:** Ohne SfM-Merkmale bleiben eventuell auch echte,
+texturarme Dach-/PV-Bereiche transparent. Die 3D-Stützung ist eine
+vorsichtige Hypothesen-Abdeckung, **keine** verifizierte reale Dachkante
+oder unabhängige GSD-/Survey-/Orthofoto-/PV-/Thermalfreigabe. Bei der
+echten 160-RGB-Vor-Ort-Rekonstruktion das private PNG und den
+aggregierten Bericht gemeinsam beurteilen, keine Originalbilder
+oder GPS-/Kalibrierungsdaten nach GitHub hochladen.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
