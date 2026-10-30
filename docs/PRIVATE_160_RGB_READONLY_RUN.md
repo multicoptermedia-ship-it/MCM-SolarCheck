@@ -522,6 +522,32 @@ Windows-Auswertung die echten Dachpixel/Nähte/PV-Strukturen
 sichtprüfen, keinesfalls aus synthetischem CI ein fertiges
 Dachorthofoto oder Survey-/Thermal-/PV-Freigabe ableiten.
 
+## Echte 3D-Punktinseln in der Dach-Kameraauswahl behalten (30.10.2026)
+
+Seit Code `6e2ff331` betrachtet die automatische RGB-Kameraauswahl
+neben ihrem bisherigen 25×25-XY-Raster auch **bis zu 64 private
+tatsächlich triangulierte 3D-Punktstützen** der jeweiligen geneigten
+Dachflächenhypothese (eine je besetzte 8×8-Raumzelle). Das 25×25-
+Raster kann schmale wirkliche Punktinseln am Dachrand übersehen:
+Die Inlier-Stützdistanz von 0,35–1,5m ist dann kleiner als
+der Abstand zu den nächstliegenden Rastermittelpunkten.
+
+Die zusätzlichen BA-3D-Punkte werden als Zielpunkte für dieselben
+bereits vorhandenen kalibrierten Kamera-/Occluder-Tests genutzt.
+So bleiben seitliche Original-RGB-Quellen auch für solche schmalen,
+aber belegten Bereiche auswählbar; 2–8 Endquellen werden danach
+weiterhin aus allen geeigneten Kameras vor dem JPEG-Decoding
+bestimmt. Kein neues CLI-Flag, keine externe Bibliothek,
+kein Geo-/GPS-/RTK-/3D-/JPEG-/ZIP-/SQLite-Export.
+
+**Wichtig:** Es werden keine echten gemessenen Dachgrenzen
+erzeugt. Punkte sind nur vorläufige rekonstruktive Inlier
+und keine unabhängige Vermessung. Für die echte Qualitätsbewertung
+weiter alle 160 DJI-M3T-RGB-Originalbilder mit unabhängig
+verifizierter Linsenkalibrierung auf Windows 10 read-only rechnen,
+das private RGBA-PNG visuell auf Dachkanten, Detailauflösung,
+Nähte und PV-Module prüfen. Synthetische CI ersetzt das nicht.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
