@@ -69,8 +69,10 @@ RGB-Orthorektifizierung pro geneigter 3D-Ebenenhypothese und gemeinsame
 metrische Rasterzusammenführung. Die BA-Geometrie bleibt im selben Prozess im
 RAM. Die Funktion benötigt **mindestens zwei** zulässige Flächenhypothesen.
 
-Nach Befüllen derselben sechs lokalen Archivpfade und derselben wirklich
-extern verifizierten Kalibrierung wie oben:
+Bei gewünschtem Prüfbild diese Optionen **in den obigen PowerShell-Block
+direkt vor die dortige Zeile `python @cliArgs` einfügen**. Den kompletten
+160-Bild-Rechenlauf **nur einmal** starten (nicht erst den Standardaufruf und
+danach die komplette Rekonstruktion ein zweites Mal):
 
 ```powershell
 # Neuen Dateinamen verwenden; der Ordner muss bereits privat existieren.
@@ -78,7 +80,7 @@ $privatePreview = 'C:\PRIVATE-RESULTS\rgb-160-unverified-preview.png'
 $cliArgs += @('--private-preview-png', $privatePreview,
               '--preview-meters-per-pixel', '0.05',
               '--preview-max-side', '1024')
-python @cliArgs
+# Anschließend mit dem `python @cliArgs` aus dem Hauptblock EINMAL rechnen.
 ```
 
 **Wichtig:** Die separate PNG-Datei darf weder im Git-Checkout noch
