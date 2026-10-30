@@ -551,7 +551,11 @@ def render_private_multiplane_preview_from_original_rgb_archives(
         selected = choose_private_pitched_plane_cameras(
             plane, metric_candidate.world_enu_to_camera_private,
             intrinsics, width, height,
-            max_cameras=max_cameras_per_plane, should_cancel=should_cancel,
+            max_cameras=max_cameras_per_plane,
+            occluder_planes=tuple(
+                other for j, other in enumerate(planes) if j != candidate_index
+            ),
+            should_cancel=should_cancel,
         )
         patches.append(render_private_pitched_preview_from_original_rgb_archives(
             archives, calibration, metric_candidate, candidate_index, selected,

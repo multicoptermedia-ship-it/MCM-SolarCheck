@@ -246,3 +246,60 @@ def test_multiplane_reports_only_aggregate_convex_hull_extrapolation():
     assert safe["orthophoto_verified"] is False
     for private in ("inlier_xy","landmark_indices","top_left_xy","GPS"):
         assert private not in json.dumps(safe)
+
+
+def test_camera_selection_excludes_sources_hidden_by_other_pitched_facet():
+    """A top-down primary fully blocked by an upper facet cannot win."""
+    k = PinholeIntrinsics(60.,60.,64.,64.)
+    low = _facet(-.5,.5)
+    top = _facet(-.7,.7)
+    # Exact same pitched plane slope shifted from z=1 to z=3.
+    high = replace(top,signed_offset_enu_private_m=3*top.signed_offset_enu_private_m)
+    r = np.diag((1.,-1.,-1.))
+    centers = ((0.,0.,5.), (3.,0.,5.), (-3.,0.,5.))
+    poses = tuple(np.column_stack((r,-r @ np.asarray(center)))
+                  for center in centers)
+    geometric = choose_private_pitched_plane_cameras(
+        low,poses,k,128,128,max_cameras=2,
+    )
+    assert 0 in geometric
+    visible = choose_private_pitched_plane_cameras(
+        low,poses,k,128,128,max_cameras=2,
+        occluder_planes=(high,),
+    )
+    assert set(visible) == {1,2}
+
+
+def test_camera_selection_samples_actual_3d_support_not_only_convex_bbox():
+    """No camera covering only the phantom convex void can be a source."""
+    k = PinholeIntrinsics(200.,200.,64.,64.)
+    low = _facet(-2.,2.)
+    yy = np.linspace(-.95,.95,48)
+    xy = np.asarray([(x,y) for x in (-1.9,1.9) for y in yy])
+    low = replace(low,
+        landmark_indices_private=np.arange(len(xy),dtype=np.int32),
+        inlier_xy_private_m=xy,
+    )
+    r = np.diag((1.,-1.,-1.))
+    poses = tuple(np.column_stack(
+        (r,-r @ np.array((x,0.,5.)))
+    ) for x in (-1.8,1.8,0.))
+    chosen = choose_private_pitched_plane_cameras(
+        low,poses,k,128,128,max_cameras=2,
+    )
+    assert set(chosen) == {0,1}
+    assert len(chosen) == 2
+
+
+def test_camera_selection_rejects_unknown_occluders_and_is_cancellable():
+    k = PinholeIntrinsics(60.,60.,64.,64.)
+    low = _facet(-2.,0.)
+    with pytest.raises(ValueError,match="bounded private"):
+        choose_private_pitched_plane_cameras(
+            low,_poses(),k,128,128,occluder_planes=[low],
+        )
+    with pytest.raises(RuntimeError,match="cancelled"):
+        choose_private_pitched_plane_cameras(
+            low,_poses(),k,128,128,occluder_planes=(low,),
+            should_cancel=lambda: True,
+        )

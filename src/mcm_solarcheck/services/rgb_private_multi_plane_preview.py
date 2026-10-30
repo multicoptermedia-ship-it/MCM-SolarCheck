@@ -20,6 +20,8 @@ from mcm_solarcheck.services.rgb_private_pitched_plane_candidates import (
 from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
     PrivateRGBPitchedPlaneOrthopatch,
     _private_label_transition_rgb_jump,
+    _private_candidate_supported_ray_hits,
+    _candidate_plane_occlusion_mask,
 )
 
 
@@ -32,14 +34,17 @@ def choose_private_pitched_plane_cameras(
     *,
     max_cameras: int = 4,
     min_sample_coverage: float = .20,
+    occluder_planes: tuple[PrivateRGBPitchedPlaneCandidate, ...] = (),
     should_cancel=None,
 ) -> tuple[int, ...]:
     """Select 2..8 strongest visible cameras from fitted BA geometry alone.
 
-    Uses an XY 9x9 sample INSIDE the private candidate convex hull, then
-    projects its actual plane heights into each fitted camera. Select the
-    first by footprint coverage and subsequent by new coverage + baseline.
-    This selects likely source frames, not verified unoccluded photographs.
+    Uses a bounded 25x25 XY sample INSIDE the real 3D-supported pitched
+    hypothesis (not just its convex hull), then projects exact plane heights
+    with final BA camera poses. Candidate occluders are considered BEFORE
+    selecting actual RGB JPEGs. Choose by newly visible target support;
+    prefer baseline only as a tie-breaker. This is STILL only a geometric
+    visibility hypothesis, not a verified photograph or surveyed roof.
     """
     if should_cancel is not None and should_cancel():
         raise RuntimeError("private multi-plane camera selection cancelled")
@@ -52,7 +57,11 @@ def choose_private_pitched_plane_cameras(
             or type(max_cameras) is not int or not 2 <= max_cameras <= 8
             or type(min_sample_coverage) not in (int, float)
             or not np.isfinite(min_sample_coverage)
-            or not .05 <= min_sample_coverage <= 1.):
+            or not .05 <= min_sample_coverage <= 1.
+            or type(occluder_planes) is not tuple
+            or len(occluder_planes) > 5
+            or any(not isinstance(other, PrivateRGBPitchedPlaneCandidate)
+                   for other in occluder_planes)):
         raise ValueError("bounded private plane camera selection required")
     k = np.array((intrinsics.fx, intrinsics.fy,
                   intrinsics.cx, intrinsics.cy), dtype=np.float64)
@@ -69,8 +78,8 @@ def choose_private_pitched_plane_cameras(
     minimum, maximum = hull.min(axis=0), hull.max(axis=0)
     if np.any(maximum - minimum <= 1.e-5):
         raise ValueError("degenerate pitched plane footprint")
-    xs = minimum[0] + (np.arange(9)+.5)/9. * (maximum[0]-minimum[0])
-    ys = minimum[1] + (np.arange(9)+.5)/9. * (maximum[1]-minimum[1])
+    xs = minimum[0] + (np.arange(25)+.5)/25. * (maximum[0]-minimum[0])
+    ys = minimum[1] + (np.arange(25)+.5)/25. * (maximum[1]-minimum[1])
     xx, yy = np.meshgrid(xs, ys)
     xy = np.column_stack((xx.ravel(), yy.ravel()))
     # pointPolygonTest is strictly geometric; not a roof semantic classifier.
@@ -79,6 +88,13 @@ def choose_private_pitched_plane_cameras(
                              False) >= 0 for p in xy
     ])
     xy = xy[interior]
+    # Honor the SAME fitted inlier support as the actual RGB target mask.
+    # Otherwise cameras that only see unsupported convex-hull gaps win.
+    if plane.inlier_xy_private_m is not None and len(xy):
+        supported = _private_candidate_supported_ray_hits(
+            plane, xy, should_cancel=should_cancel,
+        )
+        xy = xy[supported]
     if len(xy) < 4:
         raise ValueError("insufficient pitched plane area for camera selection")
     z = (-offset - n[0]*xy[:, 0] - n[1]*xy[:, 1]) / n[2]
@@ -106,14 +122,32 @@ def choose_private_pitched_plane_cameras(
                      & (u < image_width-1) & (v < image_height-1))
     valid = [i for i, mask in enumerate(masks)
              if float(np.mean(mask)) >= min_sample_coverage]
+    if occluder_planes and valid:
+        # Keep work bounded with up to 32 geometrically best of 160+ poses:
+        # do not decode the original JPEGs before candidate visibility.
+        shortlist = sorted(
+            valid, key=lambda i: (-int(np.count_nonzero(masks[i])), i),
+        )[:32]
+        visible = []
+        for i in shortlist:
+            if should_cancel is not None and should_cancel():
+                raise RuntimeError("private multi-plane camera selection cancelled")
+            blocked = _candidate_plane_occlusion_mask(
+                points, centers[i], masks[i], occluder_planes,
+                should_cancel=should_cancel,
+            )
+            masks[i] &= ~blocked
+            if float(np.mean(masks[i])) >= min_sample_coverage:
+                visible.append(i)
+        valid = visible
     if len(valid) < 2:
         raise ValueError("fewer than two fitted cameras cover pitched RGB plane")
     centers = np.asarray(centers, dtype=np.float64)
     selected: list[int] = []
     covered = np.zeros(len(xy), dtype=bool)
     radius = max(float(np.linalg.norm(maximum-minimum)), 1.)
-    # At each step prefer coverage gain, then distinct viewing centers.
-    # Always add two cameras to avoid an accidental single-view preview.
+    # Prefer actual NEW, unoccluded supported cells, then separation.
+    # Still take two cameras for multi-view. Keep one primary to limit seams.
     while len(selected) < min(max_cameras, len(valid)):
         def quality(i):
             additional = np.count_nonzero(masks[i] & ~covered)/len(xy)

@@ -158,6 +158,9 @@ class PrivateRGBRTKWindowedBA:
             selected_local = choose_private_pitched_plane_cameras(
                 plane, poses, intrinsics, width, height,
                 max_cameras=max_cameras_per_plane,
+                occluder_planes=tuple(
+                    other for j, other in enumerate(planes) if j != plane_id
+                ),
                 should_cancel=should_cancel,
             )
             global_indices = tuple(available[i] for i in selected_local)
