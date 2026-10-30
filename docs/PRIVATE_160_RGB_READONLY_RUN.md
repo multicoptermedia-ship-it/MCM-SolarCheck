@@ -431,6 +431,37 @@ PV- oder Thermal-Freigabe. Im echten privaten Windows-Lauf das
 gesamte 160-JPEG-Ergebnis visuell prüfen; ein synthetischer CI-Erfolg
 ersetzt diesen Nachweis nicht.
 
+## Quellkameras werden nach tatsächlich gestützter und sichtbarer 3D-Fläche gewählt (30.10.2026)
+
+Mit Code `ae435e65` wird die Quellkameraauswahl **vor dem privaten
+Original-JPEG-Decoding** konsistent zur bestehenden Dachprojektion.
+Vorher genügten 9×9 projizierte Rasterpunkte in der gesamten konvexen
+Dachkandidaten-Hülle. Dadurch konnte eine Kamera ausgewählt werden,
+deren vermeintliche Dachfläche durch fehlende rekonstruierte 3D-Punkte
+oder durch eine höher gelegene Kandidatenfläche später in Wirklichkeit
+nicht in das RGB-Preview einging.
+
+Nun prüft die Kameraauswahl ein **25×25-Punkte-Gitter** auf der
+jeweiligen geneigten metrischen Ebene und nutzt die echten BA-
+rekonstruierten 3D-Inlier-Stützbereiche (ab `22650686`). Für bis
+zu 32 geometrisch geeignete Kamerakandidaten wird außerdem die
+modellierte, 3D-punktgestützte Verdeckung durch andere Flächen-
+hypothesen (ab `a149edd8`) berücksichtigt. Erst danach wählt
+sie 2 bis 8 Quellkameras nach zusätzlicher sichtbarer Zielabdeckung
+und unterschiedlicher Kamerabasis. Beim fehlenden Nachweis von zwei
+geeigneten Blickwinkeln wird **abgebrochen**, statt eine Dachaufnahme
+vorzutäuschen. Der bisherige einzeln priorisierte RGB-Quellpixel-
+Renderer und die private RGBA-Transparenz bleiben erhalten.
+
+Keine neue CLI-Option, kein neues Dateiformat und kein Zugriff auf
+externe Anbieter; alle sechs Original-ZIP/`.tip`-Archive weiterhin
+read-only. Die Kandidaten- und Stützpunktgeometrie bleibt im RAM.
+**25×25-Stichproben und die max.-32-Kamera-Shortlist sind Heuristiken**,
+keine unabhängige reale Sicht-/Dach-/Naht-/GSD-/Orthofoto-/
+PV-/Thermal-Freigabe. Lokalen kompletten 160-RGB-Privatflug mit
+unabhängig nachgewiesener DJI-Objektivkalibrierung durchführen und
+erst dann tatsächliche PV-/Dach-RGB-Bildschärfe/Masken beurteilen.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
