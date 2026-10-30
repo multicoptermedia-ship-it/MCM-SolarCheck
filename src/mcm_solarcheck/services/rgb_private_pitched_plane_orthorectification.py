@@ -37,6 +37,8 @@ class PrivateRGBPitchedPlaneOrthopatch:
     source_fusion: str = "mean"
     radiometric_corrected_source_count: int = 0
     radiometric_overlap_support_pixels: int = 0
+    candidate_camera_seam_boundary_pairs: int = 0
+    candidate_camera_seam_rgb_jump_p95: float | None = None
 
     def privacy_safe_summary(self) -> dict:
         return {
@@ -52,6 +54,12 @@ class PrivateRGBPitchedPlaneOrthopatch:
             ),
             "radiometric_overlap_support_pixels": (
                 self.radiometric_overlap_support_pixels
+            ),
+            "candidate_camera_seam_boundary_pairs": (
+                self.candidate_camera_seam_boundary_pairs
+            ),
+            "candidate_camera_seam_rgb_jump_p95": (
+                self.candidate_camera_seam_rgb_jump_p95
             ),
             "planar_pixel_count": self.planar_pixel_count,
             "valid_pixel_count": self.valid_pixel_count,
@@ -134,6 +142,36 @@ def _candidate_plane_occlusion_mask(
         blocked[indices[inside]] = True
     return blocked
 
+
+
+
+def _private_label_transition_rgb_jump(
+    rgb: np.ndarray,
+    source_labels: np.ndarray,
+    valid: np.ndarray,
+) -> tuple[int, float | None]:
+    """Count real 4-connected source borders; p95 is descriptive ONLY.
+
+    A large RGB jump can be a genuine roof edge/texture, not a seam defect.
+    No pixels, labels, image coordinates, or edge map leave private memory.
+    """
+    changes = []
+    for axis in (0, 1):
+        if axis == 0:
+            pairs = (slice(None, -1), slice(None)), (slice(1, None), slice(None))
+        else:
+            pairs = (slice(None), slice(None, -1)), (slice(None), slice(1, None))
+        a, b = pairs
+        crossing = (valid[a] & valid[b]
+                    & (source_labels[a] != source_labels[b]))
+        if np.any(crossing):
+            rgb_a = rgb[a][crossing].astype(np.int16)
+            rgb_b = rgb[b][crossing].astype(np.int16)
+            changes.append(np.max(np.abs(rgb_a-rgb_b), axis=1))
+    if not changes:
+        return 0, None
+    magnitudes = np.concatenate(changes)
+    return int(magnitudes.size), float(np.percentile(magnitudes, 95))
 
 
 def _private_robust_overlap_color_offset(
@@ -301,6 +339,8 @@ def render_private_pitched_rgb_orthopatch(
     views = np.zeros(height*width, dtype=np.uint8)
     priority_rgb = np.zeros((height*width, 3), dtype=np.uint8)
     priority_covered = np.zeros(height*width, dtype=bool)
+    # Only an internal seam boundary label. It is NEVER serialized or saved.
+    priority_source = np.full(height*width, 255, dtype=np.uint8)
     secondary_pixel_count = 0
     candidate_occluded = 0
     radiometric_corrected = 0
@@ -379,6 +419,7 @@ def render_private_pitched_rgb_orthopatch(
                         radiometric_support += support
                 priority_rgb[newly_covered] = incoming[newly_covered]
                 priority_covered[newly_covered] = True
+                priority_source[newly_covered] = source_index
                 if source_index:
                     secondary_pixel_count += int(
                         np.count_nonzero(newly_covered)
@@ -398,6 +439,12 @@ def render_private_pitched_rgb_orthopatch(
             ).clip(0,255).astype(np.uint8)
     rgb = rgb.reshape(height,width,3)
     mask = covered.reshape(height,width)
+    candidate_seam_count, candidate_seam_p95 = (
+        _private_label_transition_rgb_jump(
+            rgb, priority_source.reshape(height,width), mask,
+        ) if source_fusion in ("priority", "priority_overlap")
+        else (0, None)
+    )
     for array in (rgb,mask):
         array.setflags(write=False)
     return PrivateRGBPitchedPlaneOrthopatch(
@@ -410,4 +457,6 @@ def render_private_pitched_rgb_orthopatch(
         source_fusion=source_fusion,
         radiometric_corrected_source_count=radiometric_corrected,
         radiometric_overlap_support_pixels=radiometric_support,
+        candidate_camera_seam_boundary_pairs=candidate_seam_count,
+        candidate_camera_seam_rgb_jump_p95=candidate_seam_p95,
     )

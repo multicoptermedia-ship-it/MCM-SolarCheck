@@ -92,6 +92,8 @@ def test_opt_in_writes_rgba_only_to_separate_private_directory(
     private_report = json.loads(report.read_text(encoding="utf-8"))
     assert private_report["private_preview_png_written"] is True
     assert private_report["private_multiplane_preview"]["orthophoto_verified"] is False
+    assert private_report["private_multiplane_preview"]["candidate_camera_seam_boundary_pairs"] == 0
+    assert private_report["private_multiplane_preview"]["candidate_facet_transition_boundary_pairs"] == 0
     stdout = capsys.readouterr().out
     assert json.loads(stdout) == private_report
     for secret in ("315.123", "987.456", "RGB2.tip", "private-output", "250, 25, 10"):

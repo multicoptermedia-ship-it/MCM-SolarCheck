@@ -193,3 +193,38 @@ def test_multiplane_composition_keeps_private_photometric_aggregate_only():
     assert report["orthophoto_verified"] is False
     for forbidden in ("top_left_xy","selected_plane_index","GPS","DJI_"):
         assert forbidden not in json.dumps(report)
+
+
+
+def test_facets_color_transition_is_measured_but_not_claimed_as_quality_pass():
+    first,second = _facet(-1.,0.),_facet(0.,1.,slope=-.2)
+    a,b = _patch(first,(100,120,140)),_patch(second,(125,120,140))
+    a = replace(a,candidate_camera_seam_boundary_pairs=25,
+                candidate_camera_seam_rgb_jump_p95=13.)
+    b = replace(b,candidate_camera_seam_boundary_pairs=10,
+                candidate_camera_seam_rgb_jump_p95=20.)
+    fused = compose_private_pitched_rgb_orthopatches(
+        (first,second),(a,b),
+    )
+    assert fused.candidate_camera_seam_boundary_pairs == 35
+    assert fused.worst_candidate_camera_seam_rgb_jump_p95 == 20.
+    assert fused.candidate_facet_transition_boundary_pairs == 20
+    assert fused.candidate_facet_transition_rgb_jump_p95 == 25.
+    safe = fused.privacy_safe_summary()
+    assert safe["candidate_facet_transition_boundary_pairs"] == 20
+    assert safe["worst_candidate_camera_seam_rgb_jump_p95"] == 20.
+    assert safe["roof_geometry_verified"] is False
+    assert safe["orthophoto_verified"] is False
+    for private in ("selected_plane_index", "camera_id", "GPS", "top_left_xy"):
+        assert private not in json.dumps(safe)
+
+
+def test_transparent_ambiguity_cannot_form_fake_facet_seams():
+    first,second = _facet(-1.,1.),_facet(-1.,1.)
+    fused = compose_private_pitched_rgb_orthopatches(
+        (first,second),
+        (_patch(first,(255,0,0)),_patch(second,(0,0,255))),
+    )
+    assert fused.valid_pixel_count == 0
+    assert fused.candidate_facet_transition_boundary_pairs == 0
+    assert fused.candidate_facet_transition_rgb_jump_p95 is None

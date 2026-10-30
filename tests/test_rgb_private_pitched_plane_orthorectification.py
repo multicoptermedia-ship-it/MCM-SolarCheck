@@ -468,3 +468,46 @@ def test_rgb_offset_fails_closed_on_overlapping_source_seam_masks():
         _private_robust_overlap_color_offset(
             rgb,rgb,mask,mask,mask,height,width,
         )
+
+
+
+def test_source_boundary_color_jump_audit_only_counts_actual_camera_switches():
+    from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
+        _private_label_transition_rgb_jump,
+    )
+    rgb = np.full((5,6,3),(100,120,130),dtype=np.uint8)
+    owner = np.zeros((5,6),dtype=np.uint8)
+    owner[:,3:] = 1
+    mask = np.ones((5,6),dtype=bool)
+    rgb[:,3:] = (115,120,130)
+    count,p95 = _private_label_transition_rgb_jump(rgb,owner,mask)
+    assert count == 5 and p95 == 15.
+    # Uncovered pixels must not be treated as false camera seams.
+    mask[:,2:4] = False
+    assert _private_label_transition_rgb_jump(rgb,owner,mask) == (0,None)
+    assert _private_label_transition_rgb_jump(
+        rgb,np.zeros_like(owner),np.ones_like(mask)
+    ) == (0,None)
+
+
+def test_real_priority_rendering_exposes_seam_count_but_not_source_map():
+    k = PinholeIntrinsics(200.,200.,64.,64.)
+    r = np.diag((1.,-1.,-1.))
+    centers = (np.array((-1.2,0.,5.)),np.array((1.2,0.,5.)))
+    poses = tuple(np.column_stack((r,-r @ center)) for center in centers)
+    images = (
+        np.full((128,128,3),(120,120,120),dtype=np.uint8),
+        np.full((128,128,3),(145,120,120),dtype=np.uint8),
+    )
+    preview = render_private_pitched_rgb_orthopatch(
+        _plane(),images,poses,k,meters_per_pixel=.05,
+        source_fusion="priority",
+    )
+    assert preview.candidate_camera_seam_boundary_pairs > 0
+    assert preview.candidate_camera_seam_rgb_jump_p95 == 25.
+    summary = preview.privacy_safe_summary()
+    assert summary["candidate_camera_seam_boundary_pairs"] > 0
+    assert summary["candidate_camera_seam_rgb_jump_p95"] == 25.
+    assert summary["orthophoto_verified"] is False
+    for secret in ("source_map", "source_index", "top_left_xy", "GPS", "DJI_"):
+        assert secret not in json.dumps(summary)

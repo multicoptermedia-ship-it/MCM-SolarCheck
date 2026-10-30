@@ -19,6 +19,7 @@ from mcm_solarcheck.services.rgb_private_pitched_plane_candidates import (
 )
 from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
     PrivateRGBPitchedPlaneOrthopatch,
+    _private_label_transition_rgb_jump,
 )
 
 
@@ -145,6 +146,10 @@ class PrivateRGBMultiPlaneOrthopreview:
     state: str = "private_multi_pitched_3d_rgb_preview_unverified"
     radiometric_corrected_source_count: int = 0
     radiometric_overlap_support_pixels: int = 0
+    candidate_camera_seam_boundary_pairs: int = 0
+    worst_candidate_camera_seam_rgb_jump_p95: float | None = None
+    candidate_facet_transition_boundary_pairs: int = 0
+    candidate_facet_transition_rgb_jump_p95: float | None = None
 
     def privacy_safe_summary(self) -> dict:
         total = int(self.valid_mask_private.size)
@@ -161,6 +166,18 @@ class PrivateRGBMultiPlaneOrthopreview:
             ),
             "radiometric_overlap_support_pixels": (
                 self.radiometric_overlap_support_pixels
+            ),
+            "candidate_camera_seam_boundary_pairs": (
+                self.candidate_camera_seam_boundary_pairs
+            ),
+            "worst_candidate_camera_seam_rgb_jump_p95": (
+                self.worst_candidate_camera_seam_rgb_jump_p95
+            ),
+            "candidate_facet_transition_boundary_pairs": (
+                self.candidate_facet_transition_boundary_pairs
+            ),
+            "candidate_facet_transition_rgb_jump_p95": (
+                self.candidate_facet_transition_rgb_jump_p95
             ),
             "valid_fraction_of_union_bbox": self.valid_pixel_count/total,
             "ambiguous_plane_overlap_pixels": self.ambiguous_overlap_pixels,
@@ -281,6 +298,14 @@ def compose_private_pitched_rgb_orthopatches(
     valid = (coverage > 0) & ~ambiguous
     rgb[~valid] = 0
     winner[~valid] = -1
+    facet_border_count, facet_border_p95 = _private_label_transition_rgb_jump(
+        rgb, winner, valid,
+    )
+    camera_p95_values = [
+        p.candidate_camera_seam_rgb_jump_p95 for p in patches
+        if p.candidate_camera_seam_boundary_pairs > 0
+        and p.candidate_camera_seam_rgb_jump_p95 is not None
+    ]
     for array in (rgb, valid, ambiguous, winner):
         array.setflags(write=False)
     return PrivateRGBMultiPlaneOrthopreview(
@@ -294,4 +319,12 @@ def compose_private_pitched_rgb_orthopatches(
         radiometric_overlap_support_pixels=sum(
             p.radiometric_overlap_support_pixels for p in patches
         ),
+        candidate_camera_seam_boundary_pairs=sum(
+            p.candidate_camera_seam_boundary_pairs for p in patches
+        ),
+        worst_candidate_camera_seam_rgb_jump_p95=(
+            max(camera_p95_values) if camera_p95_values else None
+        ),
+        candidate_facet_transition_boundary_pairs=facet_border_count,
+        candidate_facet_transition_rgb_jump_p95=facet_border_p95,
     )
