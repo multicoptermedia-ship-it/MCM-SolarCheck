@@ -462,6 +462,37 @@ PV-/Thermal-Freigabe. Lokalen kompletten 160-RGB-Privatflug mit
 unabhängig nachgewiesener DJI-Objektivkalibrierung durchführen und
 erst dann tatsächliche PV-/Dach-RGB-Bildschärfe/Masken beurteilen.
 
+## Vollständige 160-Kamera-Sichtbarkeit vor JPEG-Decoding (30.10.2026)
+
+Seit Code `c71b65f8` wird die automatische Auswahl der
+2–8 RGB-Quellbilder je geneigter 3D-Dachflächenhypothese auf
+**allen** geometrisch geeigneten Kameraposen ausgeführt. Die vorige,
+nach bloßer Bildfeldabdeckung sortierte Vorauswahl von maximal
+32 Kameras wurde entfernt: Eine Zentralaufnahme konnte viel Dach
+projizieren, durch eine andere Kandidatenfläche aber vollständig
+verdeckt sein; die hilfreiche Seitenkamera 33+ wäre dann
+ungesehen ausgeschlossen worden. Jetzt fließen zuerst sämtliche
+geeigneten Kameras in die bereits vorhandene 25×25-Prüfung
+der echten triangulierten 3D-Stützpunkte sowie der anderen
+punktgestützten Ebenenverdeckungen ein. Erst danach werden die
+besten wirklich modelliert sichtbaren 2–8 Original-JPEG-Aufnahmen
+gewählt und aus den privaten ZIPs read-only decodiert.
+
+Die metrische 3D-Inlier-Abstandskarte je Kandidaten-Verdeckung
+wird für alle Kameras innerhalb des Auswahl- bzw. Renderaufrufs
+nur **einmal** im RAM berechnet (OpenCV, max. 520×520 Zellen).
+Keine neuen Kommandozeilenparameter oder externen Abhängigkeiten,
+kein Aufheben der Bild-/GPS-/ENU-/ZIP-Privacy- und
+Originaldatei-Schreibsperren.
+
+Der neue Regressionstest prüft 34 künstliche Kameraposen:
+32 zentral verdeckte Ansichten und erst danach zwei tatsächlich
+sichtbare Seitenkameras. Die Test- und Benchmarkgeometrie ist
+**synthetisch**; allein eine vollständige lokal ausgeführte
+Rekonstruktion aller 160 originalen DJI-M3T-JPEGs mit unabhängig
+verifizierter Objektivkalibrierung kann Dachpixel, Nahtqualität,
+PV-Details, GSD, Survey und Orthofoto real beurteilen.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
