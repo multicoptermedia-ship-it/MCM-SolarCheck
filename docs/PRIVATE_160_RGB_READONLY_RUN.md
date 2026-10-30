@@ -245,6 +245,24 @@ geprüfter externer Objektivkalibrierung; erst daraus können reale Flächen
 und Übergänge beurteilt werden. Bis zur unabhängigen Dach-/Naht-/
 Geometrieprüfung weiterhin **kein** Dachorthofoto-/PV-/Thermal-PASS.
 
+## Modellierte Sichtbarkeit benachbarter Flächen (30.10.2026)
+
+Der opt-in private Mehrflächen-Preview verwendet jetzt zusätzlich die
+**anderen rekonstruierten geneigten Ebenenhypothesen als geometrische
+Sichtstrahl-Hindernisse**: Eine Kamera darf einen Zielpixel nicht liefern,
+wenn ihr finaler BA-ENU-Kamera→3D-Zielpunkt-Strahl **vor** dem Ziel eine
+andere Plane innerhalb ihrer privaten konvexen XY-Hülle schneidet. Bleiben
+keine Quellen übrig, bleibt der Pixel transparent. Einzelne blockierte
+Quellen dürfen nicht als Geisterbild in eine unverdeckte Kamera gemittelt
+werden. Es sind keine weiteren PowerShell-Optionen nötig; der opt-in-Aufruf
+oben bleibt gültig.
+
+**Keine physisch validierte Sichtbarkeit:** Die Planes sind bislang nur
+unbestätigte metrische Hypothesen, unbekannte Gebäude- oder PV-Objekte
+bleiben unberücksichtigt. Dachgrenzen, GSD, Nahtqualität, externe Survey-
+und RGB-Orthofoto-/PV-/Thermalfreigaben weiterhin **nicht** bestanden.
+CI-/synthetische Verdeckungstests belegen keine reale Dachszene.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
