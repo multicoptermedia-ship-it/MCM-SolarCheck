@@ -263,6 +263,26 @@ bleiben unberücksichtigt. Dachgrenzen, GSD, Nahtqualität, externe Survey-
 und RGB-Orthofoto-/PV-/Thermalfreigaben weiterhin **nicht** bestanden.
 CI-/synthetische Verdeckungstests belegen keine reale Dachszene.
 
+## RGB-Geisterbilder reduzieren: automatische Quellpriorität (30.10.2026)
+
+Der opt-in **Mehrflächen**-Preview verwendet jetzt automatisch die
+reihenfolgestabile `source_fusion="priority"`: Pro Zielpixel wird die
+**erste tatsächlich sichtbare** der bereits geometrisch ausgewählten
+RGB-Kameras verwendet. Die übrigen Quellen füllen nur geometrische
+Abdeckungslücken oder Kandidaten-Verdeckungen, statt Farbwerte
+mehrerer leicht gegeneinander versetzter Bilder zu mitteln.
+
+**Keine Änderung am PowerShell-Aufruf nötig.** Der Standardlauf ohne
+`--private-preview-png` bleibt reiner anonymisierter Qualitätsbericht.
+Explizite Einzelpatch-Diagnosen können weiterhin den alten Mittelwert
+benutzen. Die in der privaten Renderer-Zusammenfassung gemeldeten
+sekundären Bildpixel sind eine reine Zahl, keine Quell-IDs oder Positionen.
+**Wichtig:** Quellwechsel können farbliche/sichtbare Nähte erzeugen; keine
+echte Photometrie-Korrektur, nahtoptimierende Seamline, validierte
+Dachabgrenzung oder GSD-/Survey-/Orthofoto-Freigabe. Zuerst 160 echte
+RGB-Originale mit unabhängiger Kalibrierung privat durchrechnen, danach
+die echten Dachraster und Übergänge prüfen. Keine Originaldaten hochladen.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
