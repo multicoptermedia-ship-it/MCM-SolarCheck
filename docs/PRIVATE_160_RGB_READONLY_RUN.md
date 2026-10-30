@@ -312,6 +312,34 @@ unabhängig nachgewiesene DJI-RGB-Linse müssen privat offline durchlaufen;
 Dachgrenzen, physische Okklusion, Nachbarbild-Nähte, GSD, independent
 Survey, PV-Module und Thermal bleiben ungeprüft.
 
+## Farbkorrektur jetzt nur direkt am Kameranahtwechsel (30.10.2026)
+
+Der vorhandene opt-in Mehrflächen-PNG-Renderer (`priority_overlap`)
+nutzt ab Code `ec44f1b` die echte geometrische Quelle→Fallback-Grenze:
+Für einen robusten kleinen RGB-Farb-Offset zählen ausschließlich
+verifizierbar gemeinsam in dasselbe geneigte 3D-Plane-Raster projizierte
+und innerhalb **7 Zielpixeln** der neu ergänzten Fallback-Zone liegende
+Pixelevidenzen. Gültige gemeinsame Überdeckungsbereiche werden zuvor
+an ihrem Rand um 1 Pixel erodiert; räumlich weit entfernte
+Überdeckung bei anderen Lichtverhältnissen wird nicht mehr benutzt.
+Damit wird ein Wechsel der Beleuchtung innerhalb desselben Dachbilds
+nicht durch einen globalen Offset verschlechtert.
+
+Wie bisher gilt: mindestens **128** ungesättigte, konsistente
+RGB-Nahnaht-Pixel, maximal 4096 Samples, Kanaloffset höchstens
+±24 und MAD höchstens 12. **Fehlt eine gute lokale Überdeckung,
+bleibt die sekundäre Kamera unverändert.** Die erste Quellkamera und
+alle Masken bleiben unberührt; kein Vermischen von Kamerapixeln.
+Keine zusätzlichen CLI-Optionen, Originaldateien weiterhin read-only.
+Die aggregierten Korrektur-Supportzahlen im privaten JSON meinen
+nun speziell die tatsächlich nahtnahen Bildpixel, keine GPS-/Quell-IDs.
+
+Dies ist eine geometrisch abgestützte Vorschau-Farbkorrektur und
+**keine** reale Naht-/Dach-/Ortho-/GSD-/Survey-/PV-/Thermal-Abnahme.
+Die echte Beurteilung erfordert weiterhin den privaten Windows-
+Komplettflug mit allen 160 DJI-RGB-Originalen und nachgewiesener
+externer DJI-M3T-Objektivkalibrierung.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
