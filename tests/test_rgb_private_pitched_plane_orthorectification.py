@@ -559,3 +559,85 @@ def test_invalid_3d_landmark_support_fails_closed_without_rgb_fabrication():
             replace(_plane(),inlier_xy_private_m=np.full((32,2),200.)),
             (image,),(pose,),k,
         )
+
+
+
+def _synthetic_sparse_upper_occluder():
+    """Two 3D-supported stripes, with a true unmeasured convex-hull gap."""
+    n = np.array((-.2,0.,1.),dtype=np.float64)
+    n /= np.linalg.norm(n)
+    support = np.asarray([
+        (x,y) for x in (-.6,.6) for y in np.linspace(-.62,.62,64)
+    ],dtype=np.float64)
+    candidate = PrivateRGBPitchedPlaneCandidate(
+        n,-3*n[2],np.arange(len(support),dtype=np.int32),
+        np.array([[-.7,-.7],[.7,-.7],[.7,.7],[-.7,.7]]),
+        11.3,4,.01,1.96,inlier_xy_private_m=support,
+    )
+    return candidate
+
+
+def test_candidate_occlusion_requires_real_landmark_support_not_convex_void():
+    from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
+        _candidate_plane_occlusion_mask,
+    )
+    upper = _synthetic_sparse_upper_occluder()
+    center = np.array((0.,0.,5.))
+    target = np.array([[0.,0.,1.],[1.2,0.,1.],[-1.2,0.,1.]])
+    eligible = np.ones(3,dtype=bool)
+    # Existing convex-only diagnostic candidate treats ALL intersections
+    # as occluded. Fitted candidate has a missing 3D strip at x=0.
+    legacy = replace(upper,inlier_xy_private_m=None)
+    assert _candidate_plane_occlusion_mask(
+        target,center,eligible,(legacy,),
+    ).tolist() == [True,True,True]
+    supported = _candidate_plane_occlusion_mask(
+        target,center,eligible,(upper,),
+    )
+    assert supported.tolist() == [False,True,True]
+    assert not _candidate_plane_occlusion_mask(
+        target,center,np.zeros(3,dtype=bool),(upper,),
+    ).any()
+
+
+def test_3d_supported_occluder_changes_real_camera_orthoprojection_visibility():
+    k = PinholeIntrinsics(120.,120.,160.,160.)
+    image,pose = _source(0.,k)
+    original = image.copy()
+    upper = _synthetic_sparse_upper_occluder()
+    actual = render_private_pitched_rgb_orthopatch(
+        _plane(),(image,),(pose,),k,meters_per_pixel=.05,
+        occluder_planes=(upper,),source_fusion="priority",
+    )
+    legacy = render_private_pitched_rgb_orthopatch(
+        _plane(),(image,),(pose,),k,meters_per_pixel=.05,
+        occluder_planes=(replace(upper,inlier_xy_private_m=None),),
+        source_fusion="priority",
+    )
+    assert actual.valid_mask_private[40,40]
+    assert not legacy.valid_mask_private[40,40]
+    assert 0 < actual.candidate_occluded_source_pixels
+    assert actual.candidate_occluded_source_pixels < (
+        legacy.candidate_occluded_source_pixels
+    )
+    assert np.array_equal(image,original)
+    assert not actual.rgb_private.flags.writeable
+    summary = actual.privacy_safe_summary()
+    assert summary["roof_geometry_verified"] is False
+    assert summary["orthophoto_verified"] is False
+    for forbidden in ("inlier_xy","landmark_indices","top_left_xy","GPS"):
+        assert forbidden not in json.dumps(summary)
+
+
+def test_malformed_occluder_inlier_geometry_is_not_accepted():
+    from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
+        _candidate_plane_occlusion_mask,
+    )
+    plane = _synthetic_sparse_upper_occluder()
+    with pytest.raises(ValueError,match="inlier support"):
+        _candidate_plane_occlusion_mask(
+            np.array([[0.,0.,1.]]),np.array([0.,0.,5.]),
+            np.array([True]),(
+                replace(plane,inlier_xy_private_m=np.full((128,2),np.nan)),
+            ),
+        )

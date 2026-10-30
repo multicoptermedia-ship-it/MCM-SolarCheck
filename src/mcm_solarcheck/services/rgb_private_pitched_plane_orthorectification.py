@@ -79,6 +79,83 @@ class PrivateRGBPitchedPlaneOrthopatch:
         }
 
 
+
+def _private_candidate_inlier_support(plane):
+    """Validate actual private 3D inlier XY and return an interpolation radius.
+
+    This empirical distance bound is NOT a surveyed roof boundary.
+    Legacy diagnostic planes without points keep convex-only behavior.
+    """
+    if plane.inlier_xy_private_m is None:
+        return None
+    xy = np.asarray(plane.inlier_xy_private_m, dtype=np.float64)
+    hull = np.asarray(plane.footprint_xy_private_m, dtype=np.float64)
+    lo, hi = np.min(hull, axis=0), np.max(hull, axis=0)
+    if (xy.ndim != 2 or xy.shape[1:] != (2,)
+            or not 24 <= len(xy) <= 200000
+            or len(xy) != len(plane.landmark_indices_private)
+            or not np.isfinite(xy).all()
+            or np.any(xy < lo - 1.e-4)
+            or np.any(xy > hi + 1.e-4)
+            or not np.isfinite(plane.footprint_area_m2)
+            or plane.footprint_area_m2 <= 0):
+        raise ValueError("invalid private 3D plane inlier support")
+    radius = float(np.clip(
+        2.4 * np.sqrt(float(plane.footprint_area_m2)/len(xy)),
+        .35, 1.5,
+    ))
+    return xy, radius
+
+
+def _private_candidate_supported_ray_hits(plane, hit_xy, *, should_cancel=None):
+    """Require an occluding ray intersection to be near real 3D inliers.
+
+    The polygon bounds the hypothesis, but convex gaps are not opaque roof.
+    A bounded OpenCV metric distance field keeps the test offline.
+    Unmodeled actual obstacles remain unknown and unverified.
+    """
+    support = _private_candidate_inlier_support(plane)
+    if support is None:
+        return np.ones(len(hit_xy), dtype=bool)
+    xy, radius = support
+    if not len(hit_xy):
+        return np.zeros(0, dtype=bool)
+    if should_cancel is not None and should_cancel():
+        raise RuntimeError("private candidate ray-visibility cancelled")
+    hull = np.asarray(plane.footprint_xy_private_m, dtype=np.float64)
+    lo, hi = hull.min(axis=0), hull.max(axis=0)
+    # 512 cells along the longest side; reject a grid too coarse to resolve
+    # the local planar point-support bound instead of inventing occlusion.
+    spacing = max(.05, float(np.max(hi-lo))/512.)
+    if spacing > radius/2.:
+        raise ValueError("private candidate support grid too coarse")
+    origin = lo - spacing
+    dimensions = np.ceil((hi-lo+2.*spacing)/spacing).astype(int)+1
+    width, height = map(int, dimensions)
+    if width < 3 or height < 3 or width > 520 or height > 520:
+        raise ValueError("invalid bounded candidate support grid")
+    marker = np.ones((height,width),dtype=np.uint8)
+    ix = np.rint((xy[:,0]-origin[0])/spacing).astype(np.intp)
+    iy = np.rint((xy[:,1]-origin[1])/spacing).astype(np.intp)
+    marker[iy,ix] = 0
+    distances = cv2.distanceTransform(
+        marker, cv2.DIST_L2, cv2.DIST_MASK_PRECISE,
+    )
+    qx = np.rint((hit_xy[:,0]-origin[0])/spacing).astype(np.intp)
+    qy = np.rint((hit_xy[:,1]-origin[1])/spacing).astype(np.intp)
+    inside = (qx >= 0) & (qx < width) & (qy >= 0) & (qy < height)
+    supported = np.zeros(len(hit_xy),dtype=bool)
+    ind = np.flatnonzero(inside)
+    if len(ind):
+        # Conservative one-cell margin: uncertain outer ray hits cannot
+        # erase otherwise photographically visible roof pixel samples.
+        supported[ind] = (
+            distances[qy[ind],qx[ind]] * spacing
+            <= max(0.,radius-spacing)
+        )
+    return supported
+
+
 def _candidate_plane_occlusion_mask(
     points_enu: np.ndarray,
     camera_center_enu: np.ndarray,
@@ -90,8 +167,10 @@ def _candidate_plane_occlusion_mask(
     """Return source rays blocked by other finite fitted candidate facets.
 
     Intersect C+t(P-C) with each other candidate plane for 0<t<1, then
-    require the intersection inside its convex footprint. Geometric model
-    only: missing structures and true photographed visibility are unknown.
+    require the intersection inside its convex footprint. For fitted 3D
+    inlier candidates the hit must ALSO have nearby real point support:
+    a convex-hull void must not become an invented opaque roof. Unknown
+    obstacles and photographed visibility remain unverified.
     """
     blocked = np.zeros(len(points_enu), dtype=bool)
     if not other_planes or not np.any(eligible):
@@ -141,7 +220,12 @@ def _candidate_plane_occlusion_mask(
             inside &= sign*cross >= -1.e-8
             if not np.any(inside):
                 break
-        blocked[indices[inside]] = True
+        hit_indices = indices[inside]
+        if len(hit_indices):
+            supported = _private_candidate_supported_ray_hits(
+                plane, hit_xy[inside], should_cancel=should_cancel,
+            )
+            blocked[hit_indices[supported]] = True
     return blocked
 
 
@@ -339,13 +423,7 @@ def render_private_pitched_rgb_orthopatch(
         # The convex hull can cross textureless gaps, courtyards or unrelated
         # structures. Distance-to-nearest-point limits unsupported filling;
         # this mask is NOT a semantic roof outline or surveyed boundary.
-        inlier_xy = np.asarray(plane.inlier_xy_private_m, dtype=np.float64)
-        if (inlier_xy.ndim != 2 or inlier_xy.shape[1:] != (2,)
-                or not 24 <= len(inlier_xy) <= 200000
-                or not np.isfinite(inlier_xy).all()
-                or np.any(inlier_xy < minimum - 1.e-4)
-                or np.any(inlier_xy > maximum + 1.e-4)):
-            raise ValueError("invalid private 3D plane inlier support")
+        inlier_xy, radius_m = _private_candidate_inlier_support(plane)
         columns = np.clip(
             np.floor((inlier_xy[:, 0]-minimum[0]) / meters_per_pixel).astype(int),
             0, width-1,
@@ -359,10 +437,6 @@ def render_private_pitched_rgb_orthopatch(
         # At most 1.5 m interpolation from the closest retained 3D
         # landmark, tighter for dense landmarks and coarse grain size.
         # No unconstrained convex-hull interior is converted to roof RGB.
-        radius_m = float(np.clip(
-            2.4 * np.sqrt(float(plane.footprint_area_m2)/len(inlier_xy)),
-            .35, 1.5,
-        ))
         distances_px = cv2.distanceTransform(
             marker, cv2.DIST_L2, cv2.DIST_MASK_PRECISE,
         )
