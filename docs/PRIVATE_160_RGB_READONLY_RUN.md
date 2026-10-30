@@ -283,6 +283,35 @@ Dachabgrenzung oder GSD-/Survey-/Orthofoto-Freigabe. Zuerst 160 echte
 RGB-Originale mit unabhängiger Kalibrierung privat durchrechnen, danach
 die echten Dachraster und Übergänge prüfen. Keine Originaldaten hochladen.
 
+## Überdeckungsbasierte Farbkorrektur bei Kameraübergängen (30.10.2026)
+
+Das optionale private Mehrflächen-RGB-PNG nutzt im bestehenden automatischen
+Renderer jetzt `source_fusion="priority_overlap"` ohne neue Parameter.
+Weiterhin bildet **eine** Kamerasicht den Pixel und damit keine
+Mehrfachbild-Mittelung. Bei der nachfolgenden Quellkamera werden allerdings
+kleine Helligkeits-/Farbunterschiede ausgeglichen, **nur wenn** sie auf
+denselben echten 3D-Punkten einer geneigten Kandidatenfläche innerhalb
+einer ausreichend großen, sichtbaren und nicht übersteuerten
+Quellbildüberlappung robust nachweisbar sind.
+
+Für die automatisierte Anpassung benötigt der Renderer mindestens 128
+geeignete Pixel, testet höchstens 4096 deterministische Samples und
+akzeptiert nur einen geringen Kanal-Offset (≤24 RGB-Stufen) mit niedriger
+Abweichung (MAD ≤12). **Bei schwacher, fehlender oder widersprüchlicher
+Überdeckung bleibt das zweite Quellbild unverändert**, statt aus
+unpassenden Flächen vermeintliche Farbkorrekturen zu erfinden. Ungültige
+Pixel bleiben transparent, die Originalarchive und Kalibrierdaten
+unangetastet. Die privaten Summenfelder
+`radiometric_corrected_source_count` und
+`radiometric_overlap_support_pixels` enthalten ausschließlich
+aggregierte Zahlen, keine Kameranamen, Farben, Positionen oder GPS.
+
+Das ist eine konservative **Vorschau-Nahthilfe**, kein photometrisch
+freigegebenes nahtfreies Dachorthofoto. Die echten 160 RGB-Originale plus
+unabhängig nachgewiesene DJI-RGB-Linse müssen privat offline durchlaufen;
+Dachgrenzen, physische Okklusion, Nachbarbild-Nähte, GSD, independent
+Survey, PV-Module und Thermal bleiben ungeprüft.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
