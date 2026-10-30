@@ -65,7 +65,7 @@ class PrivateRGBRTKWindowedBA:
         camera_indices: tuple[int, ...],
         intrinsics: PinholeIntrinsics,
         *, meters_per_pixel: float = .05, max_side: int = 1024,
-        should_cancel=None,
+        occluder_planes=None, should_cancel=None,
     ):
         """Vertical BA->plane->RGB raster preview, PRIVATE memory only.
 
@@ -99,7 +99,11 @@ class PrivateRGBRTKWindowedBA:
             undistorted_rgb_images,
             tuple(self.world_enu_to_camera_private[i] for i in camera_indices),
             intrinsics, meters_per_pixel=meters_per_pixel,
-            max_side=max_side, should_cancel=should_cancel,
+            max_side=max_side,
+            occluder_planes=(
+                tuple(occluder_planes) if occluder_planes is not None else ()
+            ),
+            should_cancel=should_cancel,
         )
 
     def render_private_multi_plane_preview(
@@ -159,7 +163,11 @@ class PrivateRGBRTKWindowedBA:
                 plane_id, tuple(images[i] for i in selected_local),
                 global_indices, intrinsics,
                 meters_per_pixel=meters_per_pixel,
-                max_side=max_side, should_cancel=should_cancel,
+                max_side=max_side,
+                occluder_planes=tuple(
+                    other for j, other in enumerate(planes) if j != plane_id
+                ),
+                should_cancel=should_cancel,
             ))
         return compose_private_pitched_rgb_orthopatches(
             planes, tuple(patches), max_side=max_side,

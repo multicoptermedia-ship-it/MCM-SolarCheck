@@ -174,3 +174,74 @@ def test_existing_rtk_ba_candidate_can_render_in_memory_with_indexed_cameras():
                 ).render_private_pitched_plane_preview(
             0, tuple(im for im,_ in sources), (0,1), k,
         )
+
+
+
+def test_other_pitched_plane_blocks_one_camera_not_unobstructed_camera():
+    """Two fitted facets: do not average source view behind a nearer face."""
+    k = PinholeIntrinsics(60.,60.,64.,64.)
+    n = np.array((-.2,0.,1.), dtype=np.float64)
+    n /= np.linalg.norm(n)
+    target = PrivateRGBPitchedPlaneCandidate(
+        n, -n[2], np.arange(32,dtype=np.int32),
+        np.array([[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5]]),
+        11.3,4,.01,1.,
+    )
+    blocker = PrivateRGBPitchedPlaneCandidate(
+        n, -3*n[2], np.arange(32,dtype=np.int32),
+        np.array([[-.7,-.7],[.7,-.7],[.7,.7],[-.7,.7]]),
+        11.3,4,.01,1.96,
+    )
+    r = np.diag((1.,-1.,-1.))
+    centers = (np.array((0.,0.,5.)),np.array((3.,0.,5.)))
+    poses = tuple(np.column_stack((r,-r @ center)) for center in centers)
+    images = (np.full((128,128,3),(255,0,0),dtype=np.uint8),
+              np.full((128,128,3),(0,0,255),dtype=np.uint8))
+    plain = render_private_pitched_rgb_orthopatch(
+        target,images,poses,k,meters_per_pixel=.05,
+    )
+    clipped = render_private_pitched_rgb_orthopatch(
+        target,images,poses,k,meters_per_pixel=.05,
+        occluder_planes=(blocker,),
+    )
+    mid = (10,10)
+    assert plain.valid_mask_private[mid]
+    assert clipped.valid_mask_private[mid]
+    np.testing.assert_array_equal(plain.rgb_private[mid],(128,0,128))
+    np.testing.assert_array_equal(clipped.rgb_private[mid],(0,0,255))
+    assert clipped.candidate_occluded_source_pixels > 0
+    assert clipped.privacy_safe_summary()["candidate_occluded_source_pixels"] > 0
+    assert clipped.privacy_safe_summary()["orthophoto_verified"] is False
+    assert not clipped.rgb_private.flags.writeable
+
+
+def test_other_pitched_plane_can_make_hidden_pixels_transparent():
+    k = PinholeIntrinsics(60.,60.,64.,64.)
+    n = np.array((-.2,0.,1.), dtype=np.float64)
+    n /= np.linalg.norm(n)
+    target = PrivateRGBPitchedPlaneCandidate(
+        n,-n[2],np.arange(32),np.array(
+            [[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5]]),
+        11.3,4,.01,1.,
+    )
+    blocker = PrivateRGBPitchedPlaneCandidate(
+        n,-3*n[2],np.arange(32),np.array(
+            [[-2.,-2.],[2.,-2.],[2.,2.],[-2.,2.]]),
+        11.3,4,.01,16.,
+    )
+    r = np.diag((1.,-1.,-1.))
+    center = np.array((0.,0.,5.))
+    pose = np.column_stack((r,-r @ center))
+    image = np.full((128,128,3),120,dtype=np.uint8)
+    clipped = render_private_pitched_rgb_orthopatch(
+        target,(image,),(pose,),k,meters_per_pixel=.05,
+        occluder_planes=(blocker,),
+    )
+    assert clipped.candidate_occluded_source_pixels > 0
+    assert not clipped.valid_mask_private.any()
+    assert not clipped.rgb_private.any()
+    assert clipped.privacy_safe_summary()["orthophoto_verified"] is False
+    unfiltered = render_private_pitched_rgb_orthopatch(
+        target,(image,),(pose,),k,meters_per_pixel=.05,
+    )
+    assert unfiltered.valid_pixel_count > 0

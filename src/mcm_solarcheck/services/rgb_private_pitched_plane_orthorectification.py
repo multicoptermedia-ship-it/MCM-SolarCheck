@@ -3,7 +3,9 @@
 World ENU XY output grid -> fitted plane height -> final calibrated camera
 pose -> bilinear UNDISTORTED source RGB pixels. Unlike a 2D stitch, every
 output sample is anchored on a different 3D plane point. Not a surveyed roof,
-visibility/occlusion solver, radiometric seam correction or final orthophoto.
+full physical visibility solver, radiometric seam correction or final orthophoto.
+Optional candidate-plane ray intersections reject source views geometrically
+occluded by OTHER fitted facets; unknown structures remain unmodeled.
 No image, location, plane, source IDs or coordinates are serialized.
 """
 from __future__ import annotations
@@ -30,6 +32,7 @@ class PrivateRGBPitchedPlaneOrthopatch:
     valid_pixel_count: int
     multi_camera_pixel_count: int
     state: str = "private_pitched_rgb_orthopatch_unverified"
+    candidate_occluded_source_pixels: int = 0
 
     def privacy_safe_summary(self) -> dict:
         return {
@@ -37,6 +40,7 @@ class PrivateRGBPitchedPlaneOrthopatch:
             "width_px": int(self.rgb_private.shape[1]),
             "height_px": int(self.rgb_private.shape[0]),
             "source_camera_count": self.source_camera_count,
+            "candidate_occluded_source_pixels": self.candidate_occluded_source_pixels,
             "planar_pixel_count": self.planar_pixel_count,
             "valid_pixel_count": self.valid_pixel_count,
             "multi_camera_pixel_count": self.multi_camera_pixel_count,
@@ -53,6 +57,72 @@ class PrivateRGBPitchedPlaneOrthopatch:
         }
 
 
+def _candidate_plane_occlusion_mask(
+    points_enu: np.ndarray,
+    camera_center_enu: np.ndarray,
+    eligible: np.ndarray,
+    other_planes: tuple[PrivateRGBPitchedPlaneCandidate, ...],
+    *,
+    should_cancel=None,
+) -> np.ndarray:
+    """Return source rays blocked by other finite fitted candidate facets.
+
+    Intersect C+t(P-C) with each other candidate plane for 0<t<1, then
+    require the intersection inside its convex footprint. Geometric model
+    only: missing structures and true photographed visibility are unknown.
+    """
+    blocked = np.zeros(len(points_enu), dtype=bool)
+    if not other_planes or not np.any(eligible):
+        return blocked
+    rays = points_enu - camera_center_enu
+    for plane in other_planes:
+        if should_cancel is not None and should_cancel():
+            raise RuntimeError("private candidate ray-visibility cancelled")
+        n = np.asarray(plane.normal_enu_private, dtype=np.float64)
+        polygon = np.asarray(plane.footprint_xy_private_m, dtype=np.float64)
+        offset = float(plane.signed_offset_enu_private_m)
+        if (n.shape != (3,) or polygon.ndim != 2
+                or polygon.shape[1:] != (2,)
+                or not 3 <= len(polygon) <= 200000
+                or not np.isfinite(n).all() or not np.isfinite(polygon).all()
+                or not np.isfinite(offset)
+                or not np.isclose(np.linalg.norm(n), 1., atol=1.e-4)
+                or n[2] <= .1):
+            raise ValueError("invalid private occluding plane candidate")
+        denominator = rays @ n
+        numerator = -(float(camera_center_enu @ n) + offset)
+        indices = np.flatnonzero(
+            eligible & ~blocked & (np.abs(denominator) > 1.e-10)
+        )
+        if not len(indices):
+            continue
+        distances = numerator / denominator[indices]
+        between = (np.isfinite(distances)
+                   & (distances > 1.e-6) & (distances < 1.-1.e-6))
+        indices, distances = indices[between], distances[between]
+        if not len(indices):
+            continue
+        hit_xy = (camera_center_enu[:2]
+                  + distances[:, None]*rays[indices, :2])
+        edges = np.roll(polygon, -1, axis=0) - polygon
+        area2 = float(np.sum(
+            polygon[:, 0]*np.roll(polygon[:, 1], -1)
+            - np.roll(polygon[:, 0], -1)*polygon[:, 1]
+        ))
+        if not np.isfinite(area2) or abs(area2) <= 1.e-10:
+            raise ValueError("invalid private occluder convex footprint")
+        sign = 1. if area2 > 0 else -1.
+        inside = np.ones(len(indices), dtype=bool)
+        for vertex, edge in zip(polygon, edges):
+            cross = (edge[0]*(hit_xy[:, 1]-vertex[1])
+                     - edge[1]*(hit_xy[:, 0]-vertex[0]))
+            inside &= sign*cross >= -1.e-8
+            if not np.any(inside):
+                break
+        blocked[indices[inside]] = True
+    return blocked
+
+
 def render_private_pitched_rgb_orthopatch(
     plane: PrivateRGBPitchedPlaneCandidate,
     undistorted_rgb_images: tuple[np.ndarray, ...],
@@ -61,6 +131,7 @@ def render_private_pitched_rgb_orthopatch(
     *,
     meters_per_pixel: float = .05,
     max_side: int = 1024,
+    occluder_planes: tuple[PrivateRGBPitchedPlaneCandidate, ...] = (),
     should_cancel=None,
 ) -> PrivateRGBPitchedPlaneOrthopatch:
     """Render an ENU-north-up, pitched-plane preview; no disk writes.
@@ -80,7 +151,10 @@ def render_private_pitched_rgb_orthopatch(
             or type(meters_per_pixel) not in (int, float)
             or not np.isfinite(meters_per_pixel)
             or not .01 <= meters_per_pixel <= .50
-            or type(max_side) is not int or not 64 <= max_side <= 2048):
+            or type(max_side) is not int or not 64 <= max_side <= 2048
+            or type(occluder_planes) is not tuple or len(occluder_planes) > 5
+            or any(not isinstance(p, PrivateRGBPitchedPlaneCandidate)
+                   for p in occluder_planes)):
         raise ValueError("bounded private pitched-plane projection inputs required")
 
     n = np.asarray(plane.normal_enu_private, dtype=np.float64)
@@ -132,6 +206,7 @@ def render_private_pitched_rgb_orthopatch(
     rgb_sum = np.zeros((height*width, 3), dtype=np.float64)
     weights = np.zeros(height*width, dtype=np.float64)
     views = np.zeros(height*width, dtype=np.uint8)
+    candidate_occluded = 0
     for image, pose in zip(undistorted_rgb_images, world_enu_to_camera_poses):
         if should_cancel is not None and should_cancel():
             raise RuntimeError("private pitched RGB projection cancelled")
@@ -158,6 +233,15 @@ def render_private_pitched_rgb_orthopatch(
             & (u >= 0) & (v >= 0)
             & (u < image.shape[1]-1) & (v < image.shape[0]-1)
         )
+        if not np.any(in_image):
+            continue
+        if occluder_planes:
+            blocked = _candidate_plane_occlusion_mask(
+                points, -(rot.T @ tr), in_image, occluder_planes,
+                should_cancel=should_cancel,
+            )
+            candidate_occluded += int(np.count_nonzero(blocked))
+            in_image &= ~blocked
         if not np.any(in_image):
             continue
         # Invalid remap entries point to a harmless constant; they NEVER
@@ -188,4 +272,5 @@ def render_private_pitched_rgb_orthopatch(
         float(meters_per_pixel), len(undistorted_rgb_images),
         planar_count, int(np.count_nonzero(covered)),
         int(np.count_nonzero(views >= 2)),
+        candidate_occluded_source_pixels=candidate_occluded,
     )
