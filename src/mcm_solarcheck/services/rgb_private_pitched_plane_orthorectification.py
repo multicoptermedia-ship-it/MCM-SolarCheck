@@ -141,25 +141,42 @@ def _private_robust_overlap_color_offset(
     candidate_rgb: np.ndarray,
     reference_valid: np.ndarray,
     candidate_valid: np.ndarray,
+    newly_covered: np.ndarray,
     height: int,
     width: int,
 ) -> tuple[np.ndarray, int] | None:
-    """Estimate a conservative RGB OFFSET from matching valid roof pixels.
+    """Estimate a conservative RGB offset adjacent to the ACTUAL source seam.
 
-    Reference is the already-selected camera mosaic. Sample only actual
-    geometrical overlap, away from coverage edges and camera saturation.
-    Large illumination disagreements and geometrically unstable differences
-    are left UNCORRECTED, never silently declared seam-free.
+    Reference is the chosen camera mosaic. Only geometrically valid overlap
+    within seven pixels of the new fallback region supports exposure matching.
+    Distant overlap may be differently illuminated and must not determine
+    the actual seam correction. Source/geometry/invalid masks remain intact.
     """
+    if (reference_valid.shape != (height*width,)
+            or candidate_valid.shape != (height*width,)
+            or newly_covered.shape != (height*width,)
+            or any(a.dtype != bool for a in (
+                reference_valid, candidate_valid, newly_covered
+            ))
+            or np.any(newly_covered & reference_valid)):
+        raise ValueError("valid disjoint RGB source-seam masks required")
     common = (reference_valid & candidate_valid).reshape(height, width)
-    # Erode away uncertain interpolation/visibility boundaries.
+    # Erode uncertain interpolation boundaries. Search ONLY seven pixels
+    # into the valid overlap next to the actual source switch; do not use
+    # unrelated overlap elsewhere on the provisional pitched facet.
     core = cv2.erode(
         common.astype(np.uint8),
         np.ones((3, 3), dtype=np.uint8),
         iterations=1, borderType=cv2.BORDER_CONSTANT,
         borderValue=0,
-    ).ravel().astype(bool)
-    indices = np.flatnonzero(core)
+    ).astype(bool)
+    near_fallback = cv2.dilate(
+        newly_covered.reshape(height, width).astype(np.uint8),
+        np.ones((15, 15), dtype=np.uint8),
+        iterations=1, borderType=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    ).astype(bool)
+    indices = np.flatnonzero(core & near_fallback)
     if len(indices) < 128:
         return None
     if len(indices) > 4096:
@@ -209,8 +226,9 @@ def render_private_pitched_rgb_orthopatch(
     This suppresses multiview averaging ghosting, but does NOT guarantee
     radiometric seam alignment or optimal local sharpness.
     'priority_overlap' additionally estimates a small robust color offset
-    from genuine 3D-projected same-plane overlap before filling uncovered
-    pixels. If there is no stable overlap, use the source UNCORRECTED.
+    from genuine 3D-projected same-plane overlap NEXT TO THE SOURCE SWITCH
+    before filling uncovered pixels. Distant overlap cannot bias the seam.
+    If there is no stable seam-adjacent overlap, leave source UNCORRECTED.
     """
     if should_cancel is not None and should_cancel():
         raise RuntimeError("private pitched RGB projection cancelled")
@@ -349,7 +367,7 @@ def render_private_pitched_rgb_orthopatch(
                 if source_fusion == "priority_overlap" and source_index:
                     estimate = _private_robust_overlap_color_offset(
                         priority_rgb, sampled, priority_covered, in_image,
-                        height, width,
+                        newly_covered, height, width,
                     )
                     if estimate is not None:
                         shift, support = estimate

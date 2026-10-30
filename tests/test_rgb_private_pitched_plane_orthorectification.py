@@ -388,20 +388,83 @@ def test_overlap_color_estimation_rejects_inconsistent_or_saturated_samples():
     from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
         _private_robust_overlap_color_offset,
     )
-    h,w = 20,20
+    h,w = 40,60
     reference = np.full((h*w,3),125,dtype=np.uint8)
     alternating = np.full((h,w,3),125,dtype=np.uint8)
     alternating[::2,:,:] = 190
-    valid = np.ones(h*w,dtype=bool)
+    ref_mask = np.zeros((h,w),dtype=bool)
+    ref_mask[:,:50] = True
+    source_mask = np.ones(h*w,dtype=bool)
+    fallback = ~ref_mask
+    ref_mask = ref_mask.ravel()
     assert _private_robust_overlap_color_offset(
-        reference, alternating.reshape(-1,3), valid, valid, h,w
+        reference, alternating.reshape(-1,3),
+        ref_mask, source_mask, fallback.ravel(), h,w
     ) is None
     # Clearly different scene, beyond the tight correction clamp.
     too_far = np.full((h*w,3),175,dtype=np.uint8)
     assert _private_robust_overlap_color_offset(
-        reference, too_far, valid, valid, h,w
+        reference, too_far, ref_mask, source_mask, fallback.ravel(), h,w
     ) is None
     black = np.zeros((h*w,3),dtype=np.uint8)
     assert _private_robust_overlap_color_offset(
-        black, reference, valid, valid, h,w
+        black, reference, ref_mask, source_mask, fallback.ravel(), h,w
     ) is None
+
+
+
+def test_rgb_offset_samples_actual_seam_not_distant_illumination():
+    """The same roof facet may have different shifts far from a source swap."""
+    from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
+        _private_robust_overlap_color_offset,
+    )
+    height, width = 40,60
+    reference = np.full((height,width,3), (110,120,130),dtype=np.uint8)
+    second = reference.copy()
+    second[:,:42,:] += np.array((2,2,2),dtype=np.uint8)
+    second[:,42:,:] += np.array((12,10,8),dtype=np.uint8)
+    reference_valid = np.zeros((height,width),dtype=bool)
+    reference_valid[:,:50] = True
+    fallback = ~reference_valid
+    estimate = _private_robust_overlap_color_offset(
+        reference.reshape(-1,3), second.reshape(-1,3),
+        reference_valid.ravel(), np.ones(height*width,dtype=bool),
+        fallback.ravel(), height, width,
+    )
+    assert estimate is not None
+    shift, samples = estimate
+    # Whole-image median would be (-2,-2,-2): wrong AT THE SEAM.
+    np.testing.assert_array_equal(shift,(-12,-10,-8))
+    assert samples >= 128
+
+
+def test_rgb_offset_does_not_use_remote_overlap_without_adjacent_support():
+    """No accidental correction from a separate patch far from the seam."""
+    from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
+        _private_robust_overlap_color_offset,
+    )
+    height,width = 40,60
+    rgb_ref = np.full((height*width,3),120,dtype=np.uint8)
+    rgb_later = np.full((height*width,3),135,dtype=np.uint8)
+    reference_valid = np.zeros((height,width),dtype=bool)
+    reference_valid[:, :15] = True
+    fallback = np.zeros((height,width),dtype=bool)
+    fallback[:, 45:] = True
+    candidate_valid = (reference_valid | fallback).ravel()
+    assert _private_robust_overlap_color_offset(
+        rgb_ref, rgb_later, reference_valid.ravel(),candidate_valid,
+        fallback.ravel(),height,width,
+    ) is None
+
+
+def test_rgb_offset_fails_closed_on_overlapping_source_seam_masks():
+    from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
+        _private_robust_overlap_color_offset,
+    )
+    height,width = 40,60
+    rgb = np.full((height*width,3),120,dtype=np.uint8)
+    mask = np.ones(height*width,dtype=bool)
+    with pytest.raises(ValueError,match="disjoint RGB source-seam"):
+        _private_robust_overlap_color_offset(
+            rgb,rgb,mask,mask,mask,height,width,
+        )
