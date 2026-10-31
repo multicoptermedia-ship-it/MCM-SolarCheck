@@ -1,5 +1,8 @@
 # Privater 160-RGB-Gesamtflug: Windows-10-Read-only-Lauf
 
+> **KURSWECHSEL 31.10.2026:** Diese Anleitung dokumentiert ausschließlich den **historischen und bislang nicht realflug-validierten 3D-SfM-/RTK-BA-Prototyp** auf PR #9. Der Nutzer hat die Entwicklung verbindlich auf **2D-Bildzusammensetzung** begrenzt und auf den bereits durchgeführten, fehlgeschlagenen realen 2D-Test verwiesen. **Diesen 3D-Gesamtflug-Aufruf nicht als nächsten Entwicklungsschritt ausführen.** Zuerst den früheren 2D-Berechnungsweg und seine echten Naht-/Doppelkontur-/Schärfeprobleme untersuchen. Siehe [verbindlichen Entwicklungsstand](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 **Stand: 30.10.2026 – Entwicklungskandidat auf Draft PR #9.** Status und Sicherheitsgrenzen: [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 ## Zweck und Ausgangslage
