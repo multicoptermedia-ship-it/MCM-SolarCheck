@@ -7,7 +7,7 @@ use all supplied source cameras or fail closed. All geometry stays in RAM.
 from __future__ import annotations
 
 from collections import OrderedDict
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from zipfile import ZipFile
@@ -449,6 +449,7 @@ def render_private_pitched_preview_from_original_rgb_archives(
     should_cancel=None,
     _series: PrivateRGBFlightSeries | None = None,
     _source_cache: OrderedDict[int, np.ndarray] | None = None,
+    _opened_archives: dict[Path, ZipFile] | None = None,
 ):
     """Private *opt-in* ZIP JPEG -> undistort -> pitched 3D RGB raster preview.
 
@@ -470,7 +471,9 @@ def render_private_pitched_preview_from_original_rgb_archives(
         raise RuntimeError("private RGB orthopatch ZIP decoding cancelled")
     if (_series is not None and not isinstance(_series, PrivateRGBFlightSeries)
             or _source_cache is not None
-            and (_series is None or not isinstance(_source_cache, OrderedDict))):
+            and (_series is None or not isinstance(_source_cache, OrderedDict))
+            or _opened_archives is not None
+            and (_series is None or not isinstance(_opened_archives, dict))):
         raise ValueError("private RGB source reuse requires matching in-memory series")
     flight = (_series if _series is not None else read_private_rgb_zip_series(
         archives, should_cancel=should_cancel,
@@ -497,7 +500,11 @@ def render_private_pitched_preview_from_original_rgb_archives(
             images.append(image)
             continue
         frame = flight.frames[i]
-        with ZipFile(frame.source_archive) as archive:
+        # Multi-facet caller supplies archive handles scoped to the whole
+        # preview; standalone single-plane calls retain their own read-only
+        # context and close it before the next camera.
+        with (ZipFile(frame.source_archive) if _opened_archives is None
+              else nullcontext(_opened_archives[frame.source_archive])) as archive:
             entry = archive.getinfo(frame.member_name)
             if not 128 <= entry.file_size <= 40_000_000:
                 raise ValueError("original RGB member exceeds preview budget")
@@ -580,31 +587,42 @@ def render_private_multiplane_preview_from_original_rgb_archives(
     planes = metric_candidate.pitched_plane_candidates.planes_private
     patches = []
     source_cache: OrderedDict[int, np.ndarray] = OrderedDict()
-    for candidate_index, plane in enumerate(planes):
-        if should_cancel is not None and should_cancel():
-            raise RuntimeError("private RGB multi-plane ZIP preview cancelled")
-        selected = choose_private_pitched_plane_cameras(
-            plane, metric_candidate.world_enu_to_camera_private,
-            intrinsics, width, height,
-            max_cameras=max_cameras_per_plane,
-            occluder_planes=tuple(
-                other for j, other in enumerate(planes) if j != candidate_index
-            ),
-            should_cancel=should_cancel,
-        )
-        patches.append(render_private_pitched_preview_from_original_rgb_archives(
-            archives, calibration, metric_candidate, candidate_index, selected,
-            meters_per_pixel=meters_per_pixel,
-            max_side=max_side,
-            occluder_planes=tuple(
-                other for j, other in enumerate(planes) if j != candidate_index
-            ),
-            source_fusion="priority_overlap",
-            should_cancel=should_cancel,
-            _series=series, _source_cache=source_cache,
-        ))
-    # Drop held full-resolution image references before composing patches.
-    source_cache.clear()
+    # The six source archives are already validated. Open each only once
+    # across all selected facets/cameras, independent of camera order.
+    # ExitStack closes read-only handles even on an error or cancellation.
+    with ExitStack() as stack:
+        opened_archives = {
+            path: stack.enter_context(ZipFile(path))
+            for path in dict.fromkeys(f.source_archive for f in series.frames)
+        }
+        try:
+            for candidate_index, plane in enumerate(planes):
+                if should_cancel is not None and should_cancel():
+                    raise RuntimeError("private RGB multi-plane ZIP preview cancelled")
+                selected = choose_private_pitched_plane_cameras(
+                    plane, metric_candidate.world_enu_to_camera_private,
+                    intrinsics, width, height,
+                    max_cameras=max_cameras_per_plane,
+                    occluder_planes=tuple(
+                        other for j, other in enumerate(planes) if j != candidate_index
+                    ),
+                    should_cancel=should_cancel,
+                )
+                patches.append(render_private_pitched_preview_from_original_rgb_archives(
+                    archives, calibration, metric_candidate, candidate_index, selected,
+                    meters_per_pixel=meters_per_pixel,
+                    max_side=max_side,
+                    occluder_planes=tuple(
+                        other for j, other in enumerate(planes) if j != candidate_index
+                    ),
+                    source_fusion="priority_overlap",
+                    should_cancel=should_cancel,
+                    _series=series, _source_cache=source_cache,
+                    _opened_archives=opened_archives,
+                ))
+        finally:
+            # Free full-resolution cached RGB even when projection fails.
+            source_cache.clear()
     return compose_private_pitched_rgb_orthopatches(
         planes, tuple(patches), max_side=max_side,
         should_cancel=should_cancel,
