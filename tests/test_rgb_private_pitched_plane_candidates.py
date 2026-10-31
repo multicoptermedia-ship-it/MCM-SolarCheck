@@ -184,3 +184,59 @@ def test_repeated_single_camera_observations_do_not_fake_multiview_support():
         xyz,fid,lid,max_planes=2,
     )
     assert answer.planes_private == ()
+
+
+def test_coplanar_single_view_tail_cannot_expand_genuine_3d_roof_footprint():
+    """Only independent multiview 3D support may define the RGB target hull.
+
+    A 140-point roof from four cameras is artificially extended by 170
+    perfectly coplanar landmarks observed from ONE camera each. Before
+    this correction the combined RANSAC model had >=3 cameras globally,
+    accepted the extra landmarks and projected a huge false roof footprint.
+    """
+    rng = np.random.default_rng(20261101)
+    roof_xy = rng.uniform(-2.,2.,(140,2))
+    tail_xy = np.column_stack((
+        rng.uniform(8.,13.,170),rng.uniform(-2.,2.,170),
+    ))
+    xy = np.vstack((roof_xy,tail_xy))
+    xyz = np.column_stack((
+        xy, 8. + .24*xy[:,0] + rng.normal(0., .006,len(xy)),
+    ))
+    lid = np.concatenate((
+        np.repeat(np.arange(140,dtype=np.int32),4),
+        np.arange(140,310,dtype=np.int32),
+    ))
+    fid = np.concatenate((
+        np.tile(np.array((0,3,6,9),dtype=np.int32),140),
+        np.zeros(170,dtype=np.int32),
+    ))
+    result = propose_private_rgb_pitched_planes(
+        xyz,fid,lid,max_planes=2,
+    )
+    assert result.landmark_count == 310
+    assert len(result.planes_private) == 1
+    roof = result.planes_private[0]
+    assert roof.supporting_cameras == 4
+    assert len(roof.landmark_indices_private) >= 125
+    assert np.all(roof.landmark_indices_private < 140)
+    assert np.max(roof.footprint_xy_private_m[:,0]) < 2.01
+    assert np.min(roof.footprint_xy_private_m[:,0]) >= -2.01
+    assert not roof.footprint_xy_private_m.flags.writeable
+    assert result.privacy_safe_summary()["orthophoto_verified"] is False
+
+
+def test_three_distinct_single_view_cameras_across_a_plane_are_not_triangulation():
+    """A plane-level count of three sources must not certify 1-view points."""
+    rng = np.random.default_rng(20261101)
+    xy = rng.uniform(-5.,5.,(135,2))
+    xyz = np.column_stack((
+        xy, 8. + .3*xy[:,0] + rng.normal(0.,.006,135),
+    ))
+    fid = np.arange(135,dtype=np.int32) % 3
+    lid = np.arange(135,dtype=np.int32)
+    result = propose_private_rgb_pitched_planes(
+        xyz,fid,lid,max_planes=2,
+    )
+    assert result.planes_private == ()
+    assert result.privacy_safe_summary()["roof_geometry_verified"] is False
