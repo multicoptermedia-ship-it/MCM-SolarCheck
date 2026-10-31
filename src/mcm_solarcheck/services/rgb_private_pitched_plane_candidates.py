@@ -152,10 +152,15 @@ def propose_private_rgb_pitched_planes(
         elif slots[2] < 0:
             slots[2] = frame
 
-    # Stable order irrespective of incoming landmark ordering, for reproducible
-    # hypotheses. Deterministic RANSAC does NOT certify a physical roof.
+    # A fitted 3D roof point needs observations from at least TWO different
+    # calibrated RGB cameras, not merely one observation on a plane that
+    # happens to have three other cameras elsewhere. Otherwise isolated
+    # monocular landmarks can expand the convex roof footprint and create
+    # unsupported RGB tiles around an otherwise genuine fitted facet.
+    # Keep the original indices: callers still reference the full BA cloud.
+    # This is geometric input support, not a new report-only quality gate.
     order = np.lexsort((xyz[:, 2], xyz[:, 1], xyz[:, 0]))
-    remaining = order.copy()
+    remaining = order[camera_sources[order, 1] >= 0]
     rng = np.random.default_rng(20261029)
     planes = []
     for _ in range(max_planes):
