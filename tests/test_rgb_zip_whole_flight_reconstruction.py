@@ -180,6 +180,59 @@ def test_private_zip_rgb_pipeline_uses_all_frames_without_extracting(tmp_path, m
     assert sorted(p.name for p in tmp_path.iterdir()) == ["RGB2.tip", "RGB7.zip"]
 
 
+
+
+def test_full_flight_orb_reuses_one_readonly_zip_handle_per_archive(
+    tmp_path, monkeypatch,
+):
+    """Interleaved 12-flight RGB frames need two archive opens, not twelve.
+
+    All handles must close on normal return AND during an interrupted
+    feature pass. There is no archive extraction, copy or private output.
+    """
+    archives, calibration = _fixture(tmp_path)
+    originals = tuple(archive.read_bytes() for archive in archives)
+    flight = read_private_rgb_zip_series(archives)
+    # Deliberately interleave the two source archives in the flight order.
+    frames = flight.frames
+    series = replace(
+        flight, frames=tuple(value for pair in zip(frames[:6],frames[6:])
+                             for value in pair),
+    )
+    source = process.ZipFile
+    opened = []
+    def tracked(path, *args, **kwargs):
+        handle = source(path, *args, **kwargs)
+        opened.append(handle)
+        return handle
+
+    _stub_pipeline(monkeypatch, [])
+    monkeypatch.setattr(process,"ZipFile",tracked)
+    intrinsics = PinholeIntrinsics(740.,740.,200.,150.)
+    distortion = np.zeros(5,dtype=np.float64)
+    frames_out,desc = process._orb_from_private_zip(
+        series,intrinsics,distortion,max_side=400,max_features=500,
+        should_cancel=None,on_progress=None,
+    )
+    assert len(frames_out) == len(desc) == 12
+    assert len(opened) == len(archives)
+    assert all(handle.fp is None for handle in opened)
+    assert tuple(archive.read_bytes() for archive in archives) == originals
+
+    opened.clear()
+    def interrupt(stage,done,total):
+        if done == 3:
+            raise RuntimeError("synthetic feature interruption")
+    with pytest.raises(RuntimeError,match="synthetic feature interruption"):
+        process._orb_from_private_zip(
+            series,intrinsics,distortion,max_side=400,max_features=500,
+            should_cancel=None,on_progress=interrupt,
+        )
+    assert len(opened) == len(archives)
+    assert all(handle.fp is None for handle in opened)
+    assert tuple(archive.read_bytes() for archive in archives) == originals
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["RGB2.tip","RGB7.zip"]
+
 def test_cli_writes_only_aggregate_and_never_changes_private_jpegs(tmp_path, monkeypatch, capsys):
     archives, camera = _fixture(tmp_path)
     original = [a.read_bytes() for a in archives]
