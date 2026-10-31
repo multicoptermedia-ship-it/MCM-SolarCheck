@@ -301,6 +301,61 @@ def test_nonadjacent_rtk_cross_strip_candidates_are_proposed():
     assert len({frozenset((p.first_id, p.second_id)) for p in pairs}) == len(pairs)
 
 
+
+
+def test_dense_flight_strip_keeps_nearby_sideways_overlap_in_bounded_pairs():
+    """Pure nearest neighbours miss the adjacent strip at dense along-track GSD.
+
+    Sixty synthetic camera positions on two parallel strips: five-nearest
+    nonadjacent images from a middle camera are ALL in its own strip,
+    although the other strip is only 2.25 m away. Bearing-diverse selection
+    must propose across-strip geometry without trusting GNSS as a match.
+    """
+    ids = tuple(f"V-{i+1:04d}" for i in range(60))
+    x = np.arange(30, dtype=np.float64) * .2
+    xyz = np.vstack((
+        np.column_stack((x, np.zeros(30), np.full(30, 30.))),
+        np.column_stack((x, np.full(30, 2.25), np.full(30, 30.))),
+    ))
+    focal = 15
+    d = np.linalg.norm(xyz[:, :2]-xyz[focal, :2], axis=1)
+    old_nearest = sorted(
+        (j for j in range(60) if abs(focal-j) >= 3
+         and .25 <= d[j] <= 18.),
+        key=lambda j: (float(d[j]), j),
+    )[:5]
+    assert all(j < 30 for j in old_nearest)
+    pairs = process._private_rgb_overlap_pairs(
+        ids, xyz, max_neighbours=5, radius_m=18.,
+    )
+    connected = [
+        p for p in pairs if p.reason == "cross_strip"
+        and ids[focal] in (p.first_id, p.second_id)
+        and (ids.index(p.first_id) >= 30 or ids.index(p.second_id) >= 30)
+    ]
+    assert connected
+    assert len([p for p in pairs if p.reason == "consecutive"]) == 59
+    assert len(pairs) <= 59 + 60*5
+    assert len({frozenset((p.first_id,p.second_id)) for p in pairs}) == len(pairs)
+    # The label is a candidate, NOT geometric acceptance or a surveyed strip.
+    assert all(p.reason == "cross_strip" for p in connected)
+
+
+def test_spatial_overlap_direction_search_is_deterministic_and_bounded():
+    ids = tuple(f"V-{i+1:04d}" for i in range(20))
+    theta = np.linspace(0.,2.*np.pi,20,endpoint=False)
+    xyz = np.column_stack((6.*np.cos(theta),6.*np.sin(theta),
+                           np.full(20,4.)))
+    a = process._private_rgb_overlap_pairs(
+        ids,xyz,max_neighbours=3,radius_m=12.,
+    )
+    b = process._private_rgb_overlap_pairs(
+        ids,xyz,max_neighbours=3,radius_m=12.,
+    )
+    assert a == b
+    assert len(a) <= 19 + 20*3
+    assert len([p for p in a if p.reason == "consecutive"]) == 19
+
 def test_descriptor_only_spatial_links_are_not_geometry_evidence(tmp_path, monkeypatch):
     archives, camera = _fixture(tmp_path)
     seen = []
