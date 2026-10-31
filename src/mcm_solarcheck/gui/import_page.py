@@ -2,10 +2,10 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QCheckBox, QFileDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QCheckBox, QFileDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, on_import_flight_folder=None, choose_flight_folder=None, on_import_additional_original_files=None, choose_additional_original_files=None, project_label=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None, on_reconcile_pairs=None, pair_audit=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, on_import_flight_folder=None, choose_flight_folder=None, on_import_additional_original_files=None, choose_additional_original_files=None, project_label=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None, on_reconcile_pairs=None, pair_audit=None, on_register_orthophoto_pair=None, choose_register_orthophoto_pair=None, orthophoto_pairs=(), on_inspect_orthophoto_modules=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     root_layout = QVBoxLayout(page)
@@ -30,6 +30,77 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     )
     project.setObjectName("import_project_context")
     layout.addWidget(project)
+
+    ortho_heading = QLabel("Extern berechnete RGB- und Thermal-Orthofotos", page)
+    ortho_heading.setObjectName("orthophoto_pair_heading")
+    layout.addWidget(ortho_heading)
+    ortho_help = QLabel(
+        "Je ein lokal berechnetes RGB- und Thermal-GeoTIFF auswählen. "
+        "SolarCheck nutzt deren Georeferenzierung für den Vergleich und die "
+        "PV-Zuordnung. Die Dateien bleiben unverändert; es werden keine "
+        "Originalfotos an einen Dienst übertragen.", page,
+    )
+    ortho_help.setWordWrap(True)
+    layout.addWidget(ortho_help)
+    thermal_kind = QComboBox(page)
+    thermal_kind.setObjectName("orthophoto_thermal_value_kind")
+    thermal_kind.addItem("Thermal-Darstellung (Falschfarben / Intensität)", "visual")
+    thermal_kind.addItem("Thermal-Rohwerte (ein Messwertkanal)", "sensor_values")
+    thermal_kind.setToolTip("Rohwerte und Falschfarben bestätigen keine Celsius-Kalibrierung.")
+    layout.addWidget(thermal_kind)
+    register_pair = QPushButton("RGB- und Thermal-Orthofoto gemeinsam importieren", page)
+    register_pair.setObjectName("register_orthophoto_pair_button")
+    register_pair.setEnabled(current_project_id is not None and on_register_orthophoto_pair is not None)
+    if current_project_id is not None and on_register_orthophoto_pair is not None:
+        def request_orthophoto_pair_registration():
+            if choose_register_orthophoto_pair is not None:
+                paths = choose_register_orthophoto_pair()
+            else:
+                rgb = QFileDialog.getOpenFileName(
+                    page, "RGB-Orthofoto auswählen", "", "GeoTIFF (*.tif *.tiff)"
+                )[0]
+                thermal = QFileDialog.getOpenFileName(
+                    page, "Thermal-Orthofoto auswählen", "", "GeoTIFF (*.tif *.tiff)"
+                )[0] if rgb else ""
+                paths = (rgb, thermal)
+            if paths and len(paths) == 2 and all(paths):
+                on_register_orthophoto_pair(*paths, thermal_kind.currentData())
+        register_pair.clicked.connect(request_orthophoto_pair_registration)
+    layout.addWidget(register_pair)
+    if orthophoto_pairs:
+        from pathlib import Path
+        saved_pairs = QComboBox(page)
+        saved_pairs.setObjectName("registered_orthophoto_pairs")
+        for pair in orthophoto_pairs:
+            saved_pairs.addItem(
+                f"RGB: {Path(pair['rgb_source_path']).name} · "
+                f"Thermal: {Path(pair['thermal_source_path']).name}", pair,
+            )
+        layout.addWidget(saved_pairs)
+        show_pair = QPushButton("Gespeichertes Orthofoto-Paar anzeigen", page)
+        show_pair.setObjectName("show_registered_orthophoto_pair_button")
+        show_pair.setEnabled(on_compare_orthophotos is not None)
+        if on_compare_orthophotos is not None:
+            def compare_saved_pair():
+                pair = saved_pairs.currentData()
+                if pair:
+                    on_compare_orthophotos(pair['rgb_source_path'], pair['thermal_source_path'])
+            show_pair.clicked.connect(compare_saved_pair)
+        layout.addWidget(show_pair)
+        find_modules = QPushButton("PV-Modulvorschläge im RGB-Orthofoto prüfen", page)
+        find_modules.setObjectName("inspect_orthophoto_modules_button")
+        find_modules.setEnabled(on_inspect_orthophoto_modules is not None)
+        if on_inspect_orthophoto_modules is not None:
+            def inspect_saved_orthophoto_modules():
+                pair = saved_pairs.currentData()
+                if pair:
+                    on_inspect_orthophoto_modules(pair['rgb_source_path'], pair['thermal_source_path'])
+            find_modules.clicked.connect(inspect_saved_orthophoto_modules)
+        layout.addWidget(find_modules)
+        pair_note = QLabel("Zuordnung gespeichert; noch keine fachliche oder thermische Freigabe.", page)
+        pair_note.setObjectName("registered_orthophoto_pair_note")
+        pair_note.setWordWrap(True)
+        layout.addWidget(pair_note)
 
     if import_summary is not None:
         summary_heading = QLabel("Persistierter Importstand", page)

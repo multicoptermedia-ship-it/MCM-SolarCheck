@@ -70,6 +70,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._last_import_attempt = None
         self._geotiff_result = None
         self._orthophoto_comparison = None
+        self._orthophoto_pv_dialog = None
         self._orthophoto_comparison_error = None
         self._integrity_close_pending = False
         self._integrity_project_id = None
@@ -428,6 +429,9 @@ class SolarCheckMainWindow(QMainWindow):
             self._module_readiness_status = None
             self._clear_prepared_draft()
             self._geotiff_result = None
+            if self._orthophoto_pv_dialog is not None:
+                self._orthophoto_pv_dialog.close()
+                self._orthophoto_pv_dialog = None
             self._orthophoto_comparison = None
             self._orthophoto_comparison_error = None
             self._rgb_preview_status = None
@@ -2395,6 +2399,12 @@ class SolarCheckMainWindow(QMainWindow):
             if callable(artifacts_provider) and self._current_project_id is not None
             else ()
         )
+        pair_provider = getattr(self._project_service, "project_orthophoto_pairs", None)
+        orthophoto_pairs = (
+            pair_provider(self._current_project_id)
+            if callable(pair_provider) and self._current_project_id is not None
+            else ()
+        )
         project_record = next((
             p for p in self._project_service.projects()
             if p.project_id == self._current_project_id
@@ -2535,6 +2545,17 @@ class SolarCheckMainWindow(QMainWindow):
             on_inspect_geotiff=(self._inspect_project_geotiff if self._project_service is not None else None),
             geotiff_result=self._geotiff_result,
             geotiff_artifacts=geotiff_artifacts,
+            orthophoto_pairs=orthophoto_pairs,
+            on_inspect_orthophoto_modules=(
+                self._inspect_project_orthophoto_modules
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._project_service is not None else None
+            ),
+            on_register_orthophoto_pair=(
+                self._register_project_orthophoto_pair
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and callable(getattr(self._project_service, "register_project_orthophoto_pair", None)) else None
+            ),
             on_compare_orthophotos=(self._compare_project_orthophotos if self._project_service is not None else None),
             orthophoto_comparison=self._orthophoto_comparison,
             orthophoto_comparison_error=self._orthophoto_comparison_error,
@@ -3049,6 +3070,51 @@ class SolarCheckMainWindow(QMainWindow):
         except (ValueError, OSError, KeyError) as error:
             self._geotiff_result = f"GeoTIFF-Registrierung fehlgeschlagen: {error}"
         self._refresh_import_page()
+
+    def _register_project_orthophoto_pair(self, rgb_path: str, thermal_path: str,
+                                         thermal_value_kind: str = "visual") -> None:
+        """Use the existing local GeoTIFF boundary to register both sensor roles."""
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or self._project_service is None or self._current_project_id is None):
+            return
+        from sqlite3 import Error as SQLiteError
+        try:
+            self._project_service.register_project_orthophoto_pair(
+                self._current_project_id, rgb_path, thermal_path,
+                source_kind="external_gis", thermal_value_kind=thermal_value_kind,
+            )
+            self._geotiff_result = (
+                "RGB- und Thermal-Orthofoto als zusammengehöriges Paar registriert. "
+                "Dateien unverändert; keine fachliche oder Temperaturfreigabe."
+            )
+            self._compare_project_orthophotos(rgb_path, thermal_path)
+            return
+        except (ValueError, TypeError, OSError, KeyError, RuntimeError, SQLiteError) as error:
+            self._geotiff_result = f"Orthofoto-Paar konnte nicht registriert werden: {error}"
+        self._refresh_import_page()
+
+    def _inspect_project_orthophoto_modules(self, rgb_path: str, thermal_path: str) -> None:
+        """Inspect local PV proposals and thermal coverage without approving modules."""
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or self._project_service is None or self._current_project_id is None):
+            return
+        from mcm_solarcheck.gui.orthophoto_pv_review import OrthophotoPVReviewDialog
+        try:
+            if self._orthophoto_pv_dialog is not None:
+                self._orthophoto_pv_dialog.close()
+            dialog = OrthophotoPVReviewDialog(rgb_path, thermal_path, self)
+            self._orthophoto_pv_dialog = dialog
+            dialog.destroyed.connect(
+                lambda *_args, opened=dialog: self._forget_orthophoto_pv_dialog(opened)
+            )
+            dialog.show()
+        except (ValueError, OSError, RuntimeError) as error:
+            self._geotiff_result = f"PV-Vorschau konnte nicht geöffnet werden: {error}"
+            self._refresh_import_page()
+
+    def _forget_orthophoto_pv_dialog(self, dialog) -> None:
+        if self._orthophoto_pv_dialog is dialog:
+            self._orthophoto_pv_dialog = None
 
     def _generate_project_orthophotos(self, job_path: str) -> None:
         """Run only an explicit local surveyed job; display result without approval."""
