@@ -1,5 +1,9 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 31.10.2026 – Codex-Anforderungen zu kostenfreien Standards verbindlich verankert
+- Neue Root-`AGENTS.md` und `docs/ANFORDERUNGEN_ORTHOFOTO_CODEX.md` sind der verbindliche Codex- und Produktauftrag; README, Projektstart, Entwicklungsvereinbarung, Checkpoint, GeoTIFF-Workflow und Handoff verweisen darauf. Der Nutzer besitzt **WebODM**; er darf es **ausschließlich separat/manuell außerhalb von SolarCheck** zur Erstellung eines RGB-GeoTIFF benutzen. **Keine** Integration, API, Prozesssteuerung, Container, Dienst oder Runtime von ODM/WebODM/ODX in SolarCheck. Freies MicMac nur als separate Alternative. Keine weitere eigene SfM-/BA-/Stitch-/3D-/Ortho-Engine und keine kommerzielle/testlizenzierte Orthofoto-Software. Fertiges **2D-GeoTIFF** über den vorhandenen Projektimport, danach PV-Modul-IDs/Thermal/Reports. Original-ZIP/JPEG/EXIF/GPS/RTK nur privat, kein Upload nach Git/CI/Cloud/Codex; kein `main`-Merge. Dokumentationsänderung **ohne realen neuen 160-RGB-Lauf** oder Orthofoto-Freigabe.
+
+
 ### 31.10.2026 – Nutzerkorrektur: freie Standardalgorithmen statt proprietärer Lizenzsoftware
 - **Metashape Professional und 30-Tage-Test ausdrücklich VERWORFEN.** Keine kostenpflichtigen/proprietären Orthofoto-Programme. Open Source hat rechtliche Lizenzbedingungen, erfordert aber keine kommerzielle Nutzungsgebühr.
 - **Bestehende Standardimplementierung MicMac** (französisches IGN, CeCILL-B, Windows 10) als erster externer lokaler Realtest für das gewünschte **2D-RGB-Orthofoto**. Deren `Malt Ortho`/`Tawny` übernehmen Orthorektifizierung und Mosaik; keine eigene SfM-/BA-/Ortho-Rechenpipeline neu programmieren. Bei bloßen 2D-Diagnosebildern optional vorhandenes OpenCV `Stitcher_SCANS`, aber nicht als echtes Dachorthofoto freigeben. Bestehender GeoTIFF-Projektimport mit `rasterio`/`pyproj` bleibt.

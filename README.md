@@ -1,6 +1,6 @@
 # MCM-SolarCheck
 
-> **ZUERST LESEN, verbindlicher laufender Entwicklungsstand:** [AKTUELLER_ENTWICKLUNGSSTAND.md](docs/AKTUELLER_ENTWICKLUNGSSTAND.md) (28.10.2026, Branch/PR im Dokument). Alte Ideen in diesem README und anderen Chroniken sind keine aktuelle Arbeitsanweisung. **ODM/WebODM/ODX werden ausdrücklich NICHT eingebunden.** Der Hauptweg ist vollständige RGB-Mehrbild-Photogrammetrie → geprüftes RGB-Orthofoto/geneigte PV-Flächen → PV-Modulprüfung.
+> **CODEX / VERBINDLICHE PRODUKTANFORDERUNGEN:** Zuerst [AGENTS.md](AGENTS.md) und [ANFORDERUNGEN_ORTHOFOTO_CODEX.md](docs/ANFORDERUNGEN_ORTHOFOTO_CODEX.md), dann [aktuellen Entwicklungsstand](docs/AKTUELLER_ENTWICKLUNGSSTAND.md) lesen. **Keine neue Photogrammetrie- oder Orthofoto-Engine.** Bereits vorhandenes WebODM darf der **Nutzer nur separat/manuell außerhalb von SolarCheck** zur 2D-RGB-GeoTIFF-Erzeugung verwenden, **keine** ODM/WebODM/ODX-Code-/API-/Dienst-/Container-/Prozessintegration in SolarCheck. Freie externe MicMac-Alternative. Vorhandenen GeoTIFF-Import verwenden, dann PV-Modul-IDs und Thermal priorisieren. Keine proprietäre/kostenpflichtige Software; frühere Eigenentwicklungspläne sind historisch.
 
 > **Verbindliche Entwicklungsgrundlage (Stand 26.10.2026):** Vor neuer Programmierung zuerst [Start für Folgechats](docs/PROJECT_START_HERE.md), [Branch-Bestandsaufnahme](docs/REPOSITORY_BRANCH_INVENTORY_2026-10-26.md), [Entwicklungsregister](docs/DEVELOPMENT_STEP_REGISTER.md) und [Entwicklungsvereinbarung](docs/DEVELOPMENT_AGREEMENT.md) lesen. Die nachfolgenden ursprünglichen Pipeline-/ODM-/Modellideen in diesem README sind **historische Planung**, keine Freigabe für ODM/WebODM, Docker, Cloud, YOLO-Lizenzänderungen, °C-Behauptungen oder ein ungeprüftes Orthofoto. **Neue Integrationsbasis ist `main` ab dem CI-geprüften Fast-forward vom 26.10.2026.** Das ist Quellcode für weitere Entwicklung, **kein fertig abgenommenes Windows-10-Release**. Herkunft: `feature/offline-human-report-approval`. [Integrationsstatus und offene Freigabegates](docs/MAIN_INTEGRATION_BASELINE_2026-10-26.md).
 
@@ -30,7 +30,7 @@ Für große Freiflächenanlagen kann ein vorhandenes Orthofoto als Eingang verwe
 - Python 3.11+
 - PySide6 für die Desktop-Oberfläche
 - OpenCV/Pillow/rasterio/GDAL für Bild- und Geodaten
-- **Eigenständig entwickelte lizenzverträgliche Mehrbild-Photogrammetrie** für Orthofotos; **kein** ODM/WebODM/ODX-Code, -Prozess, -API, -Container oder -Runtime. Abhängigkeiten separat lizenzprüfen
+- **Kostenfreie, bewährte externe Standardverfahren** für das 2D-RGB-Orthofoto (vom Nutzer manuell betriebenes, bestehendes WebODM oder alternativ externes MicMac). **Keine** selbstentwickelte SfM-/Ortho-Engine; **kein** ODM/WebODM/ODX-Code, -Prozessstart, -API, -Container oder -Runtime **in SolarCheck**. Fertiges GeoTIFF über bestehenden Import übernehmen; Softwarelizenzen bei Weitergabe gesondert prüfen
 - Ultralytics YOLO für Detektion/Segmentierung
 - U-Net/ähnliche Modelle für pixelgenaue Segmentierung, soweit für den jeweiligen Defektdatensatz sinnvoll
 - GeoPackage/SQLite für Projekte, Befunde und Geometrien
