@@ -173,11 +173,14 @@ def _calibrated_camera(calibration: dict, series: PrivateRGBFlightSeries):
 
 def _private_rgb_overlap_pairs(frame_ids, camera_enu, *,
                                max_neighbours=10, radius_m=18.):
-    """Consecutive flight pairs plus metric-nearest, nonadjacent cross-strip.
+    """Consecutive pairs plus spatially diverse nonadjacent RTK candidates.
 
-    GPS is only a candidate search heuristic, NEVER accepted match geometry.
-    Avoid all-to-all 160-frame matching; every image participates in the
-    consecutive graph, and spatial cross-strip connections are attempted.
+    The strictly nearest few cameras can all lie in the SAME densely
+    photographed flight strip, omitting neighbouring strips only metres
+    away. Preserve the nearest two, then sample different viewing directions
+    before filling the remaining bounded budget by metric proximity.
+    RTK is ONLY a candidate-search heuristic: actual image geometry must
+    still pass calibrated Essential/PnP and supported 3D track checks.
     """
     count = len(frame_ids)
     if (not 12 <= count <= 1000
@@ -196,7 +199,31 @@ def _private_rgb_overlap_pairs(frame_ids, camera_enu, *,
              if abs(i-j) >= 3 and .25 <= d[j] <= radius_m),
             key=lambda j: (float(d[j]), j),
         )
-        for j in nearest[:max_neighbours]:
+        # Reserve two close, nonadjacent neighbours for local continuity.
+        # Then include a nearby source in each still-unrepresented XY bearing
+        # sector: on a dense strip, nearest-only search fills the budget
+        # along the strip and silently misses an adjacent flight strip.
+        chosen = nearest[:2]
+        def sector(j):
+            direction = xyz[j, :2] - xyz[i, :2]
+            angle = np.arctan2(direction[1], direction[0])
+            return min(7, int((angle + np.pi) * (4. / np.pi)))
+        covered_sectors = {sector(j) for j in chosen}
+        for j in nearest[2:]:
+            if len(chosen) >= max_neighbours:
+                break
+            heading = sector(j)
+            if heading not in covered_sectors:
+                chosen.append(j)
+                covered_sectors.add(heading)
+        # Use leftover slots for the closest views again. This never
+        # increases the original count*max_neighbours resource budget.
+        for j in nearest:
+            if len(chosen) >= max_neighbours:
+                break
+            if j not in chosen:
+                chosen.append(j)
+        for j in chosen:
             cross.add((min(i, j), max(i, j)))
     pair_ids = tuple((frame_ids[i], frame_ids[j]) for i, j in sorted(cross))
     return select_overlap_candidates(
