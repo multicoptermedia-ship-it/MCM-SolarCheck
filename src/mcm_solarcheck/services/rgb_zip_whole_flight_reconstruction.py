@@ -7,6 +7,7 @@ use all supplied source cameras or fail closed. All geometry stays in RAM.
 from __future__ import annotations
 
 from collections import OrderedDict
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from zipfile import ZipFile
@@ -214,10 +215,19 @@ def _orb_from_private_zip(series, intrinsics, distortion, *,
     ), dtype=np.float64)
     orb = cv2.ORB_create(nfeatures=max_features)
     observations, descriptors = [], []
-    for i, frame in enumerate(series.frames):
-        if should_cancel is not None and should_cancel():
-            raise RuntimeError("whole-flight RGB processing cancelled")
-        with ZipFile(frame.source_archive) as archive:
+    # Open each original ZIP/.tip once per complete feature pass, regardless
+    # of frame order. ExitStack closes all read-only handles on success,
+    # cancellation and failure; RGB buffers are still decoded and discarded
+    # one at a time. No extraction or cross-run archive state.
+    with ExitStack() as stack:
+        opened: dict[Path, ZipFile] = {}
+        for i, frame in enumerate(series.frames):
+            if should_cancel is not None and should_cancel():
+                raise RuntimeError("whole-flight RGB processing cancelled")
+            archive = opened.get(frame.source_archive)
+            if archive is None:
+                archive = stack.enter_context(ZipFile(frame.source_archive))
+                opened[frame.source_archive] = archive
             entry = archive.getinfo(frame.member_name)
             if not 128 <= entry.file_size <= 40_000_000:
                 raise ValueError("original RGB member exceeds image budget")
@@ -225,30 +235,30 @@ def _orb_from_private_zip(series, intrinsics, distortion, *,
                 data = src.read(40_000_001)
             if len(data) != entry.file_size:
                 raise ValueError("original RGB member changed since validated intake")
-        image = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_GRAYSCALE)
-        del data
-        if image is None or image.shape != (height, width):
-            raise ValueError("unreadable primary JPEG in RGB flight")
-        factor = min(1., max_side / max(width, height))
-        if factor < 1.:
-            image = cv2.resize(image, (
-                max(32, round(width * factor)), max(32, round(height * factor))
-            ), interpolation=cv2.INTER_AREA)
-        sx, sy = image.shape[1] / width, image.shape[0] / height
-        scaled = matrix.copy()
-        scaled[0, :] *= sx
-        scaled[1, :] *= sy
-        image = cv2.undistort(image, scaled, distortion, None, scaled)
-        points, desc = orb.detectAndCompute(image, None)
-        del image
-        if desc is None or len(points) < 16:
-            raise ValueError("insufficient RGB feature evidence in whole flight")
-        xy = np.asarray([(p.pt[0]/sx, p.pt[1]/sy) for p in points],
-                        dtype=np.float64)
-        observations.append(RGBNetworkFrame(frame.frame_id, xy))
-        descriptors.append(desc)
-        if on_progress is not None:
-            on_progress("features", i+1, len(series.frames))
+            image = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_GRAYSCALE)
+            del data
+            if image is None or image.shape != (height, width):
+                raise ValueError("unreadable primary JPEG in RGB flight")
+            factor = min(1., max_side / max(width, height))
+            if factor < 1.:
+                image = cv2.resize(image, (
+                    max(32, round(width * factor)), max(32, round(height * factor))
+                ), interpolation=cv2.INTER_AREA)
+            sx, sy = image.shape[1] / width, image.shape[0] / height
+            scaled = matrix.copy()
+            scaled[0, :] *= sx
+            scaled[1, :] *= sy
+            image = cv2.undistort(image, scaled, distortion, None, scaled)
+            points, desc = orb.detectAndCompute(image, None)
+            del image
+            if desc is None or len(points) < 16:
+                raise ValueError("insufficient RGB feature evidence in whole flight")
+            xy = np.asarray([(p.pt[0]/sx, p.pt[1]/sy) for p in points],
+                            dtype=np.float64)
+            observations.append(RGBNetworkFrame(frame.frame_id, xy))
+            descriptors.append(desc)
+            if on_progress is not None:
+                on_progress("features", i+1, len(series.frames))
     return tuple(observations), descriptors
 
 
