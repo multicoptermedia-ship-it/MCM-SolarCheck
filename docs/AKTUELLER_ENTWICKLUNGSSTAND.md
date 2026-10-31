@@ -27,7 +27,8 @@
 
 ## 31.10.2026 – einmaliger Quellindex und begrenzter RGB-LRU
 - **`948d87a` + Test `a1c762d`:** Im vorhandenen Mehrflächen-Renderer ZIP/.tip einmal pro Aufruf read-only indexieren, höchstens vier entzerrte RGB-JPEGs im lokalen RAM-`OrderedDict` wiederverwenden. Kalibrierungs-/Frame-Prüfung bleibt; Cache vor Komposition leer. Synthetischer Zwei-Facetten-Test: ein Index, zwei statt vier JPEG-Decodes. Keine neue CLI/Abhängigkeit/Geodatenpersistenz oder Qualitäts-Gates; CI des **aktuellen** HEAD prüfen.
-- **31.10., `de2abd1`–`399450d` (CI aktuellen HEAD prüfen):** Die vorhandene BA-RGB-Kameraauswahl kann nun bis acht statt vier **nur bei zusätzlicher tatsächlich sichtbarer/3D-gestützter Flächenabdeckung** wählen. Sobald mindestens zwei Ansichten vorhanden sind und keine weitere Kamera neue Samples liefert, stoppt sie. ZIP- und RAM-Budget bleiben begrenzt. Synthetischer fünfteiliger Blickstreifen prüft mehr gültige RGB-Dachpixel mit Quelle Nr. 5; kein neues Gate oder Fremdbackend.
+- **`de2abd1`–`399450d`, CI grün:** 2–8 statt vier BA-RGB-Quellen nur bei zusätzlicher 3D-gestützter sichtbarer Fläche; Stopp bei keiner neuen Abdeckung. Synthetischer Fünf-Kamera-Streifen bestätigt ergänzte RGB-Pixel.
+- **`e345c12` + `a9e65ca` (CI am exakten HEAD prüfen):** Das gemeinsame Nord-ENU-Raster kontrolliert nach Nearest-Neighbor-Übernahme eines Teilflächenpixels dessen **eigenes metrisches Zielpixelzentrum** erneut gegen die echte konvexe Kandidatenhülle. Das verhindert falsch übertragene RGB-Pixel knapp außerhalb der Hülle bei gegeneinander verschobenen Teilrastern. Synthetischer Versatz- und Windungs-Test, keine echte Dachgrenzenerkennung.
 - **Kein** echter 160-Bild-Nachweis, keine unabhängige DJI-M3T-Linsenkalibrierung oder reale Dach-/GSD-/Naht-/Orthofoto-/PV-/Thermal-/Surveyfreigabe.
 
 ## Einziger nächster Schritt
