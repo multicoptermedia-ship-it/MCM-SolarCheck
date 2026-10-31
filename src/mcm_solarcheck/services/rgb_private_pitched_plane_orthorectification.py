@@ -477,7 +477,30 @@ def render_private_pitched_rgb_orthopatch(
     cv2.fillConvexPoly(
         footprint_mask, np.round(poly).astype(np.int32), 1,
     )
-    footprint = footprint_mask.ravel().astype(bool)
+    # cv2.fillConvexPoly rounds polygon vertices to whole raster cells.
+    # For a slanted roof edge, that rasterization can include pixel
+    # CENTERS outside the actual fitted convex hull. A one-pixel outer
+    # ring is cheap to verify using the true metric center coordinate;
+    # the eroded interior is safely more than one half cell from the
+    # rounded boundary. Invalid exterior pixels must never become roof.
+    exact_core = cv2.erode(
+        footprint_mask, np.ones((3, 3), dtype=np.uint8),
+        iterations=1, borderType=cv2.BORDER_CONSTANT, borderValue=0,
+    ).astype(bool)
+    fringe = np.flatnonzero(
+        footprint_mask.ravel().astype(bool) & ~exact_core.ravel()
+    )
+    hull_contour = np.ascontiguousarray(hull, dtype=np.float32)
+    footprint = exact_core.ravel().copy()
+    for j, pixel in enumerate(fringe):
+        if should_cancel is not None and j % 1024 == 0 and should_cancel():
+            raise RuntimeError("private pitched RGB projection cancelled")
+        footprint[pixel] = (
+            cv2.pointPolygonTest(
+                hull_contour, (float(xx.ravel()[pixel]),
+                               float(yy.ravel()[pixel])), False,
+            ) >= 0
+        )
     unsupported_convex_hull_pixels = 0
     if plane.inlier_xy_private_m is not None:
         # Only REAL post-BA plane inliers support this provisional image.

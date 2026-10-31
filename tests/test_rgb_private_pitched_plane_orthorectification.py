@@ -680,3 +680,55 @@ def test_extreme_grazing_roof_rays_rejected_without_losing_overhead_pixels():
     assert _private_front_surface_visibility(n,-1.,center,pts).tolist() == [
         True,False,False,
     ]
+
+
+def test_slanted_fitted_footprint_exterior_pixel_centers_remain_transparent():
+    """Rounded OpenCV hull fills MUST NOT invent RGB outside real hull.
+
+    A diagonal 3D facet edge includes dozens of outside pixel centers if
+    fillConvexPoly's vertex-rounded mask is trusted without metric testing.
+    No private RGB or ENU edge coordinates leave the in-memory result.
+    """
+    import cv2
+
+    plane = replace(
+        _plane(),
+        footprint_xy_private_m=np.array([
+            [-2.,-2.],[2.,-2.],[-2.,.83],
+        ],dtype=np.float64),
+        footprint_area_m2=5.66,
+    )
+    k = PinholeIntrinsics(120.,120.,160.,160.)
+    image,pose = _source(0.,k)
+    original_image = image.copy()
+    result = render_private_pitched_rgb_orthopatch(
+        plane,(image,),(pose,),k,meters_per_pixel=.05,
+        source_fusion="priority",
+    )
+    h,w = result.valid_mask_private.shape
+    rows,columns = np.indices((h,w))
+    east = -2. + (columns+.5)*.05
+    north = .83 - (rows+.5)*.05
+    polygon = np.asarray(plane.footprint_xy_private_m,dtype=np.float32)
+    geometrically_inside = np.asarray([
+        cv2.pointPolygonTest(polygon,(float(x),float(y)),False) >= 0
+        for x,y in zip(east.ravel(),north.ravel())
+    ]).reshape(h,w)
+    # Verify that the old rasterized hull REALLY is over-inclusive here;
+    # otherwise the test would not exercise the regression.
+    poly = np.column_stack((
+        (polygon[:,0]+2.)/.05-.5,
+        (.83-polygon[:,1])/.05-.5,
+    ))
+    old = np.zeros((h,w),dtype=np.uint8)
+    cv2.fillConvexPoly(old,np.round(poly).astype(np.int32),1)
+    would_fabricate = old.astype(bool) & ~geometrically_inside
+    assert np.count_nonzero(would_fabricate) >= 15
+    assert not np.any(result.valid_mask_private[would_fabricate])
+    assert not np.any(result.rgb_private[would_fabricate])
+    assert result.valid_mask_private[40,10]
+    assert np.array_equal(image,original_image)
+    assert not result.rgb_private.flags.writeable
+    assert result.privacy_safe_summary()["orthophoto_verified"] is False
+    for forbidden in ("top_left_xy","inlier_xy","GPS","DJI_"):
+        assert forbidden not in json.dumps(result.privacy_safe_summary())
