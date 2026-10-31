@@ -6,6 +6,7 @@ use all supplied source cameras or fail closed. All geometry stays in RAM.
 """
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from zipfile import ZipFile
@@ -436,6 +437,8 @@ def render_private_pitched_preview_from_original_rgb_archives(
     occluder_planes=None,
     source_fusion: str = "mean",
     should_cancel=None,
+    _series: PrivateRGBFlightSeries | None = None,
+    _source_cache: OrderedDict[int, np.ndarray] | None = None,
 ):
     """Private *opt-in* ZIP JPEG -> undistort -> pitched 3D RGB raster preview.
 
@@ -443,6 +446,8 @@ def render_private_pitched_preview_from_original_rgb_archives(
     hypotheses), never infers poses from DJI EXIF/Gimbal. Source ZIP/.tip
     archives and JPEG members are READ ONLY. No output/image serialization.
     Only selected cameras are decoded, bounded to 2..8 private images.
+    During ONE multi-facet render a bounded RAM-only LRU can reuse at most
+    four undistorted source JPEGs; it never persists private images.
     """
     if (not isinstance(metric_candidate, PrivateRGBRTKWindowedBA)
             or type(camera_indices) is not tuple
@@ -453,9 +458,13 @@ def render_private_pitched_preview_from_original_rgb_archives(
         raise ValueError("complete RTK BA and unique private preview cameras required")
     if should_cancel is not None and should_cancel():
         raise RuntimeError("private RGB orthopatch ZIP decoding cancelled")
-    flight = read_private_rgb_zip_series(
+    if (_series is not None and not isinstance(_series, PrivateRGBFlightSeries)
+            or _source_cache is not None
+            and (_series is None or not isinstance(_source_cache, OrderedDict))):
+        raise ValueError("private RGB source reuse requires matching in-memory series")
+    flight = (_series if _series is not None else read_private_rgb_zip_series(
         archives, should_cancel=should_cancel,
-    )
+    ))
     ids = tuple(frame.frame_id for frame in flight.frames)
     if (ids != metric_candidate.frame_ids
             or len(ids) != metric_candidate.total_cameras):
@@ -470,6 +479,13 @@ def render_private_pitched_preview_from_original_rgb_archives(
     for i in camera_indices:
         if should_cancel is not None and should_cancel():
             raise RuntimeError("private RGB orthopatch ZIP decoding cancelled")
+        if _source_cache is not None and i in _source_cache:
+            # Reuse only in the SAME validated whole-flight composition.
+            # LRU eviction never mutates an image already used by a facet.
+            image = _source_cache.pop(i)
+            _source_cache[i] = image
+            images.append(image)
+            continue
         frame = flight.frames[i]
         with ZipFile(frame.source_archive) as archive:
             entry = archive.getinfo(frame.member_name)
@@ -489,7 +505,14 @@ def render_private_pitched_preview_from_original_rgb_archives(
         del bgr
         undistorted = cv2.undistort(rgb, matrix, distortion, None, matrix)
         del rgb
+        undistorted.setflags(write=False)
         images.append(undistorted)
+        if _source_cache is not None:
+            _source_cache[i] = undistorted
+            # Four full-resolution DJI RGB images are already ~144 MiB.
+            # Do not retain all 160 sources or even all 8 from every facet.
+            while len(_source_cache) > 4:
+                _source_cache.popitem(last=False)
     return metric_candidate.render_private_pitched_plane_preview(
         candidate_index, tuple(images), camera_indices, k,
         meters_per_pixel=meters_per_pixel, max_side=max_side,
@@ -516,9 +539,10 @@ def render_private_multiplane_preview_from_original_rgb_archives(
     camera's original JPEG is decoded directly from the read-only ZIP and
     undistorted in RAM by the existing verified single-plane helper.
     Individual patches are placed on one common metric ENU grid. No files.
-    Currently each facet can re-read an overlapping JPEG; at most 6 facets
-    and 8 RGB sources per facet, a bounded offline preview rather than a
-    production 160-frame/whole-roof orthomosaic or visibility solution.
+    One already validated source-series index and a four-image RAM-only LRU
+    are reused across facets; this does NOT bypass the calibration and BA
+    frame-identity checks. Still bounded to six facets and at most eight
+    cameras per facet, NOT a full-roof orthophoto or visibility solution.
     """
     from mcm_solarcheck.services.rgb_private_multi_plane_preview import (
         choose_private_pitched_plane_cameras,
@@ -545,6 +569,7 @@ def render_private_multiplane_preview_from_original_rgb_archives(
     width, height = series.frames[0].width, series.frames[0].height
     planes = metric_candidate.pitched_plane_candidates.planes_private
     patches = []
+    source_cache: OrderedDict[int, np.ndarray] = OrderedDict()
     for candidate_index, plane in enumerate(planes):
         if should_cancel is not None and should_cancel():
             raise RuntimeError("private RGB multi-plane ZIP preview cancelled")
@@ -566,7 +591,10 @@ def render_private_multiplane_preview_from_original_rgb_archives(
             ),
             source_fusion="priority_overlap",
             should_cancel=should_cancel,
+            _series=series, _source_cache=source_cache,
         ))
+    # Drop held full-resolution image references before composing patches.
+    source_cache.clear()
     return compose_private_pitched_rgb_orthopatches(
         planes, tuple(patches), max_side=max_side,
         should_cancel=should_cancel,
