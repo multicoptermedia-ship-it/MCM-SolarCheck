@@ -2,7 +2,7 @@ from mcm_solarcheck.review.defect_classes import DefectClass
 from mcm_solarcheck.review.ground_truth import GroundTruthLabel
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 from mcm_solarcheck.review.training_geometry import ReviewedGeometry
-from mcm_solarcheck.storage.sqlite import ProjectDatabase
+from mcm_solarcheck.storage.sqlite import ProjectDatabase, SCHEMA_VERSION
 
 
 def test_v11_database_migrates_to_v12_and_preserves_corpus(tmp_path):
@@ -23,7 +23,7 @@ def test_v11_database_migrates_to_v12_and_preserves_corpus(tmp_path):
         """)
     db.initialize()
     with db.connect() as check:
-        assert check.execute("SELECT version FROM schema_info").fetchone()[0]==21
+        assert check.execute("SELECT version FROM schema_info").fetchone()[0]==SCHEMA_VERSION
         assert check.execute("SELECT COUNT(*) FROM training_samples").fetchone()[0]==1
         assert check.execute("SELECT COUNT(*) FROM training_geometries").fetchone()[0]==0
 
