@@ -386,6 +386,30 @@ def compose_private_pitched_rgb_orthopatches(
             borderMode=cv2.BORDER_CONSTANT,
             borderValue=0,
         ).astype(bool)
+        # A patch was masked at its OWN exact metric pixel centers.
+        # Remapping its binary mask by nearest neighbour onto a shifted
+        # common ENU grid can nevertheless paint a DIFFERENT global pixel
+        # center just outside the fitted facet hull. Enforce the true
+        # convex polygon again at the FINAL output pixel centers, before
+        # deciding coverage, facet height, RGB priority or seams.
+        area2 = float(np.sum(
+            hull[:, 0] * np.roll(hull[:, 1], -1)
+            - np.roll(hull[:, 0], -1) * hull[:, 1]
+        ))
+        if not np.isfinite(area2) or abs(area2) <= 1.e-10:
+            raise ValueError("degenerate private pitched plane footprint")
+        indices = np.flatnonzero(supported)
+        if len(indices):
+            xs = xx.ravel()[indices]
+            ys = yy.ravel()[indices]
+            sign = 1. if area2 > 0 else -1.
+            inside = np.ones(len(indices), dtype=bool)
+            for vertex, edge in zip(hull, np.roll(hull, -1, axis=0)-hull):
+                cross = edge[0]*(ys-vertex[1]) - edge[1]*(xs-vertex[0])
+                inside &= sign*cross >= -1.e-8
+                if not np.any(inside):
+                    break
+            supported.ravel()[indices[~inside]] = False
         z = (-off - n[0]*xx - n[1]*yy)/n[2]
         coverage += supported.astype(np.uint8)
         above = supported & (z > highest)
