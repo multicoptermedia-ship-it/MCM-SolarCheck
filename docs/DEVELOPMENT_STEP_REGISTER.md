@@ -1,5 +1,11 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+### 31.10.2026 – Nutzerkorrektur: freie Standardalgorithmen statt proprietärer Lizenzsoftware
+- **Metashape Professional und 30-Tage-Test ausdrücklich VERWORFEN.** Keine kostenpflichtigen/proprietären Orthofoto-Programme. Open Source hat rechtliche Lizenzbedingungen, erfordert aber keine kommerzielle Nutzungsgebühr.
+- **Bestehende Standardimplementierung MicMac** (französisches IGN, CeCILL-B, Windows 10) als erster externer lokaler Realtest für das gewünschte **2D-RGB-Orthofoto**. Deren `Malt Ortho`/`Tawny` übernehmen Orthorektifizierung und Mosaik; keine eigene SfM-/BA-/Ortho-Rechenpipeline neu programmieren. Bei bloßen 2D-Diagnosebildern optional vorhandenes OpenCV `Stitcher_SCANS`, aber nicht als echtes Dachorthofoto freigeben. Bestehender GeoTIFF-Projektimport mit `rasterio`/`pyproj` bleibt.
+- **Codex am lokalen Windows-Checkout** ist passend für begrenzte Integration und anschließend PV-/Thermal-Entwicklung; kein ungeprüfter Rohbild-/GPS-/RTK-Upload, private Originalarchive read-only und außerhalb des Repos. Noch kein echter MicMac-Lauf, kein 160-RGB-Orthofoto-PASS, keine ODM/WebODM/ODX-Integration, kein Merge nach `main`. Vorgehen `docs/EXTERNES_RGB_ORTHOFOTO_GEOTIFF.md`.
+
+
 ### 31.10.2026 – VERBINDLICHE NUTZERENTSCHEIDUNG: vorhandenen Orthofoto-Prozessor einsetzen
 - Zeitverlust vermeiden: **Keine eigenen neuen Bild-Stitcher-/SfM-/3D-/Orthorektifizierungs-Algorithmen mehr.** Fachprogramm erzeugt nur das gewünschte **2D-Orthofoto**; vorgeschlagener erster lokaler Test mit Agisoft **Metashape Professional**, 30-Tage-Test laut Hersteller, georeferenziertes RGB-GeoTIFF als Resultat. Nutzer muss externe Installation/Lizenz selbst erlauben. **Kein** ODM/WebODM/ODX (Projektausschluss bleibt), keine Cloud-Übertragung oder neuen Abhängigkeiten.
 - SolarCheck kann bestehende GeoTIFFs bereits auf **Import** prüfen und dauerhaft im Projekt registrieren; kein neu entwickelter Import nötig. Anleitung `docs/EXTERNES_RGB_ORTHOFOTO_GEOTIFF.md`. 160 bekannte Originale nur lokal/private Arbeitskopie, reale Bildqualität vor Freigabe gegenüber fehlgeschlagenem 28.10.-Piloten prüfen. Erst bei brauchbarem 2D-Orthofoto PV-Modulidentifikation/Thermal und übrige Produktteile entwickeln. Kein realer Flug neu gerechnet, kein `main`-Merge.

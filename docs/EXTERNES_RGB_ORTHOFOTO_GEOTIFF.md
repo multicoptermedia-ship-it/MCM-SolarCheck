@@ -1,21 +1,26 @@
-# 160 RGB-Originalbilder → externes 2D-Orthofoto → SolarCheck
+# Kostenfrei: bestehender Orthofoto-Algorithmus → 2D-RGB-GeoTIFF → SolarCheck
 
-**Verbindlicher einfacher Weg:** Ein bestehender, etablierter Orthofoto-Prozessor übernimmt die Bildberechnung. **Keine eigene SolarCheck-Orthofoto-Engine, kein erneut erfundener Stitch-Algorithmus.** Das fertige Produkt ist ein **zweidimensionales RGB-GeoTIFF**.
+**Verbindliche Korrektur 31.10.2026:** Keine kostenpflichtigen oder proprietären Programme, auch keine Testlizenz. Agisoft Metashape Professional **nicht verwenden**. Open-Source-Programme sind ebenfalls lizenziert, aber normalerweise ohne Kauf-/Nutzungsgebühr: Bedingungen bei Nutzung und besonders Weiterverteilung prüfen. **Keine eigene Orthofoto-Rechenengine programmieren.**
 
-## Bereits bereit
-- Sechs inventarisierte Hummintech-ZIP/`.tip` mit 160 DJI M3T WideCamera-RGB-Fotos V-0001…V-0160 (4000×3000), sieben Streifen und GNSS/RTK im EXIF/XMP. **Keine neue ZIP-, EXIF-, ORB- oder Paar-Inventur.**
-- SolarCheck **Importseite**: „GeoTIFF / GIS-Metadaten prüfen“ und „GeoTIFF dauerhaft im Projekt registrieren“ sind bereits implementiert (`src/mcm_solarcheck/gui/import_page.py`); die Prüfung erfolgt über `inspect_existing_geotiff`. Die Registrierung ist nur ein **Metadatenimport**, keine fachliche Freigabe.
-- Für Berichte existiert `create_rgb_orthophoto_report_preview` für echtes RGB-uint8-GeoTIFF.
+## Vorhandenes in SolarCheck
+- 160 bereits inventarisierte private DJI M3T RGB aus sechs ZIP/`.tip`-Originalarchiven mit GNSS/RTK; keine erneute Inventur, keine private Rohdatei/GPS/SQLite nach Git/CI/Cloud.
+- Installierte Libraries `opencv-python-headless`, `rasterio`, `pyproj` sowie bereits implementierte Schaltflächen **„GeoTIFF / GIS-Metadaten prüfen“** und **„GeoTIFF dauerhaft im Projekt registrieren“**.
+- RGB-GeoTIFF-Berichtsvorschau existiert. Diese Bausteine wiederverwenden, keinen neuen Importer schreiben.
 
-## Einziger nächster praktischer Schritt auf dem vorhandenen Windows-Rechner
-1. **Externe Pilotsoftware:** [Agisoft Metashape Professional](https://www.agisoft.com/features/professional-edition/) mit [Windows-Installer / 30-Tage-Vollfunktions-Test](https://www.agisoft.com/downloads/installer/), sofern Nutzer das Programm lokal installiert und aktiviert. **Kein automatischer Kauf, Download oder App-Einbau.** Andere bereits lizenzierte professionelle Orthofoto-Software mit GeoTIFF-Export ist genauso geeignet.
-2. Kunden-ZIP-Originale **read-only lassen**. Fotos nur soweit erforderlich in ein getrenntes, privates Arbeitsverzeichnis kopieren/extrahieren. **Keine** Fotos, Metadaten, lokalen Koordinaten oder Raster nach GitHub/Cloud. Die Lizenzaktivierung ist von der lokalen Fotoverarbeitung zu unterscheiden.
-3. Alle **160** RGB-Fotos im lokalen Fachprogramm laden; vorhandene Aufnahme-/GNSS-Metadaten nutzen, Bilder ausrichten. Echte geneigte Dachflächen erfordern eine geeignete Orthorektifizierungsoberfläche; die nötige interne Berechnung macht das externe Programm. Kein eigenes 3D-Programm in SolarCheck entwickeln, kein 3D-Modell als Nutzerprodukt.
-4. Orthomosaik mit passender Bildquellen-/Naht- und optional Ghosting-Korrektur erzeugen; **RGB GeoTIFF mit explizitem CRS/EPSG** lokal exportieren. **Scharfe PV-Modulkanten, Doppelkonturen, Nahtübergänge und Vollständigkeit** gegen die Problemzonen des gescheiterten 28.10.-160-Bild-Tests prüfen. Wenn schlecht: im vorhandenen Fachprogramm korrigieren, nicht neue Algorithmen programmieren.
-5. SolarCheck-Projekt öffnen → **Import → GeoTIFF / GIS-Metadaten prüfen** → neue TIFF auswählen und CRS/Raster prüfen → **GeoTIFF dauerhaft im Projekt registrieren**. Das ist keine unabhängige metrische Vermessungsfreigabe. PV-ID-/Thermal-Verknüpfung erst nach Sichtkontrolle und Geometrieprüfung.
+## Bewährte freie Lösung: MicMac vom französischen IGN
+[MicMac](https://github.com/micmacIGN/micmac) ist kostenfreie Open-Source-Photogrammetriesoftware (CeCILL-B), mit Windows-10-Unterstützung. Für echte Orthofotos sind die dokumentierten Standardwerkzeuge [Malt Ortho](https://micmac.ensg.eu/index.php/Malt) (orthorektifizierte Einzelbilder nach vorhandener Kameraorientierung) und [Tawny](https://micmac.ensg.eu/index.php/Tawny) (Zusammenführung, optional radiometrischer Ausgleich) relevant. Das interne Oberflächenmodell ist ein mathematischer Rechenschritt; das **ausgegebene SolarCheck-Produkt bleibt zweidimensional**. **Nicht** selbst SfM, Bundle Adjustment oder einen Dachflächenalgorithmus schreiben.
 
-## Abgrenzung
-- Die vorliegende GitHub-Pipeline hat den echten 160-Bild-Flug **nicht** erfolgreich nachgerechnet. Das alte Gesamtbild hatte Doppelkonturen und unscharfe PV-Module, Einzelstreifen waren besser. Hier fehlen derzeit die echten Originalarchive und die frühere Vorschau.
-- **Keine ODM/WebODM/ODX-Integration** (alte Projektschranke unverändert), keine neue Abhängigkeit, kein 3D-Produkt. Ein rein projektiver OpenCV-Stitcher ist bei verschiedenen geneigten Dächern **kein** verlässlicher Ersatz für Orthorektifizierung.
+**Technisch noch offen:** Ob das kostenfreie MicMac auf dem konkreten Windows-Rechner eingerichtet werden kann und die vorhandenen DJI-M3T-RGB-/XMP-/RTK-Daten korrekt interpretiert, ist **nicht** praktisch geprüft. Ein MicMac-TIFF kann ohne eingebettete CRS-/GeoTIFF-Information entstehen. Dann kein EPSG erfinden: erst tatsächliche Bild-zu-Boden-Referenz feststellen; nur korrekt referenzierte GeoTIFFs in SolarCheck registrieren.
 
-Herstellerquellen: [Metashape Professional](https://www.agisoft.com/features/professional-edition/), [Metashape Installer/Test](https://www.agisoft.com/downloads/installer/), [Unterschied Stitching und Orthomosaik](https://support.pix4d.com/hc/en-us/articles/202558869).
+**OpenCV-Stitcher nur für 2D-Vergleiche:** Der vorhandene [`cv2.Stitcher_SCANS`](https://docs.opencv.org/4.x/d8/d19/tutorial_stitcher.html) kann annähernd planare Bilder zusammensetzen, liefert bei verschieden geneigten Dächern aber **keine** garantierte Orthorektifizierung. [GDAL `gdalwarp`](https://gdal.org/en/stable/programs/gdalwarp.html)/`rasterio` mosaikieren/reprojizieren **bereits georeferenzierte Raster**; aus Kamera-GPS allein entsteht keine korrekte Dachortho-Geometrie.
+
+## Schnellster abgesicherter Praxistest
+1. Die bereits bekannten RGB-Originale **privat und read-only** halten; für lokale Verarbeitung allenfalls getrennte Arbeitskopie erstellen. Nur die vorhandene MicMac-Windows-Distribution/Toolchain und DJI-Kameratyp-Eignung prüfen, keine SolarCheck-Rechenmodule entwickeln.
+2. Mit **einem repräsentativen Stück inklusive Streifenübergang** die MicMac-Standardpipeline testen. Wenn Kameraorientierung und Bildabdeckung stimmen, den vollständigen 160-RGB-Flug nur einmal verarbeiten. Keine erfundenen Kontrollpunkte, Objektivparameter oder Kartenkoordinaten.
+3. **Nur 2D-RGB-Orthofoto** exportieren; echte CRS-/Rastertransform im GeoTIFF nachweisen. Scharfe PV-Modulränder und Doppelkonturen/Nähte am bisherigen fehlgeschlagenen Gesamtbild messen und visuell prüfen. Kein echtes Bild = kein Qualitäts-PASS.
+4. Bestehende **SolarCheck Import → GeoTIFF prüfen → GeoTIFF registrieren** benutzen. Danach Zeit auf PV-Modul-IDs, Thermal und Berichte verwenden.
+
+## Codex oder Chat?
+Für **praktische Entwicklung am lokalen Windows-10-Rechner** Codex im lokalen Repository nutzen: Toolinstallation/-aufruf, gezielte Integration oder Tests statt wiederholter Chat-GitHub-only-Kommentare. Windows 10 unterstützt Codex nur im Best-Effort-Modus ([Codex Windows](https://learn.chatgpt.com/docs/app/windows)). Repo-Arbeitsverzeichnis von privaten Original-ZIPs trennen und Codex **keinen** Zugang/Upload zu Kundenfotos, GPS/RTK oder Analysebildern geben; Code- und Logausgaben auf sensible Daten prüfen. Lokal gestartete Codex-Aufgaben können trotzdem Kontext an den Dienst senden, daher kein umfassender Rohbildzugriff ohne gesonderte Datenschutzprüfung.
+
+**Nicht ändern:** No-ODM/WebODM/ODX-Integration, keine kommerzielle Lizenzsoftware, keine neuen Photogrammetrie-Algorithmen, kein automatisches Main-Merge.
