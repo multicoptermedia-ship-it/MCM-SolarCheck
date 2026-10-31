@@ -133,6 +133,25 @@ def propose_private_rgb_pitched_planes(
             or np.any(lid < 0) or np.any(lid >= len(xyz))):
         raise ValueError("finite bounded retained multiview ENU 3D points required")
 
+    # Each landmark retains up to three DISTINCT observing frame IDs,
+    # irrespective of how many feature observations it carries. This avoids
+    # selecting a numerically dominant single-camera sloped structure as the
+    # RANSAC winner, only to abort the entire search AFTER refinement and
+    # discard genuine multiview-supported roof facets elsewhere in the cloud.
+    # The final fitted inlier set still gets its existing exact camera audit.
+    camera_sources = np.full((len(xyz), 3), -1, dtype=np.int32)
+    for landmark_id, frame_id in zip(lid, fid):
+        slots = camera_sources[int(landmark_id)]
+        frame = int(frame_id)
+        if frame == slots[0] or frame == slots[1] or frame == slots[2]:
+            continue
+        if slots[0] < 0:
+            slots[0] = frame
+        elif slots[1] < 0:
+            slots[1] = frame
+        elif slots[2] < 0:
+            slots[2] = frame
+
     # Stable order irrespective of incoming landmark ordering, for reproducible
     # hypotheses. Deterministic RANSAC does NOT certify a physical roof.
     order = np.lexsort((xyz[:, 2], xyz[:, 1], xyz[:, 0]))
@@ -168,10 +187,19 @@ def propose_private_rgb_pitched_planes(
             if slope < min_slope_deg or slope > max_slope_deg:
                 continue
             offset = -float(normal @ tri[0])
-            hits = int(np.count_nonzero(
+            sample_inliers = (
                 np.abs(sample_xyz @ normal + offset) <= max_residual_m
-            ))
-            if hits > best_count:
+            )
+            hits = int(np.count_nonzero(sample_inliers))
+            if hits > best_count and hits >= min_points:
+                # A candidate must ALREADY have evidence from >=3 distinct
+                # fitted cameras in the RANSAC sample. Otherwise a larger
+                # single-view plane hides a smaller real stereo-supported
+                # facet by winning the greedy fit and triggering a break.
+                supporting = camera_sources[subset[sample_inliers]]
+                sources = np.unique(supporting)
+                if int(np.count_nonzero(sources >= 0)) < 3:
+                    continue
                 best = (normal.copy(), offset)
                 best_count = hits
         if best is None or best_count < min_points:
