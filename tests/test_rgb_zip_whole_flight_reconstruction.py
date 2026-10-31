@@ -496,7 +496,7 @@ def test_geometry_only_spatial_links_cannot_pass_without_shared_3d_points(
 
 
 def test_opt_in_original_zip_rgb_to_fitted_pitched_plane_preview_read_only(
-    tmp_path,
+    tmp_path, monkeypatch,
 ):
     """Actual synthetic ZIP/JPEG decode+distortion+project, no stubbed remap."""
     from mcm_solarcheck.services.rgb_rtk_joint_bundle_adjustment import (
@@ -597,6 +597,41 @@ def test_opt_in_original_zip_rgb_to_fitted_pitched_plane_preview_read_only(
     assert "V-0001" not in json.dumps(combined.privacy_safe_summary())
     assert tuple(path.read_bytes() for path in archives) == original
     assert sorted(p.name for p in tmp_path.iterdir()) == ["RGB2.tip","RGB7.zip"]
+
+    # Two fitted facets may choose the same real RGB stereo pair. Reuse the
+    # validated in-memory flight index and each undistorted JPEG ONCE across
+    # facets, rather than rescanning six ZIPs and decoding duplicate cameras.
+    # The fixture is synthetic; it is not a 160-JPEG photogrammetry proof.
+    from mcm_solarcheck.services import rgb_private_multi_plane_preview as compositor
+    scan_calls, decode_calls = [], []
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            compositor, "choose_private_pitched_plane_cameras",
+            lambda *args, **kwargs: (0, 1),
+        )
+        original_index = process.read_private_rgb_zip_series
+        original_decode = process.cv2.imdecode
+
+        def count_scan(*args, **kwargs):
+            scan_calls.append(1)
+            return original_index(*args, **kwargs)
+
+        def count_decode(*args, **kwargs):
+            decode_calls.append(1)
+            return original_decode(*args, **kwargs)
+
+        patch.setattr(process, "read_private_rgb_zip_series", count_scan)
+        patch.setattr(process.cv2, "imdecode", count_decode)
+        reused = process.render_private_multiplane_preview_from_original_rgb_archives(
+            archives, camera, multi_metric, meters_per_pixel=.025,
+        )
+    assert reused.valid_pixel_count > 1200
+    assert reused.privacy_safe_summary()["orthophoto_verified"] is False
+    assert len(scan_calls) == 1
+    assert len(decode_calls) == 2
+    assert tuple(path.read_bytes() for path in archives) == original
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["RGB2.tip","RGB7.zip"]
+
     camera["lens_calibration_verified"] = False
     with pytest.raises(ValueError, match="independent calibrated"):
         process.render_private_pitched_preview_from_original_rgb_archives(
