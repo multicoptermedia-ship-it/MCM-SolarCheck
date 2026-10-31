@@ -34,7 +34,7 @@ def choose_private_pitched_plane_cameras(
     image_width: int,
     image_height: int,
     *,
-    max_cameras: int = 4,
+    max_cameras: int = 8,
     min_sample_coverage: float = .20,
     occluder_planes: tuple[PrivateRGBPitchedPlaneCandidate, ...] = (),
     should_cancel=None,
@@ -219,6 +219,13 @@ def choose_private_pitched_plane_cameras(
             return (additional, min(separation/radius, 1.),
                     projected_sampling[i], base, -i)
         winner = max((i for i in valid if i not in selected), key=quality)
+        # Once two independent sources are retained for redundancy, do not
+        # decode further photos that provide ZERO new supported/visible roof
+        # samples. A fifth-to-eighth source is justified ONLY by actual
+        # additional fitted geometry coverage, never by baseline alone.
+        if (len(selected) >= 2
+                and not np.any(masks[winner] & ~covered)):
+            break
         selected.append(winner)
         covered |= masks[winner]
         if len(selected) >= 2 and np.all(covered):
