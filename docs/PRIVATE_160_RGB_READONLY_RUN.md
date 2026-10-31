@@ -573,6 +573,29 @@ Windows-10-Gesamtflug mit unabhängiger Objektivkalibrierung und
 visueller Beurteilung der Dachkanten/Nähte/PV-Details bleibt
 für ein reales Orthofoto erforderlich.
 
+## Keine interpolierten RGB-Pixel außerhalb schräger Kandidatenränder (31.10.2026)
+
+Seit Code `91b4cd00` validiert der private RGB-Orthorektifizierer
+an schrägen geneigten 3D-Dachflächenhypothesen auch **exakte
+metrische Pixelzentren** unmittelbar am Rand ihrer konvexen
+XY-Footprints. Die vorhandene schnelle OpenCV-Füllung des
+Kandidaten-Umrisses rundet Ecken auf Ganzpixel und kann dadurch
+Pixel **außerhalb** der eigentlichen vorläufigen Fläche einschließen.
+Der Renderer übernimmt deshalb die sichere erodierte Innenfläche
+und überprüft nur das ein Rasterpixel schmale Grenzband erneut
+mittels `cv2.pointPolygonTest`. Außenpixel bleiben schwarz/
+transparent, bevor Quellkamera-Projektion und JPEG-Abtastung
+starten. Es werden keine echten Dachkanten „erkannt“.
+
+Die sechs privaten Original-ZIP/`.tip`-Archive und alle
+160 DJI-M3T-RGB-JPEG bleiben read-only; kein zusätzliches CLI-
+Flag, keine externe Bibliothek, kein permanenter GPS-/ENU-/
+RGB-/SQLite-/Punkt-Export. Der synthetische Test prüft 41 zuvor
+über die reine Rundung fälschlich aufgenommene Außenpixel. Für
+eine echte Dach-/Naht-/PV-/GSD-/Ortho-/Survey-Freigabe ist
+weiter der vollständige lokale Windows-10-Originalflug mit
+unabhängig belegter RGB-Linsenparameter-Kalibrierung erforderlich.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
