@@ -529,7 +529,7 @@ def render_private_multiplane_preview_from_original_rgb_archives(
     *,
     meters_per_pixel: float = .05,
     max_side: int = 1024,
-    max_cameras_per_plane: int = 4,
+    max_cameras_per_plane: int = 8,
     should_cancel=None,
 ):
     """Opt-in private ZIP -> automatically selected RGB -> multiple pitch facets.
