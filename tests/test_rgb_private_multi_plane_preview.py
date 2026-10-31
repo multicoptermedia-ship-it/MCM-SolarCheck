@@ -496,3 +496,58 @@ def test_underface_camera_does_not_win_roof_source_selection():
     )
     assert set(chosen) == {1,2}
     assert 0 not in chosen
+
+
+def test_fifth_visible_rgb_camera_fills_real_facet_coverage_missing_with_four():
+    """Whole-facet RGB needs a fifth geometric view when four leave roof holes.
+
+    This synthetic strip is continuously textured and seen by five narrow-FOV
+    calibrated downward cameras. The default is allowed to recover its fifth
+    genuinely newly visible region, rather than arbitrarily truncating at four.
+    This is NOT a DJI flight, surveyed roof or measured optical GSD.
+    """
+    from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
+        render_private_pitched_rgb_orthopatch,
+    )
+    plane = _facet(-5.,5.)
+    poses = tuple(
+        _sampling_camera_pose(float(x),4.) for x in (-4,-2,0,2,4)
+    )
+    intrinsics = PinholeIntrinsics(125.,125.,64.,64.)
+    four = choose_private_pitched_plane_cameras(
+        plane,poses,intrinsics,128,128,max_cameras=4,
+    )
+    extended = choose_private_pitched_plane_cameras(
+        plane,poses,intrinsics,128,128,
+    )
+    assert len(four) == 4
+    assert len(extended) == 5
+    assert set(extended) == set(range(5))
+    images = tuple(
+        np.full((128,128,3),(100,120,140),dtype=np.uint8)
+        for _ in poses
+    )
+    def render(selection):
+        return render_private_pitched_rgb_orthopatch(
+            plane, tuple(images[i] for i in selection),
+            tuple(poses[i] for i in selection),
+            intrinsics,meters_per_pixel=.05,source_fusion="priority",
+        )
+    incomplete, complete = render(four),render(extended)
+    assert complete.valid_pixel_count > incomplete.valid_pixel_count
+    assert complete.valid_pixel_count >= .98*complete.planar_pixel_count
+    assert complete.source_camera_count == 5
+    assert not complete.valid_mask_private.flags.writeable
+    assert complete.privacy_safe_summary()["orthophoto_verified"] is False
+
+
+def test_extra_cameras_without_new_supported_coverage_are_not_decoded():
+    """A permanent geometric hole is not a reason to decode 8 duplicate views."""
+    plane = _facet(-5.,5.)
+    pose = _sampling_camera_pose(-4.,4.)
+    poses = tuple(pose.copy() for _ in range(8))
+    selection = choose_private_pitched_plane_cameras(
+        plane,poses,PinholeIntrinsics(125.,125.,64.,64.),
+        128,128,max_cameras=8,
+    )
+    assert selection == (0,1)
