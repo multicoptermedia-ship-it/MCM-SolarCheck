@@ -126,3 +126,61 @@ def test_deterministic_private_hypothesis_geometry_on_same_input():
         np.testing.assert_allclose(
             x.signed_offset_enu_private_m, y.signed_offset_enu_private_m
         )
+
+
+def test_dominant_single_view_slope_cannot_hide_real_multiview_roof():
+    """A larger tilted ONE-CAMERA structure must not abort true roof fitting.
+
+    The first synthetic planar set has 260 very clean 3D landmarks but every
+    point is observed by ONE RGB camera only. The separate smaller inclined
+    facet has 125 real multiview 3D landmarks seen by four cameras. Before
+    this fix the first RANSAC winner failed the final camera gate and broke
+    out entirely, incorrectly returning zero roofs.
+    """
+    rng = np.random.default_rng(20261031)
+    solitary_x = rng.uniform(-9., -2., 260)
+    solitary_y = rng.uniform(-5., 5., 260)
+    solitary = np.column_stack((
+        solitary_x, solitary_y,
+        3. + .4*solitary_x + rng.normal(0., .006, 260),
+    ))
+    roof_x = rng.uniform(2., 9., 125)
+    roof_y = rng.uniform(-5., 5., 125)
+    roof = np.column_stack((
+        roof_x, roof_y,
+        12. - .25*roof_x + rng.normal(0., .008, 125),
+    ))
+    points = np.vstack((solitary, roof))
+    lid = np.concatenate((
+        np.arange(260,dtype=np.int32),
+        np.repeat(np.arange(260,385,dtype=np.int32),4),
+    ))
+    fid = np.concatenate((
+        np.zeros(260,dtype=np.int32),
+        np.tile(np.array([0,3,6,9],dtype=np.int32),125),
+    ))
+    answer = propose_private_rgb_pitched_planes(
+        points, fid, lid, max_planes=2,
+    )
+    assert len(answer.planes_private) >= 1
+    assert all(p.supporting_cameras >= 3 for p in answer.planes_private)
+    assert all(np.all(p.landmark_indices_private >= 260)
+               for p in answer.planes_private)
+    assert len(answer.planes_private[0].landmark_indices_private) >= 90
+    assert answer.privacy_safe_summary()["roof_geometry_verified"] is False
+    assert answer.privacy_safe_summary()["orthophoto_verified"] is False
+
+
+def test_repeated_single_camera_observations_do_not_fake_multiview_support():
+    """Repeated rows of the SAME source camera are not independent views."""
+    rng = np.random.default_rng(20261031)
+    xy = rng.uniform(-5.,5.,(120,2))
+    xyz = np.column_stack((
+        xy, 7.+.3*xy[:,0] + rng.normal(0., .005,120),
+    ))
+    lid = np.repeat(np.arange(120,dtype=np.int32), 4)
+    fid = np.zeros(480,dtype=np.int32)
+    answer = propose_private_rgb_pitched_planes(
+        xyz,fid,lid,max_planes=2,
+    )
+    assert answer.planes_private == ()
