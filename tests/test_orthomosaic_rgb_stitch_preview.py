@@ -47,6 +47,58 @@ def test_three_frame_rgb_preview_and_png_export(tmp_path):
     assert cv2.imread(str(output)).shape == result.image.shape
 
 
+def test_three_original_rgb_crops_are_each_warped_only_once_without_temp_mosaics(
+    tmp_path, monkeypatch,
+):
+    """Regression: do not warp or re-match a PNG assembled in a prior step.
+
+    Three partially overlapping ORB-rich ORIGINAL images are enough to
+    expose the old repeated-mosaic approach: its third warp received the
+    already enlarged/previously resampled two-photo composite.
+    """
+    from mcm_solarcheck.services import orthomosaic_rgb_stitch_preview as stitching
+    import tempfile
+
+    rng = np.random.default_rng(20261101)
+    scene = rng.integers(0, 256, (480, 900, 3), dtype=np.uint8)
+    paths = tuple(tmp_path / f"photo-{i}.png" for i in range(3))
+    for i, path in enumerate(paths):
+        assert cv2.imwrite(str(path), scene[:, 85*i:85*i + 560])
+    originals = tuple(path.read_bytes() for path in paths)
+
+    # A staging PNG would both waste private disk space and force older
+    # already-rendered roofs through another interpolation in the next step.
+    def forbidden_temporary_directory(*args, **kwargs):
+        raise AssertionError("no temporary stitched PNG may be created")
+    monkeypatch.setattr(tempfile, "TemporaryDirectory", forbidden_temporary_directory)
+
+    image_warp_shapes = []
+    original_warp = stitching.cv2.warpPerspective
+    def track_source_warps(image, transform, dimensions, *args, **kwargs):
+        if image.ndim == 3:
+            image_warp_shapes.append(image.shape)
+        return original_warp(image, transform, dimensions, *args, **kwargs)
+    monkeypatch.setattr(stitching.cv2, "warpPerspective", track_source_warps)
+
+    preview = stitch_rgb_series_preview(paths)
+    assert preview.frame_count == 3
+    assert preview.inliers >= 20
+    assert not preview.verified_orthomosaic
+    assert len(image_warp_shapes) == 2
+    assert all(shape == (480, 560, 3) for shape in image_warp_shapes)
+    assert preview.image.shape[1] >= 700
+
+    # The anchor source itself is copied pixel-perfect, and not repeatedly
+    # interpolated or merged with slightly misregistered secondary views.
+    first = cv2.imread(str(paths[0]), cv2.IMREAD_COLOR)
+    assert any(
+        np.array_equal(preview.image[y:y + 480, x:x + 560], first)
+        for y in range(4) for x in range(4)
+    )
+    assert tuple(path.read_bytes() for path in paths) == originals
+    assert set(tmp_path.iterdir()) == set(paths)
+
+
 def test_series_rejects_duplicate_and_excessive_frames(tmp_path):
     first = tmp_path / "first.png"
     with pytest.raises(ValueError, match="distinct input paths"):
