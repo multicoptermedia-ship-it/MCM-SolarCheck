@@ -13,12 +13,14 @@ def test_current_handoff_is_visible_from_repository_entrypoints():
     content = checkpoint.read_text(encoding="utf-8")
     # Current handoff must stay short enough to actually be read on chat restart.
     assert 1000 <= len(content) <= 8500
-    # The user explicitly switched the active RGB goal from speculative 3D
-    # reconstruction to a proven-improvement 2D composite. The handoff must
-    # NOT require the old 3D implementation text as active next steps.
+    # The latest user decision requires BOTH externally computed orthophotos.
+    # Keep the handoff from reviving an in-house engine or an RGB-only goal.
     for phrase in (
         "Verbindlicher Erstlesepunkt",
-        "NUR ZWEIDIMENSIONALES RGB-GESAMTBILD",
+        "ein RGB-Orthofoto und ein Thermal-Orthofoto",
+        "keine neue Photogrammetrie-Engine",
+        "MicMac",
+        "GeoTIFF",
         "3D",
         "eingefroren",
         "PR #9",

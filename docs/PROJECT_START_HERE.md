@@ -1,10 +1,7 @@
 # START HERE – SolarCheck Folgechat und Entwicklungsübernahme
 
-## AKTUELLER, VORRANGIGER CODEX-EINSTIEG – 31.10.2026
-**Zuerst [../AGENTS.md](../AGENTS.md) → [ANFORDERUNGEN_ORTHOFOTO_CODEX.md](ANFORDERUNGEN_ORTHOFOTO_CODEX.md) → [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md) lesen.** Kein Neuaufbau einer Orthofoto-/SfM-Engine, keine kommerzielle Lizenzsoftware. Bestehendes WebODM darf der Nutzer **nur extern/manuell** nutzen und ein GeoTIFF in SolarCheck importieren; **niemals WebODM/ODM/ODX einbinden oder automatisiert aufrufen**. Alternativ externes freies MicMac, vorhandener GeoTIFF-Import. Danach PV-IDs und Thermal. Alle gegenteiligen älteren Textstellen sind historisch. Private Rohbilder/GPS nie GitHub/CI/Codex/Cloud, kein Merge nach `main` ohne Zustimmung.
-
-## HISTORISCHER EINSTIEG – 28.10.2026 (überholt)
-**[AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md) ZUERST LESEN.** Sie enthält genau einen bindenden nächsten RGB-Orthofoto-Arbeitsweg, aktuellen PR-/CI-/Windows-Stand sowie das Verbot von ODM/WebODM/ODX und Wiederholungsarbeit. Alle folgenden 26.10.-Abschnitte sind **historischer Kontext** und ihre damaligen „nächsten Schritte“ gelten nicht mehr. Bei Wiederaufnahme strikt den aktuellen GitHub-Branch dieses Checkpoints lesen; der Default `main` enthält die neuen PRs noch nicht. Keine neue Chat-Zusammenfassung durch erneutes Umsortieren alter Chroniken.
+## AKTUELLER, VORRANGIGER EINSTIEG – 31.10.2026
+**[AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md) ZUERST LESEN.** Aktiver Auftrag: zwei externe lokale Orthofotos (RGB und Thermal) aus etablierter freier Software, keine neue Photogrammetrie-Engine. Vorhandenen GeoTIFF-Import, PV-Detektoren und GIS-Zuordnung nutzen. MicMac-Komponentenbedingungen siehe [Werkzeugprüfung](FREIE_ORTHOFOTO_WERKZEUGE.md). Aktives Repository `MCM-SolarCheck`, bestehender Feature-Branch, kein Main-Merge; keine Kundenfotos/GPS/RTK in GitHub oder Cloud. Sie enthält genau einen bindenden nächsten RGB-Orthofoto-Arbeitsweg, aktuellen PR-/CI-/Windows-Stand sowie das Verbot von ODM/WebODM/ODX und Wiederholungsarbeit. Alle folgenden 26.10.-Abschnitte sind **historischer Kontext** und ihre damaligen „nächsten Schritte“ gelten nicht mehr. Bei Wiederaufnahme strikt den aktuellen GitHub-Branch dieses Checkpoints lesen; der Default `main` enthält die neuen PRs noch nicht. Keine neue Chat-Zusammenfassung durch erneutes Umsortieren alter Chroniken.
 
 ---
 
