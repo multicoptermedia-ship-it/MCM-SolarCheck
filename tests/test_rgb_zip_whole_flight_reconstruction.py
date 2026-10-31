@@ -685,6 +685,33 @@ def test_opt_in_original_zip_rgb_to_fitted_pitched_plane_preview_read_only(
     assert tuple(path.read_bytes() for path in archives) == original
     assert sorted(p.name for p in tmp_path.iterdir()) == ["RGB2.tip","RGB7.zip"]
 
+    # Four distinct source images from the SAME ZIP on separate facets
+    # previously reopened that archive once per JPEG. The whole multi-plane
+    # render now opens each validated ZIP/.tip only ONCE, even when cameras
+    # in different facets refer to different members of that same source.
+    source_zip = process.ZipFile
+    opened_zip = []
+    picks = iter(((0, 1), (2, 3)))
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            compositor, "choose_private_pitched_plane_cameras",
+            lambda *args, **kwargs: next(picks),
+        )
+        def track_zip(path, *args, **kwargs):
+            handle = source_zip(path, *args, **kwargs)
+            opened_zip.append(handle)
+            return handle
+        patch.setattr(process, "ZipFile", track_zip)
+        four_distinct = process.render_private_multiplane_preview_from_original_rgb_archives(
+            archives, camera, multi_metric, meters_per_pixel=.025,
+        )
+    assert four_distinct.valid_pixel_count > 1200
+    assert len(opened_zip) == len(archives)
+    assert all(handle.fp is None for handle in opened_zip)
+    assert four_distinct.privacy_safe_summary()["orthophoto_verified"] is False
+    assert tuple(path.read_bytes() for path in archives) == original
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["RGB2.tip","RGB7.zip"]
+
     camera["lens_calibration_verified"] = False
     with pytest.raises(ValueError, match="independent calibrated"):
         process.render_private_pitched_preview_from_original_rgb_archives(
