@@ -73,6 +73,14 @@ def test_three_original_rgb_crops_are_each_warped_only_once_without_temp_mosaics
     monkeypatch.setattr(tempfile, "TemporaryDirectory", forbidden_temporary_directory)
 
     image_warp_shapes = []
+    # This test targets single-resampling, not the separate reduced-scale
+    # ORB preflight (covered by existing accepted/rejected-pair tests).
+    # Keep the REAL full-resolution ORB + RANSAC homography below.
+    from types import SimpleNamespace
+    monkeypatch.setattr(
+        stitching, "match_rgb_feature_pair",
+        lambda *args, **kwargs: SimpleNamespace(geometrically_plausible=True),
+    )
     original_warp = stitching.cv2.warpPerspective
     def track_source_warps(image, transform, dimensions, *args, **kwargs):
         if image.ndim == 3:
