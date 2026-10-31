@@ -548,6 +548,31 @@ verifizierter Linsenkalibrierung auf Windows 10 read-only rechnen,
 das private RGBA-PNG visuell auf Dachkanten, Detailauflösung,
 Nähte und PV-Module prüfen. Synthetische CI ersetzt das nicht.
 
+## Nur Kameras mit plausibler Sicht auf die obere Dachseite (31.10.2026)
+
+Mit Code `9f6d1a5e` schließen **beide** bestehenden Stufen –
+die automatische Kameraauswahl vor dem Original-JPEG-Decoding
+und die finale private inverse RGB-Pixelprojektion – Quellen
+aus, die geometrisch nur die **Unterseite** einer als nach oben
+orientiert rekonstruierten Ebene sehen oder deren Oberfläche in
+einem extrem flachen Winkel treffen. Die einheitliche Prüfung
+verlangt für jeden Zielpunkt einen positiven signierten Abstand
+der Kamera zur Ebene sowie einen Einfalls-Cosinus ≥0,10.
+Unbekannte Sichtbehindernisse bleiben dabei unbekannt.
+
+Die sechs originalen Hummintech-ZIP/`.tip`-Dateien und alle
+160 DJI-RGB-JPEG bleiben **read-only**. Die Quelleinstufung
+erfolgt ausschließlich anhand der schon im privaten RAM
+vorliegenden BA-3D-Flächen und Kameraextrinsics – keine neuen
+Kommandozeilenparameter, keine Exportdateien oder Services.
+
+Die Schwelle ist ein vorsichtiges **Geometriemodell** und
+keine echte Dachidentifizierung, Sichtprüfung, Schärfe-/GSD-
+Messung oder unabhängige Vermessung. Ein tatsächlicher privater
+Windows-10-Gesamtflug mit unabhängiger Objektivkalibrierung und
+visueller Beurteilung der Dachkanten/Nähte/PV-Details bleibt
+für ein reales Orthofoto erforderlich.
+
 ## Aussagegrenzen des Berichts
 
 `required_flight_coverage_verified=true` besagt nur, dass beim Lauf
