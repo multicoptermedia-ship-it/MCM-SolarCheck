@@ -26,10 +26,10 @@
 - `91b4cd00`: Metrische Randprüfung statt `fillConvexPoly`-Rundungsfehler; 41 künstliche Außenpixel im synthetischen Dreieckstest ausgeschlossen. Keine realen Dachgrenzen erkannt.
 
 ## 31.10.2026 – einmaliger Quellindex und begrenzter RGB-LRU
-- **`948d87a` + Test `a1c762d`:** Im vorhandenen Mehrflächen-Renderer ZIP/.tip einmal pro Aufruf read-only indexieren, höchstens vier entzerrte RGB-JPEGs im lokalen RAM-`OrderedDict` wiederverwenden. Kalibrierungs-/Frame-Prüfung bleibt; Cache vor Komposition leer. Synthetischer Zwei-Facetten-Test: ein Index, zwei statt vier JPEG-Decodes. Keine neue CLI/Abhängigkeit/Geodatenpersistenz oder Qualitäts-Gates; CI des **aktuellen** HEAD prüfen.
+- **`948d87a` + `a1c762d`, CI grün:** Mehrflächen-Renderer indexiert ZIP/.tip einmal read-only; lokaler 4-Bild-RGB-LRU statt redundanter JPEG-Decodes. Kalibrierungs-/Frame-Prüfung und RAM-Privatsphäre bleiben erhalten.
 - **`de2abd1`–`399450d`, CI grün:** 2–8 statt vier BA-RGB-Quellen nur bei zusätzlicher 3D-gestützter sichtbarer Fläche; Stopp bei keiner neuen Abdeckung. Synthetischer Fünf-Kamera-Streifen bestätigt ergänzte RGB-Pixel.
 - **`e345c12` + `a9e65ca` (CI am exakten HEAD prüfen):** Das gemeinsame Nord-ENU-Raster kontrolliert nach Nearest-Neighbor-Übernahme eines Teilflächenpixels dessen **eigenes metrisches Zielpixelzentrum** erneut gegen die echte konvexe Kandidatenhülle. Das verhindert falsch übertragene RGB-Pixel knapp außerhalb der Hülle bei gegeneinander verschobenen Teilrastern. Synthetischer Versatz- und Windungs-Test, keine echte Dachgrenzenerkennung.
-- **`92e3670` + `3fe85f6` (exakte HEAD-CI prüfen):** RANSAC verwirft dominierende schräge Ein-Kamera-Ebenen schon bei der Hypothesenauswahl, sodass eine kleinere **dreifach kamera-gestützte** 3D-Dachfläche gefunden werden kann. Synthetische Zwei-Flächen-Regression; keine reale Dach-/Orthofoto-Verifikation.
+- **`92e3670`/`3fe85f6`, CI grün; `0aeb4e1`/`178b656`, aktuelle HEAD-CI prüfen:** RANSAC wählt nur ≥3-Kamera-Ebenen; jetzt dürfen **auch nur individuell aus ≥2 verschiedenen Bildkameras gestützte 3D-Landmarks** die geneigte Dachhülle und den RGB-Quellbereich formen. Koplanare Ein-Bild-Ausläufer vergrößern kein Dach mehr. Zwei neue synthetische 3D-Regressionstests; keine echte Dach-/Orthofoto-Verifikation.
 - **Kein** echter 160-Bild-Nachweis, keine unabhängige DJI-M3T-Linsenkalibrierung oder reale Dach-/GSD-/Naht-/Orthofoto-/PV-/Thermal-/Surveyfreigabe.
 
 ## Einziger nächster Schritt
