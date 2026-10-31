@@ -115,7 +115,7 @@ class PrivateRGBRTKWindowedBA:
         *,
         meters_per_pixel: float = .05,
         max_side: int = 1024,
-        max_cameras_per_plane: int = 4,
+        max_cameras_per_plane: int = 8,
         should_cancel=None,
     ):
         """Auto-pick fitted cameras, render each pitched facet, align in ENU.
