@@ -80,6 +80,37 @@ class PrivateRGBPitchedPlaneOrthopatch:
 
 
 
+def _private_front_surface_visibility(
+    normal_enu: np.ndarray,
+    signed_offset_enu_m: float,
+    camera_center_enu: np.ndarray,
+    points_enu: np.ndarray,
+) -> np.ndarray:
+    """Permit only actual front-side, non-grazing modeled roof rays.
+
+    The fitted plane has an upward-facing normal; a photograph projected
+    from its underside cannot depict that roof face even if the pixels
+    and camera depth are mathematically valid. A very grazing incidence
+    amplifies resampling/pose errors. This is geometric visibility ONLY,
+    not a verified real-world obstruction or independently measured GSD.
+    """
+    # Upward-facing normals and finite camera/plane geometry are already
+    # validated by each public renderer/selector before this private helper.
+    face_distance = float(
+        normal_enu @ camera_center_enu + signed_offset_enu_m
+    )
+    if not np.isfinite(face_distance) or face_distance <= 1.e-6:
+        return np.zeros(len(points_enu), dtype=bool)
+    source_distance = np.linalg.norm(
+        points_enu - camera_center_enu[None, :], axis=1,
+    )
+    return (
+        np.isfinite(source_distance)
+        & (source_distance > 1.e-8)
+        & (face_distance >= .10 * source_distance)
+    )
+
+
 def _private_candidate_inlier_support(plane):
     """Validate actual private 3D inlier XY and return an interpolation radius.
 
@@ -521,6 +552,14 @@ def render_private_pitched_rgb_orthopatch(
             & (u >= 0) & (v >= 0)
             & (u < image.shape[1]-1) & (v < image.shape[0]-1)
         )
+        if np.any(in_image):
+            # An underside or nearly tangent source ray is not a plausible
+            # observation of this upward-facing reconstructed roof facet.
+            # Keep this EXACTLY consistent with pre-JPEG camera selection.
+            indices = np.flatnonzero(in_image)
+            in_image[indices] = _private_front_surface_visibility(
+                n, float(offset), -(rot.T @ tr), points[indices],
+            )
         if not np.any(in_image):
             continue
         if occluder_planes:

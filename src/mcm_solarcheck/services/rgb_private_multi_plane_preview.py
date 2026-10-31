@@ -22,6 +22,7 @@ from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import
     _private_label_transition_rgb_jump,
     _private_candidate_inlier_support,
     _private_candidate_supported_ray_hits,
+    _private_front_surface_visibility,
     _candidate_plane_occlusion_mask,
 )
 
@@ -46,7 +47,9 @@ def choose_private_pitched_plane_cameras(
     with final BA camera poses. ALL geometrically eligible fitted cameras
     are checked against candidate occluders BEFORE opening RGB JPEGs;
     repeat point-distance grids are cached privately per selection call.
-    Choose by newly visible target support. Where coverage ties, prefer
+    Underside and nearly grazing modeled rays are INVALID in both
+    selection and orthorectification. Choose by newly visible target
+    support. Where coverage ties, prefer
     stronger geometric projected pixel sampling for the PRIMARY source,
     and camera separation for redundancy. These are NOT measured GSD,
     sharpness or true photometric visibility;
@@ -143,6 +146,14 @@ def choose_private_pitched_plane_cameras(
         in_image = ((depth > 1.e-8) & np.isfinite(u) & np.isfinite(v)
                     & (u >= 0) & (v >= 0)
                     & (u < image_width-1) & (v < image_height-1))
+        # Forward-projecting below-plane or grazing rays is possible, but
+        # those cannot reliably sample the UPWARD roof face. Apply the
+        # same geometric visibility used by the final RGB renderer.
+        if np.any(in_image):
+            indices = np.flatnonzero(in_image)
+            in_image[indices] = _private_front_surface_visibility(
+                n, offset, centers[-1], points[indices],
+            )
         masks.append(in_image)
         # For a fitted plane, the pinhole area-Jacobian is
         # fx*fy*|normal · (camera_center - plane_point)|/camera_depth**3.

@@ -641,3 +641,42 @@ def test_malformed_occluder_inlier_geometry_is_not_accepted():
                 replace(plane,inlier_xy_private_m=np.full((128,2),np.nan)),
             ),
         )
+
+
+def test_camera_below_pitched_plane_cannot_paint_its_upward_roof_face():
+    """RGB camera looking UP can project but must not depict the roof TOP."""
+    plane = _plane()
+    k = PinholeIntrinsics(120.,120.,160.,160.)
+    underside = np.column_stack((np.eye(3),np.zeros(3)))
+    top_r = np.diag((1.,-1.,-1.))
+    top_center = np.array((0.,0.,5.))
+    topside = np.column_stack((top_r,-top_r @ top_center))
+    fake_under_rgb = np.full((320,320,3),(0,220,0),dtype=np.uint8)
+    actual_top_rgb = np.full((320,320,3),(170,0,0),dtype=np.uint8)
+    invisible = render_private_pitched_rgb_orthopatch(
+        plane,(fake_under_rgb,),(underside,),k,
+        meters_per_pixel=.05,source_fusion="priority",
+    )
+    assert invisible.valid_pixel_count == 0
+    assert not np.any(invisible.rgb_private)
+    preview = render_private_pitched_rgb_orthopatch(
+        plane,(fake_under_rgb,actual_top_rgb),(underside,topside),k,
+        meters_per_pixel=.05,source_fusion="priority",
+    )
+    assert preview.valid_mask_private[40,40]
+    np.testing.assert_array_equal(preview.rgb_private[40,40],(170,0,0))
+    assert preview.secondary_source_pixel_count == preview.valid_pixel_count
+    assert not preview.rgb_private.flags.writeable
+    assert not preview.privacy_safe_summary()["orthophoto_verified"]
+
+
+def test_extreme_grazing_roof_rays_rejected_without_losing_overhead_pixels():
+    from mcm_solarcheck.services.rgb_private_pitched_plane_orthorectification import (
+        _private_front_surface_visibility,
+    )
+    n = np.array((0.,0.,1.))
+    center = np.array((0.,0.,1.11))
+    pts = np.array(((0.,0.,1.), (2.,0.,1.),(-2.,0.,1.)))
+    assert _private_front_surface_visibility(n,-1.,center,pts).tolist() == [
+        True,False,False,
+    ]

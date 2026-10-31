@@ -473,3 +473,26 @@ def test_spatial_3d_anchor_selection_has_bounded_cost(monkeypatch):
     )
     assert set(chosen) == {0,1}
     assert checked and max(checked) <= 625
+
+
+def test_underface_camera_does_not_win_roof_source_selection():
+    """Upside-looking pixels are not evidence for an upward-facing roof."""
+    plane = _facet(-.5,.5)
+    r_above = np.diag((1.,-1.,-1.))
+    camera_above = lambda x: np.column_stack((
+        r_above, -r_above @ np.array((x,0.,5.)),
+    ))
+    r_below = np.eye(3)
+    below = np.column_stack((r_below,np.zeros(3)))
+    # The underface camera has a geometrically valid positive pixel depth
+    # and sees all sampled points; old selection incorrectly preferred it.
+    k = PinholeIntrinsics(60.,60.,64.,64.)
+    with pytest.raises(ValueError,match="fewer than two"):
+        choose_private_pitched_plane_cameras(
+            plane,(below,camera_above(0.)),k,128,128,
+        )
+    chosen = choose_private_pitched_plane_cameras(
+        plane,(below,camera_above(0.),camera_above(.4)),k,128,128,
+    )
+    assert set(chosen) == {1,2}
+    assert 0 not in chosen
