@@ -551,3 +551,55 @@ def test_extra_cameras_without_new_supported_coverage_are_not_decoded():
         128,128,max_cameras=8,
     )
     assert selection == (0,1)
+
+
+def test_common_grid_resampling_cannot_invent_rgb_outside_metric_facet_hull():
+    """A shifted north-up grid may otherwise copy one nearest roof pixel too far.
+
+    The second fitted facet ends at ENU x=.96, but the combined grid has
+    a pixel center at x=.98 (shifted by the first facet's x=-.07 origin).
+    The second patch's last genuine sample at x=.95 is close enough for
+    cv2.INTER_NEAREST to incorrectly cover x=.98. That copied RGB cannot
+    be labelled roof, even though the source patch's own mask is correct.
+    """
+    tiny = _facet(-.07, .13)
+    main = _facet(0., .96)
+    tiny_patch = _patch(tiny, (255, 0, 0))
+    main_patch = _patch(main, (0, 60, 220))
+    original = main_patch.rgb_private.copy()
+    fused = compose_private_pitched_rgb_orthopatches(
+        (tiny, main), (tiny_patch, main_patch),
+    )
+    assert fused.rgb_private.shape[1] == 11
+    # Global x=.98 is strictly outside BOTH metric facet hulls.
+    assert not fused.valid_mask_private[10, -1]
+    assert fused.selected_plane_index_private[10, -1] == -1
+    np.testing.assert_array_equal(fused.rgb_private[10, -1], (0, 0, 0))
+    # Global x=.88 is genuinely inside the larger fitted facet.
+    assert fused.valid_mask_private[10, -2]
+    np.testing.assert_array_equal(fused.rgb_private[10, -2], (0, 60, 220))
+    np.testing.assert_array_equal(main_patch.rgb_private, original)
+    assert fused.privacy_safe_summary()["orthophoto_verified"] is False
+    assert not fused.valid_mask_private.flags.writeable
+
+
+def test_reversed_convex_hull_orientation_preserves_valid_common_grid_rgb():
+    """Metric clipping must work for both possible convex contour windings."""
+    first, second = _facet(-1., 0.), _facet(0., 1.)
+    first_reversed = replace(
+        first, footprint_xy_private_m=first.footprint_xy_private_m[::-1].copy(),
+    )
+    original = compose_private_pitched_rgb_orthopatches(
+        (first, second),
+        (_patch(first, (220, 30, 10)), _patch(second, (10, 30, 220))),
+    )
+    reversed_result = compose_private_pitched_rgb_orthopatches(
+        (first_reversed, second),
+        (_patch(first_reversed, (220, 30, 10)), _patch(second, (10, 30, 220))),
+    )
+    np.testing.assert_array_equal(
+        reversed_result.valid_mask_private, original.valid_mask_private,
+    )
+    np.testing.assert_array_equal(
+        reversed_result.rgb_private, original.rgb_private,
+    )
