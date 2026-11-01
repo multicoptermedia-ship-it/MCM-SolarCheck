@@ -4,7 +4,7 @@ Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der t
 
 ## Vorhandenen Stand verwenden
 
-**ZIP-Nutzung bestätigt:** Der Nutzer verwendet eine Test-ZIP auf F: und PowerShell, keinen Git-Checkout. Zuerst [ZIP-Aktualisierung mit vorhandenem Projekt](ZIP_AKTUALISIERUNG_WINDOWS10.md) verwenden. Der bisherige Startpfad muss nicht erneut erfragt werden.
+**Start und Projektladen bestätigt:** Der Nutzer hat die Schritt-115-Startdatei aus Downloads mit vorhandenem Python auf F: ausgeführt; Programm geöffnet und vorhandenes Projekt geladen. Aktualisierung und Projektauswahl jetzt nicht wiederholen. Weiter unten bei „Projekt und MicMac-Lauf“ fortsetzen. [Startanleitung](ZIP_AKTUALISIERUNG_WINDOWS10.md) nur bei späterem Bedarf verwenden.
 
 
 Windows 10 bleibt. Der Nutzer hat MicMac unter `E:\Tools\MicMac\bin\mm3d.exe` bereits ohne Fehlermeldung gestartet. Installation und diesen Starttest nicht wiederholen. Die vollständige Verfügbarkeit der benötigten Helfer wird erst durch den Bildlauf belegt.

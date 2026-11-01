@@ -1,6 +1,12 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
-> **Fortsetzung 01.11.2026 · VERT-01B2 technisch angebunden / ZIP-START-02:** Nutzer verlangt seinen bisherigen Downloads-Startblock `MCM_SolarCheck_Schritt115_START*.py` mit `F:\MCM-SolarCheck\.venv\Scripts\python.exe`. Dünne Kompatibilitätsdatei erstellt; verwendet manuell heruntergeladene, festgelegte Programm-ZIP `a0237d0a` und bestehenden PowerShell-Starter/SQLite-Auswahl/Sicherung. 18 gezielte Tests bestanden; tatsächliche GitHub-ZIP und Cache geprüft. Neue HEAD-CI prüfen. MicMac unter `E:\Tools\MicMac\bin\mm3d.exe` bestätigt, keine erneute Installations-/Startpfadfrage. **Danach echter lokaler Vollbildlauf und RGB-Referenzvergleich**; Referenz privat, hier nicht geladen. VERT-01 fachlich offen, keine Temperatur-/Qualitätsfreigabe. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md), [Startanleitung](ZIP_AKTUALISIERUNG_WINDOWS10.md).
+> **Fortsetzung 01.11.2026 · VERT-01B2 technisch angebunden / ZIP-START-02:** Nutzer verlangt seinen bisherigen Downloads-Startblock `MCM_SolarCheck_Schritt115_START*.py` mit `F:\MCM-SolarCheck\.venv\Scripts\python.exe`. Dünne Kompatibilitätsdatei erstellt; verwendet manuell heruntergeladene, festgelegte Programm-ZIP `a0237d0a` und bestehenden PowerShell-Starter/SQLite-Auswahl/Sicherung. **Nutzer bestätigt Programmstart und geladenes vorhandenes Projekt auf Windows 10.** Startdatei `48a4231b`: sechs CI-Jobs grün; 18 gezielte lokale Tests bestanden. Kein weiterer Startpfadtest nötig. MicMac unter `E:\Tools\MicMac\bin\mm3d.exe` bestätigt, keine erneute Installations-/Startpfadfrage. **Danach echter lokaler Vollbildlauf und RGB-Referenzvergleich**; Referenz privat, hier nicht geladen. VERT-01 fachlich offen, keine Temperatur-/Qualitätsfreigabe. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md), [Startanleitung](ZIP_AKTUALISIERUNG_WINDOWS10.md).
+
+
+### 01.11.2026 · ZIP-START-02 – Nutzerprobe erfolgreich
+- Nutzer meldet „programm geöffnet, projekt geladen“. Der Downloads-Start mit bisherigem Python und vorhandenem Projekt ist damit lokal bestätigt; keine zusätzliche Aussage zu Sicherungsprüfung, erneutem Öffnen oder Bildverarbeitungsqualität ableiten.
+- Startdatei `48a4231bc68a1c94890d6985132a31608b07d114`: alle sechs Linux-/Windows-CI-Jobs erfolgreich. Nur Übergabe aktualisiert, keine Programmänderung.
+- Nächster Schritt: Verarbeitung → MicMac-Dialog, bestätigte EXE wählen, privaten Ausgabeordner festlegen, „Lokal erstellen“. RGB-/Thermal-Ergebnisse und Referenzvergleich bleiben offen.
 
 
 ### 01.11.2026 · ZIP-START-02 – ausdrücklich gewünschter Schritt-115-Downloadstart
