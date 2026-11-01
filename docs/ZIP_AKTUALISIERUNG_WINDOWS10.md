@@ -4,7 +4,7 @@ Der Nutzer startet bisher eine von ChatGPT bereitgestellte ZIP-Testversion auf L
 
 ## Neue ZIP mit vorhandenem Projekt starten
 
-1. Die aktuelle **Quellcode-ZIP dieses Feature-Standes** herunterladen. In einen **neuen Ordner auf F:** entpacken. Alten Testordner, bisherige Python-Umgebung und Projektdateien behalten. Die ZIP enthält weder Python-Pakete noch MicMac, Originalbilder oder produktive Datenbanken.
+1. Bisherige SolarCheck-GUI schließen. Die aktuelle **Quellcode-ZIP dieses Feature-Standes** herunterladen. In einen **neuen Ordner auf F:** entpacken. Alten Testordner, bisherige Python-Umgebung und Projektdateien behalten. Die ZIP enthält weder Python-Pakete noch MicMac, Originalbilder oder produktive Datenbanken.
 2. Den entpackten Programmordner öffnen, in dem **`scripts` und `src`** liegen. Dort PowerShell öffnen.
 3. Den bestehenden Starter im Modus für das vorhandene Projekt aufrufen:
 

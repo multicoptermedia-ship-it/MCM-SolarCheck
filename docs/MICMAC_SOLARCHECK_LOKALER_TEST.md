@@ -4,6 +4,9 @@ Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der t
 
 ## Vorhandenen Stand verwenden
 
+**ZIP-Nutzung bestätigt:** Der Nutzer verwendet eine Test-ZIP auf F: und PowerShell, keinen Git-Checkout. Zuerst [ZIP-Aktualisierung mit vorhandenem Projekt](ZIP_AKTUALISIERUNG_WINDOWS10.md) verwenden. Der bisherige Startpfad muss nicht erneut erfragt werden.
+
+
 Windows 10 bleibt. Der Nutzer hat MicMac unter `E:\Tools\MicMac\bin\mm3d.exe` bereits ohne Fehlermeldung gestartet. Installation und diesen Starttest nicht wiederholen. Die vollständige Verfügbarkeit der benötigten Helfer wird erst durch den Bildlauf belegt.
 
 Die aktuelle SolarCheck-Version des bestehenden Branches `feature/orthofoto-license-neutral-rgb-first-20261028` auf dem Auswerterechner verwenden. Vorhandene Projektdatei und importierte Bilder erhalten; nicht erneut importieren oder eine neue Bild-/Archivinventur beginnen. Kein Merge nach `main`. Wenn der neue MicMac-Knopf fehlt, zunächst den lokalen Quellcodestand aktualisieren; das ist kein Anlass, die Funktion neu zu entwickeln.
@@ -12,9 +15,9 @@ Die aktuelle SolarCheck-Version des bestehenden Branches `feature/orthofoto-lice
 
 ### Vorhandenen Windows-Starter verwenden
 
-`scripts/start_windows10_offline.ps1` ist bereits vorhanden. Es verwendet die bestehende `.venv\Scripts\python.exe`, setzt den Quellcodepfad und startet `python -m mcm_solarcheck.offline`. Es installiert nichts und führt keine Bildverarbeitung automatisch aus. Keinen weiteren Launcher bauen.
+`scripts/start_windows10_offline.ps1` ist bereits vorhanden. Ohne Parameter verwendet es weiterhin `.venv\Scripts\python.exe`. Für ZIP-Aktualisierungen bietet `-UseExistingProject` die Auswahl der vorhandenen SQLite/Python samt lokaler Sicherung vor dem GUI-Start. Es setzt den Quellcodepfad und startet `python -m mcm_solarcheck.offline`. Es installiert nichts und führt keine Bildverarbeitung automatisch aus. Keinen weiteren Launcher bauen.
 
-Die Standardprojektdatei liegt bei diesem Einstieg unter `%USERPROFILE%\MCM-SolarCheck\solarcheck.sqlite3`, unabhängig vom aktuellen Programmordner. Falls der bisherige individuelle Start ausdrücklich eine andere Datenbank übergibt, diesen Startweg beibehalten. Nicht eine neue leere Datenbank als vermeintlich verlorenes Projekt behandeln und die Originale erneut importieren. Nach dem bisherigen Startskript/der Verknüpfung ist gefragt; der konkrete Nutzer-Startweg ist noch nicht bekannt.
+Die Standardprojektdatei liegt bei diesem Einstieg unter `%USERPROFILE%\MCM-SolarCheck\solarcheck.sqlite3`, unabhängig vom aktuellen Programmordner. Falls der bisherige individuelle Start ausdrücklich eine andere Datenbank übergibt, diesen Startweg beibehalten. Nicht eine neue leere Datenbank als vermeintlich verlorenes Projekt behandeln und die Originale erneut importieren. Der Nutzer hat inzwischen ZIP-Nutzung auf F: bestätigt; den ZIP-Modus des vorhandenen Starters verwenden, keinen zweiten Launcher bauen.
 
 Für einen bestehenden Git-Checkout: SolarCheck schließen und PowerShell im **Programmordner** öffnen (enthält `src`, `scripts` und `.venv`). Der folgende Block aktualisiert ausschließlich den erwarteten Feature-Branch und bricht bei anderem Branch oder lokalen Änderungen ab:
 
@@ -33,7 +36,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Aktualisierung abgebrochen; bisherigen Stand e
 & .\scripts\start_windows10_offline.ps1
 ```
 
-Bei ZIP-/EXE-Installation oder abweichendem bisherigen Datenbankstart diesen Git-Block nicht verwenden; zuerst den vorhandenen Startweg klären. Keine Neuinstallation von MicMac und kein Windows-11-Wechsel erforderlich.
+Bei der bestätigten ZIP-Nutzung diesen Git-Block nicht verwenden; stattdessen [ZIP-Anleitung](ZIP_AKTUALISIERUNG_WINDOWS10.md) und `-UseExistingProject` nutzen. Keine Neuinstallation von MicMac und kein Windows-11-Wechsel erforderlich.
 
 ### Projekt und MicMac-Lauf
 
