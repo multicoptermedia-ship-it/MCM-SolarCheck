@@ -30,7 +30,7 @@ Grundlage: Nutzer-PDF **Anforderungen-Solarcheck1.pdf**, Seite 1 (fachlicher Sol
 
 **Aktiver nächster vertikaler Block VERT-01:** Projekt-/Fotoimport → lokale freie Standard-Orthofotoberechnung → zwei gespeicherte GeoTIFFs → zentrale Anlagenübersicht mit Slider und Zoom. Keine eigene Rechenengine, keine ODM/WebODM/ODX-Anbindung. Die vorliegende MicMac-Lizenzprüfung wiederverwenden; konkrete lokale Toolchain/Installation und echte Ergebnisse sind noch offen.
 
-**Erster konkreter Teil VERT-01A, noch nicht begonnen:** Bereits gespeichertes RGB-/Thermal-Paar des aktiven Projekts in der **Anlagenübersicht** anzeigen. Bestehende `project_orthophoto_pairs`, `aligned_preview_arrays` und `OrthophotoComparisonWidget` weiterverwenden; `plant_overview_page.py`/Shell verbinden. Projektwechsel, Wiederöffnung, Masken, Slider und Zoom in derselben Bedienkette prüfen. Vorher Code/aktuellen HEAD lesen; nicht Paarimport oder Viewer erneut bauen.
+**Erster konkreter Teil VERT-01A, in Arbeit:** Bereits gespeichertes RGB-/Thermal-Paar des aktiven Projekts in der **Anlagenübersicht** anzeigen. Bestehende `project_orthophoto_pairs`, `aligned_preview_arrays` und `OrthophotoComparisonWidget` weiterverwenden; `plant_overview_page.py`/Shell verbinden. Projektwechsel, Wiederöffnung, Masken, Slider und Zoom in derselben Bedienkette prüfen. Vorher Code/aktuellen HEAD lesen; nicht Paarimport oder Viewer erneut bauen.
 
 **Danach VERT-01B:** Fehlende freie lokale Berechnung aus importierten Einzelbildern an denselben Paar-/Anzeigeweg anbinden. Toolrechte/Verfügbarkeit vor Ausführung klären, vorhandene Recherche nicht wiederholen. Echte Bildabnahme nur unter Nutzerkontrolle lokal. **VERT-01A allein schließt VERT-01 nicht ab.**
 

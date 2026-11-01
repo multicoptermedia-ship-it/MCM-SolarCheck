@@ -72,6 +72,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._orthophoto_comparison = None
         self._orthophoto_pv_dialog = None
         self._orthophoto_comparison_error = None
+        self._plant_orthophoto_pair_id = None
         self._integrity_close_pending = False
         self._integrity_project_id = None
         self._rgb_integrity_status = None
@@ -434,6 +435,7 @@ class SolarCheckMainWindow(QMainWindow):
                 self._orthophoto_pv_dialog = None
             self._orthophoto_comparison = None
             self._orthophoto_comparison_error = None
+            self._plant_orthophoto_pair_id = None
             self._rgb_preview_status = None
             self._rgb_preview_path = None
         self._current_project_id = project_id
@@ -456,7 +458,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._refresh_plant_overview_page()
 
     def _refresh_plant_overview_page(self) -> None:
-        """Rebuild a bounded read-only site inventory from authoritative SQLite."""
+        """Show only the active project's registered rasters and stored evidence."""
         old_page = self._pages[ShellRoute.PLANT_OVERVIEW]
         provider = getattr(self._project_service, "plant_overview", None)
         project_id = self._current_project_id
@@ -468,20 +470,55 @@ class SolarCheckMainWindow(QMainWindow):
             provider(project_id, offset=self._plant_overview_offset, limit=100)
             if enabled else None
         )
+        pair_provider = getattr(self._project_service, "project_orthophoto_pairs", None)
+        pairs = (
+            pair_provider(project_id)
+            if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+            and project_id is not None and callable(pair_provider) else ()
+        )
+        selected = next((p for p in pairs if p['pair_id'] == self._plant_orthophoto_pair_id),
+                        pairs[-1] if pairs else None)
+        self._plant_orthophoto_pair_id = selected['pair_id'] if selected else None
+        preview, error = None, None
+        if selected is not None:
+            try:
+                preview = self._load_orthophoto_preview(
+                    selected['rgb_source_path'], selected['thermal_source_path'],
+                )
+            except (ValueError, OSError, KeyError, RuntimeError) as exc:
+                error = (
+                    "Orthofoto-Paar konnte nicht geladen werden. "
+                    "Lokale Dateien prüfen und Anlagenübersicht aktualisieren. "
+                    f"{exc}"
+                )
         new_page = make_plant_overview_page(
             current_project_id=project_id if self._deployment is DeploymentMode.OFFLINE_DESKTOP else None,
             overview=overview,
             on_refresh=(
                 (lambda checked=False, source=project_id:
                     self._load_plant_overview_page(source, self._plant_overview_offset))
-                if enabled else None
+                if enabled or pairs else None
             ),
             on_page_requested=(
                 (lambda offset, source=project_id:
                     self._load_plant_overview_page(source, offset))
                 if enabled else None
             ),
+            orthophoto_pairs=pairs,
+            selected_pair_id=self._plant_orthophoto_pair_id,
+            orthophoto_comparison=preview,
+            orthophoto_error=error,
+            on_pair_selected=(
+                (lambda pair_id, source=project_id:
+                    self._select_plant_orthophoto_pair(source, pair_id))
+                if pairs else None
+            ),
         )
+        # Keep module pagination/refresh in its existing tab.
+        from PySide6.QtWidgets import QTabWidget
+        old_tabs = old_page.findChild(QTabWidget, "plant_overview_tabs")
+        if old_tabs is not None:
+            new_page.findChild(QTabWidget, "plant_overview_tabs").setCurrentIndex(old_tabs.currentIndex())
         self._pages[ShellRoute.PLANT_OVERVIEW] = new_page
         index = self._stack.indexOf(old_page)
         self._stack.insertWidget(index, new_page)
@@ -489,6 +526,19 @@ class SolarCheckMainWindow(QMainWindow):
             self._stack.setCurrentWidget(new_page)
         self._stack.removeWidget(old_page)
         old_page.deleteLater()
+
+    def _select_plant_orthophoto_pair(self, source_project: str, pair_id: str) -> None:
+        """Reject stale Qt callbacks and resolve paths only from this project's pairs."""
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or source_project != self._current_project_id):
+            return
+        provider = getattr(self._project_service, "project_orthophoto_pairs", None)
+        if not callable(provider) or not any(
+            pair['pair_id'] == pair_id for pair in provider(source_project)
+        ):
+            return
+        self._plant_orthophoto_pair_id = pair_id
+        self._refresh_plant_overview_page()
 
     def _clear_prepared_draft(self) -> None:
         """Discard stale report previews and their export authorization context."""
@@ -3079,15 +3129,17 @@ class SolarCheckMainWindow(QMainWindow):
             return
         from sqlite3 import Error as SQLiteError
         try:
-            self._project_service.register_project_orthophoto_pair(
+            pair = self._project_service.register_project_orthophoto_pair(
                 self._current_project_id, rgb_path, thermal_path,
                 source_kind="external_gis", thermal_value_kind=thermal_value_kind,
             )
+            self._plant_orthophoto_pair_id = pair['pair_id']
             self._geotiff_result = (
                 "RGB- und Thermal-Orthofoto als zusammengehöriges Paar registriert. "
                 "Dateien unverändert; keine fachliche oder Temperaturfreigabe."
             )
             self._compare_project_orthophotos(rgb_path, thermal_path)
+            self._refresh_plant_overview_page()
             return
         except (ValueError, TypeError, OSError, KeyError, RuntimeError, SQLiteError) as error:
             self._geotiff_result = f"Orthofoto-Paar konnte nicht registriert werden: {error}"
@@ -3136,20 +3188,25 @@ class SolarCheckMainWindow(QMainWindow):
             self._geotiff_result = f"Orthofoto-Erzeugung fehlgeschlagen: {error}"
         self._refresh_import_page()
 
+    @staticmethod
+    def _load_orthophoto_preview(rgb_path: str, thermal_path: str):
+        """Reuse the bounded GIS preview for import and plant overview alike."""
+        from mcm_solarcheck.services.orthophoto_layer_alignment import (
+            aligned_preview_arrays, inspect_orthophoto_layer_pair,
+        )
+        import numpy as np
+        pair = inspect_orthophoto_layer_pair(rgb_path, thermal_path)
+        preview = aligned_preview_arrays(pair)
+        if not np.isfinite(preview[1]).any():
+            raise ValueError("RGB- und Thermal-Orthofotos haben keine gemeinsame Rasterabdeckung")
+        return preview
+
     def _compare_project_orthophotos(self, rgb_path: str, thermal_path: str) -> None:
         """Show GIS-aligned local raster previews; never alter project approval."""
         if self._project_service is None or self._current_project_id is None:
             return
-        from mcm_solarcheck.services.orthophoto_layer_alignment import (
-            aligned_preview_arrays, inspect_orthophoto_layer_pair,
-        )
         try:
-            pair = inspect_orthophoto_layer_pair(rgb_path, thermal_path)
-            preview = aligned_preview_arrays(pair)
-            import numpy as np
-            if not np.isfinite(preview[1]).any():
-                raise ValueError("RGB- und Thermal-Orthofotos haben keine gemeinsame Rasterabdeckung")
-            self._orthophoto_comparison = preview
+            self._orthophoto_comparison = self._load_orthophoto_preview(rgb_path, thermal_path)
             self._orthophoto_comparison_error = None
         except (ValueError, OSError, KeyError, RuntimeError) as error:
             self._orthophoto_comparison = None
