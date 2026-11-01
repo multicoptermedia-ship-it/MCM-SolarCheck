@@ -11,7 +11,7 @@ Originalbilder/GPS/RTK/Kundendaten/produktive SQLite/echte Raster nie in GitHub,
 
 ## Technische Basis
 **VERT-01B2 technisch angebunden**, Code `dd8ed5c15fd585b91238a6de64a96da1239f6364`. Lokale Gesamtsuite vor abschließender PROJ-Netzsperre: **4.146 bestanden, 15 Skips, 90 Warnungen (177,95 s)**. Danach **23 abschließende MicMac-Service-/GUI-Tests bestanden**, einschließlich zusätzlicher Offline-PROJ-Prüfung. Fake-MicMac-CLI, synthetische Bilder sowie echte Python-Prozessbaum-/Qt-Tests; kein tatsächlicher MicMac-Bildlauf in Codex.
-Vorgänger `5690b301`: sechs Linux-/Windows-CI-Jobs grün geprüft. **Neue exakte HEAD-CI nach Push prüfen.** Windows-2022-CI ist keine Windows-10-Bildqualitätsabnahme.
+Stand `f06e982c`: sechs Linux-/Windows-CI-Jobs grün geprüft. **Neue exakte HEAD-CI nach Push prüfen.** Windows-2022-CI ist keine Windows-10-Bildqualitätsabnahme.
 
 ## Vorhandene Teile – nicht erneut bauen
 - **DEV-EXTERNAL-ORTHOPHOTO-PAIR-001:** atomare RGB-/Thermal-Paarregistrierung in SQLite-Schema 22, vorhandene GeoTIFF-Prüfung/Masken/Alpha/NaN/CRS-Behandlung. PV-Detektor auf gewählten RGB-Fenstern; GIS-basierte Thermal-Zuordnung mit korrekten Pixelzentren. `metadata_only` bleibt ohne Fach-/Temperaturfreigabe.
@@ -28,7 +28,7 @@ Tests: `test_micmac_orthophotos.py`, `test_gui_micmac_orthophotos.py` und vorhan
 
 ## Bestätigter Nutzerstand und nächster Schritt
 Nutzer bestätigt Windows-10-Auswerterechner mit bereits getesteter GUI/Projektanmeldung/Import. **MicMac unter `E:\Tools\MicMac\bin\mm3d.exe` gestartet, keine Fehlermeldung, Installation bestätigt.** Nicht erneut nach Installation oder demselben Starttest fragen. Vollständige Hilfsprogramme/Version/Bildlauf noch nicht unabhängig belegt.
-**Nächster offener Schritt: echter lokaler Vollbildlauf der fertigen Anbindung**, siehe [Bedien-/Vergleichsanleitung](MICMAC_SOLARCHECK_LOKALER_TEST.md). Aktuellen Feature-Branch auf dem Auswerterechner verwenden, vorhandenes Projekt öffnen, EXE und privaten Ausgabeordner wählen, lokal starten. Bei fehlenden Kamerapositionen/Höhen nichts erfinden. Bei konkretem Fehler Standardkommandos/Installation gezielt korrigieren; keine neue Engine, Inventur oder Anzeige-Nebenentwicklung.
+**Nächster offener Schritt: echter lokaler Vollbildlauf**, siehe [Anleitung](MICMAC_SOLARCHECK_LOKALER_TEST.md). Vorhandenen Starter `scripts/start_windows10_offline.ps1` wiederverwenden (.venv; Standarddatenbank im Benutzerprofil). Keinen Launcher neu bauen. Bisheriger Nutzer-Startweg noch nicht benannt; Rückfrage gestellt, um dieselbe Projektdatei zu erhalten. Aktuellen Feature-Branch verwenden. Konkrete Fehler gezielt korrigieren, keine neue Engine/Inventur/Anzeige-Nebenentwicklung.
 **Neue Nutzerangabe:** WebODM-RGB-Orthofoto privat im bekannten Google-Drive-Bestand als Vergleichsreferenz bereitgestellt. Hier nicht geladen oder verglichen; keine Dateilinks/Kundenraster veröffentlichen. Nach der lokalen MicMac-Ausgabe beide RGB-Ergebnisse lokal bei nativer Auflösung auf Abdeckung, Modulschärfe, Doppelkonturen, Nähte und Lage vergleichen. RGB-Referenz nicht als Thermal registrieren. Referenzvergleich ist offen, keine Qualitätsbehauptung daraus ableiten.
 **VERT-01 insgesamt noch nicht fachlich abgenommen.** Speicherung/Wiederöffnung/Abbruch technisch geprüft; tatsächlicher vollständiger RGB-/Thermal-Lauf und Windows-10-/Qualitätsabnahme stehen aus. Nur belegte Fehler korrigieren, fertige Teile nicht erneut entwickeln.
 

@@ -10,6 +10,33 @@ Die aktuelle SolarCheck-Version des bestehenden Branches `feature/orthofoto-lice
 
 ## Bedienweg in SolarCheck
 
+### Vorhandenen Windows-Starter verwenden
+
+`scripts/start_windows10_offline.ps1` ist bereits vorhanden. Es verwendet die bestehende `.venv\Scripts\python.exe`, setzt den Quellcodepfad und startet `python -m mcm_solarcheck.offline`. Es installiert nichts und führt keine Bildverarbeitung automatisch aus. Keinen weiteren Launcher bauen.
+
+Die Standardprojektdatei liegt bei diesem Einstieg unter `%USERPROFILE%\MCM-SolarCheck\solarcheck.sqlite3`, unabhängig vom aktuellen Programmordner. Falls der bisherige individuelle Start ausdrücklich eine andere Datenbank übergibt, diesen Startweg beibehalten. Nicht eine neue leere Datenbank als vermeintlich verlorenes Projekt behandeln und die Originale erneut importieren. Nach dem bisherigen Startskript/der Verknüpfung ist gefragt; der konkrete Nutzer-Startweg ist noch nicht bekannt.
+
+Für einen bestehenden Git-Checkout: SolarCheck schließen und PowerShell im **Programmordner** öffnen (enthält `src`, `scripts` und `.venv`). Der folgende Block aktualisiert ausschließlich den erwarteten Feature-Branch und bricht bei anderem Branch oder lokalen Änderungen ab:
+
+```powershell
+$solarCheckBranch = 'feature/orthofoto-license-neutral-rgb-first-20261028'
+$solarCheckCurrent = git branch --show-current
+if ($LASTEXITCODE -ne 0 -or $solarCheckCurrent -ne $solarCheckBranch) {
+    throw 'Bitte zuerst den bestehenden SolarCheck-Feature-Checkout verwenden.'
+}
+$solarCheckChanges = git status --porcelain
+if ($LASTEXITCODE -ne 0 -or $solarCheckChanges) {
+    throw 'Lokale Änderungen zuerst prüfen; es wird nichts zurückgesetzt.'
+}
+git pull --ff-only origin $solarCheckBranch
+if ($LASTEXITCODE -ne 0) { throw 'Aktualisierung abgebrochen; bisherigen Stand erhalten.' }
+& .\scripts\start_windows10_offline.ps1
+```
+
+Bei ZIP-/EXE-Installation oder abweichendem bisherigen Datenbankstart diesen Git-Block nicht verwenden; zuerst den vorhandenen Startweg klären. Keine Neuinstallation von MicMac und kein Windows-11-Wechsel erforderlich.
+
+### Projekt und MicMac-Lauf
+
 1. Das vorhandene Offline-Projekt öffnen und zu **Verarbeitung** wechseln.
 2. **„RGB- und Thermal-Orthofotos mit MicMac erstellen …“** öffnen. Das Öffnen des Dialogs startet noch keinen Prozess und liest keine Bildpixel.
 3. Bei **MicMac-Programm** `E:\Tools\MicMac\bin\mm3d.exe` wählen. Diese Auswahl wird lokal für spätere Starts gespeichert.
