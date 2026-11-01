@@ -1,6 +1,16 @@
 # MicMac separat auf dem Windows-10-Auswerterechner einrichten
 
-Nutzerbestätigung 01.11.2026: **Windows 10 bleibt**, kein Wechsel auf Windows 11. GUI, Projektanmeldung und Import wurden dort bereits getestet. **MicMac ist noch nicht installiert.** Diese beiden Fragen sind beantwortet und werden nicht erneut als unbekannt behandelt.
+Nutzerbestätigung 01.11.2026: **Windows 10 bleibt**, kein Wechsel auf Windows 11. GUI, Projektanmeldung und Import wurden dort bereits getestet. **Aktualisierung: Nutzer meldet `E:\Tools\MicMac\bin\mm3d.exe`** (Schreibabstände normalisiert). Die frühere Angabe „noch nicht installiert“ ist überholt. Jetzt den lokalen Start prüfen; Version/Helfer/Rechenlauf sind noch nicht bestätigt. Nicht erneut Betriebssystem oder Installationspfad erfragen.
+
+## Jetzt ausführen: Starttest am gemeldeten Pfad
+
+PowerShell auf dem Windows-10-Auswerterechner öffnen und ohne Bildargumente starten:
+
+```powershell
+& 'E:\Tools\MicMac\bin\mm3d.exe'
+```
+
+Erwartet wird eine Hilfe-/Kommandoliste. Rückmeldung: erscheint diese Liste, oder welcher genaue Fehlertext wird ausgegeben? Noch keine Fotos oder GPS-Daten für diesen Test verwenden. Cloud-Codex kann die lokale E:-Festplatte nicht prüfen. Die folgenden Einrichtungsschritte sind Referenz und müssen bei vorhandener Installation nicht wiederholt werden.
 
 ## Bezugsquelle und Installationsgrenze
 
