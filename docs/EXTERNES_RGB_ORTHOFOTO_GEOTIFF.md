@@ -1,6 +1,6 @@
 # Lokale Orthofotos → bestehender GeoTIFF-Import → PV und Thermal
 
-**Nutzerentscheidung vom 31.10.2026:** Je ein Orthofoto aus den RGB- und Thermalaufnahmen bereitstellen. Dafür etablierte freie Programme verwenden, keine eigene Photogrammetrie-Engine und keine proprietäre/kostenpflichtige Software. ODM, WebODM und ODX bleiben ausgeschlossen. Zuerst [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md) lesen.
+**Nutzerentscheidung vom 31.10.2026:** Je ein Orthofoto aus den RGB- und Thermalaufnahmen bereitstellen. Dafür etablierte freie Programme verwenden, keine eigene Photogrammetrie-Engine und keine proprietäre/kostenpflichtige Software. ODM, WebODM und ODX bleiben als SolarCheck-Integration ausgeschlossen. Das vorhandene WebODM darf der Nutzer unabhängig und manuell außerhalb von SolarCheck benutzen; kein Start/Installer/API/Container aus der App. Zuerst [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md) lesen.
 
 ## Aufgabe von SolarCheck
 
@@ -13,8 +13,9 @@ RGB und Thermal sind getrennte Artefakte. Gleiche Bildnummern verbinden Original
 1. Originalbilder, GPS/RTK und Kundendaten auf dem Rechner des Nutzers belassen. Originale nur lesen; externe Verarbeitung ausschließlich in einem getrennten lokalen Arbeits-/Ausgabeordner. Keine Übertragung nach GitHub, CI oder Cloud-Diensten. Entwicklungstests verwenden synthetische Raster.
 2. Mit einem etablierten, für die konkrete Zusammenstellung geprüften freien Werkzeug RGB- und Thermal-Orthofoto erzeugen. Auswahl und MicMac-Prüfstand stehen in [FREIE_ORTHOFOTO_WERKZEUGE.md](FREIE_ORTHOFOTO_WERKZEUGE.md). Eine Installation oder automatische Verarbeitung durch SolarCheck ist damit noch nicht nachgewiesen.
 3. Beide GeoTIFFs prüfen: eingebettetes CRS, Rastertransform, Ausdehnung, Pixelgröße, gültige Datenmaske/NoData und Bandbedeutung. Eine `.tif`-Endung allein genügt nicht. Bei TIFF mit Worldfile erst die tatsächliche Koordinatenreferenz feststellen; keinen EPSG-Code erfinden. GDAL/QGIS können bekannte Referenzen übernehmen oder reprojizieren, aber keine fehlende Kamerageometrie durch ein CRS-Etikett erzeugen.
-4. Bestehenden SolarCheck-Import für beide Raster verwenden. PV-Modulgrenzen und IDs im RGB bestimmen, ihre räumliche Lage auf das Thermalraster übertragen. Fehlende Überdeckung und NoData aus der Auswertung ausschließen.
-5. Modulränder, Doppelkonturen, Nähte und sensorübergreifende Lage am lokalen Ergebnis prüfen. Erst ein echter Vergleich kann die früheren schlechten Nähte des 160-RGB-Piloten fachlich ablösen. Synthetische Tests sind kein Orthofoto-Qualitätsnachweis.
+4. Im bestehenden Importbereich **„RGB- und Thermal-Orthofoto gemeinsam importieren“** wählen und beide Sensorrollen eindeutig belegen. Die Transaktion speichert entweder beide Dateien samt Paarzuordnung oder nichts. Thermal als Darstellung oder Rohwerte kennzeichnen, keine Temperaturkalibrierung erfinden. Das gespeicherte Paar kann nach Projektneustart wieder angezeigt werden.
+5. **„PV-Modulvorschläge im RGB-Orthofoto prüfen“** öffnen, mit der Maus einen begrenzten Ausschnitt markieren und den vorhandenen Detektor starten. Die Vorschläge bleiben zur Fachprüfung. Ihre Lage wird über CRS/Affine auf Thermalpixel übertragen; Überdeckung/NoData und Pixelzentren werden berücksichtigt. Noch keine automatisch bestätigten Modul-IDs oder Temperaturbefunde.
+6. Modulränder, Doppelkonturen, Nähte und sensorübergreifende Lage am lokalen Ergebnis prüfen. Erst ein echter Vergleich kann die früheren schlechten Nähte des 160-RGB-Piloten fachlich ablösen. Synthetische Tests sind kein Orthofoto-Qualitätsnachweis.
 
 ## Thermal: Darstellung und Temperaturwerte unterscheiden
 

@@ -30,7 +30,11 @@ _THERMAL_PIXEL_BUDGET = 1_000_000
 
 @dataclass(frozen=True)
 class OrthophotoPVModuleProposal:
-    """Private native pixel coordinates, without database or module approval."""
+    """Private OpenCV center-index coordinates, without module approval.
+
+    In each raster, (0, 0) is the center of its first pixel. The adapter
+    explicitly converts this convention to/from GeoTIFF corner coordinates.
+    """
 
     rgb_polygon_px: tuple[tuple[float, float], ...] = field(repr=False)
     thermal_polygon_px: tuple[tuple[float, float], ...] = field(repr=False)
@@ -79,7 +83,9 @@ def _polygon_mask(polygon, *, width, height, left=0, top=0):
     ring = [tuple(point) for point in polygon]
     return geometry_mask(
         [{"type": "Polygon", "coordinates": [ring + [ring[0]]]}],
-        out_shape=(height, width), transform=Affine.translation(left, top),
+        # geometry_mask samples pixel centers. This transform places native
+        # center-index (left, top) at the first output sample, not at its corner.
+        out_shape=(height, width), transform=Affine.translation(left-.5, top-.5),
         invert=True,
     )
 
@@ -92,7 +98,10 @@ def _map_polygon(polygon, rgb_transform, thermal_transform, transformer):
         a, b = np.asarray(first), np.asarray(second)
         steps = min(64, max(4, ceil(float(np.linalg.norm(b-a))/32.)))
         samples.extend(a + (b-a)*fraction for fraction in np.arange(steps)/steps)
-    samples = np.asarray(samples)
+    # OpenCV keypoints/boxPoints use center-index coordinates, whereas a
+    # GeoTIFF affine maps pixel corners. The half-pixel conversion matters
+    # whenever the two orthophotos have different pixel sizes or rotations.
+    samples = np.asarray(samples) + .5
     world = np.column_stack((
         rgb_transform.a*samples[:, 0] + rgb_transform.b*samples[:, 1] + rgb_transform.c,
         rgb_transform.d*samples[:, 0] + rgb_transform.e*samples[:, 1] + rgb_transform.f,
@@ -102,15 +111,15 @@ def _map_polygon(polygon, rgb_transform, thermal_transform, transformer):
     except ProjError:
         raise ValueError("module polygon cannot be transformed between orthophoto CRS") from None
     inverse = ~thermal_transform
-    mapped = tuple((float(inverse.a*xx + inverse.b*yy + inverse.c),
-                    float(inverse.d*xx + inverse.e*yy + inverse.f)) for xx, yy in zip(x, y))
+    mapped = tuple((float(inverse.a*xx + inverse.b*yy + inverse.c - .5),
+                    float(inverse.d*xx + inverse.e*yy + inverse.f - .5)) for xx, yy in zip(x, y))
     if not np.isfinite(mapped).all():
         raise ValueError("finite transformed thermal module polygon required")
     return mapped
 
 
 def _thermal_coverage(dataset, polygon, bands, should_cancel):
-    xy = np.asarray(polygon)
+    xy = np.asarray(polygon) + .5  # Bounding window uses GDAL corner coordinates.
     left, top = floor(float(xy[:, 0].min())), floor(float(xy[:, 1].min()))
     right, bottom = ceil(float(xy[:, 0].max())), ceil(float(xy[:, 1].max()))
     width, height = right-left, bottom-top
@@ -153,8 +162,9 @@ def detect_orthophoto_pv_window(
     """Reuse the PV detector without resizing a bounded, original-resolution ROI.
 
     ``window`` is ``(column, row, width, height)`` in native RGB pixels. Native
-    pixel coordinates use the continuous raster image plane, transformed by
-    each GeoTIFF's declared affine and CRS. No temperature unit is inferred.
+    pixel polygons use OpenCV's center-index convention: (0, 0) is the first
+    pixel center. Mapping explicitly converts to/from GeoTIFF corner-based
+    affines and each declared CRS. No temperature unit is inferred.
     Proposals overlapping RGB NoData are rejected; thermal gaps lower coverage.
     """
     _cancel(should_cancel)
@@ -199,7 +209,7 @@ def detect_orthophoto_pv_window(
         for detection in detections:
             _cancel(should_cancel)
             local = detection.polygon_px
-            xy = np.asarray(local)
+            xy = np.asarray(local) + .5  # GDAL corner coordinates for the window.
             left, top = np.floor(xy.min(axis=0)).astype(int)
             right, bottom = np.ceil(xy.max(axis=0)).astype(int)
             # Rasterize only each module's bounding box, not a full 2048²

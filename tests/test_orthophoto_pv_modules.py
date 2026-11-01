@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import pytest
 import rasterio
-from rasterio.transform import Affine, from_origin
+from rasterio.transform import Affine, from_origin, xy as raster_center_xy
 
 from mcm_solarcheck.services.orthophoto_pv_modules import detect_orthophoto_pv_window
 from mcm_solarcheck.vision.detection import ModuleDetection
@@ -84,14 +84,15 @@ def test_existing_detector_native_roi_maps_to_different_crs_without_full_reads(t
     center = np.mean(first.rgb_polygon_px, axis=0)
     np.testing.assert_allclose(center, (140., 125.), atol=1.)
     for x, y in first.rgb_polygon_px:
-        east, north = _xy(rgb_transform, x, y)
+        east, north = raster_center_xy(rgb_transform, y, x, offset="center")
         lon = degrees(east/earth_radius)
         lat = degrees(atan(sinh(north/earth_radius)))
-        expected = np.asarray(_xy(~thermal_transform, lon, lat))
+        expected = np.asarray(_xy(~thermal_transform, lon, lat)) - .5
         assert np.linalg.norm(np.asarray(first.thermal_polygon_px)-expected, axis=1).min() < 1.e-7
     for tx, ty in first.thermal_polygon_px:
-        lon, lat = _xy(thermal_transform, tx, ty)
-        original = _xy(~rgb_transform, earth_radius*radians(lon), earth_radius*asinh(tan(radians(lat))))
+        lon, lat = raster_center_xy(thermal_transform, ty, tx, offset="center")
+        original = np.asarray(_xy(~rgb_transform, earth_radius*radians(lon),
+                                 earth_radius*asinh(tan(radians(lat))))) - .5
         assert 100 <= original[0] <= 180 and 100 <= original[1] <= 150
     assert all(p.thermal_valid_coverage == 1. for p in result.proposals)
     assert all(p.review_status == "pending" for p in result.proposals)
@@ -116,7 +117,8 @@ def test_thermal_nan_nodata_and_gdal_mask_each_reduce_native_polygon_coverage(tm
                       crs="EPSG:25832", nodata=-9999., mask=valid)
     # Explicit GDAL masks override nodata masks. Both the declared sentinel
     # and actual NaNs nevertheless need to remain invalid thermal pixels.
-    polygon = ((10., 10.), (50., 10.), (50., 50.), (10., 50.))
+    # Edges at half-index coordinates surround native pixel centers 10..49.
+    polygon = ((9.5, 9.5), (49.5, 9.5), (49.5, 49.5), (9.5, 49.5))
     result = detect_orthophoto_pv_window(rgb, thermal, window=(0, 0, 100, 100),
                                         detector=_fixed_detector(polygon))
     proposal, = result.proposals
@@ -182,8 +184,33 @@ def test_rotated_affines_map_real_native_pixel_coordinates(tmp_path):
                                         detector=_fixed_detector(local))
     proposal, = result.proposals
     for x, y in proposal.rgb_polygon_px:
-        expected = np.asarray(_xy(~thermal_transform, *_xy(rgb_transform, x, y)))
+        world = raster_center_xy(rgb_transform, y, x, offset="center")
+        expected = np.asarray(_xy(~thermal_transform, *world)) - .5
         assert np.linalg.norm(np.asarray(proposal.thermal_polygon_px)-expected, axis=1).min() < 1.e-9
+    assert proposal.thermal_valid_coverage == 1.
+
+
+def test_unequal_resolution_converts_pixel_centers_not_corners(tmp_path):
+    rgb_transform = from_origin(1000., 2000., 1., 1.)
+    thermal_transform = from_origin(1000., 2000., 2., 2.)
+    rgb = _raster(tmp_path/"rgb.tif", np.full((3, 64, 64), 100, np.uint8), rgb_transform)
+    thermal = _raster(tmp_path/"thermal.tif", np.ones((1, 64, 64), np.float32), thermal_transform)
+    polygon = ((20., 20.), (40., 20.), (40., 40.), (20., 40.))
+    result = detect_orthophoto_pv_window(rgb, thermal, window=(0, 0, 64, 64),
+                                        detector=_fixed_detector(polygon))
+    proposal, = result.proposals
+    world_center = raster_center_xy(rgb_transform, 20, 20, offset="center")
+    assert world_center == (1020.5, 1979.5)
+    expected = np.asarray(_xy(~thermal_transform, *world_center)) - .5
+    np.testing.assert_array_equal(expected, (9.75, 9.75))
+    np.testing.assert_array_equal(proposal.thermal_polygon_px[0], expected)
+    # In the same CRS, round-trip the returned thermal center to the original
+    # world center. Direct corner mapping would return (10, 10) and fail here.
+    np.testing.assert_array_equal(
+        raster_center_xy(thermal_transform, proposal.thermal_polygon_px[0][1],
+                         proposal.thermal_polygon_px[0][0], offset="center"),
+        world_center,
+    )
     assert proposal.thermal_valid_coverage == 1.
 
 
