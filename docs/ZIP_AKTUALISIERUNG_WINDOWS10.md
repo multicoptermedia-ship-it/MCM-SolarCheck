@@ -22,6 +22,20 @@ if (-not $skript) {
 
 Die neu gespeicherte Datei muss die jüngste passende Startdatei sein. Sie verwendet dasselbe Python, entpackt nur Quellcode in **`F:\MCM-SolarCheck\test-updates\MCM-MicMac-a0237d0a2339`** und ruft dort den vorhandenen PowerShell-Starter auf. Danach die bisherige Projektdatei auswählen. Beim nächsten Start genügt der bereits vorbereitete Testordner; die ZIP muss dann nicht mehr vorhanden sein. Keine automatischen Downloads oder Installationen; MicMac bleibt separat. Der Programmstand ist absichtlich auf den bereits geprüften Stand festgelegt.
 
+## Wenn der Orthofoto-Abschnitt nach dem Start fehlt
+
+Der Abschnitt steht in diesem Programmstand direkt vor den Bildzählern auf Verarbeitung. Fehlt er vollständig, zunächst den tatsächlich gestarteten Stand klären. Alle SolarCheck-Fenster schließen, die oben verlinkte Python-Datei unter exakt `MCM_SolarCheck_Schritt115_START_MicMac.py` in Downloads speichern und direkt ausführen:
+
+```powershell
+$skript = Join-Path $env:USERPROFILE 'Downloads\MCM_SolarCheck_Schritt115_START_MicMac.py'
+if (-not (Test-Path -LiteralPath $skript -PathType Leaf)) {
+    throw 'MicMac-Startdatei fehlt unter dem angegebenen Namen in Downloads.'
+}
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' $skript
+```
+
+Dadurch wird keine andere ältere Schritt-115-Datei aufgrund ihres Zeitstempels ausgewählt. Eine falsche Dateiauswahl ist bislang eine Hypothese. Bleibt der Abschnitt unsichtbar, den tatsächlich geladenen Programmquellpfad als nächsten Schritt prüfen; keine neue GUI oder Engine bauen.
+
 ## Neue ZIP mit vorhandenem Projekt starten
 
 1. Bisherige SolarCheck-GUI schließen. Die aktuelle **Quellcode-ZIP dieses Feature-Standes** herunterladen. In einen **neuen Ordner auf F:** entpacken. Alten Testordner, bisherige Python-Umgebung und Projektdateien behalten. Die ZIP enthält weder Python-Pakete noch MicMac, Originalbilder oder produktive Datenbanken.
