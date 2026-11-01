@@ -254,7 +254,7 @@ def test_processing_uses_existing_external_pair_intake_without_running_frozen_en
         window._workflow_navigation.button(ShellRoute.PROCESSING).click()
         assert window.current_route is ShellRoute.PROCESSING
         processing = window._pages[ShellRoute.PROCESSING]
-        assert "noch nicht angebunden" in processing.findChild(
+        assert "MicMac" in processing.findChild(
             QLabel, "processing_orthophoto_generation_status",
         ).text()
         old_button = processing.findChild(QPushButton, "processing_import_orthophoto_pair")

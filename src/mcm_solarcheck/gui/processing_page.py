@@ -27,6 +27,7 @@ def make_processing_page(
     on_cancel_project_rgb_preview=None, project_rgb_preview_status=None,
     project_rgb_preview_running=False,
     on_import_orthophoto_pair=None,
+    on_generate_micmac=None, micmac_status=None,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -70,10 +71,20 @@ def make_processing_page(
     )
     guidance.setWordWrap(True)
     ortho_layout.addWidget(guidance)
-    status = QLabel("Automatische Orthofoto-Erzeugung ist noch nicht angebunden.", orthophotos)
+    status = QLabel(micmac_status or (
+        "MicMac kann nach Auswahl der lokalen Installation gestartet werden."
+        if callable(on_generate_micmac) else
+        "Für die lokale MicMac-Erzeugung bitte ein Offline-Projekt öffnen."
+    ), orthophotos)
     status.setObjectName("processing_orthophoto_generation_status")
     status.setWordWrap(True)
     ortho_layout.addWidget(status)
+    generate = QPushButton("RGB- und Thermal-Orthofotos mit MicMac erstellen …", orthophotos)
+    generate.setObjectName("processing_generate_micmac")
+    generate.setEnabled(current_project_id is not None and callable(on_generate_micmac))
+    if generate.isEnabled():
+        generate.clicked.connect(on_generate_micmac)
+    ortho_layout.addWidget(generate)
     import_pair = QPushButton("Extern erstelltes RGB-/Thermal-Paar übernehmen", orthophotos)
     import_pair.setObjectName("processing_import_orthophoto_pair")
     import_pair.setEnabled(current_project_id is not None and callable(on_import_orthophoto_pair))

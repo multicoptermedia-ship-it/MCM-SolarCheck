@@ -26,7 +26,7 @@ Sollablauf: Projekt → RGB-/Thermalfotos → freie Standardberechnung beider Or
 
 ## Konkreter Fortsetzungspunkt: VERT-01B2
 **VERT-01 bleibt teilweise umgesetzt. VERT-01B1 ist nur der manuelle Übergabeweg; VERT-01B ist NICHT abgeschlossen.** Keine weiteren Anzeige-/Gate-Nebenblöcke beginnen.
-**Bestätigt 01.11.: Windows-10-Auswerterechner, kein Wechsel auf Windows 11.** GUI, Projektanmeldung und Import dort laut Nutzer bereits getestet. **MicMac-Pfad vom Nutzer gemeldet: `E:\Tools\MicMac\bin\mm3d.exe`**. Nächster Schritt: lokaler Starttest nach [Anleitung](MICMAC_WINDOWS10_EINRICHTUNG.md); Ergebnis/Version/Helfer noch unbestätigt. Keine erneute Installationsabfrage. Kein MicMac-Rechenlauf/keine Orthofoto-Abnahme bestätigt.
+**Bestätigt 01.11.: Windows-10-Auswerterechner, kein Wechsel auf Windows 11.** GUI, Projektanmeldung und Import dort laut Nutzer bereits getestet. **MicMac-Pfad vom Nutzer gemeldet: `E:\Tools\MicMac\bin\mm3d.exe`**. Nutzer bestätigt inzwischen: Start ohne Fehlermeldung, MicMac installiert. VERT-01B2-Anbindung in Arbeit; voller Bildlauf/Version/Helfer noch unbestätigt. Keine erneute Installations-/Startabfrage. Kein MicMac-Rechenlauf/keine Orthofoto-Abnahme bestätigt.
 Dann den vorbereiteten [lokalen Standardablauf](MICMAC_LOKALER_RGB_THERMAL_ABLAUF.md) an die konkrete Installation anpassen und lokal unter Nutzerkontrolle belegen. Erst nach belegter Verfügbarkeit eine passende externe Anbindung entwickeln; keine ungeprüfte Installation, Bündelung oder Ausführung. Bekannte GeoTIFF-Paarübernahme/Anlagenübersicht wiederverwenden. Vorherige GUI-Verknüpfung nicht erneut bauen.
 
 ## Werkzeugstand – vorhandene Prüfung weiterverwenden

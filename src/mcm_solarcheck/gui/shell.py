@@ -73,6 +73,9 @@ class SolarCheckMainWindow(QMainWindow):
         self._orthophoto_pv_dialog = None
         self._orthophoto_comparison_error = None
         self._plant_orthophoto_pair_id = None
+        self._micmac_dialog = None
+        self._micmac_status = None
+        self._micmac_close_pending = False
         self._integrity_close_pending = False
         self._integrity_project_id = None
         self._rgb_integrity_status = None
@@ -371,6 +374,9 @@ class SolarCheckMainWindow(QMainWindow):
             return
         state = self._project_service.open_project(project_id)
         if project_id != self._current_project_id:
+            if self._micmac_dialog is not None:
+                self._micmac_dialog.reject()
+            self._micmac_status = None
             # A running integrity scan belongs to the previous project. Its
             # callbacks must never publish results into the newly opened one.
             active_worker = getattr(self, "_integrity_worker", None)
@@ -2231,6 +2237,15 @@ class SolarCheckMainWindow(QMainWindow):
             project_label=project_label,
             processing_run=processing_run,
             overview=overview,
+            on_generate_micmac=(
+                (lambda checked=False, source=self._current_project_id: self._open_micmac_dialog(source))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and getattr(getattr(self._project_service, "database", None), "path", None) is not None
+                and self._import_thread is None
+                else None
+            ),
+            micmac_status=self._micmac_status,
             on_import_orthophoto_pair=(
                 (lambda checked=False, source=self._current_project_id:
                     self._open_orthophoto_pair_import(source))
@@ -2816,6 +2831,11 @@ class SolarCheckMainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Keep all owned QThreads alive until their native work has stopped."""
+        if self._micmac_dialog is not None and self._micmac_dialog.running:
+            self._micmac_close_pending = True
+            self._micmac_dialog.reject()
+            event.ignore()
+            return
         integrity_busy = getattr(self, "_integrity_thread", None) is not None
         preflight_busy = self._preflight_thread is not None
         import_busy = self._import_thread is not None
@@ -3129,7 +3149,7 @@ class SolarCheckMainWindow(QMainWindow):
         self._refresh_import_page()
 
     def _register_project_orthophoto_pair(self, rgb_path: str, thermal_path: str,
-                                         thermal_value_kind: str = "visual") -> None:
+                                         thermal_value_kind: str = "visual", *, source_kind="external_gis"):
         """Use the existing local GeoTIFF boundary to register both sensor roles."""
         if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
                 or self._project_service is None or self._current_project_id is None):
@@ -3138,7 +3158,7 @@ class SolarCheckMainWindow(QMainWindow):
         try:
             pair = self._project_service.register_project_orthophoto_pair(
                 self._current_project_id, rgb_path, thermal_path,
-                source_kind="external_gis", thermal_value_kind=thermal_value_kind,
+                source_kind=source_kind, thermal_value_kind=thermal_value_kind,
             )
             self._plant_orthophoto_pair_id = pair['pair_id']
             self._geotiff_result = (
@@ -3147,7 +3167,7 @@ class SolarCheckMainWindow(QMainWindow):
             )
             self._compare_project_orthophotos(rgb_path, thermal_path)
             self._refresh_plant_overview_page()
-            return
+            return pair
         except (ValueError, TypeError, OSError, KeyError, RuntimeError, SQLiteError) as error:
             self._geotiff_result = f"Orthofoto-Paar konnte nicht registriert werden: {error}"
         self._refresh_import_page()
@@ -3174,6 +3194,49 @@ class SolarCheckMainWindow(QMainWindow):
     def _forget_orthophoto_pv_dialog(self, dialog) -> None:
         if self._orthophoto_pv_dialog is dialog:
             self._orthophoto_pv_dialog = None
+
+    def _open_micmac_dialog(self, source_project: str) -> None:
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or source_project is None or source_project != self._current_project_id
+                or self._import_thread is not None
+                or getattr(getattr(self._project_service, "database", None), "path", None) is None):
+            return
+        if self._micmac_dialog is not None:
+            self._micmac_dialog.raise_()
+            return
+        from mcm_solarcheck.gui.micmac_dialog import MicMacDialog
+        dialog = MicMacDialog(self._project_service.database.path, source_project, self)
+        self._micmac_dialog = dialog
+        dialog.completed.connect(lambda result, source=source_project: self._receive_micmac_pair(source, result))
+        dialog.finished.connect(lambda *_args, opened=dialog: self._forget_micmac_dialog(opened))
+        dialog.show()
+
+    def _forget_micmac_dialog(self, dialog):
+        if self._micmac_dialog is dialog:
+            self._micmac_dialog = None
+        if self._micmac_close_pending:
+            self._micmac_close_pending = False
+            self.close()
+
+    def _receive_micmac_pair(self, source_project, result):
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or source_project != self._current_project_id or result.project_id != source_project):
+            return
+        from mcm_solarcheck.services.micmac_orthophotos import micmac_input_signature
+        from sqlite3 import Error as SQLiteError
+        try:
+            if result.input_signature != micmac_input_signature(self._project_service.database, source_project):
+                self._micmac_status = "Projekteingaben geändert; MicMac-Ergebnis nicht übernommen."
+            elif self._register_project_orthophoto_pair(
+                str(result.rgb_geotiff), str(result.thermal_geotiff), source_kind="micmac",
+            ) is not None:
+                self._micmac_status = "MicMac-Rasterpaar gespeichert. Lage und Bildqualität fachlich prüfen; keine Temperaturfreigabe."
+                self.show_route(ShellRoute.PLANT_OVERVIEW)
+            else:
+                self._micmac_status = "MicMac-Ausgaben konnten nicht als Paar übernommen werden. Lokale Ergebnisse im Import prüfen."
+        except (KeyError, ValueError, OSError, RuntimeError, SQLiteError):
+            self._micmac_status = "MicMac-Ergebnis nicht übernommen; lokale Ausgaben und Projekteingaben prüfen."
+        self._refresh_processing_page()
 
     def _open_orthophoto_pair_import(self, source_project: str) -> None:
         """Reuse the paired GeoTIFF intake, without starting any reconstruction."""
