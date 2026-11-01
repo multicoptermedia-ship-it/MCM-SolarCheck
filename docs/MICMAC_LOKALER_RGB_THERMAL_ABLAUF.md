@@ -1,6 +1,6 @@
 # MicMac lokal: Einzelbilder → zwei Orthofotos → SolarCheck
 
-Stand 01.11.2026 · Vorbereitung zu VERT-01B. Der SolarCheck-Teil „Verarbeitung → vorhandener Paarimport → Anlagenübersicht → Wiederöffnung“ ist angebunden. **Die folgende externe Berechnung wurde hier nicht ausgeführt.** Eine konkrete Nutzerinstallation und ein Windows-10-Lauf sind noch nicht bestätigt. Kein automatischer Download, Installer oder Prozessstarter; keine neue Photogrammetrie-Engine.
+Stand 01.11.2026 · Vorbereitung zu VERT-01B. Der SolarCheck-Teil „Verarbeitung → vorhandener Paarimport → Anlagenübersicht → Wiederöffnung“ ist angebunden. **Die folgende externe Berechnung wurde hier nicht ausgeführt.** Nutzer bestätigt: Auswerterechner bleibt unter Windows 10, kein Wechsel auf Windows 11; GUI/Projektanmeldung/Import wurden dort bereits getestet. MicMac ist noch nicht installiert. [Windows-10-Einrichtung](MICMAC_WINDOWS10_EINRICHTUNG.md) zuerst durchführen; ein MicMac-Rechenlauf ist noch nicht bestätigt. Kein automatischer Download, Installer oder Prozessstarter; keine neue Photogrammetrie-Engine.
 
 ## Konkrete Werkzeuggrenze
 
