@@ -10,6 +10,8 @@ RGB und Thermal sind getrennte Artefakte. Gleiche Bildnummern verbinden Original
 
 ## Lokaler Ablauf
 
+Der konkrete, manuell anzupassende MicMac-Weg steht in [MICMAC_LOKALER_RGB_THERMAL_ABLAUF.md](MICMAC_LOKALER_RGB_THERMAL_ABLAUF.md). In SolarCheck führt **Verarbeitung → „Extern erstelltes RGB-/Thermal-Paar übernehmen“** zum vorhandenen Paarimport. Dies startet keine externe Berechnung; deren automatischer Start ist noch offen. Der frühere GUI-Knopf für die eingefrorene eigene Erzeugung ist entfernt.
+
 1. Originalbilder, GPS/RTK und Kundendaten auf dem Rechner des Nutzers belassen. Originale nur lesen; externe Verarbeitung ausschließlich in einem getrennten lokalen Arbeits-/Ausgabeordner. Keine Übertragung nach GitHub, CI oder Cloud-Diensten. Entwicklungstests verwenden synthetische Raster.
 2. Mit einem etablierten, für die konkrete Zusammenstellung geprüften freien Werkzeug RGB- und Thermal-Orthofoto erzeugen. Auswahl und MicMac-Prüfstand stehen in [FREIE_ORTHOFOTO_WERKZEUGE.md](FREIE_ORTHOFOTO_WERKZEUGE.md). Eine Installation oder automatische Verarbeitung durch SolarCheck ist damit noch nicht nachgewiesen.
 3. Beide GeoTIFFs prüfen: eingebettetes CRS, Rastertransform, Ausdehnung, Pixelgröße, gültige Datenmaske/NoData und Bandbedeutung. Eine `.tif`-Endung allein genügt nicht. Bei TIFF mit Worldfile erst die tatsächliche Koordinatenreferenz feststellen; keinen EPSG-Code erfinden. GDAL/QGIS können bekannte Referenzen übernehmen oder reprojizieren, aber keine fehlende Kamerageometrie durch ein CRS-Etikett erzeugen.

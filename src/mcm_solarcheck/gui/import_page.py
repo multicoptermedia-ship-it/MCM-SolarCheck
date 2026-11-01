@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QComboBox, QCheckBox, QFileDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, on_import_flight_folder=None, choose_flight_folder=None, on_import_additional_original_files=None, choose_additional_original_files=None, project_label=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None, on_reconcile_pairs=None, pair_audit=None, on_register_orthophoto_pair=None, choose_register_orthophoto_pair=None, orthophoto_pairs=(), on_inspect_orthophoto_modules=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, on_import_flight_folder=None, choose_flight_folder=None, on_import_additional_original_files=None, choose_additional_original_files=None, project_label=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None, on_reconcile_pairs=None, pair_audit=None, on_register_orthophoto_pair=None, choose_register_orthophoto_pair=None, orthophoto_pairs=(), on_inspect_orthophoto_modules=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     root_layout = QVBoxLayout(page)
@@ -646,20 +646,6 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     artifacts.setObjectName("registered_geotiff_artifacts")
     artifacts.setWordWrap(True)
     layout.addWidget(artifacts)
-    generate_button = QPushButton('RGB- und Thermal-Orthofotos erzeugen (vermessene Fläche)', page)
-    generate_button.setObjectName('generate_orthophotos_button')
-    if current_project_id is not None and on_generate_orthophotos is not None:
-        def request_native_generation():
-            job_path = QFileDialog.getOpenFileName(
-                page, "Vermessungsauftrag auswählen", "", "JSON (*.json)"
-            )[0]
-            if job_path:
-                on_generate_orthophotos(job_path)
-        generate_button.clicked.connect(request_native_generation)
-    else:
-        generate_button.setEnabled(False)
-        generate_button.setToolTip('Benötigt geprüfte Vermessung, importierte Originalbilder und einen angebundenen Erzeugungsablauf.')
-    layout.addWidget(generate_button)
     compare_button = QPushButton("RGB- und Thermal-Orthofotos vergleichen", page)
     compare_button.setObjectName("compare_orthophotos_button")
     if current_project_id is not None and on_compare_orthophotos is not None:

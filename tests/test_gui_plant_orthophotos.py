@@ -224,3 +224,79 @@ def test_online_shell_never_loads_offline_pairs(tmp_path, qapp, monkeypatch):
         assert overview(window).findChild(QLabel, "plant_orthophoto_empty_state") is not None
     finally:
         window.close()
+
+
+@pytest.mark.parametrize("cancel", (False, True))
+def test_processing_uses_existing_external_pair_intake_without_running_frozen_engine(
+    tmp_path, qapp, monkeypatch, cancel,
+):
+    from pathlib import Path
+    from mcm_solarcheck.domain.models import ThermalFrame
+    from mcm_solarcheck.thermal.analysis import RawThermalStatistics
+    from mcm_solarcheck.thermal.quality import ThermalQualityGrade, ThermalQualityResult
+
+    database = tmp_path / "projects.sqlite"
+    window = offline_window(database)
+    service = window._project_service
+    service.create_project("P1", "Synthetic originals imported")
+    service.create_project("P2", "Other project")
+    service.database.save_thermal_frame(
+        "P1", ThermalFrame("T1", Path("synthetic.JPG"), 16, 12, thermal_source="raw"),
+        ThermalQualityResult(ThermalQualityGrade.PASS, (), RawThermalStatistics(1, 10, 5., 5., 9., 10., 9)),
+    )
+    def forbidden_engine(*args, **kwargs):
+        pytest.fail("GUI must not start the frozen native reconstruction")
+    monkeypatch.setattr(service, "generate_imported_project_orthophotos", forbidden_engine)
+    rgb, thermal = sources(tmp_path, "external")
+    before = service.state("P1")
+    try:
+        window._open_project("P1")
+        window._workflow_navigation.button(ShellRoute.PROCESSING).click()
+        assert window.current_route is ShellRoute.PROCESSING
+        processing = window._pages[ShellRoute.PROCESSING]
+        assert "noch nicht angebunden" in processing.findChild(
+            QLabel, "processing_orthophoto_generation_status",
+        ).text()
+        old_button = processing.findChild(QPushButton, "processing_import_orthophoto_pair")
+        assert old_button.isEnabled()
+        old_button.click()
+        assert window.current_route is ShellRoute.IMPORT
+        page = window._pages[ShellRoute.IMPORT]
+        assert page.findChild(QPushButton, "generate_orthophotos_button") is None
+        paths = iter(("",) if cancel else (str(rgb), str(thermal)))
+        monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (next(paths), ""))
+        page.findChild(QPushButton, "register_orthophoto_pair_button").click()
+        window._workflow_navigation.button(ShellRoute.PLANT_OVERVIEW).click()
+        assert window.current_route is ShellRoute.PLANT_OVERVIEW
+        assert len(service.project_orthophoto_pairs("P1")) == (0 if cancel else 1)
+        assert (overview(window).findChild(QSlider, "orthophoto_thermal_opacity_slider") is None) == cancel
+        assert service.state("P1") == before
+        window._open_project("P2")
+        window.show_route(ShellRoute.PROJECT)
+        old_button.click()  # Stale processing-page callback from P1.
+        assert window.current_route is ShellRoute.PROJECT
+        assert service.project_orthophoto_pairs("P2") == ()
+    finally:
+        window.close()
+
+    reopened = offline_window(database)
+    try:
+        reopened._open_project("P1")
+        assert len(reopened._project_service.project_orthophoto_pairs("P1")) == (0 if cancel else 1)
+        assert (overview(reopened).findChild(QSlider, "orthophoto_thermal_opacity_slider") is None) == cancel
+    finally:
+        reopened.close()
+
+
+def test_online_shell_cannot_enter_local_orthophoto_intake(tmp_path, qapp):
+    service = build_offline_services(tmp_path / "projects.sqlite").projects
+    window = SolarCheckMainWindow(DeploymentMode.ONLINE, project_service=service)
+    try:
+        window._current_project_id = "P1"
+        before = window.current_route
+        window._open_orthophoto_pair_import("P1")
+        assert window.current_route is before
+        button = window._pages[ShellRoute.PROCESSING].findChild(QPushButton, "processing_import_orthophoto_pair")
+        assert not button.isEnabled()
+    finally:
+        window.close()

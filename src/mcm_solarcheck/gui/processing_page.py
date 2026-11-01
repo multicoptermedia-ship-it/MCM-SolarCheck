@@ -26,6 +26,7 @@ def make_processing_page(
     rgb_project_pairs=(), on_start_project_rgb_preview=None,
     on_cancel_project_rgb_preview=None, project_rgb_preview_status=None,
     project_rgb_preview_running=False,
+    on_import_orthophoto_pair=None,
 ):
     """Show persisted image/analysis facts without implying processing was run."""
     page = QWidget(parent)
@@ -57,6 +58,29 @@ def make_processing_page(
     project.setObjectName("processing_project_context")
     project.setTextFormat(Qt.TextFormat.PlainText)
     layout.addWidget(project)
+
+    orthophotos = QFrame(content)
+    orthophotos.setObjectName("processing_external_orthophotos")
+    ortho_layout = QVBoxLayout(orthophotos)
+    ortho_layout.addWidget(QLabel("RGB- und Thermal-Orthofotos", orthophotos))
+    guidance = QLabel(
+        "Beide Orthofotos lokal mit einem freien Standardprogramm erstellen. "
+        "Anschließend die zwei GeoTIFFs gemeinsam übernehmen und in der "
+        "Anlagenübersicht vergleichen.", orthophotos,
+    )
+    guidance.setWordWrap(True)
+    ortho_layout.addWidget(guidance)
+    status = QLabel("Automatische Orthofoto-Erzeugung ist noch nicht angebunden.", orthophotos)
+    status.setObjectName("processing_orthophoto_generation_status")
+    status.setWordWrap(True)
+    ortho_layout.addWidget(status)
+    import_pair = QPushButton("Extern erstelltes RGB-/Thermal-Paar übernehmen", orthophotos)
+    import_pair.setObjectName("processing_import_orthophoto_pair")
+    import_pair.setEnabled(current_project_id is not None and callable(on_import_orthophoto_pair))
+    if import_pair.isEnabled():
+        import_pair.clicked.connect(on_import_orthophoto_pair)
+    ortho_layout.addWidget(import_pair)
+    layout.addWidget(orthophotos)
 
     if overview is None:
         empty = QLabel(

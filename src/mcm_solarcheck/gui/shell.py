@@ -2231,6 +2231,14 @@ class SolarCheckMainWindow(QMainWindow):
             project_label=project_label,
             processing_run=processing_run,
             overview=overview,
+            on_import_orthophoto_pair=(
+                (lambda checked=False, source=self._current_project_id:
+                    self._open_orthophoto_pair_import(source))
+                if self._deployment is DeploymentMode.OFFLINE_DESKTOP
+                and self._current_project_id is not None
+                and callable(getattr(self._project_service, "register_project_orthophoto_pair", None))
+                else None
+            ),
             on_check_imported_files=(
                 (lambda checked=False, source=self._current_project_id:
                  self._start_imported_image_check(source))
@@ -2609,7 +2617,6 @@ class SolarCheckMainWindow(QMainWindow):
             on_compare_orthophotos=(self._compare_project_orthophotos if self._project_service is not None else None),
             orthophoto_comparison=self._orthophoto_comparison,
             orthophoto_comparison_error=self._orthophoto_comparison_error,
-            on_generate_orthophotos=(self._generate_project_orthophotos if callable(getattr(self._project_service, 'generate_imported_project_orthophotos', None)) else None),
             on_register_geotiff=(self._register_project_geotiff if callable(getattr(self._project_service, 'register_project_geotiff', None)) else None),
         )
         self._pages[ShellRoute.IMPORT] = new_page
@@ -3168,25 +3175,23 @@ class SolarCheckMainWindow(QMainWindow):
         if self._orthophoto_pv_dialog is dialog:
             self._orthophoto_pv_dialog = None
 
-    def _generate_project_orthophotos(self, job_path: str) -> None:
-        """Run only an explicit local surveyed job; display result without approval."""
-        if self._project_service is None or self._current_project_id is None:
+    def _open_orthophoto_pair_import(self, source_project: str) -> None:
+        """Reuse the paired GeoTIFF intake, without starting any reconstruction."""
+        if (self._deployment is not DeploymentMode.OFFLINE_DESKTOP
+                or source_project != self._current_project_id
+                or source_project is None):
             return
-        from mcm_solarcheck.services.orthophoto_survey_job import load_surveyed_orthophoto_job
-        try:
-            arguments = load_surveyed_orthophoto_job(job_path)
-            pair = self._project_service.generate_imported_project_orthophotos(
-                self._current_project_id, *arguments, planar_surface_verified=True,
-            )
-            self._geotiff_result = (
-                f"Native Orthofotos erzeugt: RGB {pair.rgb_geotiff}; "
-                f"Thermal {pair.thermal_geotiff} (keine Temperaturkalibrierung bestätigt)."
-            )
-            self._compare_project_orthophotos(str(pair.rgb_geotiff), str(pair.thermal_geotiff))
+        self.show_route(ShellRoute.IMPORT)
+        if self.current_route is not ShellRoute.IMPORT:
             return
-        except (ValueError, TypeError, OSError, KeyError, RuntimeError) as error:
-            self._geotiff_result = f"Orthofoto-Erzeugung fehlgeschlagen: {error}"
-        self._refresh_import_page()
+        from PySide6.QtWidgets import QPushButton, QScrollArea
+        page = self._pages[ShellRoute.IMPORT]
+        button = page.findChild(QPushButton, "register_orthophoto_pair_button")
+        scroll = page.findChild(QScrollArea)
+        if button is not None:
+            if scroll is not None:
+                scroll.ensureWidgetVisible(button)
+            button.setFocus()
 
     @staticmethod
     def _load_orthophoto_preview(rgb_path: str, thermal_path: str):

@@ -7,7 +7,7 @@ Stand **31.10.2026**. Maßgeblich ist [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER
 | Werkzeug | Belegte Rolle und Lizenz | Bewertung für SolarCheck |
 | --- | --- | --- |
 | **MicMac v1.2.0** | CeCILL-B-Hauptprojekt; etablierte Luftbild-Photogrammetrie mit `Malt Ortho`/`Tawny`, native Windows-Ausgabe. | Priorisierter technischer Kandidat. Abweichende Komponentenbedingungen verhindern derzeit die pauschale Freigabe einer konkreten Distribution; siehe unten. |
-| **MMVII / MicMac V2** | CeCILL-B. Aktuelles offizielles README benötigt MicMac V1 nicht mehr; Windows-Binärpaket vorhanden. | Separater Kandidat; vollständige RGB-/Thermal-Orthofoto-Kette und Austauschbarkeit der V1-Kommandos wurden hier nicht belegt. |
+| **MMVII / MicMac V2** | CeCILL-B; Windows-Binärpaket vorhanden. Das aktuelle offizielle README nennt weiterhin einzelne Kommandos mit V1-Binärabhängigkeit. | Separater Kandidat; vollständige unabhängige RGB-/Thermal-Orthofoto-Kette und Austauschbarkeit der V1-Kommandos wurden hier nicht belegt. |
 | **COLMAP** | BSD-Hauptlizenz, Abhängigkeiten separat lizenziert; etablierte Kameraorientierung/Rekonstruktion. | Kein direkt belegter vollständiger GeoTIFF-/Thermal-Orthofotoablauf. Laut offizieller FAQ benötigt dichte Rekonstruktion CUDA; CPU-SfM kann Teil einer separat geprüften freien Kette sein. |
 | **OpenMVS** | AGPL-3.0. Aktuelle offizielle Dokumentation beschreibt native `CreateStructure`-SfM sowie CPU-Verarbeitung. | Reale Alternative für Rekonstruktion/Mesh/Textur. `TextureMesh` erzeugt aus georeferenziertem/ausgerichtetem Mesh ein orthografisches PNG plus TXT, noch kein importfertiges GeoTIFF oder quantitativer Thermalnachweis. |
 | **OpenMVG** | MPL-2.0; etablierte SfM-Software. | Orientierung als Teil einer externen Werkzeugkette, allein kein vollständiger Orthofoto-Erzeuger. |
@@ -26,6 +26,8 @@ Konkrete abweichende Quelltexte:
 - **Optionale Komponenten:** [CMakeLists.txt](https://github.com/micmacIGN/micmac/blob/v1.2.0/CMakeLists.txt) setzt `WITH_KAKADU` und `CUDA_ENABLED` auf `OFF`; der Quellbaum enthält außerdem ältere SiftGPU-/CUDA-Binärhelfer. Diese nicht aktivieren/bündeln. Die Schalter klären nicht die reguläre Triangle-Komponente.
 
 Daraus folgt **nicht**, dass jede MicMac-Nutzung proprietär oder unzulässig sei. Die Hauptlizenz allein belegt aber keine vollständig freie konkrete Binär-/Weiterverteilungskette für SolarCheck. Eine separat installierte EXE ist ebenfalls kein automatischer Nachweis. Bis zur passenden Komponenten-/Rechteklärung keine automatische Installation, Bündelung oder als freigegeben dargestellte Ausführung aus SolarCheck.
+
+**Präzisierung 01.11.2026, kein erneuter Gesamtvergleich:** Derselbe Triangle-Hinweis nimmt ausdrücklich den Fall aus, dass man Nutzern lediglich erklärt, wo sie den Code kostenlos selbst beschaffen, statt ihn direkt zu liefern. Diese Trennung erlaubt eine konkrete Anleitung für separat beschaffte Werkzeuge, keine pauschale Paketfreigabe. SiftPP bleibt davon unabhängig. Der [vorbereitete lokale Ablauf](MICMAC_LOKALER_RGB_THERMAL_ABLAUF.md) nutzt dokumentierte Digeo-/Ann-Optionen und beschreibt den Rückweg zur vorhandenen Paarregistrierung; Installation und realer Lauf sind weiterhin unbestätigt. Das [MMVII-README am geprüften Stand](https://github.com/micmac-V2/MMVII/blob/a9c6ffdd16e981669e3f60492a132d9d82b87800/README.md#prerequisites) nennt weiterhin „Some specific MMVII commands may require the MicMac V1 binary“; eine vollständig unabhängige V2-Kette ist deshalb nicht allein durch das Paket belegt.
 
 ## Vorhandene Standardpipeline statt Nachbau
 
