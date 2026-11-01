@@ -1,8 +1,8 @@
 # MicMac separat auf dem Windows-10-Auswerterechner einrichten
 
-Nutzerbestätigung 01.11.2026: **Windows 10 bleibt**, kein Wechsel auf Windows 11. GUI, Projektanmeldung und Import wurden dort bereits getestet. **Aktualisierung: Nutzer meldet `E:\Tools\MicMac\bin\mm3d.exe`** (Schreibabstände normalisiert). Die frühere Angabe „noch nicht installiert“ ist überholt. Jetzt den lokalen Start prüfen; Version/Helfer/Rechenlauf sind noch nicht bestätigt. Nicht erneut Betriebssystem oder Installationspfad erfragen.
+Nutzerbestätigung 01.11.2026: **Windows 10 bleibt**, kein Wechsel auf Windows 11. GUI, Projektanmeldung und Import wurden dort bereits getestet. **Aktualisierung: Nutzer meldet `E:\Tools\MicMac\bin\mm3d.exe`** (Schreibabstände normalisiert). Die frühere Angabe „noch nicht installiert“ ist überholt. Inzwischen bestätigt der Nutzer: Start ohne Fehlermeldung, MicMac installiert. Version/Helfer/vollständiger Bildlauf sind noch nicht unabhängig geprüft. Nicht erneut Betriebssystem oder Installationspfad erfragen.
 
-## Jetzt ausführen: Starttest am gemeldeten Pfad
+## Bereits bestätigter Starttest – als Referenz
 
 PowerShell auf dem Windows-10-Auswerterechner öffnen und ohne Bildargumente starten:
 
@@ -10,7 +10,7 @@ PowerShell auf dem Windows-10-Auswerterechner öffnen und ohne Bildargumente sta
 & 'E:\Tools\MicMac\bin\mm3d.exe'
 ```
 
-Erwartet wird eine Hilfe-/Kommandoliste. Rückmeldung: erscheint diese Liste, oder welcher genaue Fehlertext wird ausgegeben? Noch keine Fotos oder GPS-Daten für diesen Test verwenden. Cloud-Codex kann die lokale E:-Festplatte nicht prüfen. Die folgenden Einrichtungsschritte sind Referenz und müssen bei vorhandener Installation nicht wiederholt werden.
+Erwartet wird eine Hilfe-/Kommandoliste. Der Nutzer hat diesen Start inzwischen ohne Fehlermeldung bestätigt; nicht erneut abfragen. Noch keine Fotos oder GPS-Daten für diesen Test verwenden. Cloud-Codex kann die lokale E:-Festplatte nicht prüfen. Die folgenden Einrichtungsschritte sind Referenz und müssen bei vorhandener Installation nicht wiederholt werden.
 
 ## Bezugsquelle und Installationsgrenze
 
@@ -47,6 +47,6 @@ Der Nutzer beschafft und entpackt MicMac **separat**. SolarCheck lädt, installi
 
 Für diesen ersten Test ist keine dauerhafte Änderung der Windows-PATH-Variable nötig: Der vollständige Aufrufpfad genügt. Das Upstream-README nennt für spätere Aufrufe das `bin`-Verzeichnis in PATH; `binaire-aux` muss nicht zusätzlich in PATH aufgenommen werden. Kein Docker, WSL oder Betriebssystemwechsel ist Teil dieser Anleitung.
 
-## Danach im bestehenden Entwicklungsblock VERT-01B2
+## Jetzt: fertige SolarCheck-Anbindung lokal erproben
 
-Nach dem belegten Start die benötigten Standardkommandos/Helfer der konkreten Installation prüfen und den [RGB-/Thermal-Standardablauf](MICMAC_LOKALER_RGB_THERMAL_ABLAUF.md) lokal vorbereiten. Echte Bilder ausschließlich unter Nutzerkontrolle auf dem Auswerterechner verarbeiten. Anschließend vorhandene GeoTIFF-Paarregistrierung und Anlagenübersicht verwenden. Keine neue Engine, keine erneute Rohbildinventur und keine neue GUI-Zwischenentwicklung als Ersatz für diesen Rechenpfad.
+Die explizite SolarCheck-Anbindung ist technisch umgesetzt. Nächster Schritt ist der [erste echte lokale Lauf mit Referenzvergleich](MICMAC_SOLARCHECK_LOKALER_TEST.md); nicht erneut Installation oder denselben Starttest wiederholen. Echte Bilder ausschließlich unter Nutzerkontrolle auf dem Auswerterechner verarbeiten. Anschließend vorhandene GeoTIFF-Paarregistrierung und Anlagenübersicht verwenden. Keine neue Engine, keine erneute Rohbildinventur und keine neue GUI-Zwischenentwicklung als Ersatz für diesen Rechenpfad.

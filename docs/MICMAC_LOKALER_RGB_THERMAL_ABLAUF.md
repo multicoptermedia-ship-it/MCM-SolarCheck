@@ -1,6 +1,6 @@
 # MicMac lokal: Einzelbilder → zwei Orthofotos → SolarCheck
 
-Stand 01.11.2026 · Vorbereitung zu VERT-01B. Der SolarCheck-Teil „Verarbeitung → vorhandener Paarimport → Anlagenübersicht → Wiederöffnung“ ist angebunden. **Die folgende externe Berechnung wurde hier nicht ausgeführt.** Nutzer bestätigt: Auswerterechner bleibt unter Windows 10, kein Wechsel auf Windows 11; GUI/Projektanmeldung/Import wurden dort bereits getestet. Inzwischen gemeldeter MicMac-Pfad: `E:\Tools\MicMac\bin\mm3d.exe`. [Lokalen Starttest](MICMAC_WINDOWS10_EINRICHTUNG.md) durchführen; ein MicMac-Rechenlauf ist noch nicht bestätigt. Kein automatischer Download, Installer oder Prozessstarter; keine neue Photogrammetrie-Engine.
+Stand 01.11.2026 · Vorbereitung zu VERT-01B. Der SolarCheck-Teil „Verarbeitung → vorhandener Paarimport → Anlagenübersicht → Wiederöffnung“ ist angebunden. **Die folgende externe Berechnung wurde hier nicht ausgeführt.** Nutzer bestätigt: Auswerterechner bleibt unter Windows 10, kein Wechsel auf Windows 11; GUI/Projektanmeldung/Import wurden dort bereits getestet. Inzwischen gemeldeter MicMac-Pfad: `E:\Tools\MicMac\bin\mm3d.exe`. Nutzer bestätigt inzwischen Start ohne Fehlermeldung. [Anbindung lokal mit Bildern testen](MICMAC_SOLARCHECK_LOKALER_TEST.md); ein MicMac-Rechenlauf ist noch nicht bestätigt. Kein automatischer Download/Installer oder unaufgeforderter Prozessstart; keine neue Photogrammetrie-Engine.
 
 ## Konkrete Werkzeuggrenze
 
@@ -17,6 +17,10 @@ Originale unverändert aufbewahren. Nur bewusst erstellte Arbeitskopien verwende
 Vor einem Lauf werden lokal festgehalten: Betriebssystem, MicMac-Version/Herkunft, tatsächlicher `mm3d`-Pfad und Verfügbarkeit der benötigten Helfer. Hier wurde lediglich festgestellt, dass `mm3d` nicht im PATH der Cloud-Umgebung liegt. Das ist keine Aussage über den Nutzerrechner.
 
 ## Standardablauf je Sensor
+
+SolarChecks Anbindung verwendet jetzt diese Standardstufen: vollständige importierte Bildserien, gespeicherte Kamerapositionen/Höhen, PROJ-Umrechnung, `OriConvert OriTxtInFile positions.txt GPS AddCalib=0` und vorhandene GeoTIFF-Registrierung. Der folgende manuelle Weg erläutert die Geometrie; keine zusätzliche Survey-JSON oder selbst programmierte Engine verwenden.
+
+
 
 RGB und Thermal werden in getrennten Arbeitsverzeichnissen mit eigenen Kameramodellen verarbeitet. Die Beispiele zeigen **manuell anzupassende Upstream-Kommandos**, keinen getesteten DJI-M3T-Fertigauftrag. Aufrufpfad, Bildmuster, Auflösungen und Orientierungsnamen müssen zur lokalen Installation passen. Das Muster erfasst hier ausschließlich `.JPG`/`.jpg`-Arbeitskopien.
 
@@ -58,4 +62,4 @@ gdal_translate -of GTiff -a_srs "<BELEGTES_CRS>" "Ortho-MEC-Malt/Orthophotomosai
 
 In SolarCheck **Verarbeitung → „Extern erstelltes RGB-/Thermal-Paar übernehmen“** wählen. Dies öffnet den bestehenden Importbereich. Dort beide GeoTIFFs gemeinsam registrieren, anschließend **Anlagenübersicht → Orthofotos** öffnen. Paarauswahl, Überblendung und Zoom verwenden; Projekt schließen/wiederöffnen. Quellen bleiben unverändert, die Registrierung bleibt `metadata_only`. Der alte GUI-Einstieg in die eingefrorene eigene Erzeugung ist entfernt.
 
-Die Abnahme umfasst vollständige Abdeckung, scharfe Modulränder, Doppelkonturen, Nähte und gemeinsame RGB-/Thermal-Lage. Erst ein echter lokaler Vergleich kann den fehlgeschlagenen Windows-10-Piloten ablösen. **Offen bleiben die konkrete Installation, der externe Rechenlauf und seine fachliche Abnahme.** Dieser vorbereitete Rückweg ist noch keine vollständige Umsetzung von VERT-01B.
+Die Abnahme umfasst vollständige Abdeckung, scharfe Modulränder, Doppelkonturen, Nähte und gemeinsame RGB-/Thermal-Lage. Erst ein echter lokaler Vergleich kann den fehlgeschlagenen Windows-10-Piloten ablösen. **Bestätigt: separat installiertes MicMac startet auf dem Nutzerrechner.** SolarChecks explizite Anbindung ist inzwischen technisch umgesetzt; [echter lokaler Lauf und Referenzvergleich](MICMAC_SOLARCHECK_LOKALER_TEST.md) bleiben offen. Diese manuelle Beschreibung dient als Referenz für die Standardkommandos, nicht als neuer Implementierungsauftrag.
