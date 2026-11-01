@@ -24,7 +24,22 @@
 
 **REQ-ORTHO-10 · Projektsteuerung:** Codex zuerst `AGENTS.md`, diesen Anforderungen-Text und den aktuellen Checkpoint lesen; bestehende Funktionen zuerst prüfen, kleine Änderungen und passende Tests statt neue Architektur, schriftliche Übergabe und exakte HEAD-CI. **Kein Merge nach `main` ohne ausdrückliche Zustimmung**; PR #9 Draft, 3D-Eigenentwicklungszweig eingefroren.
 
-## Nächster sinnvoller Schritt
-**Zuerst das bereits vorhandene WebODM des Nutzers als manuelle externe Quelle** für ein korrektes RGB-GeoTIFF nutzen, sofern es für den privaten Flug funktioniert – ohne es in SolarCheck einzubauen. Falls nicht praktikabel, **MicMac extern prüfen**. Je ein RGB- und Thermal-GeoTIFF über den vorhandenen Import als Paar verwenden; vorhandene PV-Detektoren auf gewählte Bildbereiche anwenden und die Thermalabdeckung räumlich prüfen. Modul-IDs bleiben fachlich zu bestätigen; keine weitere Eigenimplementierung der Orthofoto-Mathematik. **Noch kein** neu validierter vollständiger 160-RGB-Lauf in dieser Chat-Umgebung.
+## Bestätigtes Praxisprofil – 01.11.2026
+Grundlage: Nutzer-PDF `Anforderungen-Solarcheck1.pdf`, Seite 1 (Sollablauf), und `SolarCheck_Entwicklung_Chronologie_Stand_2026-11-01.pdf`, acht PDF-Seiten (Bestandsnachweis). Die Original-PDFs werden nicht ins Repository kopiert. Historische Implementierungsangaben sind weder neue Arbeitsaufträge noch Produktabnahme.
 
-Siehe [externer GeoTIFF-Workflow](EXTERNES_RGB_ORTHOFOTO_GEOTIFF.md) und [dokumentierter Original-Fail](RGB_ARCHIVE_INTAKE_2026-10-28.md).
+**REQ-PRAXIS-11 · Nutzerweg:** Projekt → georeferenzierte RGB-/Thermalfotos importieren → RGB- UND Thermal-Orthofoto mit etablierter freier Software erstellen → KI-Befundvorschläge im Thermal → betroffene PV-Module prüfen/RGB vergleichen → Review → Bericht und Nutzerabnahme → Orthofotos/Bericht exportieren. Der vorhandene GeoTIFF-Import ersetzt die noch fehlende Erzeugung nicht. Keine eigene Photogrammetrie, keine ODM/WebODM/ODX-Anbindung.
+
+**REQ-PRAXIS-12 · Anlagenübersicht:** Beide Raster am aktiven Projekt geografisch ausgerichtet, zoombar und per Slider überblendbar; Befund/Modul aus derselben Übersicht vergleichen. Vorhandenen Importviewer weiterverwenden. Eine Modulbeobachtungstabelle ist noch nicht diese zentrale Rasterübersicht.
+
+**REQ-PRAXIS-13 · Befundkette:** KI-Vorschlag, physisches PV-Modul/stabile ID, RGB-Vergleich, gespeicherte Fachentscheidung und Bericht müssen zusammengehören. Vorhandene Detektoren, Identitäts-/Review-/Berichtsfunktionen verbinden. Rohwerte/Falschfarben/Temperaturpunkt sind keine bestätigte Celsiusmatrix.
+
+**REQ-PRAXIS-14 · Offline zuerst:** Windows-10-Offline-Programm zuerst fertigstellen und lokal abnehmen. Online-Webanwendung danach mit gemeinsamem Python-Fachkern. Bestehende Online-/Zahlungsbausteine erhalten; derzeit kein paralleler Ausbau.
+
+**REQ-PROZESS-15 · Vertikal abschließen:** Je Block einen kleinen bedienbaren Weg mit Eingang, Verarbeitung, sichtbarem Ergebnis und Speicherung verbinden. Wiederöffnung, Weiterverwendung und Fehler-/Abbruchfälle prüfen. Teilimplementierung, technische Tests und echte fachliche Abnahme getrennt ausweisen; Einzeltests ersetzen keinen Nutzerweg.
+
+**REQ-PROZESS-16 · Ohne Doppelentwicklung fortsetzen:** Vor Programmierung Checkpoint, Register, Code/HEAD und CI prüfen. Vorhandenes wiederverwenden, abgeschlossene Teile nur wegen belegter Lücke/Regression ändern. Vor Chatende Block-ID/Status, Commit-/Testbelege, offene Punkte, genauen nächsten Teil/Einstieg und Abnahmekriterium festhalten. Chroniken nicht erneut als Aufgabenliste abarbeiten.
+
+## Verbindlicher nächster Einstieg
+**VERT-01:** Projekt/Fotos → freie lokale Standard-Orthofotoberechnung → gespeichertes Rasterpaar → zentrale Anlagenübersicht. **Zuerst VERT-01A:** gespeichertes Paar mit dem bestehenden GIS-Viewer in die Anlagenübersicht verbinden; Projektwechsel/Wiederöffnung testen. **Danach VERT-01B:** fehlende lokale Erzeugung aus Einzelbildern über geeignete freie Toolchain an denselben Weg anschließen. VERT-01A allein schließt VERT-01 nicht ab. Werkzeugrechte/Verfügbarkeit und echte Ausgabe bleiben lokal zu belegen; keine erneute pauschale Recherche oder eigene Engine.
+
+**VERT-02:** einen Thermal-Befundvorschlag über Modulzuordnung/RGB-Vergleich und gespeicherte Nutzerentscheidung bis Bericht/Freigabe/Export verfolgen. Details und aktueller Fortsetzungspunkt stehen im [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md). Die bisherigen Software-/Datenschutz-/Main-Grenzen gelten weiter.
