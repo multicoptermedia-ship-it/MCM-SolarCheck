@@ -2,6 +2,26 @@
 
 Der Nutzer startet bisher eine von ChatGPT bereitgestellte ZIP-Testversion auf Laufwerk **F:** über PowerShell. Ein Git-Checkout ist dafür nicht erforderlich. Windows 10 und die separat vorhandene MicMac-Installation bleiben erhalten.
 
+## Gewünschter Schritt-115-Start aus Downloads
+
+1. Bisherige GUI schließen. [Programm-ZIP des geprüften Standes herunterladen](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/archive/a0237d0a2339bda04efeb015ec65a10ae6c058d4.zip) und in **Downloads** lassen; nicht selbst entpacken oder umbenennen. Browserzusatz `(1)` ist erlaubt.
+2. [Python-Startdatei herunterladen](../scripts/MCM_SolarCheck_Schritt115_START_MicMac.py) und als **`MCM_SolarCheck_Schritt115_START_MicMac.py`** ebenfalls in Downloads speichern (bei Quelltextanzeige „Link speichern unter“, Endung `.py`).
+3. Den vom Nutzer vorgegebenen Block unverändert in PowerShell ausführen:
+
+```powershell
+$skript = Get-ChildItem "$env:USERPROFILE\Downloads" -Filter "MCM_SolarCheck_Schritt115_START*.py" -File |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1 -ExpandProperty FullName
+
+if (-not $skript) {
+    throw "Schritt-115-Startprogramm nicht im Downloadordner gefunden."
+}
+
+& "F:\MCM-SolarCheck\.venv\Scripts\python.exe" $skript
+```
+
+Die neu gespeicherte Datei muss die jüngste passende Startdatei sein. Sie verwendet dasselbe Python, entpackt nur Quellcode in **`F:\MCM-SolarCheck\test-updates\MCM-MicMac-a0237d0a2339`** und ruft dort den vorhandenen PowerShell-Starter auf. Danach die bisherige Projektdatei auswählen. Beim nächsten Start genügt der bereits vorbereitete Testordner; die ZIP muss dann nicht mehr vorhanden sein. Keine automatischen Downloads oder Installationen; MicMac bleibt separat. Der Programmstand ist absichtlich auf den bereits geprüften Stand festgelegt.
+
 ## Neue ZIP mit vorhandenem Projekt starten
 
 1. Bisherige SolarCheck-GUI schließen. Die aktuelle **Quellcode-ZIP dieses Feature-Standes** herunterladen. In einen **neuen Ordner auf F:** entpacken. Alten Testordner, bisherige Python-Umgebung und Projektdateien behalten. Die ZIP enthält weder Python-Pakete noch MicMac, Originalbilder oder produktive Datenbanken.
