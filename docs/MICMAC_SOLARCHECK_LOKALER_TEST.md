@@ -2,7 +2,7 @@
 
 Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der tatsächliche Bildlauf auf dem Windows-10-Auswerterechner und seine Fachabnahme stehen aus.** Die Tests nutzen synthetische Bilder und eine Fake-MicMac-CLI; sie prüfen die Anbindung, keine Rekonstruktionsqualität.
 
-**Nutzerstand 02.11.2026:** 26 RGB, 26 Thermal, 25 Paare. RGB-Lauf durchläuft Tapas, OriConvert und CenterBascule; Malt scheitert an intern verändertem Bildmuster („Empty list for StdGetListOfFile“). Klammerfreies gleichwertiges Sechs-Ziffern-Muster in der Anbindung korrigiert; 61 gezielte Tests grün. Neue ZIP/Startdatei verwenden, vorhandenes Projekt/Bilder beibehalten und denselben Lauf wiederholen. Tatsächliche GeoTIFF-Erzeugung, Thermal-Lauf und Fachabnahme noch offen.
+**Nutzerstand 02.11.2026:** 26 RGB, 26 Thermal, 25 Paare. Nach Musterfix erreicht Lauf Thermal-Tapas; RGB-Schleife einschließlich GeoTIFF-Prüfung passiert. Privaten Laufordner mit rgb_ortho.tif bewahren, Qualität noch prüfen. Thermal-Log: 18 unverbundene Bilder, „Connection pb in MST“. Vollständigkeit der Thermalserie erfragt, Ursache noch offen. Kein vollständiges Paar registriert; keinen blinden gesamten Lauf wiederholen oder RGB-Kameraparameter auf Thermal kopieren.
 
 ## Vorhandenen Stand verwenden
 
