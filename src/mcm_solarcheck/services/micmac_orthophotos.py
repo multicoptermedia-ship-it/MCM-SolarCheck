@@ -266,7 +266,10 @@ def generate_micmac_orthophotos(database, project_id, executable, output_parent,
             commands = (
                 ('Tapioca', 'All', pattern, '1200', 'Detect=mm3d:Digeo', 'Match=mm3d:Ann'),
                 ('Tapas', 'RadialBasic', pattern, 'Out=Rel'),
-                ('OriConvert', 'OriTxtInFile', 'positions.txt', 'GPS', 'AddCalib=0'),
+                # OriConvert instantiates cameras even for center-only input.
+                # Retain its standard EXIF-based initialization; disabling it
+                # leaves neither Interne nor FileInterne and aborts conversion.
+                ('OriConvert', 'OriTxtInFile', 'positions.txt', 'GPS', 'AddCalib=1'),
                 ('CenterBascule', pattern, 'Rel', 'GPS', 'Ground'),
                 ('Malt', 'Ortho', pattern, 'Ground', 'ZoomF=2'),
                 ('Tawny', 'Ortho-MEC-Malt/', 'RadiomEgal=0', 'Out=Orthophotomosaic.tif'),
@@ -275,7 +278,13 @@ def generate_micmac_orthophotos(database, project_id, executable, output_parent,
                 _cancelled(cancel)
                 if on_progress:
                     on_progress(f'{modality.upper()}: MicMac {command[0]} ({step}/{len(commands)})')
-                _execute(exe, command, folder, folder / f'step-{step:02d}.log', cancel)
+                log_name = f'step-{step:02d}.log'
+                try:
+                    _execute(exe, command, folder, folder / log_name, cancel)
+                except MicMacError as error:
+                    # Only fixed sensor/stage names, never a private job path
+                    # or any of MicMac's raw process output, enter the UI.
+                    raise MicMacError(f'{modality.upper()}: {error} [{modality}/{log_name}]') from None
             _cancelled(cancel)
             _geotiff(folder / 'Ortho-MEC-Malt' / 'Orthophotomosaic.tif',
                      workspace / f'{modality}_ortho.tif', crs)

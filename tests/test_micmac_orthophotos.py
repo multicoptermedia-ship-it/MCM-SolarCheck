@@ -57,13 +57,20 @@ def scene(tmp_path):
     return service, exe, output, files
 
 
-def fake_micmac(monkeypatch, *, fail_layer=None, after_command=None, worldfile=True):
+def fake_micmac(monkeypatch, *, fail_layer=None, fail_stage='Tapas', after_command=None, worldfile=True):
     calls = []
     def execute(executable, args, cwd, log, should_cancel):
         calls.append((cwd.name, args))
         log.write_text('synthetic private process output', encoding='utf-8')
-        if cwd.name == fail_layer and args[0] == 'Tapas':
-            raise mm.MicMacError('MicMac-Stufe Tapas fehlgeschlagen (Code 1); lokales Protokoll prüfen.')
+        if cwd.name == fail_layer and args[0] == fail_stage:
+            raise mm.MicMacError(f'MicMac-Stufe {fail_stage} fehlgeschlagen (Code 1); lokales Protokoll prüfen.')
+        if args[0] == 'OriConvert':
+            # Upstream OriConvert instantiates cameras even for center-only
+            # input. With AddCalib=0 neither Interne nor FileInterne exists:
+            # reproduce that CLI boundary, not a photogrammetry algorithm.
+            options = dict(arg.split('=', 1) for arg in args[4:] if '=' in arg)
+            if options.get('AddCalib', '1') == '0':
+                raise mm.MicMacError('Cam_Gen_From_XML, Interne : ni Val ni File')
         if args[0] == 'Tawny':
             from pyproj import Transformer
             x, y = Transformer.from_crs(4326, 32632, always_xy=True).transform(8.61, 50.1)
@@ -141,11 +148,16 @@ def test_missing_coordinates_are_not_replaced_with_guesses(scene, monkeypatch, c
 
 
 @pytest.mark.parametrize('layer', ('rgb', 'thermal'))
-def test_failed_stage_does_not_publish_a_pair(scene, monkeypatch, layer):
+@pytest.mark.parametrize('stage,number', (('Tapas', 2), ('OriConvert', 3)))
+def test_failed_stage_does_not_publish_a_pair(scene, monkeypatch, layer, stage, number):
     service, exe, output, _ = scene
-    fake_micmac(monkeypatch, fail_layer=layer)
-    with pytest.raises(mm.MicMacError, match='Tapas'):
+    fake_micmac(monkeypatch, fail_layer=layer, fail_stage=stage)
+    with pytest.raises(mm.MicMacError, match=stage) as error:
         mm.generate_micmac_orthophotos(service.database, 'P1', exe, output)
+    assert str(error.value).startswith(layer.upper() + ': ')
+    assert f'{layer}/step-{number:02d}.log' in str(error.value)
+    assert str(output) not in str(error.value)
+    assert 'synthetic private process output' not in str(error.value)
     assert service.project_orthophoto_pairs('P1') == ()
     assert json.loads(next(output.glob('*/job.json')).read_text())['status'] == 'failed'
 

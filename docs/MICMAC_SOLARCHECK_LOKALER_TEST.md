@@ -2,7 +2,7 @@
 
 Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der tatsächliche Bildlauf auf dem Windows-10-Auswerterechner und seine Fachabnahme stehen aus.** Die Tests nutzen synthetische Bilder und eine Fake-MicMac-CLI; sie prüfen die Anbindung, keine Rekonstruktionsqualität.
 
-**Nutzerstand 02.11.2026:** Update ausgeführt; 5 RGB, 6 Thermal und 5 Bildpaare importiert. Erster MicMac-Lauf scheitert bei Tapas mit Code 3221226505 (`0xC0000409`). Sensor und Ursache unbekannt; neueste `step-02.log` in `rgb`/`thermal` lokal prüfen. Nur kurze Meldung ohne private Namen/Pfade/GPS weitergeben, vollständiges Protokoll lokal behalten. Noch keine erfolgreiche Rekonstruktion oder Qualitätsabnahme.
+**Nutzerstand 02.11.2026:** 5 RGB, 6 Thermal, 5 Paare importiert. Screenshot meldet Tapas-Abbruch; ausdrücklich hochgeladene Logs belegen zusätzlich OriConvert-Fehler „Interne : ni Val ni File“. `AddCalib=0` in unserer Anbindung wurde auf Standard `AddCalib=1` korrigiert; Fehler nennen jetzt Sensor/relative Logdatei. Neue Version verwenden und lokal erneut starten, vorhandene Bilder nicht neu importieren. Tapas hat auch Geometriewarnungen; Rekonstruktionsqualität und vollständiger Erfolg bleiben offen.
 
 ## Vorhandenen Stand verwenden
 

@@ -18,7 +18,7 @@ Vor einem Lauf werden lokal festgehalten: Betriebssystem, MicMac-Version/Herkunf
 
 ## Standardablauf je Sensor
 
-SolarChecks Anbindung verwendet jetzt diese Standardstufen: vollständige importierte Bildserien, gespeicherte Kamerapositionen/Höhen, PROJ-Umrechnung, `OriConvert OriTxtInFile positions.txt GPS AddCalib=0` und vorhandene GeoTIFF-Registrierung. Der folgende manuelle Weg erläutert die Geometrie; keine zusätzliche Survey-JSON oder selbst programmierte Engine verwenden.
+SolarChecks Anbindung verwendet jetzt diese Standardstufen: vollständige importierte Bildserien, gespeicherte Kamerapositionen/Höhen, PROJ-Umrechnung, `OriConvert OriTxtInFile positions.txt GPS AddCalib=1` und vorhandene GeoTIFF-Registrierung. Der folgende manuelle Weg erläutert die Geometrie; keine zusätzliche Survey-JSON oder selbst programmierte Engine verwenden.
 
 
 
@@ -63,3 +63,5 @@ gdal_translate -of GTiff -a_srs "<BELEGTES_CRS>" "Ortho-MEC-Malt/Orthophotomosai
 In SolarCheck **Verarbeitung → „Extern erstelltes RGB-/Thermal-Paar übernehmen“** wählen. Dies öffnet den bestehenden Importbereich. Dort beide GeoTIFFs gemeinsam registrieren, anschließend **Anlagenübersicht → Orthofotos** öffnen. Paarauswahl, Überblendung und Zoom verwenden; Projekt schließen/wiederöffnen. Quellen bleiben unverändert, die Registrierung bleibt `metadata_only`. Der alte GUI-Einstieg in die eingefrorene eigene Erzeugung ist entfernt.
 
 Die Abnahme umfasst vollständige Abdeckung, scharfe Modulränder, Doppelkonturen, Nähte und gemeinsame RGB-/Thermal-Lage. Erst ein echter lokaler Vergleich kann den fehlgeschlagenen Windows-10-Piloten ablösen. **Bestätigt: separat installiertes MicMac startet auf dem Nutzerrechner.** SolarChecks explizite Anbindung ist inzwischen technisch umgesetzt; [echter lokaler Lauf und Referenzvergleich](MICMAC_SOLARCHECK_LOKALER_TEST.md) bleiben offen. Diese manuelle Beschreibung dient als Referenz für die Standardkommandos, nicht als neuer Implementierungsauftrag.
+
+**Korrektur 02.11.2026:** `AddCalib=1` ist der dokumentierte MicMac-Standard und initialisiert das für GPS-Orientierungen intern benötigte Kameramodell aus Bildmetadaten. `AddCalib=0` führte im gemeldeten Lauf zu „Interne : ni Val ni File“. Das ist keine Forderung nach einer extern verifizierten Kalibrierungsdatei und keine metrische Fachfreigabe. Die endgültige Bildorientierung verwendet weiterhin die getrennt berechneten Tapas-Modelle.
