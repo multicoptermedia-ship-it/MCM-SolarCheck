@@ -2,7 +2,7 @@
 
 Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der tatsächliche Bildlauf auf dem Windows-10-Auswerterechner und seine Fachabnahme stehen aus.** Die Tests nutzen synthetische Bilder und eine Fake-MicMac-CLI; sie prüfen die Anbindung, keine Rekonstruktionsqualität.
 
-**Nutzerstand 02.11.2026:** 26 RGB, 26 Thermal, 25 Paare. Nach Musterfix erreicht Lauf Thermal-Tapas; RGB-Schleife einschließlich GeoTIFF-Prüfung passiert. Privaten Laufordner mit rgb_ortho.tif bewahren, Qualität noch prüfen. Thermal-Log: 18 unverbundene Bilder, „Connection pb in MST“. Vollständigkeit der Thermalserie erfragt, Ursache noch offen. Kein vollständiges Paar registriert; keinen blinden gesamten Lauf wiederholen oder RGB-Kameraparameter auf Thermal kopieren.
+**Nutzerstand 02.11.2026:** 26 RGB, 26 Thermal, 25 Paare. Nach Musterfix erreicht Lauf Thermal-Tapas; RGB-Schleife einschließlich GeoTIFF-Prüfung passiert. Privaten Laufordner mit rgb_ortho.tif bewahren, Qualität noch prüfen. Thermal-Log: 18 unverbundene Bilder, „Connection pb in MST“. Nutzer bestätigt vollständige Thermalserie dieses Abschnitts. Isolierten Standardtest bei nativer Auflösung (-1) mit getrenntem Homol-/Orientierungsnamen nur für Thermal vorbereiten; Wirksamkeit noch unbestätigt. Ursache noch offen. Kein vollständiges Paar registriert; keinen blinden gesamten Lauf wiederholen oder RGB-Kameraparameter auf Thermal kopieren.
 
 ## Vorhandenen Stand verwenden
 
