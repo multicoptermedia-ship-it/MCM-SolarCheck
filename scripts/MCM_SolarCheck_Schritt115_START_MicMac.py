@@ -15,7 +15,7 @@ import sys
 import tempfile
 from zipfile import ZipFile
 
-PROGRAM_COMMIT = "a0237d0a2339bda04efeb015ec65a10ae6c058d4"
+PROGRAM_COMMIT = "d706ff0e4577560511f31059457318b976f0b038"
 PROGRAM_ZIP_URL = (
     "https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/archive/"
     + PROGRAM_COMMIT + ".zip"
@@ -25,7 +25,10 @@ REQUIRED_HASHES = {
     "src/mcm_solarcheck/offline/__main__.py": "c4373d34c625f3a716df0799926b99a535a477648f549cdd156c278453539620",
     "src/mcm_solarcheck/gui/micmac_dialog.py": "a06f5ec42ca6031abe47e383af9d22202c913dfa7a1861a5c8eb9acd667d7bbe",
     "src/mcm_solarcheck/services/micmac_orthophotos.py": "098671064cb10fe1de31ecf67071888ed5d3d64f8853b4ff015e21e0c1f85674",
+    "src/mcm_solarcheck/gui/import_page.py": "c95cb90275f9e28f5b2baffc658247ac1f5dd7d03ba609f4069347068d53f67a",
+    "src/mcm_solarcheck/gui/shell.py": "61da49f3dcacd3d2be1e87ba252b4d931e808ba839ab08f34f00954f8a454e60",
 }
+
 READY = ".mcm-source-ready"
 SOURCE_SUFFIXES = {".py", ".ps1", ".md", ".yml", ".txt", ".html", ".js"}
 
@@ -112,6 +115,7 @@ def main() -> int:
         print("Programm-ZIP wird in einen getrennten lokalen Testordner entpackt ...", flush=True)
         program = prepare_program(archive, updates)
     powershell = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    print("SolarCheck-Programmstand: " + PROGRAM_COMMIT[:12], flush=True)
     print("SolarCheck startet mit der vorhandenen Python-Umgebung. Bitte bisherige Projektdatei auswaehlen.", flush=True)
     return subprocess.run(
         [str(powershell), "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File",
