@@ -2,7 +2,7 @@
 
 Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der tatsächliche Bildlauf auf dem Windows-10-Auswerterechner und seine Fachabnahme stehen aus.** Die Tests nutzen synthetische Bilder und eine Fake-MicMac-CLI; sie prüfen die Anbindung, keine Rekonstruktionsqualität.
 
-**Nutzerstand 02.11.2026:** 5 RGB, 6 Thermal, 5 Paare importiert. Nach Update bricht RGB-Tapas weiter mit Code 3221226505 ab; UI nennt rgb/step-02.log. OriConvert-Fix ist noch nicht erreicht. Erneut hochgeladene step-02/step-03 sind bytegleich zu vorherigen Uploads. Jetzt die zuletzt geschriebene RGB-step-02 lokal öffnen; nur bereinigte Fehlermeldung weitergeben, bei bloßem Abschlussbanner das mitteilen. Kein weiterer Rechen-/Qualitätserfolg belegt.
+**Nutzerstand 02.11.2026:** 5 RGB, 6 Thermal, 5 Paare. Aktueller RGB-Tapas-Fehler lautet „Distortion Inversion by finite difference do not converge (probably ill-conditioned canvas)“. Nächster Test mit vollständigen zusammenhängenden, überlappenden Flugserien; vorhandenen Nachladeweg mit nur fehlenden Dateien nutzen, Duplikate werden abgelehnt. Aktuelle Version weiterverwenden. Überlappung der bisherigen Testbilder erfragt, genaue Ursache instabiler Schätzung noch offen. Keine erfolgreiche Rekonstruktion/Fachabnahme.
 
 ## Vorhandenen Stand verwenden
 
