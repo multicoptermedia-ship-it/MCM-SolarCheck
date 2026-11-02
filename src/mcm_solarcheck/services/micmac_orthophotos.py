@@ -262,7 +262,10 @@ def generate_micmac_orthophotos(database, project_id, executable, output_parent,
                     raise MicMacError("Kameraposition konnte nicht ins Zielsystem übertragen werden.")
                 positions.append(f"{name} {x:.9f} {y:.9f} {row['altitude_m']:.9f}")
             (folder / 'positions.txt').write_text('\n'.join(positions) + '\n', encoding='ascii')
-            pattern = '[0-9]{6}[.]JPG'
+            # Malt's nested XML/command expansion can consume repetition
+            # braces. Spell out the six digits so every stage sees exactly
+            # the same numbered working copies, including inside Malt.
+            pattern = '[0-9]' * 6 + '[.]JPG'
             commands = (
                 ('Tapioca', 'All', pattern, '1200', 'Detect=mm3d:Digeo', 'Match=mm3d:Ann'),
                 ('Tapas', 'RadialBasic', pattern, 'Out=Rel'),

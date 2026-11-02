@@ -5,6 +5,7 @@ These tests DO NOT certify MicMac reconstruction or real orthophoto quality.
 import hashlib
 import json
 from pathlib import Path
+import re
 import socket
 import sys
 import time
@@ -71,6 +72,17 @@ def fake_micmac(monkeypatch, *, fail_layer=None, fail_stage='Tapas', after_comma
             options = dict(arg.split('=', 1) for arg in args[4:] if '=' in arg)
             if options.get('AddCalib', '1') == '0':
                 raise mm.MicMacError('Cam_Gen_From_XML, Interne : ni Val ni File')
+        if args[0] == 'Malt':
+            # Observed nested Malt invocation drops repetition braces. Reproduce
+            # that transport boundary: all numbered copies must still match.
+            nested_pattern = args[2].replace('{', '').replace('}', '')
+            copies = {path.name for path in cwd.glob('*.JPG')}
+            selected = {name for name in copies if re.fullmatch(nested_pattern, name)}
+            if not selected:
+                raise mm.MicMacError('Empty list for StdGetListOfFile')
+            assert selected == copies
+            for unrelated in ('1.JPG', '1234567.JPG', '000001-small.JPG', 'preview.JPG'):
+                assert re.fullmatch(nested_pattern, unrelated) is None
         if args[0] == 'Tawny':
             from pyproj import Transformer
             x, y = Transformer.from_crs(4326, 32632, always_xy=True).transform(8.61, 50.1)

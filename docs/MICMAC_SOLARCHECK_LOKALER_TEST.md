@@ -2,7 +2,7 @@
 
 Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der tatsächliche Bildlauf auf dem Windows-10-Auswerterechner und seine Fachabnahme stehen aus.** Die Tests nutzen synthetische Bilder und eine Fake-MicMac-CLI; sie prüfen die Anbindung, keine Rekonstruktionsqualität.
 
-**Nutzerstand 02.11.2026:** 5 RGB, 6 Thermal, 5 Paare. Aktueller RGB-Tapas-Fehler lautet „Distortion Inversion by finite difference do not converge (probably ill-conditioned canvas)“. Nächster Test mit vollständigen zusammenhängenden, überlappenden Flugserien; vorhandenen Nachladeweg mit nur fehlenden Dateien nutzen, Duplikate werden abgelehnt. Aktuelle Version weiterverwenden. Nutzer bestätigt aufeinanderfolgende, stark überlappende Testbilder; genaue Ursache instabiler Schätzung bleibt offen. Keine erfolgreiche Rekonstruktion/Fachabnahme.
+**Nutzerstand 02.11.2026:** 26 RGB, 26 Thermal, 25 Paare. RGB-Lauf durchläuft Tapas, OriConvert und CenterBascule; Malt scheitert an intern verändertem Bildmuster („Empty list for StdGetListOfFile“). Klammerfreies gleichwertiges Sechs-Ziffern-Muster in der Anbindung korrigiert; 61 gezielte Tests grün. Neue ZIP/Startdatei verwenden, vorhandenes Projekt/Bilder beibehalten und denselben Lauf wiederholen. Tatsächliche GeoTIFF-Erzeugung, Thermal-Lauf und Fachabnahme noch offen.
 
 ## Vorhandenen Stand verwenden
 
