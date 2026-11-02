@@ -1,6 +1,12 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
-> **Fortsetzung 02.11.2026 · IMPORT-GEMEINSAM-01 korrigiert:** Gemeinsamer oberer Import bietet JPG und GeoTIFF; getrennte RGB-/Thermal-Mehrfachauswahl. JPGs zum vorhandenen Originalbildimport, je ein fertiges GeoTIFF zur atomaren Paarregistrierung; gemischte/mehrdeutige Auswahl und Abbruch ohne Teilübernahme. MicMac nach Import-Threadende wieder bedienbar. 43 gezielte Tests und Gesamtsuite (4.171 bestanden/17 Skips) grün; neue Programm-ZIP `d706ff0e` mit aktualisierter Schritt-115-Startdatei bereitgestellt; exakte HEAD-CI prüfen. Nutzer verwendet M3T-JPGs im neuen Projekt; GeoTIFF bleibt Ausgabe. M3M-Originalimport weiterhin offen. Danach echter lokaler MicMac-Lauf/Referenzvergleich, keine Qualitätsfreigabe aus Tests. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md), [Startanleitung](ZIP_AKTUALISIERUNG_WINDOWS10.md).
+> **Fortsetzung 02.11.2026 · IMPORT-GEMEINSAM-01 lokal bestätigt:** Nach Update meldet Nutzer **5 RGB, 6 Thermal, 5 Paare** im neuen M3T-Projekt. Mindestanzahl für MicMac-Test erfüllt; eine Thermalaufnahme ohne RGB-Gegenstück. Gemeinsame JPG-/GeoTIFF-Auswahl korrigiert, vorhandene Import-/Paarregistrierung weiterverwendet, MicMac nach Thread-Cleanup wieder bedienbar. Auslieferung `a5bef640` / Programm-ZIP `d706ff0e`: sechs CI-Jobs grün, lokale Suite 4.171 bestanden/17 Skips. **Jetzt erster lokaler MicMac-Test mit dieser Auswahl**; Überlappung/Geodaten und Rekonstruktionsqualität noch offen, kein vollständiger Flug-/Referenznachweis. Keine neue Version oder erneuter Import für diesen Test nötig. GeoTIFF bleibt Ausgabe; M3M-Originalimport offen. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md), [lokaler Ablauf](MICMAC_SOLARCHECK_LOKALER_TEST.md).
+
+
+### 02.11.2026 · Nutzerprobe nach Importkorrektur – 5 RGB / 6 Thermal / 5 Paare
+- Nutzer hat aktualisierte ZIP/Startdatei ausgeführt und meldet fünf RGB-, sechs Thermalbilder und fünf Bildpaare. Erfolgreicher lokaler Import damit bestätigt; keine Kundendateien/Koordinaten/DBs hier geöffnet.
+- Auslieferung `a5bef640d1ed760b0ce8d316540648ba1ed16722`: beide Linux-Matrizen und native Windows-Matrix vollständig grün. Anwendung/ZIP weiterhin `d706ff0e4577560511f31059457318b976f0b038`; nur Übergabe aktualisiert.
+- Mindestanzahl von drei Bildern pro Sensor erfüllt. Erste lokale MicMac-Probe mit vorhandener Auswahl als nächster Schritt; tatsächliche Überlappung/Kamerapositionen/Höhen und Rekonstruktion nicht aus Bildzahlen ableiten. Ein Thermalbild ohne RGB-Partner bleibt erhalten. Vollständiger Flug und privater Referenzvergleich noch offen.
 
 
 ### 02.11.2026 · IMPORT-GEMEINSAM-01 – gemeinsame Auswahl JPG / GeoTIFF korrigiert

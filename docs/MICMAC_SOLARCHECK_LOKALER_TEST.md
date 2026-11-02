@@ -2,6 +2,8 @@
 
 Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der tatsächliche Bildlauf auf dem Windows-10-Auswerterechner und seine Fachabnahme stehen aus.** Die Tests nutzen synthetische Bilder und eine Fake-MicMac-CLI; sie prüfen die Anbindung, keine Rekonstruktionsqualität.
 
+**Nutzerstand 02.11.2026:** Update ausgeführt; 5 RGB, 6 Thermal und 5 Bildpaare im aktiven Projekt gemeldet. Jetzt erster Testlauf mit dieser Auswahl; Mindestanzahl erfüllt, Überlappung/Geodaten/Qualität noch zu prüfen. Das ist noch kein vollständiger Flugnachweis.
+
 ## Vorhandenen Stand verwenden
 
 **Start und Projektladen bestätigt:** Der Nutzer hat die Schritt-115-Startdatei aus Downloads mit vorhandenem Python auf F: ausgeführt; Programm geöffnet und vorhandenes Projekt geladen. Aktualisierung und Projektauswahl jetzt nicht wiederholen. Weiter unten bei „Projekt und MicMac-Lauf“ fortsetzen. [Startanleitung](ZIP_AKTUALISIERUNG_WINDOWS10.md) nur bei späterem Bedarf verwenden.
