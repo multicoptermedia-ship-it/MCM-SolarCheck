@@ -2,7 +2,7 @@
 
 Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der tatsächliche Bildlauf auf dem Windows-10-Auswerterechner und seine Fachabnahme stehen aus.** Die Tests nutzen synthetische Bilder und eine Fake-MicMac-CLI; sie prüfen die Anbindung, keine Rekonstruktionsqualität.
 
-**Nutzerstand 02.11.2026:** Update ausgeführt; 5 RGB, 6 Thermal und 5 Bildpaare im aktiven Projekt gemeldet. Jetzt erster Testlauf mit dieser Auswahl; Mindestanzahl erfüllt, Überlappung/Geodaten/Qualität noch zu prüfen. Das ist noch kein vollständiger Flugnachweis.
+**Nutzerstand 02.11.2026:** Update ausgeführt; 5 RGB, 6 Thermal und 5 Bildpaare importiert. Erster MicMac-Lauf scheitert bei Tapas mit Code 3221226505 (`0xC0000409`). Sensor und Ursache unbekannt; neueste `step-02.log` in `rgb`/`thermal` lokal prüfen. Nur kurze Meldung ohne private Namen/Pfade/GPS weitergeben, vollständiges Protokoll lokal behalten. Noch keine erfolgreiche Rekonstruktion oder Qualitätsabnahme.
 
 ## Vorhandenen Stand verwenden
 
