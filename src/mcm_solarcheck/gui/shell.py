@@ -3552,6 +3552,9 @@ class SolarCheckMainWindow(QMainWindow):
             self.close()
         else:
             self._refresh_import_page()
+            # Result handling still runs with an owned import thread. Refresh
+            # again after cleanup so the MicMac action becomes available.
+            self._refresh_processing_page()
 
     def _cancel_image_import(self) -> None:
         worker = self._import_thread

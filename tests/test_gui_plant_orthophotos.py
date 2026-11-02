@@ -83,12 +83,12 @@ def test_import_overview_masks_zoom_project_switch_and_reopen(tmp_path, qapp, mo
         window._open_project("P1")
         assert overview(window).findChild(QLabel, "plant_orthophoto_empty_state") is not None
         import_page = window._pages[ShellRoute.IMPORT]
-        monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: ("", ""))
+        monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *args: ([], ""))
         import_page.findChild(QPushButton, "register_orthophoto_pair_button").click()
         assert service.project_orthophoto_pairs("P1") == ()
         assert overview(window).findChild(QSlider, "orthophoto_thermal_opacity_slider") is None
         paths = iter((str(rgb), str(thermal)))
-        monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (next(paths), ""))
+        monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *args: ([path] if (path := next(paths)) else [], ""))
         kinds = import_page.findChild(QComboBox, "orthophoto_thermal_value_kind")
         kinds.setCurrentIndex(kinds.findData("visual" if visual else "sensor_values"))
         import_page.findChild(QPushButton, "register_orthophoto_pair_button").click()
@@ -264,7 +264,7 @@ def test_processing_uses_existing_external_pair_intake_without_running_frozen_en
         page = window._pages[ShellRoute.IMPORT]
         assert page.findChild(QPushButton, "generate_orthophotos_button") is None
         paths = iter(("",) if cancel else (str(rgb), str(thermal)))
-        monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (next(paths), ""))
+        monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *args: ([path] if (path := next(paths)) else [], ""))
         page.findChild(QPushButton, "register_orthophoto_pair_button").click()
         window._workflow_navigation.button(ShellRoute.PLANT_OVERVIEW).click()
         assert window.current_route is ShellRoute.PLANT_OVERVIEW

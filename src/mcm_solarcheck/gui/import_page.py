@@ -1,5 +1,7 @@
 """Import workspace presentation for SolarCheck."""
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QComboBox, QCheckBox, QFileDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
@@ -31,14 +33,15 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     project.setObjectName("import_project_context")
     layout.addWidget(project)
 
-    ortho_heading = QLabel("Extern berechnete RGB- und Thermal-Orthofotos", page)
+    ortho_heading = QLabel("RGB- und Thermalbilder importieren", page)
     ortho_heading.setObjectName("orthophoto_pair_heading")
     layout.addWidget(ortho_heading)
     ortho_help = QLabel(
-        "Je ein lokal berechnetes RGB- und Thermal-GeoTIFF auswählen. "
-        "SolarCheck nutzt deren Georeferenzierung für den Vergleich und die "
-        "PV-Zuordnung. Die Dateien bleiben unverändert; es werden keine "
-        "Originalfotos an einen Dienst übertragen.", page,
+        "JPG: RGB- und Thermal-Originalaufnahmen gemeinsam auswählen; "
+        "die Orthofotos danach unter Verarbeitung mit MicMac erstellen. "
+        "GeoTIFF: je ein bereits fertiges RGB- und Thermal-Orthofoto übernehmen. "
+        "Originalaufnahmen und fertige Orthofotos getrennt importieren. "
+        "Die Dateien bleiben lokal; die Orthofotoausgabe ist GeoTIFF.", page,
     )
     ortho_help.setWordWrap(True)
     layout.addWidget(ortho_help)
@@ -46,29 +49,62 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     thermal_kind.setObjectName("orthophoto_thermal_value_kind")
     thermal_kind.addItem("Thermal-Darstellung (Falschfarben / Intensität)", "visual")
     thermal_kind.addItem("Thermal-Rohwerte (ein Messwertkanal)", "sensor_values")
-    thermal_kind.setToolTip("Rohwerte und Falschfarben bestätigen keine Celsius-Kalibrierung.")
+    thermal_kind.setToolTip("Gilt nur für fertige Thermal-GeoTIFFs, nicht für JPG-Originalaufnahmen. Keine Celsius-Kalibrierung.")
     layout.addWidget(thermal_kind)
-    register_pair = QPushButton("RGB- und Thermal-Orthofoto gemeinsam importieren", page)
+    register_pair = QPushButton("RGB- und Thermalbilder gemeinsam importieren (JPG / GeoTIFF)", page)
     register_pair.setObjectName("register_orthophoto_pair_button")
-    register_pair.setEnabled(current_project_id is not None and on_register_orthophoto_pair is not None)
-    if current_project_id is not None and on_register_orthophoto_pair is not None:
+    register_pair.setEnabled(current_project_id is not None and (
+        on_import_original_files is not None or on_register_orthophoto_pair is not None
+    ))
+    selection_status = QLabel(page)
+    selection_status.setObjectName("joint_image_import_status")
+    selection_status.setWordWrap(True)
+    selection_status.setTextFormat(Qt.TextFormat.PlainText)
+    if register_pair.isEnabled():
         def request_orthophoto_pair_registration():
+            selection_status.clear()
             if choose_register_orthophoto_pair is not None:
-                paths = choose_register_orthophoto_pair()
+                selections = choose_register_orthophoto_pair()
+                if not selections or len(selections) != 2:
+                    return
+                rgb, thermal = (
+                    (value,) if isinstance(value, (str, Path)) else tuple(value)
+                    for value in selections
+                )
             else:
-                rgb = QFileDialog.getOpenFileName(
-                    page, "RGB-Orthofoto auswählen", "", "GeoTIFF (*.tif *.tiff)"
+                image_filter = (
+                    "JPG und GeoTIFF (*.JPG *.jpg *.TIF *.tif *.TIFF *.tiff);;"
+                    "JPG-Originalaufnahmen (*.JPG *.jpg);;GeoTIFF-Orthofotos (*.TIF *.tif *.TIFF *.tiff)"
+                )
+                rgb = QFileDialog.getOpenFileNames(
+                    page, "RGB-Aufnahmen (JPG) oder ein RGB-Orthofoto (GeoTIFF) auswählen", "", image_filter
                 )[0]
-                thermal = QFileDialog.getOpenFileName(
-                    page, "Thermal-Orthofoto auswählen", "", "GeoTIFF (*.tif *.tiff)"
-                )[0] if rgb else ""
-                paths = (rgb, thermal)
-            if paths and len(paths) == 2 and all(paths):
-                on_register_orthophoto_pair(*paths, thermal_kind.currentData())
+                thermal = QFileDialog.getOpenFileNames(
+                    page, "Thermal-Aufnahmen (JPG) oder ein Thermal-Orthofoto (GeoTIFF) auswählen", "", image_filter
+                )[0] if rgb else ()
+            if not rgb or not thermal or not all((*rgb, *thermal)):
+                return
+            paths = tuple(str(path) for path in (*rgb, *thermal))
+            suffixes = {Path(path).suffix.lower() for path in paths}
+            if suffixes == {".jpg"}:
+                if on_import_original_files is None:
+                    selection_status.setText("JPG-Import derzeit nicht verfügbar. Ein Offline-Projekt öffnen und laufenden Import abwarten.")
+                else:
+                    on_import_original_files(paths)
+            elif suffixes <= {".tif", ".tiff"} and len(rgb) == len(thermal) == 1:
+                if on_register_orthophoto_pair is None:
+                    selection_status.setText("GeoTIFF-Paarimport ist für dieses Projekt nicht verfügbar.")
+                else:
+                    on_register_orthophoto_pair(*paths, thermal_kind.currentData())
+            else:
+                selection_status.setText(
+                    "Bitte entweder JPG-Originalaufnahmen für beide Sensoren oder genau ein fertiges "
+                    "GeoTIFF je Sensor auswählen. JPG und GeoTIFF getrennt importieren."
+                )
         register_pair.clicked.connect(request_orthophoto_pair_registration)
     layout.addWidget(register_pair)
+    layout.addWidget(selection_status)
     if orthophoto_pairs:
-        from pathlib import Path
         saved_pairs = QComboBox(page)
         saved_pairs.setObjectName("registered_orthophoto_pairs")
         for pair in orthophoto_pairs:
