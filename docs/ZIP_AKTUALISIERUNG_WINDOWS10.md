@@ -4,9 +4,11 @@ Der Nutzer startet bisher eine von ChatGPT bereitgestellte ZIP-Testversion auf L
 
 ## Gewünschter Schritt-115-Start aus Downloads
 
-**Korrektur 02.11.2026:** Gemeinsamer Import akzeptiert jetzt JPG und GeoTIFF; zuerst RGB-, danach Thermal-Auswahl. Für JPG jeweils mehrere Originale markieren, für fertige Orthofotos je genau ein GeoTIFF. Nach dem JPG-Import ist MicMac wieder bedienbar. ZIP und Startdatei gemeinsam aktualisieren; die alte Startdatei würde weiterhin den vorherigen Programmstand öffnen. Beim Start dieselbe Datenbank wie für das zuletzt angelegte Projekt wählen.
+**Zusätzliche MicMac-Korrektur 02.11.2026:** GPS-Orientierungsimport initialisiert sein Kameramodell wieder aus Bildmetadaten (`AddCalib=1`). Fehlermeldungen nennen RGB/Thermal und die relative Protokolldatei. Beide Downloads erneut aktualisieren, dieselbe Datenbank wählen und den lokalen Lauf wiederholen; vorhandene Bilder müssen nicht neu importiert werden. Der vollständige reale Rechenlauf ist noch nicht nachgewiesen.
 
-1. Bisherige GUI schließen. [Programm-ZIP des geprüften Standes herunterladen](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/archive/d706ff0e4577560511f31059457318b976f0b038.zip) und in **Downloads** lassen; nicht selbst entpacken oder umbenennen. Browserzusatz `(1)` ist erlaubt.
+**Importkorrektur 02.11.2026:** Gemeinsamer Import akzeptiert jetzt JPG und GeoTIFF; zuerst RGB-, danach Thermal-Auswahl. Für JPG jeweils mehrere Originale markieren, für fertige Orthofotos je genau ein GeoTIFF. Nach dem JPG-Import ist MicMac wieder bedienbar. ZIP und Startdatei gemeinsam aktualisieren; die alte Startdatei würde weiterhin den vorherigen Programmstand öffnen. Beim Start dieselbe Datenbank wie für das zuletzt angelegte Projekt wählen.
+
+1. Bisherige GUI schließen. [Programm-ZIP des geprüften Standes herunterladen](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/archive/2747f331483e35b20ca4271241e608c2e6f82515.zip) und in **Downloads** lassen; nicht selbst entpacken oder umbenennen. Browserzusatz `(1)` ist erlaubt.
 2. [Python-Startdatei herunterladen](../scripts/MCM_SolarCheck_Schritt115_START_MicMac.py) und als **`MCM_SolarCheck_Schritt115_START_MicMac.py`** ebenfalls in Downloads speichern (bei Quelltextanzeige „Link speichern unter“, Endung `.py`).
 3. Den vom Nutzer vorgegebenen Block unverändert in PowerShell ausführen:
 
@@ -22,7 +24,7 @@ if (-not $skript) {
 & "F:\MCM-SolarCheck\.venv\Scripts\python.exe" $skript
 ```
 
-Die bisherige Python-Startdatei durch die neue Datei unter demselben Namen ersetzen. Am besten den exakten Startbefehl im nächsten Abschnitt verwenden; die Wildcard oben kann eine andere ältere Schritt-115-Datei auswählen. Sie verwendet dasselbe Python, entpackt nur Quellcode in **`F:\MCM-SolarCheck\test-updates\MCM-MicMac-d706ff0e4577`** und ruft dort den vorhandenen PowerShell-Starter auf. Danach die bisherige Projektdatei auswählen. Beim nächsten Start genügt der bereits vorbereitete Testordner; die ZIP muss dann nicht mehr vorhanden sein. Keine automatischen Downloads oder Installationen; MicMac bleibt separat. Der Programmstand ist absichtlich auf den bereits geprüften Stand festgelegt.
+Die bisherige Python-Startdatei durch die neue Datei unter demselben Namen ersetzen. Am besten den exakten Startbefehl im nächsten Abschnitt verwenden; die Wildcard oben kann eine andere ältere Schritt-115-Datei auswählen. Sie verwendet dasselbe Python, entpackt nur Quellcode in **`F:\MCM-SolarCheck\test-updates\MCM-MicMac-2747f331483e`** und ruft dort den vorhandenen PowerShell-Starter auf. Danach die bisherige Projektdatei auswählen. Beim nächsten Start genügt der bereits vorbereitete Testordner; die ZIP muss dann nicht mehr vorhanden sein. Keine automatischen Downloads oder Installationen; MicMac bleibt separat. Der Programmstand ist absichtlich auf den bereits geprüften Stand festgelegt.
 
 ## Wenn der Orthofoto-Abschnitt nach dem Start fehlt
 

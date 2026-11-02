@@ -15,7 +15,7 @@ import sys
 import tempfile
 from zipfile import ZipFile
 
-PROGRAM_COMMIT = "d706ff0e4577560511f31059457318b976f0b038"
+PROGRAM_COMMIT = "2747f331483e35b20ca4271241e608c2e6f82515"
 PROGRAM_ZIP_URL = (
     "https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/archive/"
     + PROGRAM_COMMIT + ".zip"
@@ -24,7 +24,7 @@ REQUIRED_HASHES = {
     "scripts/start_windows10_offline.ps1": "9c9114c8b20a825da1274af9002b73cfa97be3c72a7bffe2fff581d0f31b6b13",
     "src/mcm_solarcheck/offline/__main__.py": "c4373d34c625f3a716df0799926b99a535a477648f549cdd156c278453539620",
     "src/mcm_solarcheck/gui/micmac_dialog.py": "a06f5ec42ca6031abe47e383af9d22202c913dfa7a1861a5c8eb9acd667d7bbe",
-    "src/mcm_solarcheck/services/micmac_orthophotos.py": "098671064cb10fe1de31ecf67071888ed5d3d64f8853b4ff015e21e0c1f85674",
+    "src/mcm_solarcheck/services/micmac_orthophotos.py": "ccdc2219858c7e260386a08700f3b0ab0069f62a69b15b16025d5544bc3ba154",
     "src/mcm_solarcheck/gui/import_page.py": "c95cb90275f9e28f5b2baffc658247ac1f5dd7d03ba609f4069347068d53f67a",
     "src/mcm_solarcheck/gui/shell.py": "61da49f3dcacd3d2be1e87ba252b4d931e808ba839ab08f34f00954f8a454e60",
 }
