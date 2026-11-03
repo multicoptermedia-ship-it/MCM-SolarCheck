@@ -1,10 +1,30 @@
 # Erster lokaler MicMac-Lauf und Vergleich mit der RGB-Referenz
 
-Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der tatsächliche Bildlauf auf dem Windows-10-Auswerterechner und seine Fachabnahme stehen aus.** Die Tests nutzen synthetische Bilder und eine Fake-MicMac-CLI; sie prüfen die Anbindung, keine Rekonstruktionsqualität.
+Stand 03.11.2026 · VERT-01B2 ist technisch angebunden. **Echter RGB-Lauf auf Windows 10 erfolgt, visuelle Qualität FAIL; Thermal blockiert.** Ein vollständiges brauchbares Rasterpaar und Fachabnahme fehlen. Automatisierte Rekonstruktionstests nutzen synthetische Bilder/Fake-MicMac; die nachfolgenden realen Sichtbefunde sind davon getrennt.
 
 **Nutzerstand 03.11.2026 / RGB-QUAL-01 FAIL:** Das benannte MicMac-RGB-GeoTIFF wurde auf ausdrücklichen Nutzerwunsch jetzt tatsächlich visuell geprüft. Technischer RGB-Abschluss ist bestätigt, Bildqualität jedoch unbrauchbar für PV-Modulprüfung. Thermal bleibt nach zwei MST-Abbrüchen blockiert; 26 RGB/26 Thermal/25 Paare, alle Thermalaufnahmen importiert. Kein vollständiges Paar registriert und keine Freigabe.
 
-## Aktueller Schritt: isoliertes Einzelortho als PNG/JPG sichtbar prüfen
+## Aktueller Befund: fünf isolierte Einzelorthos selbst gesehen – Schaden vor Tawny
+
+**Sichtprüfung erfolgt, keine weiteren Beispiele/Screenshots anfordern:** Auf ausdrücklichen Nutzerwunsch nur die fünf neuen Drive-Dateien Ort_000009.tif und Ort_000014.tif bis Ort_000017.tif gelesen. Jeweils einzeln eine Gesamtansicht und zusätzlich drei native 1200×800-Ausschnitte aus 09/14/17 geprüft. Ort_000021.tif wurde weiterhin nicht gelesen; die neuen fünf Dateien genügen zum Nachweis der zuvor beschriebenen Einzelortho-Fehler. Keine Originalbilder/anderen Kundendaten oder Referenzraster abgerufen.
+
+Alle fünf zeigen abgesetzte Dach-/PV-Stücke und harte interne Übergänge. In nativen Ausschnitten sind Zell-/Modulränder geknickt, verschoben und unterbrochen; es geht nicht nur um schwarze Außenränder oder unterschiedliche Bildabdeckung. Befund unabhängig vom Nutzerbetrachter und Mehrlayerdarstellung bestätigt. Nutzer korrigiert Viewerangabe: **IrfanView zum Ansehen**, WebODM separat zur Erzeugung seiner externen Referenz. Keine WebODM-Anbindung daraus ableiten.
+
+**Eingrenzung:** Mindestens ein Fehler liegt bereits in Malt-Einzelorthos, vor Tawny und finalem GeoTIFF-Export. Ein reiner Naht-/EPSG-/Exportfix reicht nicht. Höhenmodell, Kameraorientierung/Selbstkalibrierung und Einzelbild-Projektion sind noch nicht getrennt. Wiederkehrende Brüche machen die gemeinsame Oberfläche zu einem Prüfkandidaten, nicht zur bewiesenen alleinigen Ursache. Keine neuen SfM-/Stitching-/3D-Algorithmen programmieren und nicht blind Modell/Schwellen ändern.
+
+Alle fünf sind uint8-RGB-Arbeits-TIFFs ohne eingebettetes CRS/NoData/Alpha (all_valid). Separate Worldfiles/Geometrie-/Gültigkeitsmasken liegen hier nicht vor. Das beweist keine fehlende lokale Georeferenz oder ungültige Maskenerzeugung; keine absoluten Weltkoordinaten/Flächenfehler aus Einzel-TIFFs behaupten. Vorschauen/Originale bleiben außerhalb Git/CI.
+
+### Genau nächster Schritt: vorhandenes Höhenmodell mit passender Maske
+
+Im selben privaten Laufordner `rgb\MEC-Malt` **nur die Dateinamen** der letzten Stufe `Z_Num…DeZoom2…tif` und der vorhandenen `Masq…`/`AutoMask…` zurückmelden. Keine Pfade, Originale, neuen Ort-Dateien oder georeferenzierten XML-Inhalte hochladen. Die tatsächlich passende Maske anhand gleicher Stufe/Auflösung bzw. referenzierender MicMac-Metadaten bestimmen; bei Unklarheit nicht irgendeine Maske zuweisen. Damit lässt sich der konkrete Standardbefehl ohne geratenen Dateinamen vorbereiten.
+
+Danach MicMacs vorhandenes **GrShade** für eine qualitative Schummerung des bereits berechneten Höhenmodells mit Maskenberücksichtigung und eindeutiger **neuer** Ausgabedatei verwenden; Originale nicht überschreiben, keine Photogrammetrie neu rechnen. Ausgabe mit vorhandenem IrfanView ansehen; vorerst keine zusätzliche Software/Installer oder neue Diagnosearchitektur.
+
+[Geprüfter öffentlicher Quelltext v1.2.0 CPP_GrShade.cpp](https://github.com/micmacIGN/micmac/blob/v1.2.0/src/uti_image/CPP_GrShade.cpp#L97): Out/Mask/Visu unterstützt, Ausgabe uint8, **kein DeZoom-Parameter**. Keine unbewiesenen Optionen in Kopierbefehle aufnehmen. Noch kein GrShade-Lauf mit Nutzerdaten/Windows-Abnahme erfolgt. Schummerung zeigt berechnete Werte, bestätigt weder echte Höhen noch Ursache; ungültige/maskierte Bereiche und Maskenrand-Artefakte berücksichtigen. Stereo-/Kamerakontrolle bleibt bei auffälliger Oberfläche weiterhin nötig. Thermal-Rigweg zurückgestellt, keine Temperatur-/Fachfreigabe.
+
+## Historischer Transferblocker: Ort_000021.tif
+
+Die frühere Sichtprüfungsanfrage ist durch die fünf neuen Beispiele erfüllt; folgenden Abschnitt als Historie erhalten, nicht erneut Ort_000021/Screenshots anfordern.
 
 Nutzer hat die Einzelbilder angesehen und beschreibt frei verteilte, teils von der zusammenhängenden Fläche abgesetzte Bildstücke. Dazu wurde **Ort_000021.tif** ausdrücklich zur Kontrolle hochgeladen. Obwohl die Nachricht Screenshot sagt, liegt eine TIFF-Datei vor. Der direkte Dateitransfer ist wegen über 32 MiB blockiert. Gezielte Suche im bekannten öffentlichen Drive-Ordner fand diese Datei auch unter Variante Ort_000021.JPG.tif nicht. Daher **noch keine unabhängige Sichtprüfung dieses Einzelorthos**. Nicht so darstellen, als sei der Anhang bereits gesehen worden; die frühere Sichtprüfung des RGB-Gesamtbilds bleibt getrennt belegt.
 
