@@ -4,7 +4,24 @@ Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der t
 
 **Nutzerstand 03.11.2026 / RGB-QUAL-01 FAIL:** Das benannte MicMac-RGB-GeoTIFF wurde auf ausdrücklichen Nutzerwunsch jetzt tatsächlich visuell geprüft. Technischer RGB-Abschluss ist bestätigt, Bildqualität jedoch unbrauchbar für PV-Modulprüfung. Thermal bleibt nach zwei MST-Abbrüchen blockiert; 26 RGB/26 Thermal/25 Paare, alle Thermalaufnahmen importiert. Kein vollständiges Paar registriert und keine Freigabe.
 
-## Jetzt ausführen: bestehende Kamera-Prüfergebnisse, ohne Neuberechnung
+## Aktueller Schritt: Lage- und Höhenanteil der Kameraabweichung unterscheiden
+
+**Kennzahlenprüfung bereits ausgeführt – keinen erneuten Download/Prüflauf anfordern.** Nutzer meldet unter Windows: 26 RGB-Arbeitskopien, je 26 Rel/Ground, keine fehlenden/fremden Orientierungsdateien; 41 Tapas-Iterationen, letzte mit 26 Bildern, AverageResidual 1.207238. GPS-Abgleich 26 Zentren, MoyenneDist 8.788591 m, größte Dist 20.126524 m. Das bestätigt die lokale Lesefunktion des Helfers, keine richtige Bildgeometrie. WorstRes fehlt in der übermittelten Ausgabe; keinen Wert ergänzen.
+
+MicMac verwendet hier GPS erst nach Tapas zur globalen Ähnlichkeitstransformation mit CenterBascule. Diese Stufe verschiebt/dreht/skaliert das gesamte Netz, korrigiert keine einzelnen Fehlzuordnungen durch lokale Bundle Adjustment. Der arithmetische mittlere 3D-Abstand beträgt rund 8,79 m, nicht RMS; Maximum rund 20,13 m. Ohne bekannte GNSS-Genauigkeit und Komponenten ist die Ursache noch offen. 180°-Flugwende bleibt Hypothese. Eine andere globale Referenz allein erklärt nicht automatisch die Restabweichungen nach Anpassung. RGB-FAIL bleibt, auch bei kleinen Bildresiduen.
+
+Im **selben** privaten Laufordner die vorhandene Datei `rgb\Ori-Ground\Result-Center-Bascule.xml` im Texteditor öffnen. Nur die Zahlen zwischen folgenden Tags nachsehen und zurückgeben:
+
+- `MoyenneDistPlani`: mittlerer horizontaler Abstand in Metern.
+- `MoyenneDistAlti`: mittlerer absoluter Höhenabstand in Metern.
+
+Die Datei enthält zusätzlich private Koordinaten/Transformationen; ausschließlich die zwei Zahlen mitteilen. Datei nicht bearbeiten, nicht vollständig hochladen. Kein weiterer MicMac-Lauf und keine neue Installation. Ein bestätigter RTK-Fix wurde gesondert erfragt, Antwort steht noch aus; Unkenntnis nicht als fehlendes RTK oder beliebige Genauigkeit interpretieren.
+
+**Quellbelege v1.2.0:** [Apero-Center-Bascule.xml fixierte Kamera-/Poseparameter](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_MicMac/Apero-Center-Bascule.xml#L89), [Basculement.cpp Kennzahlenbildung](https://github.com/micmacIGN/micmac/blob/v1.2.0/src/uti_phgrm/Apero/Basculement.cpp#L953). Hoher Lage- oder Höhenanteil grenzt den nächsten Prüfschritt ein, authentifiziert weder die GPS-Werte noch die Rekonstruktion. Keine automatische Entscheidung für feste Kameraparameter, GPS-Gewichte, Campari-BA oder neuen Malt-Lauf. Danach vorhandene Orientierung/Oberfläche anhand dieser Evidenz gezielt beurteilen.
+
+## Abgeschlossene Kennzahlenprüfung: vorhandene Kamera-Prüfergebnisse
+
+Die folgende Anleitung bleibt zur Wiederverwendung dokumentiert; die aktuelle Nutzerprobe ist abgeschlossen und die Zahlen stehen oben.
 
 Die [einzelne Python-Datei](../scripts/MCM_SolarCheck_MicMac_RGB_Pruefung.py) separat in Downloads speichern. SolarCheck-Programm/ZIP/Starter bleiben unverändert. Mit vorhandenem Python starten:
 
