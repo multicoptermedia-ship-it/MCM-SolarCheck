@@ -4,13 +4,24 @@ Stand 03.11.2026 · VERT-01B2 ist technisch angebunden. **Echter RGB-Lauf auf Wi
 
 **Nutzerstand 03.11.2026 / RGB-QUAL-01 FAIL:** Das benannte MicMac-RGB-GeoTIFF wurde auf ausdrücklichen Nutzerwunsch jetzt tatsächlich visuell geprüft. Technischer RGB-Abschluss ist bestätigt, Bildqualität jedoch unbrauchbar für PV-Modulprüfung. Thermal bleibt nach zwei MST-Abbrüchen blockiert; 26 RGB/26 Thermal/25 Paare, alle Thermalaufnahmen importiert. Kein vollständiges Paar registriert und keine Freigabe.
 
-## Aktueller Schritt: Höhenwerte direkt als kleine PNGs anzeigen
+## Aktueller Schritt: vorhandene DJI-Kameralage an MicMac anbinden
+
+**Direkte PNG-Prüfung abgeschlossen:** Beide PNGs und Kennzahlen liegen vor. 4.017.909 Maskenpixel sind endlich: 168.440 oben, 3.849.469 unten. Modellinterne Höhenspanne 4.756, P5–P95 3.352; keine unabhängig gemessene Genauigkeit. Ein breiter Höhenverlauf ist sichtbar, große modulartige Aussparungen bleiben maskiert. Die schwarze GrShade-Hälfte ist damit kein Nachweis fehlender unterer Höhen. Diesen Test nicht wiederholen; die beschädigten Einzelorthofotos bleiben ein echter Qualitätsfehler.
+
+**Nutzerhinweis bestätigt eine Quellcode-Lücke (RGB-POSE-01):** Der vorhandene DJI-Importer liest GimbalYawDegree/GimbalPitchDegree/GimbalRollDegree getrennt von den Flight-Winkeln; die Rohangaben werden in den Projektmetadaten erhalten. Der MicMac-Service liest diese Winkel bisher nicht und schreibt nur Bildname/X/Y/Z. Tapas startet ohne explizite Winkelinitialisierung. Keine Original-JPGs oder produktive Datenbank wurden hier dafür geöffnet; die tatsächliche Vollständigkeit aller Bildwinkel ist nicht geprüft.
+
+Nächste Entwicklung ist die minimale Übergabe an **bestehende MicMac-Schnittstellen** OriConvert/InOri, nachdem die DJI- und MicMac-Konventionen belegt sind. Gimbalwinkel sind Startschätzungen, keine Vermessungsfreigabe oder Linsenkalibrierung. Kein blindes Yaw/Pitch/Roll→Omega/Phi/Kappa; Achsen, Reihenfolge, Nord-/Projektionsbezug und Bildorientierung müssen stimmen. Kein RTK-Zwang, keine eigene Engine oder Übernahme von RGB-Intrinsics für Thermal. **Noch keine Programmkorrektur/ZIP-Aktualisierung und kein neuer Windows-Lauf dafür.** Die 180°-Wende als Ursache ist unbewiesen. Aktuell keine weiteren PNG-/GrShade-/Native-Thermal-Tests oder Originaldateien erforderlich.
+
+## Abgeschlossene direkte PNG-Prüfung – Kopierblock als Historie
+
+Der folgende Ablauf ist bereits ausgeführt. Nicht erneut starten oder dieselben PNGs nochmals anfordern.
+
 
 **GrShade-Fragen abgeschlossen:** Nutzer bestätigt Erstellt-Ausgabe und unverändert schwarze untere Bildhälfte auch nach Schließen/Neuöffnen in IrfanView. Beide Screenshots (Maske/Schummerung) liegen vor. Keine erneute Cache-/Fertigstellungsfrage und keinen weiteren CielVu-Lauf starten. Das Schattenbild ist bei dieser Maske diagnostisch unzureichend: GrShade senkt maskierte Bereiche künstlich ab und berechnet gerichtete Schatten. Strahlen/Facetten sind deshalb **kein Beweis für reale Höhenspitzen**. Reale Fehler in fünf Einzelorthos bleiben unabhängig davon bestätigt.
 
 Die direkte Ansicht liest die **bereits berechneten Rasterwerte** und zeichnet sie farbig; kein MicMac-Aufruf, keine neue Höhe/Photogrammetrie/Ortserzeugung. Schwarze Bereiche der ursprünglichen Maske und nichtendliche/NoData-Höhen werden in der Höhenansicht grau dargestellt, gültige rohe Nullwerte bleiben erhalten. Blau bedeutet niedriger, Rot höher innerhalb des berechneten Modells, Weiß liegt dazwischen. Diese Farben sind **keine Temperaturen/Defektbefunde** und bestätigen keine echte Dachhöhe.
 
-Wie zuvor PowerShell im **gleichen privaten Ordner `rgb\MEC-Malt`** öffnen und den folgenden Block vollständig einfügen. Er liest `Z_Num8_DeZoom2_STD-MALT.tif`, `AutoMask_STD-MALT_Num_7.tif` und die Höhenauflösung aus `Z_Num8_DeZoom2_STD-MALT.xml`. Keine zusätzliche Installation/Helper-Datei; Rasterio/NumPy/Pillow sind im bereits benutzten F:-Python vorhanden. Original-TIFFs/XMLs/SQLite bleiben unverändert. Es entstehen nur zwei neue, kleine PNGs mit eindeutigen Namen; nichts wird hochgeladen.
+Historischer Aufruf: PowerShell im **gleichen privaten Ordner `rgb\MEC-Malt`** öffnen und den folgenden Block vollständig einfügen. Er liest `Z_Num8_DeZoom2_STD-MALT.tif`, `AutoMask_STD-MALT_Num_7.tif` und die Höhenauflösung aus `Z_Num8_DeZoom2_STD-MALT.xml`. Keine zusätzliche Installation/Helper-Datei; Rasterio/NumPy/Pillow sind im bereits benutzten F:-Python vorhanden. Original-TIFFs/XMLs/SQLite bleiben unverändert. Es entstehen nur zwei neue, kleine PNGs mit eindeutigen Namen; nichts wird hochgeladen.
 
 ### Direkte PNG-Vorschau
 
@@ -75,15 +86,15 @@ except Exception:
 '@ | & "F:\MCM-SolarCheck\.venv\Scripts\python.exe" -
 ```
 
-Die beiden neuen Dateien `MCM_RGB_Direktpruefung_…_Hoehe.png` und `…_Maske.png` können **direkt** zur Kontrolle bereitgestellt werden; zusätzlich die kurze Konsolenausgabe. Keine Geo-XMLs/Originalbilder/absoluten Koordinaten/Schummerungsprotokolle übertragen. Die maximale Vorschauachse ist 1600 Pixel, deshalb kein erneuter 32-MiB-TIFF-Transfer nötig.
+Die beiden Dateien `MCM_RGB_Direktpruefung_…_Hoehe.png` und `…_Maske.png` wurden zusammen mit der kurzen Konsolenausgabe bereits bereitgestellt; nicht nochmals anfordern. Keine Geo-XMLs/Originalbilder/absoluten Koordinaten/Schummerungsprotokolle übertragen. Die maximale Vorschauachse ist 1600 Pixel, deshalb kein erneuter 32-MiB-TIFF-Transfer nötig.
 
 Die Pixelzahlen/Höhenspannen verwenden **alle** gemäß Maske/NoData/endlichen Werten verwendbaren Rasterpixel; oben/unten bezeichnet die beiden Rasterhälften, keine Himmelsrichtung. Die PNG-Verkleinerung verwendet nur regulär abgetastete Pixel, keine Füllung/Interpolation von Maskenlöchern. Sehr kleine Inseln können in der verkleinerten Ansicht fehlen; dafür werden die vollständigen Zahlen ausgegeben. Es wird **keine PV-Flächenabdeckung** aus der Gesamtzahl des rechteckigen Rasters abgeleitet.
 
-Für die Farbkontraste wird das 2.–98. Perzentil verwendet, bei identischen Grenzen die gesamte Spanne; Werte außerhalb des Farbbereichs werden nur in der Vorschau gesättigt. Die Eingaben bleiben unverändert. Ausgegebene Spannweiten sind relative Modellwerte mit vorhandener Höhenauflösung, keine absoluten GPS-Höhen oder unabhängig gemessenen Fehler/Genauigkeiten. Bei völlig leerer/ungültiger Maske oder kaputten Eingaben bricht der Block mit kurzer fester Meldung ab. Vierzehn synthetische Proben bestanden, echter neuer Direktvorschau-Lauf noch offen.
+Für die Farbkontraste wird das 2.–98. Perzentil verwendet, bei identischen Grenzen die gesamte Spanne; Werte außerhalb des Farbbereichs werden nur in der Vorschau gesättigt. Die Eingaben bleiben unverändert. Ausgegebene Spannweiten sind relative Modellwerte mit vorhandener Höhenauflösung, keine absoluten GPS-Höhen oder unabhängig gemessenen Fehler/Genauigkeiten. Bei völlig leerer/ungültiger Maske oder kaputten Eingaben bricht der Block mit kurzer fester Meldung ab. Vierzehn synthetische Proben bestanden; der echte Direktvorschau-Lauf ist inzwischen ebenfalls abgeschlossen (Nutzerbericht/PNGs oben), ohne Qualitätsfreigabe.
 
 ## Abgeschlossener GrShade-Aufruf – eingeschränkt interpretierbare Darstellung
 
-Der folgende frühere Kopierblock bleibt als Historie dokumentiert; nicht erneut ausführen. Für den aktuellen nächsten Schritt ausschließlich die direkte PNG-Vorschau oben verwenden.
+Der folgende frühere Kopierblock bleibt als Historie dokumentiert; nicht erneut ausführen. Auch die direkte PNG-Vorschau ist inzwischen abgeschlossen; nächster Entwicklungsschritt ist RGB-POSE-01 oben.
 
 **Dateinamenfrage abgeschlossen:** Z_Num8_DeZoom2_STD-MALT.tif wurde zweimal genannt, AutoMask_STD-MALT_Num_7.tif und MasqPC_STD-MALT_Num8_000026.tif liegen laut Nutzer vor. Die MasqPC ist bildbezogen (Aufnahme26), nicht die globale Geländemaske. AutoMask7 ist der Standardkandidat: Malt nutzt die letzte Quantisierungsmaske auch nach der nachfolgenden Dequantisierung. Lokale räumliche Übereinstimmung trotzdem vor GrShade prüfen. Keine weiteren Ort-Dateien/Dateinamen oder Roh-XMLs anfordern.
 
