@@ -4,7 +4,17 @@ Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der t
 
 **Nutzerstand 03.11.2026 / RGB-QUAL-01 FAIL:** Das benannte MicMac-RGB-GeoTIFF wurde auf ausdrücklichen Nutzerwunsch jetzt tatsächlich visuell geprüft. Technischer RGB-Abschluss ist bestätigt, Bildqualität jedoch unbrauchbar für PV-Modulprüfung. Thermal bleibt nach zwei MST-Abbrüchen blockiert; 26 RGB/26 Thermal/25 Paare, alle Thermalaufnahmen importiert. Kein vollständiges Paar registriert und keine Freigabe.
 
-## Aktueller Schritt: vorhandene Einzelorthofotos vor Tawny ansehen
+## Aktueller Schritt: isoliertes Einzelortho als PNG/JPG sichtbar prüfen
+
+Nutzer hat die Einzelbilder angesehen und beschreibt frei verteilte, teils von der zusammenhängenden Fläche abgesetzte Bildstücke. Dazu wurde **Ort_000021.tif** ausdrücklich zur Kontrolle hochgeladen. Obwohl die Nachricht Screenshot sagt, liegt eine TIFF-Datei vor. Der direkte Dateitransfer ist wegen über 32 MiB blockiert. Gezielte Suche im bekannten öffentlichen Drive-Ordner fand diese Datei auch unter Variante Ort_000021.JPG.tif nicht. Daher **noch keine unabhängige Sichtprüfung dieses Einzelorthos**. Nicht so darstellen, als sei der Anhang bereits gesehen worden; die frühere Sichtprüfung des RGB-Gesamtbilds bleibt getrennt belegt.
+
+Als nächstes ein **PNG-/JPG-Screenshot, der nur Ort_000021.tif zeigt**, ohne zusätzliche Rasterlayer oder Koordinatenanzeigen. Das grenzt echte Fragmente innerhalb einer Datei von einer gemeinsamen Anzeige mehrerer gegeneinander versetzter Raster ab. Es geht nur um die bereits ausdrücklich zur Prüfung bereitgestellte Datei, keine pauschale Freigabe weiterer Bildbestände. Kein neuer MicMac-Lauf/Installationsschritt und kein Originalserien-/Protokollupload.
+
+Wenn die Brüche in diesem isolierten Einzelortho sichtbar sind, liegt mindestens ein Fehler schon vor dem Tawny-Mosaik. Das trennt noch nicht Kameraorientierung/Selbstkalibrierung von dichten Oberflächen-/Orthorektifizierungsfehlern. Aus schwarzem Außenrand, fehlendem Sichtbereich oder großen GPS-Anpassungsresiduen ohne RTK keine vorschnelle Ursache ableiten. RGB bleibt FAIL, Thermal blockiert.
+
+## Bereits angefragter Einzelortho-Schritt vor Tawny
+
+Die Nutzerrückmeldung liegt nun vor (oben); Dateien nicht erneut pauschal ansehen lassen. Für die gezielte noch offene Sichtprüfung nur das genannte Einzelortho isoliert darstellen.
 
 **Zahlen vollständig – nicht erneut anfordern:** MoyenneDistPlani 8.69203144801449668 m, MoyenneDistAlti 1.08247549537456567 m; mittlerer 3D-Abstand 8.788591 m, Maximum 20.126524 m. Ohne RTK-Fix, echte GNSS-Genauigkeit unbekannt. Horizontaler Anteil dominiert, Höhe erklärt die großen seitlichen Versätze nicht allein. Keine RMS-/Vermessungsgenauigkeit aus diesen Anpassungsresiduen machen; Kamera-/GPS-Ursache noch offen. Die Mittelwerte lassen sich nicht durch einfachen Pythagoras ineinander umrechnen.
 
