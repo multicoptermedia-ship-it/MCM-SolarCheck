@@ -4,7 +4,24 @@ Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der t
 
 **Nutzerstand 03.11.2026 / RGB-QUAL-01 FAIL:** Das benannte MicMac-RGB-GeoTIFF wurde auf ausdrücklichen Nutzerwunsch jetzt tatsächlich visuell geprüft. Technischer RGB-Abschluss ist bestätigt, Bildqualität jedoch unbrauchbar für PV-Modulprüfung. Thermal bleibt nach zwei MST-Abbrüchen blockiert; 26 RGB/26 Thermal/25 Paare, alle Thermalaufnahmen importiert. Kein vollständiges Paar registriert und keine Freigabe.
 
-## Aktueller Schritt: Lage- und Höhenanteil der Kameraabweichung unterscheiden
+## Aktueller Schritt: vorhandene Einzelorthofotos vor Tawny ansehen
+
+**Zahlen vollständig – nicht erneut anfordern:** MoyenneDistPlani 8.69203144801449668 m, MoyenneDistAlti 1.08247549537456567 m; mittlerer 3D-Abstand 8.788591 m, Maximum 20.126524 m. Ohne RTK-Fix, echte GNSS-Genauigkeit unbekannt. Horizontaler Anteil dominiert, Höhe erklärt die großen seitlichen Versätze nicht allein. Keine RMS-/Vermessungsgenauigkeit aus diesen Anpassungsresiduen machen; Kamera-/GPS-Ursache noch offen. Die Mittelwerte lassen sich nicht durch einfachen Pythagoras ineinander umrechnen.
+
+Im **gleichen bestehenden MicMac-Laufordner** den Unterordner `rgb\Ortho-MEC-Malt` öffnen und zwei vorhandene RGB-TIFFs mit Namen beginnend mit **`Ort_`** lokal ansehen. Diese Einzelorthos wurden von Malt erzeugt, bevor Tawny das Gesamtmosaik zusammengesetzt hat. Kein neues Programm/keine Berechnung dafür starten. Falls die Dateien fehlen oder der vorhandene Betrachter sie nicht öffnet, genau das als Text zurückmelden; keine neue Lauf-/Installationsschleife beginnen.
+
+Beurteilen, ob **innerhalb einer zusammenhängenden Modulfläche eines Einzelorthos** bereits Modul-/Zellraster zerrissen, verzogen oder gegeneinander versetzt sind. Unterschiedliche äußere Bildabdeckung und schwarze Außenränder sind allein kein Fehler. Nur den Eindruck als Text zurückmelden; Dateien, Koordinaten und Screenshots bleiben lokal.
+
+- Fehler bereits im Einzelortho: mindestens eine Ursache liegt vor Tawny, bei Orientierung/Oberfläche/Einzelbild-Orthorektifizierung; alleinige Änderung der Mosaiknaht kann das nicht beheben.
+- Einzelorthos für sich plausibel: anschließend deren tatsächliche gemeinsame Lage/Überlappung prüfen. Dies beweist **keinen Tawny-Fehler**, denn falsche Kameraposen können intern glatte, aber gegeneinander versetzte Einzelbilder liefern.
+
+**180°-Vermutung gezielt eingeordnet:** Im öffentlichen MicMac-v1.2.0-Standardpfad berücksichtigt Digeo lokale Merkmalswinkel und normiert den Deskriptor darauf. [cImDigeo.cpp orientateAndDescribe](https://github.com/micmacIGN/micmac/blob/v1.2.0/src/uti_image/Digeo/cImDigeo.cpp#L838), [cImInMem.cpp Winkelbestimmung](https://github.com/micmacIGN/micmac/blob/v1.2.0/src/uti_image/Digeo/cImInMem.cpp#L592), [Orientierungsnormalisierung im Deskriptor](https://github.com/micmacIGN/micmac/blob/v1.2.0/src/uti_image/Digeo/cImInMem.cpp#L773). Ein alternativer Compile-Zweig DIGEO_NO_ANGLE existiert; Version/Build des Nutzerprogramms nicht unabhängig bestimmt. Daher weder fehlende Drehungsunterstützung noch konkrete Binärkonfiguration als bewiesen darstellen. Kein blindes Drehen der JPGs/Matcherwechsel.
+
+**Vorhandene Standardprodukte belegt:** [MM-Malt.xml lädt OrthoFinal](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_MicMac/MM-Malt.xml#L61), [MM-Malt-OrthoFinal.xml MakeOrthoParImage/Ort_-Präfix](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_MicMac/MM-Malt-OrthoFinal.xml#L15). Noch keine Ursache behoben, kein neues Orthofoto erzeugt. RGB bleibt FAIL, Thermal blockiert; mangelhafte RGB-Geometrie nicht auf Thermal übertragen.
+
+## Abgeschlossene Komponentenprüfung: Lage-/Höhenanteile
+
+Die beiden Werte wurden inzwischen vollständig vom Nutzer zurückgemeldet (siehe oben). Folgende frühere Anleitung als Historie erhalten, nicht erneut ausführen lassen.
 
 **Kennzahlenprüfung bereits ausgeführt – keinen erneuten Download/Prüflauf anfordern.** Nutzer meldet unter Windows: 26 RGB-Arbeitskopien, je 26 Rel/Ground, keine fehlenden/fremden Orientierungsdateien; 41 Tapas-Iterationen, letzte mit 26 Bildern, AverageResidual 1.207238. GPS-Abgleich 26 Zentren, MoyenneDist 8.788591 m, größte Dist 20.126524 m. Das bestätigt die lokale Lesefunktion des Helfers, keine richtige Bildgeometrie. WorstRes fehlt in der übermittelten Ausgabe; keinen Wert ergänzen.
 
