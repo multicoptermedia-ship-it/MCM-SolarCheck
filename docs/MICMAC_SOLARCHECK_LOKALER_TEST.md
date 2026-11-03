@@ -4,7 +4,76 @@ Stand 03.11.2026 · VERT-01B2 ist technisch angebunden. **Echter RGB-Lauf auf Wi
 
 **Nutzerstand 03.11.2026 / RGB-QUAL-01 FAIL:** Das benannte MicMac-RGB-GeoTIFF wurde auf ausdrücklichen Nutzerwunsch jetzt tatsächlich visuell geprüft. Technischer RGB-Abschluss ist bestätigt, Bildqualität jedoch unbrauchbar für PV-Modulprüfung. Thermal bleibt nach zwei MST-Abbrüchen blockiert; 26 RGB/26 Thermal/25 Paare, alle Thermalaufnahmen importiert. Kein vollständiges Paar registriert und keine Freigabe.
 
-## Aktueller Befund: fünf isolierte Einzelorthos selbst gesehen – Schaden vor Tawny
+## Aktueller Schritt: letzte Höhe mit globaler Maske schummern
+
+**Dateinamenfrage abgeschlossen:** Z_Num8_DeZoom2_STD-MALT.tif wurde zweimal genannt, AutoMask_STD-MALT_Num_7.tif und MasqPC_STD-MALT_Num8_000026.tif liegen laut Nutzer vor. Die MasqPC ist bildbezogen (Aufnahme26), nicht die globale Geländemaske. AutoMask7 ist der Standardkandidat: Malt nutzt die letzte Quantisierungsmaske auch nach der nachfolgenden Dequantisierung. Lokale räumliche Übereinstimmung trotzdem vor GrShade prüfen. Keine weiteren Ort-Dateien/Dateinamen oder Roh-XMLs anfordern.
+
+1. Im Explorer **denselben** privaten Laufordner `rgb\MEC-Malt` öffnen.
+2. In die Explorer-Adresszeile `powershell` tippen und Enter drücken. Die Konsole muss in diesem MEC-Malt-Ordner starten.
+3. Den folgenden Block vollständig einfügen. Benötigt vorhandenes Python auf F: mit dem bereits verwendeten Rasterio; keine Installation. Die vorhandenen XMLs `Z_Num7_DeZoom2_STD-MALT.xml` und `Z_Num8_DeZoom2_STD-MALT.xml` bleiben lokal.
+
+Der Block prüft die Rasterlage/-größe aus den beiden XMLs sowie die tatsächlichen TIFF-Größen/Bandzahlen. Höhen-/Pixelauflösung bestimmen den Darstellungsfaktor FZ; kein erfundener Maßstab. Diese Gleichheitsprüfung bestätigt weder GNSS-Genauigkeit noch Kamerageometrie. Bei Fehlern wird GrShade nicht gestartet. Bei passenden Eingaben erzeugt nur MicMac GrShade eine neue, eindeutig benannte 8-Bit-Schummerung und ein lokales Protokoll; alle bisherigen Ergebnisse bleiben bestehen. Keine Original-JPGs/SQLite werden gelesen, keine Photogrammetrie berechnet und nichts hochgeladen.
+
+### PowerShell-Block
+
+```powershell
+@'
+import sys, math, warnings, xml.etree.ElementTree as E
+from pathlib import Path
+import rasterio
+warnings.filterwarnings('ignore', category=rasterio.errors.NotGeoreferencedWarning)
+z = Path('Z_Num8_DeZoom2_STD-MALT.tif')
+m = Path('AutoMask_STD-MALT_Num_7.tif')
+try:
+    a = E.parse('Z_Num7_DeZoom2_STD-MALT.xml').getroot()
+    b = E.parse('Z_Num8_DeZoom2_STD-MALT.xml').getroot()
+    for tag in ('NombrePixels', 'OriginePlani', 'ResolutionPlani'):
+        ga = tuple(float(v) for v in a.findtext(tag).split())
+        gb = tuple(float(v) for v in b.findtext(tag).split())
+        if ga != gb or not all(math.isfinite(v) for v in ga + gb):
+            raise ValueError()
+    dx, dy = (float(v) for v in b.findtext('ResolutionPlani').split())
+    dz = float(b.findtext('ResolutionAlti'))
+    if dx == 0 or abs(dx) != abs(dy) or not math.isfinite(dz) or dz == 0:
+        raise ValueError()
+    fz = dz / abs(dx)
+    if not math.isfinite(fz):
+        raise ValueError()
+    size = tuple(int(v) for v in b.findtext('NombrePixels').split())
+    with rasterio.open(z) as h, rasterio.open(m) as mask:
+        if h.count != 1 or mask.count != 1 or (h.width, h.height) != size or (mask.width, mask.height) != size:
+            raise ValueError()
+except Exception:
+    print('Raster-/Maskenpruefung fehlgeschlagen; nichts gestartet.')
+    sys.exit(1)
+import subprocess, uuid
+out = Path('MCM_RGB_Hoehenpruefung_' + uuid.uuid4().hex + '.tif')
+log = out.with_suffix('.log')
+try:
+    with log.open('xb') as protokoll:
+        result = subprocess.run(
+            [r'E:\Tools\MicMac\bin\mm3d.exe', 'GrShade', str(z),
+             'Mask=' + str(m), 'Out=' + str(out), 'FZ=' + str(fz), 'Visu=0'],
+            stdout=protokoll, stderr=subprocess.STDOUT, timeout=600)
+except (OSError, subprocess.TimeoutExpired):
+    print('GrShade nicht beendet; nur das neue lokale Protokoll pruefen.')
+    sys.exit(1)
+if result.returncode != 0 or not out.is_file() or out.stat().st_size == 0:
+    print('GrShade fehlgeschlagen; nur das neue lokale Protokoll pruefen.')
+    sys.exit(1)
+print('Erstellt: ' + out.name)
+'@ | & "F:\MCM-SolarCheck\.venv\Scripts\python.exe" -
+```
+
+Nur nach **„Erstellt: …“** die neue Datei `MCM_RGB_Hoehenpruefung_….tif` in vorhandenem **IrfanView** öffnen. Zusätzlich `AutoMask_STD-MALT_Num_7.tif` ansehen. Für die Rückmeldung eine gezielte PNG/JPG-Ansicht von Schummerung und Maske ohne Koordinaten genügt; kein ursprüngliches Höhenmodell/Geo-XML/Protokoll hochladen. Bei einer festen Fehlermeldung nur diese kurze Meldung nennen, keinen neuen Foto-/Orthofotolauf starten. Das neue Protokoll bleibt lokal.
+
+Auf abrupte Plateaus, Sprünge oder streifenweise gegeneinander versetzte Flächen **innerhalb gültiger Maskenbereiche** achten; Maskenränder/ungültiges Gelände nicht als reale Dachform auslegen. Eine auffällige Schummerung trennt fehlerhafte Oberfläche und falsche Kameraorientierung noch nicht allein. Schattenbild und Metadatenskalierung sind kein unabhängiger Höhen-/Vermessungsnachweis. RGB bleibt FAIL, Thermal blockiert.
+
+**Öffentliche Quellen v1.2.0:** [bildbezogene MasqPC-Namen](https://github.com/micmacIGN/micmac/blob/v1.2.0/src/uti_phgrm/MICMAC/PartiesCachees.cpp#L315), [globale AutoMask/Metadatenreferenz](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_MicMac/MM-Malt.xml#L85), [abschließende Dequantisierung](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_MicMac/MM-Malt.xml#L821), [FileOriMnt-Auflösungen](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_GEN/ParamChantierPhotogram.xml#L443), [GrShade-Optionen](https://github.com/micmacIGN/micmac/blob/v1.2.0/src/uti_image/CPP_GrShade.cpp#L97) und [FZ-Anwendung](https://github.com/micmacIGN/micmac/blob/v1.2.0/src/uti_image/CPP_GrShade.cpp#L224). Keine ungeprüften Optionen wie DeZoom ergänzen. Kopierblock mit 13 synthetischen Proben einschließlich Fake-Prozess getestet; **echter GrShade-/Windows-Lauf steht noch aus**. Source-Anbindung, Starter und installierte App unverändert.
+
+## Abgeschlossene Sichtprüfung: fünf Einzelorthos vor Tawny
+
+Der folgende Befund bleibt gültig; die anschließende Dateinamenfrage ist inzwischen beantwortet und wird durch den obigen konkreten GrShade-Schritt ersetzt.
 
 **Sichtprüfung erfolgt, keine weiteren Beispiele/Screenshots anfordern:** Auf ausdrücklichen Nutzerwunsch nur die fünf neuen Drive-Dateien Ort_000009.tif und Ort_000014.tif bis Ort_000017.tif gelesen. Jeweils einzeln eine Gesamtansicht und zusätzlich drei native 1200×800-Ausschnitte aus 09/14/17 geprüft. Ort_000021.tif wurde weiterhin nicht gelesen; die neuen fünf Dateien genügen zum Nachweis der zuvor beschriebenen Einzelortho-Fehler. Keine Originalbilder/anderen Kundendaten oder Referenzraster abgerufen.
 
