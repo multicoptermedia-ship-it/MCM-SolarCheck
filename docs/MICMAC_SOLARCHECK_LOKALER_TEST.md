@@ -2,9 +2,26 @@
 
 Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der tatsächliche Bildlauf auf dem Windows-10-Auswerterechner und seine Fachabnahme stehen aus.** Die Tests nutzen synthetische Bilder und eine Fake-MicMac-CLI; sie prüfen die Anbindung, keine Rekonstruktionsqualität.
 
-**Nutzerstand 02.11.2026:** 26 RGB, 26 Thermal, 25 Paare; alle Thermalaufnahmen dieses Abschnitts importiert. RGB-Schleife einschließlich GeoTIFF-Prüfung passiert. rgb_ortho.tif bewahren; Qualität ungeprüft. Erstes Thermal-Log: 18 unverbundene Bilder. Auch der isolierte Native-Test (-1, Digeo/Ann, eigener PostFix, Tapas mit passendem SH/Out) scheitert an „Connection pb in MST“. Neuer Homol-Satz im Aufruf bestätigt; neue Anzahl unverbundener Bilder unbekannt. Test abgeschlossen/fehlgeschlagen, nicht erneut vorbereiten oder als App-Fix übernehmen. Kein vollständiges Paar registriert.
+**Nutzerstand 03.11.2026 / RGB-QUAL-01 FAIL:** Das benannte MicMac-RGB-GeoTIFF wurde auf ausdrücklichen Nutzerwunsch jetzt tatsächlich visuell geprüft. Technischer RGB-Abschluss ist bestätigt, Bildqualität jedoch unbrauchbar für PV-Modulprüfung. Thermal bleibt nach zwei MST-Abbrüchen blockiert; 26 RGB/26 Thermal/25 Paare, alle Thermalaufnahmen importiert. Kein vollständiges Paar registriert und keine Freigabe.
 
-## Aktueller Einstieg: vorhandenes RGB erhalten, Thermalweg begrenzt prüfen
+## Aktueller Einstieg 03.11.2026: RGB-Geometrie prüfen, kein neuer Gesamtlauf
+
+**Sichtprüfung abgeschlossen – nicht erneut dieselbe Datei anfordern:** Nutzer hat nur das benannte MicMac-RGB-GeoTIFF ausdrücklich zur Kontrolle freigegeben. Zugriff auf den öffentlichen Drive-Ordner und Abruf dieser Datei waren möglich. Keine allgemeine Freigabe für andere Originale/Flugmetadaten daraus ableiten; Vorschauen/Original bleiben außerhalb Git, Kundenlinks/Koordinaten nicht publizieren.
+
+Das TIFF hat 12.612 × 10.936 Pixel und drei uint8-RGB-Bänder. Eingebettetes CRS und Rastertransform sind vorhanden; das belegt keine richtige Lage oder Dachgeometrie. Die Prüfung umfasste Gesamtansicht und drei native 1.200 × 800-Ausschnitte, keine bloße Dateimetadatenprüfung:
+
+- Oben/mittig und seitlich liegen große Dach-/PV-Stücke mit abrupten Positions-/Maßstabswechseln aneinander; zusammengehörige Kanten setzen sich nicht konsistent fort.
+- Auch in schärferen unteren Modulflächen sind Zell-/Modulraster versetzt oder unterbrochen, mit sichtbaren Nahtsprüngen und schwarzen Löchern innerhalb der Dachfläche.
+- Ergebnis **FAIL für PV-Modulprüfung/Modul-IDs**, keine geometrische oder fachliche Freigabe. Kein zusätzlicher Abruf der externen RGB-Referenz; direkter Qualitätsvergleich weiterhin offen.
+- NoData ist nicht gesetzt, ein Alphaband fehlt und alle drei Bandmasken melden all_valid. Lücken gelten technisch als gültige Rasterpixel. Eine belegte MicMac-Gültigkeitsmaske ist gesondert zu erhalten/übernehmen; **nicht sämtliche schwarzen RGB-Werte automatisch als NoData behandeln**. Diese Metadatenlücke erklärt nicht die sichtbaren geometrischen Fehler.
+
+**180°-Vermutung:** Gegenläufige Flugstreifen sind grundsätzlich photogrammetrisch verarbeitbar. PV-Reflexionen und ähnliche Modulraster können falsche Zuordnungen begünstigen; dies ist hier eine mögliche Erklärung, keine nachgewiesene Ursache. Aus dem Endraster allein lassen sich fehlerhafte Orientierung/Selbstkalibrierung und Fehler der dichten Oberfläche/Orthorektifizierung nicht eindeutig trennen. Kein pauschales Drehen/Spiegeln der JPGs als angeblichen Fix empfehlen.
+
+**Genau nächster technischer Schritt:** vorhandene Ergebnisse im privaten MicMac-Laufordner wiederverwenden: Kameraorientierungen aus Tapas/CenterBascule, vorhandene Qualitätsausgaben und Malt-Oberfläche. Lokal zunächst prüfen, ob Flugstreifen/Kameras geometrisch konsistent angeordnet sind; anschließend Oberfläche/Abdeckung an denselben sichtbaren Bruchstellen beurteilen. Nur die belegte fehlerhafte Standardstufe korrigieren. Noch kein konkreter Orientierungs-/DSM-Fix belegt; keine neue Engine oder erneute vollständige Berechnung. Der bisherige RGB-gestützte Thermal-Kandidat wird bis zur Prüfung dieser RGB-Geometrie zurückgestellt. Thermal-Native-Test nicht wiederholen.
+
+## Historischer Einstieg 02.11.2026: RGB-Datei erhalten, Thermalweg begrenzt prüfen
+
+Die unten beschriebene erste RGB-Sichtprüfung ist inzwischen erfolgt und fehlgeschlagen (siehe oben). Frühere Anleitung als Historie erhalten; nicht wieder als offene Dateianforderung oder Erfolg auslegen.
 
 1. Im privaten Ausgabeordner den Lauf verwenden, dessen Unterordner `thermal` die zuletzt verwendete `step-02.log` enthält. Eine Ebene darüber sollte `rgb_ortho.tif` liegen: Die Anwendung verarbeitet RGB vollständig und prüft dessen GeoTIFF, bevor Thermal beginnt. Datei nicht verschieben/löschen; hier wurde sie nicht unabhängig gesehen oder bewertet. Keine weitere vollständige Berechnung starten, nur um diesen Thermalfehler zu wiederholen.
 2. Im vorhandenen Importbereich **„GeoTIFF / GIS-Metadaten prüfen“** dieses RGB-GeoTIFF auswählen. CRS, Rastermaße und Datenmaske lokal prüfen; Ergebnis anschließend in einem vorhandenen lokalen Rasterbetrachter mit der privaten RGB-Referenz auf Modulränder, Doppelkonturen, Nähte und Abdeckung vergleichen. Metadatenprüfung allein ist keine Qualitätsabnahme. Einzelregistrierung als Metadatenartefakt ersetzt kein vollständiges RGB-/Thermal-Paar; zentrale Paaransicht braucht weiterhin beide echten Raster. Keine RGB-Datei als Thermal zuweisen. Dateien und Koordinaten bleiben lokal.
