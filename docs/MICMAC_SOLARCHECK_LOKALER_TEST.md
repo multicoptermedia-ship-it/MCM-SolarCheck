@@ -4,6 +4,26 @@ Stand 01.11.2026 · VERT-01B2 ist technisch angebunden, Code `dd8ed5c1`. **Der t
 
 **Nutzerstand 03.11.2026 / RGB-QUAL-01 FAIL:** Das benannte MicMac-RGB-GeoTIFF wurde auf ausdrücklichen Nutzerwunsch jetzt tatsächlich visuell geprüft. Technischer RGB-Abschluss ist bestätigt, Bildqualität jedoch unbrauchbar für PV-Modulprüfung. Thermal bleibt nach zwei MST-Abbrüchen blockiert; 26 RGB/26 Thermal/25 Paare, alle Thermalaufnahmen importiert. Kein vollständiges Paar registriert und keine Freigabe.
 
+## Jetzt ausführen: bestehende Kamera-Prüfergebnisse, ohne Neuberechnung
+
+Die [einzelne Python-Datei](../scripts/MCM_SolarCheck_MicMac_RGB_Pruefung.py) separat in Downloads speichern. SolarCheck-Programm/ZIP/Starter bleiben unverändert. Mit vorhandenem Python starten:
+
+```powershell
+& "F:\MCM-SolarCheck\.venv\Scripts\python.exe" "$env:USERPROFILE\Downloads\MCM_SolarCheck_MicMac_RGB_Pruefung.py"
+```
+
+Im Dateidialog das **ursprüngliche** `rgb_ortho.tif` im privaten MicMac-Laufordner unter `F:\Auswertung1` wählen. Eine Downloads-/Drive-Kopie hat die benötigten Nachbarordner nicht. Falls der Dateidialog nicht verfügbar ist, den vollständigen lokalen TIFF-Pfad als zusätzliches Argument angeben. Abbruch ändert nichts.
+
+Keine Bildpixel oder einzelnen Pose-/Kalibrierungsdateien werden gelesen. Das Skript zählt nummerierte Arbeitskopien/zugehörige Orientierungsdateien und liest nur zwei vorhandene Prüf-XMLs. Nur die bereinigte Konsolenausgabe zurückgeben; Rohdateien/Koordinaten bleiben lokal. Nichts wird gespeichert, installiert, hochgeladen, rekonstruiert oder registriert.
+
+- `Rel`/`Ground`: Orientierungsdateien, fehlende und ohne passende RGB-Arbeitskopie; gleiche Anzahl darf falschen Kamerasatz nicht verdecken.
+- `Tapas`: letzte vorhandene Iteration, dortige Bildanzahl, `AverageResidual` und gegebenenfalls `WorstRes`. Originalfeldnamen statt erfundener Qualitätsgrenzen. Fehlende/unlesbare/unbekannte XMLs oder ungültige Zahlen werden ausdrücklich markiert.
+- `GPS_Abgleich`: Anzahl gespeicherter Kamerazentrumsresiduen, `MoyenneDist`, größte `Dist`; bei metrischen Projektpositionen metrische Anpassungsabweichungen, kein unabhängiger Genauigkeitsnachweis.
+
+Dies grenzt die nächste Prüfung ein, ist **keine automatische Diagnose oder Freigabe**. Kleine Residuen können auch bei falschen Zuordnungen in gleichförmigen Modulrastern auftreten; RGB-FAIL bleibt bestehen. Danach vorhandene Malt-Oberfläche gezielt prüfen; keine blinden Parameterwechsel/Neuberechnung.
+
+**Öffentliche MicMac-v1.2.0-Quellen:** [Apero-Glob-New.xml ExportResiduXml](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_MicMac/Apero-Glob-New.xml#L1153), [ParamApero.xml Kennzahlenschema](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_GEN/ParamApero.xml#L1811), [Apero-Center-Bascule.xml NameExport](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_MicMac/Apero-Center-Bascule.xml#L84), [ParamChantierPhotogram.xml Ergebnis](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_GEN/ParamChantierPhotogram.xml#L2041). Installierte Windows-Version nicht bestimmt; Abweichungen nicht als Erfolg übergehen. Zwölf synthetische Tests lokal grün; echte Windows-10-Ausgabe offen.
+
 ## Aktueller Einstieg 03.11.2026: RGB-Geometrie prüfen, kein neuer Gesamtlauf
 
 **Sichtprüfung abgeschlossen – nicht erneut dieselbe Datei anfordern:** Nutzer hat nur das benannte MicMac-RGB-GeoTIFF ausdrücklich zur Kontrolle freigegeben. Zugriff auf den öffentlichen Drive-Ordner und Abruf dieser Datei waren möglich. Keine allgemeine Freigabe für andere Originale/Flugmetadaten daraus ableiten; Vorschauen/Original bleiben außerhalb Git, Kundenlinks/Koordinaten nicht publizieren.
