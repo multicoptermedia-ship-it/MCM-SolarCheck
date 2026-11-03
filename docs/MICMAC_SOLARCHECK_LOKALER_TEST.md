@@ -15,7 +15,7 @@ Im **selben** privaten Laufordner die vorhandene Datei `rgb\Ori-Ground\Result-Ce
 - `MoyenneDistPlani`: mittlerer horizontaler Abstand in Metern.
 - `MoyenneDistAlti`: mittlerer absoluter Höhenabstand in Metern.
 
-Die Datei enthält zusätzlich private Koordinaten/Transformationen; ausschließlich die zwei Zahlen mitteilen. Datei nicht bearbeiten, nicht vollständig hochladen. Kein weiterer MicMac-Lauf und keine neue Installation. Ein bestätigter RTK-Fix wurde gesondert erfragt, Antwort steht noch aus; Unkenntnis nicht als fehlendes RTK oder beliebige Genauigkeit interpretieren.
+Die Datei enthält zusätzlich private Koordinaten/Transformationen; ausschließlich die zwei Zahlen mitteilen. Datei nicht bearbeiten, nicht vollständig hochladen. Kein weiterer MicMac-Lauf und keine neue Installation. Nutzer bestätigt Flug ohne RTK-Fix. Die tatsächliche GNSS-Genauigkeit ist unbekannt; keine zentimetergenaue Referenz oder beliebige GPS-Gewichte daraus ableiten. Die gemeldeten Anpassungsresiduen allein beweisen keinen SfM-Fehler. Sichtbarer RGB-FAIL bleibt bestehen.
 
 **Quellbelege v1.2.0:** [Apero-Center-Bascule.xml fixierte Kamera-/Poseparameter](https://github.com/micmacIGN/micmac/blob/v1.2.0/include/XML_MicMac/Apero-Center-Bascule.xml#L89), [Basculement.cpp Kennzahlenbildung](https://github.com/micmacIGN/micmac/blob/v1.2.0/src/uti_phgrm/Apero/Basculement.cpp#L953). Hoher Lage- oder Höhenanteil grenzt den nächsten Prüfschritt ein, authentifiziert weder die GPS-Werte noch die Rekonstruktion. Keine automatische Entscheidung für feste Kameraparameter, GPS-Gewichte, Campari-BA oder neuen Malt-Lauf. Danach vorhandene Orientierung/Oberfläche anhand dieser Evidenz gezielt beurteilen.
 
