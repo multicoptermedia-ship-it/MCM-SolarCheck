@@ -4,7 +4,86 @@ Stand 03.11.2026 · VERT-01B2 ist technisch angebunden. **Echter RGB-Lauf auf Wi
 
 **Nutzerstand 03.11.2026 / RGB-QUAL-01 FAIL:** Das benannte MicMac-RGB-GeoTIFF wurde auf ausdrücklichen Nutzerwunsch jetzt tatsächlich visuell geprüft. Technischer RGB-Abschluss ist bestätigt, Bildqualität jedoch unbrauchbar für PV-Modulprüfung. Thermal bleibt nach zwei MST-Abbrüchen blockiert; 26 RGB/26 Thermal/25 Paare, alle Thermalaufnahmen importiert. Kein vollständiges Paar registriert und keine Freigabe.
 
-## Aktueller Schritt: letzte Höhe mit globaler Maske schummern
+## Aktueller Schritt: Höhenwerte direkt als kleine PNGs anzeigen
+
+**GrShade-Fragen abgeschlossen:** Nutzer bestätigt Erstellt-Ausgabe und unverändert schwarze untere Bildhälfte auch nach Schließen/Neuöffnen in IrfanView. Beide Screenshots (Maske/Schummerung) liegen vor. Keine erneute Cache-/Fertigstellungsfrage und keinen weiteren CielVu-Lauf starten. Das Schattenbild ist bei dieser Maske diagnostisch unzureichend: GrShade senkt maskierte Bereiche künstlich ab und berechnet gerichtete Schatten. Strahlen/Facetten sind deshalb **kein Beweis für reale Höhenspitzen**. Reale Fehler in fünf Einzelorthos bleiben unabhängig davon bestätigt.
+
+Die direkte Ansicht liest die **bereits berechneten Rasterwerte** und zeichnet sie farbig; kein MicMac-Aufruf, keine neue Höhe/Photogrammetrie/Ortserzeugung. Schwarze Bereiche der ursprünglichen Maske und nichtendliche/NoData-Höhen werden in der Höhenansicht grau dargestellt, gültige rohe Nullwerte bleiben erhalten. Blau bedeutet niedriger, Rot höher innerhalb des berechneten Modells, Weiß liegt dazwischen. Diese Farben sind **keine Temperaturen/Defektbefunde** und bestätigen keine echte Dachhöhe.
+
+Wie zuvor PowerShell im **gleichen privaten Ordner `rgb\MEC-Malt`** öffnen und den folgenden Block vollständig einfügen. Er liest `Z_Num8_DeZoom2_STD-MALT.tif`, `AutoMask_STD-MALT_Num_7.tif` und die Höhenauflösung aus `Z_Num8_DeZoom2_STD-MALT.xml`. Keine zusätzliche Installation/Helper-Datei; Rasterio/NumPy/Pillow sind im bereits benutzten F:-Python vorhanden. Original-TIFFs/XMLs/SQLite bleiben unverändert. Es entstehen nur zwei neue, kleine PNGs mit eindeutigen Namen; nichts wird hochgeladen.
+
+### Direkte PNG-Vorschau
+
+```powershell
+@'
+import sys, uuid, math, warnings, xml.etree.ElementTree as E
+from pathlib import Path
+import numpy as np
+import rasterio
+from PIL import Image, ImageOps
+warnings.filterwarnings('ignore', category=rasterio.errors.NotGeoreferencedWarning)
+try:
+    meta = E.parse('Z_Num8_DeZoom2_STD-MALT.xml').getroot()
+    dz = float(meta.findtext('ResolutionAlti'))
+    if not math.isfinite(dz) or dz == 0:
+        raise ValueError()
+    with rasterio.open('Z_Num8_DeZoom2_STD-MALT.tif') as h, rasterio.open('AutoMask_STD-MALT_Num_7.tif') as m:
+        if h.count != 1 or m.count != 1 or h.shape != m.shape:
+            raise ValueError()
+        a, mask = h.read(1), m.read(1) != 0
+        valid = mask & np.isfinite(a)
+        if h.nodata is not None:
+            valid &= a != h.nodata
+    if not np.any(valid):
+        print('Keine endlichen, maskengueltigen Hoehenwerte vorhanden.')
+        sys.exit(1)
+    with np.errstate(over='raise', invalid='raise'):
+        values = a[valid].astype('float64') * dz
+    if not np.all(np.isfinite(values)):
+        raise ValueError()
+    spread = float(values.max()) - float(values.min())
+    if not math.isfinite(spread):
+        raise ValueError()
+    lo, hi = np.percentile(values, [2, 98])
+    if hi <= lo:
+        lo, hi = float(values.min()), float(values.max())
+    q05, q95 = np.percentile(values, [5, 95])
+    step = max(1, math.ceil(max(a.shape) / 1600))
+    sampled = a[::step, ::step]
+    ok = valid[::step, ::step]
+    small = np.zeros(sampled.shape, dtype='float64')
+    small[ok] = sampled[ok].astype('float64') * dz
+    grey = np.full(small.shape, 128, dtype='uint8')
+    if hi > lo:
+        grey[ok] = ((np.clip(small[ok], lo, hi) - lo) / (hi - lo) * 255).astype('uint8')
+    rgb = np.array(ImageOps.colorize(Image.fromarray(grey), black='navy', white='firebrick', mid='white', midpoint=128))
+    rgb[~ok] = (64, 64, 64)
+    stem = 'MCM_RGB_Direktpruefung_' + uuid.uuid4().hex
+    Image.fromarray(rgb).save(stem + '_Hoehe.png')
+    Image.fromarray((mask[::step, ::step] * 255).astype('uint8')).save(stem + '_Maske.png')
+    half = a.shape[0] // 2
+    print('Blau=niedriger, Rot=hoeher, Grau=maskiert/kein endlicher Wert.')
+    print('Automatischer Anzeigekontrast; Randwerte ggf. nur farblich gesaettigt.')
+    print('Maskenpixel gesamt:', int(mask.sum()))
+    print('Endliche Hoehenpixel oben/unten:', int(valid[:half].sum()), int(valid[half:].sum()))
+    print('Modellinterne Hoehenspanne (Metadatenskalierung):', round(spread, 3))
+    print('Spanne 5.-95. Perzentil:', round(float(q95 - q05), 3))
+    print('Erstellt:', stem + '_Hoehe.png', 'und', stem + '_Maske.png')
+except Exception:
+    print('Direktpruefung fehlgeschlagen; vorhandene Eingaben unveraendert.')
+    sys.exit(1)
+'@ | & "F:\MCM-SolarCheck\.venv\Scripts\python.exe" -
+```
+
+Die beiden neuen Dateien `MCM_RGB_Direktpruefung_…_Hoehe.png` und `…_Maske.png` können **direkt** zur Kontrolle bereitgestellt werden; zusätzlich die kurze Konsolenausgabe. Keine Geo-XMLs/Originalbilder/absoluten Koordinaten/Schummerungsprotokolle übertragen. Die maximale Vorschauachse ist 1600 Pixel, deshalb kein erneuter 32-MiB-TIFF-Transfer nötig.
+
+Die Pixelzahlen/Höhenspannen verwenden **alle** gemäß Maske/NoData/endlichen Werten verwendbaren Rasterpixel; oben/unten bezeichnet die beiden Rasterhälften, keine Himmelsrichtung. Die PNG-Verkleinerung verwendet nur regulär abgetastete Pixel, keine Füllung/Interpolation von Maskenlöchern. Sehr kleine Inseln können in der verkleinerten Ansicht fehlen; dafür werden die vollständigen Zahlen ausgegeben. Es wird **keine PV-Flächenabdeckung** aus der Gesamtzahl des rechteckigen Rasters abgeleitet.
+
+Für die Farbkontraste wird das 2.–98. Perzentil verwendet, bei identischen Grenzen die gesamte Spanne; Werte außerhalb des Farbbereichs werden nur in der Vorschau gesättigt. Die Eingaben bleiben unverändert. Ausgegebene Spannweiten sind relative Modellwerte mit vorhandener Höhenauflösung, keine absoluten GPS-Höhen oder unabhängig gemessenen Fehler/Genauigkeiten. Bei völlig leerer/ungültiger Maske oder kaputten Eingaben bricht der Block mit kurzer fester Meldung ab. Vierzehn synthetische Proben bestanden, echter neuer Direktvorschau-Lauf noch offen.
+
+## Abgeschlossener GrShade-Aufruf – eingeschränkt interpretierbare Darstellung
+
+Der folgende frühere Kopierblock bleibt als Historie dokumentiert; nicht erneut ausführen. Für den aktuellen nächsten Schritt ausschließlich die direkte PNG-Vorschau oben verwenden.
 
 **Dateinamenfrage abgeschlossen:** Z_Num8_DeZoom2_STD-MALT.tif wurde zweimal genannt, AutoMask_STD-MALT_Num_7.tif und MasqPC_STD-MALT_Num8_000026.tif liegen laut Nutzer vor. Die MasqPC ist bildbezogen (Aufnahme26), nicht die globale Geländemaske. AutoMask7 ist der Standardkandidat: Malt nutzt die letzte Quantisierungsmaske auch nach der nachfolgenden Dequantisierung. Lokale räumliche Übereinstimmung trotzdem vor GrShade prüfen. Keine weiteren Ort-Dateien/Dateinamen oder Roh-XMLs anfordern.
 
