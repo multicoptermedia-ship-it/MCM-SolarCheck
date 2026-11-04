@@ -2,6 +2,8 @@
 
 Stand **04.11.2026**; frühere MicMac-Prüfungen als Historie erhalten. Maßgeblich ist [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Ziel sind lokale RGB- und Thermal-Orthofotos, der [bestehende GeoTIFF-Import](EXTERNES_RGB_ORTHOFOTO_GEOTIFF.md), PV-Modulerkennung und Thermal-Zuordnung. Keine neue Engine; keine proprietären/kostenpflichtigen Programme, kein ODM/WebODM/ODX.
 
+**Bestätigung 04.11.2026:** Nutzer startet den vorgeschlagenen Pilotweg. [Separater Windows-10-RGB-Pilot](COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) technisch vorbereitet: bestehende SQLite nur lesen, standardisierte CLI, PLY-/PNG-Referenz ins GeoTIFF, lokale Laufzeiten/Abbruch. Keine eigene Engine, kein echter Rekonstruktions-/Qualitätsnachweis hier. Online-Anpassung später über GUI-unabhängigen Fachkern, kein Online-Ausbau jetzt.
+
 ## Vergleich
 
 | Werkzeug | Belegte Rolle und Lizenz | Bewertung für SolarCheck |

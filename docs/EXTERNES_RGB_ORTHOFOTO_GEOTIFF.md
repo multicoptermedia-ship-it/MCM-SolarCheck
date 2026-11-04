@@ -4,6 +4,8 @@
 
 **Neuer Praxisstand 04.11.2026:** Bisherige MicMac-Kette nach zwei unbrauchbaren Ergebnissen zurückgestellt, darunter abgeschlossener RGB-/Thermal-Lauf einer zweiten Dachanlage mit RTK laut Nutzer. Vorhandenen Import/Viewer erhalten; freie Alternative vor neuer Anbindung lokal qualifizieren. COLMAP/OpenMVS/GDAL ist ein Kandidat, noch ohne Windows-10-/GeoTIFF-/Thermal-Realnachweis. Keine neue Engine oder ODM/WebODM/ODX-Anbindung. Historische MicMac-Anleitung unten ist kein aktueller Auftrag für weitere Parameterläufe.
 
+**Nächster Bedienweg:** bestätigten [COLMAP/OpenMVS-RGB-Pilot](COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) separat mit bestehendem Python/Projekt starten. Er erzeugt zunächst nur ein ungeprüftes RGB-GeoTIFF; bisherige Haupt-GUI/Paarregistrierung unverändert. Nach erfolgreichem RGB-/Thermal-Nachweis denselben vorhandenen Paarimport verwenden. Backend für spätere Online-Anpassung ohne GUI-Abhängigkeit gehalten.
+
 ## Aufgabe von SolarCheck
 
 Die vorhandenen Funktionen **„GeoTIFF / GIS-Metadaten prüfen“** und **„GeoTIFF dauerhaft im Projekt registrieren“** wiederverwenden. SolarCheck übernimmt die beiden lokal erzeugten Raster, ihre Projektzuordnung und anschließend PV-Modulerkennung sowie Thermal-Zuordnung. Kein neuer Importer, kein Nachbau von SfM, Bundle Adjustment, MVS oder Orthorektifizierung.
