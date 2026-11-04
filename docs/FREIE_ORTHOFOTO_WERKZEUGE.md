@@ -1,19 +1,45 @@
 # Freie Orthofoto-Werkzeuge: Auswahl und belegter Prüfstand
 
-Stand **31.10.2026**. Maßgeblich ist [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Ziel sind lokale RGB- und Thermal-Orthofotos, der [bestehende GeoTIFF-Import](EXTERNES_RGB_ORTHOFOTO_GEOTIFF.md), PV-Modulerkennung und Thermal-Zuordnung. Keine neue Engine; keine proprietären/kostenpflichtigen Programme, kein ODM/WebODM/ODX.
+Stand **04.11.2026**; frühere MicMac-Prüfungen als Historie erhalten. Maßgeblich ist [AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md). Ziel sind lokale RGB- und Thermal-Orthofotos, der [bestehende GeoTIFF-Import](EXTERNES_RGB_ORTHOFOTO_GEOTIFF.md), PV-Modulerkennung und Thermal-Zuordnung. Keine neue Engine; keine proprietären/kostenpflichtigen Programme, kein ODM/WebODM/ODX.
 
 ## Vergleich
 
 | Werkzeug | Belegte Rolle und Lizenz | Bewertung für SolarCheck |
 | --- | --- | --- |
-| **MicMac v1.2.0** | CeCILL-B-Hauptprojekt; etablierte Luftbild-Photogrammetrie mit `Malt Ortho`/`Tawny`, native Windows-Ausgabe. | Priorisierter technischer Kandidat. Abweichende Komponentenbedingungen verhindern derzeit die pauschale Freigabe einer konkreten Distribution; siehe unten. |
+| **MicMac v1.2.0** | CeCILL-B-Hauptprojekt; etablierte Luftbild-Photogrammetrie mit `Malt Ortho`/`Tawny`, native Windows-Ausgabe. | **Zurückgestellt:** bisherige SolarCheck-Kette scheitert in zwei Praxistests; zweite Dachanlage mit RTK laut Nutzer ebenfalls RGB/Thermal unbrauchbar. Kein weiterer Parameterlauf als aktueller Auftrag. Komponenten-/Weitergabebedingungen siehe Historie unten. |
 | **MMVII / MicMac V2** | CeCILL-B; Windows-Binärpaket vorhanden. Das aktuelle offizielle README nennt weiterhin einzelne Kommandos mit V1-Binärabhängigkeit. | Separater Kandidat; vollständige unabhängige RGB-/Thermal-Orthofoto-Kette und Austauschbarkeit der V1-Kommandos wurden hier nicht belegt. |
-| **COLMAP** | BSD-Hauptlizenz, Abhängigkeiten separat lizenziert; etablierte Kameraorientierung/Rekonstruktion. | Kein direkt belegter vollständiger GeoTIFF-/Thermal-Orthofotoablauf. Laut offizieller FAQ benötigt dichte Rekonstruktion CUDA; CPU-SfM kann Teil einer separat geprüften freien Kette sein. |
-| **OpenMVS** | AGPL-3.0. Aktuelle offizielle Dokumentation beschreibt native `CreateStructure`-SfM sowie CPU-Verarbeitung. | Reale Alternative für Rekonstruktion/Mesh/Textur. `TextureMesh` erzeugt aus georeferenziertem/ausgerichtetem Mesh ein orthografisches PNG plus TXT, noch kein importfertiges GeoTIFF oder quantitativer Thermalnachweis. |
+| **COLMAP** | BSD-Hauptlizenz, Abhängigkeiten separat lizenziert; etablierte Kameraorientierung/Rekonstruktion. | Kein direkt belegter vollständiger GeoTIFF-/Thermal-Orthofotoablauf. Laut versionsgebundener FAQ benötigt eigene dichte Rekonstruktion CUDA; CPU-SfM kann mit OpenMVS kombiniert werden. Noch kein lokal geprüfter Ersatz. |
+| **OpenMVS** | AGPL-3.0. Im geprüften Release **v2.4.0** Eingang aus vorgelösten Kameraposen/Spärpunktwolke; CPU-Verarbeitung vorhanden. Eine native `CreateStructure`-SfM-Kette ist damit nicht belegt. | Reale Alternative für Rekonstruktion/Mesh/Textur. `TextureMesh` erzeugt aus georeferenziertem/ausgerichtetem Mesh ein orthografisches PNG plus TXT, noch kein importfertiges GeoTIFF oder quantitativer Thermalnachweis. |
 | **OpenMVG** | MPL-2.0; etablierte SfM-Software. | Orientierung als Teil einer externen Werkzeugkette, allein kein vollständiger Orthofoto-Erzeuger. |
 | **QGIS / GDAL / OTB** | Freie GIS-/Rasterwerkzeuge mit eigenen Lizenzen. | Prüfung, Konvertierung, bekannte Georeferenzierung und Reprojektion. Sie ersetzen nicht automatisch die Kameralösung/Oberfläche aus DJI-Einzelfotos. OTB-Orthorektifizierung braucht unterstützte Sensorgeometrie und Höheninformationen. |
 
 Keine Zeile ist eine Weiterverteilungsfreigabe aller optionalen Komponenten oder ein erfolgreicher DJI-M3T-Reallauf. SolarCheck kopiert keine Algorithmen daraus.
+
+## Neubewertung 04.11.2026 nach zweitem fehlgeschlagenem Praxistest
+
+Die aktuellen RGB-/Thermal-Screenshots einer anderen PV-Dachanlage sind für Modulprüfung unbrauchbar. RTK-Einsatz und längere Laufzeit gegenüber WebODM sind Nutzerberichte, kein unabhängiger Fix-/Genauigkeitsnachweis oder numerischer Benchmark. Die beobachtete SolarCheck/MicMac-Konfiguration zurückstellen; keine generelle Untauglichkeit aller MicMac-Konfigurationen daraus ableiten. Nutzer nennt Eigenentwicklung oder freie Alternative als Möglichkeiten; **Empfehlung ist eine andere bestehende freie Kette**, keine Wiederaufnahme einer eigenen Engine. Noch keine verbindliche Backend-Auswahl durch den Nutzer.
+
+### Konkreter Kandidat: COLMAP → OpenMVS → GDAL
+
+| Teil | Belegt | Noch offen |
+| --- | --- | --- |
+| **COLMAP 4.2.1** | BSD-Kern, Windows-x64-Pakete mit/ohne CUDA; CPU-SfM. `model_aligner` kann eine Rekonstruktion an vorgegebene echte Kamerapositionen im gemeinsamen metrischen Rahmen anpassen (`custom`, `ref_is_gps=false`). | Windows 10 auf Nutzerhardware, konkrete Referenz-/RTK-Verwendung, stabile Dach-/PV-Kameralösung und Laufzeit. Globaler Abgleich korrigiert keine lokal falsche Rekonstruktion. |
+| **OpenMVS v2.4.0** | AGPL, Windows-x64-Pakete; COLMAP-Import nach dessen Bildentzerrung, dichte Rekonstruktion auch CPU, Oberfläche/Textur. `TextureMesh --orthographic-image-resolution` nutzt die vorhandene Orthoprojektion. | Vorher korrekt ausgerichtetes/metrisches Modell. Kein nachgewiesener RGB-/Thermal-Dachlauf. Eigenständige native SfM nicht aus dem v2.4-README ableiten. |
+| **GDAL / vorhandenes Rasterio** | Standardkonvertierung und Übernahme bekannter echter Rasterreferenzen ins GeoTIFF. | Der von OpenMVS gelieferte PNG/TXT-Ausgang ist kein vollständiges GeoTIFF: tatsächlicher Pixelmaßstab, Achsen, Pixelzentrum, CRS und Maske müssen belegt werden. Kein bloßes EPSG-Etikett/geratene Boundingbox. |
+
+**Wichtige Formatgrenze:** In v2.4.0 schreibt TextureMesh ein RGBA-`_orthomap.png` und eine `_orthomap.txt` mit Center. `ProjectOrthoTopDown` bestimmt Auflösung/Skalierung aus der Mesh-Geometrie. Der TXT-Center allein belegt deshalb keinen vollständigen Rastertransform. Vor einer SolarCheck-Anbindung muss der Transform einschließlich Pixelzentren nachgewiesen werden. Global große Koordinaten nicht ungeprüft in Float-Meshes übernehmen; tatsächlichen lokalen metrischen Rahmen und belegte Rücktransformation erhalten. Diese Datenschnittstelle darf angepasst werden; **keine eigene Orthoprojektions-/SfM-/BA-Engine** nachbauen.
+
+**Thermal:** noch kein belegter vollständiger Ablauf für diese Kette. Eigene Sensorparameter, Kamerazuweisung und gemeinsame räumliche Referenz nachweisen. RGB-Intrinsics nicht übernehmen. OpenMVS-Texturierung enthält standardmäßig Farb-/Nahtkorrekturen und Schärfung; daraus keine unveränderten radiometrischen Pixel oder Celsiuswerte ableiten. Ein RGB-Pilot ersetzt den Auftrag für beide Orthofotos nicht.
+
+**Nächster praktischer Teil:** begrenzter lokaler RGB-Pilot auf vorhandener Windows-10-Hardware, vor neuer GUI-Integration. Bestehende externe Programme führen Rekonstruktion/Orthoprojektion aus. Erfolgskriterien: vollständige Dächer/PV-Flächen, gerade zusammenhängende Modulränder, keine Bildfragmente/Doppelkonturen, belegte GeoTIFF-Referenz/Masken und gemessene akzeptable Laufzeit; danach Thermal-Nachweis. Keine Geschwindigkeits-/Qualitätsgarantie aus Projektname oder RTK. Nutzer bestätigt 64 GB RAM, Grafikkarte noch unbekannt. CPU-Weg verfügbar, Performance damit nicht zugesichert. Keine automatische Installation, Bündelung oder private Rohbildverarbeitung hier.
+
+Für unmittelbar vorhandene Ergebnisse bleibt manuell getrennt betriebenes WebODM eine externe Möglichkeit; GeoTIFF-Import weiterverwenden. **Keine ODM/WebODM/ODX-Integration** durch diese Neubewertung freigegeben.
+
+Versionsgebundene Primärquellen, am 04.11.2026 nur gelesen:
+
+- [COLMAP 4.2.1 Windows-Releases](https://github.com/colmap/colmap/releases/tag/4.2.1), [COPYING.txt](https://github.com/colmap/colmap/blob/4.2.1/COPYING.txt), [CPU/CUDA-FAQ](https://github.com/colmap/colmap/blob/4.2.1/doc/faq.rst#available-functionality-without-gpucuda), [Positionsabgleich im Quellcode](https://github.com/colmap/colmap/blob/4.2.1/src/colmap/exe/model.cc). Tag: bd1fcf654d2dd8fefa1466999c190a246f83f4b9.
+- [OpenMVS v2.4.0 Windows-Releases](https://github.com/cdcseacave/openMVS/releases/tag/v2.4.0), [README/Eingang](https://github.com/cdcseacave/openMVS/blob/v2.4.0/README.md), [AGPL/Komponenten](https://github.com/cdcseacave/openMVS/blob/v2.4.0/COPYRIGHT.md), [COLMAP-Schnittstelle](https://github.com/cdcseacave/openMVS/blob/v2.4.0/apps/InterfaceCOLMAP/InterfaceCOLMAP.cpp), [CPU-Dichte](https://github.com/cdcseacave/openMVS/blob/v2.4.0/apps/DensifyPointCloud/DensifyPointCloud.cpp), [Orthomap-Ausgabe](https://github.com/cdcseacave/openMVS/blob/v2.4.0/apps/TextureMesh/TextureMesh.cpp), [Pixelgeometrie](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/MVS/Mesh.cpp). Tag: 58117204c86bbb11a0b25b26a8987676cf11274d.
+- [GDAL GeoTIFF](https://gdal.org/en/stable/drivers/raster/gtiff.html). Die Hauptlizenzen ersetzen keine Prüfung optionaler Abhängigkeiten vor etwaiger Weitergabe.
 
 ## MicMac: Hauptlizenz und tatsächliche Komponenten unterscheiden
 
@@ -55,4 +81,4 @@ RGB und Thermal brauchen eigene Sensorparameter und eine passende gemeinsame rä
 
 Zuerst bestehende GeoTIFF-Übergabe für beide Raster sowie PV-/Thermal-Zuordnung nutzen. Konkrete freie Werkzeugzusammenstellung gesondert belegen und anschließend ausschließlich lokal beim Nutzer mit echten Aufnahmen prüfen. Kein neuer Engine-, Gate- oder Rohbildinventur-Nebenweg. Kein Merge nach `main`.
 
-Weitere Primärquellen: [MMVII](https://github.com/micmac-V2/MMVII), [COLMAP-Lizenz](https://github.com/colmap/colmap/blob/main/LICENSE), [CPU/GPU und Georegistrierung](https://colmap.github.io/faq.html), [OpenMVS AGPL](https://github.com/cdcseacave/openMVS/blob/master/LICENSE), [aktueller OpenMVS-Ablauf](https://github.com/cdcseacave/openMVS/wiki/Usage), [OpenMVS-Orthobildausgabe](https://github.com/cdcseacave/openMVS/blob/master/apps/TextureMesh/TextureMesh.cpp), [OpenMVG MPL](https://github.com/openMVG/openMVG/blob/develop/LICENSE).
+Weitere Primärquellen: [MMVII](https://github.com/micmac-V2/MMVII), [COLMAP-Lizenz](https://github.com/colmap/colmap/blob/4.2.1/COPYING.txt), [CPU/GPU und Georegistrierung](https://colmap.github.io/faq.html), [OpenMVS AGPL](https://github.com/cdcseacave/openMVS/blob/master/LICENSE), [aktueller OpenMVS-Ablauf](https://github.com/cdcseacave/openMVS/wiki/Usage), [OpenMVS-Orthobildausgabe](https://github.com/cdcseacave/openMVS/blob/master/apps/TextureMesh/TextureMesh.cpp), [OpenMVG MPL](https://github.com/openMVG/openMVG/blob/develop/LICENSE).

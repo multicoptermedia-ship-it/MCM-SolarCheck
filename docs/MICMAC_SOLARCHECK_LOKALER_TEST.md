@@ -1,10 +1,12 @@
 # Erster lokaler MicMac-Lauf und Vergleich mit der RGB-Referenz
 
+> **04.11.2026 – aktueller Arbeitsweg zurückgestellt:** Zweite Dachanlage laut Nutzer mit RTK, beide Raster technisch fertig/in der Übersicht sichtbar, RGB und Thermal fachlich unbrauchbar. Nutzer fordert andere freie Lösung oder nennt Eigenentwicklung. Keine weiteren MicMac-Parameter-/Winkel-/Maskenläufe als aktueller Auftrag. COLMAP/OpenMVS/GDAL ist ein noch ungeprüfter Kandidat; [Werkzeugprüfung](FREIE_ORTHOFOTO_WERKZEUGE.md) und [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md) gelten. Die folgenden Abschnitte dokumentieren frühere MicMac-Prüfungen.
+
 Stand 03.11.2026 · VERT-01B2 ist technisch angebunden. **Echter RGB-Lauf auf Windows 10 erfolgt, visuelle Qualität FAIL; Thermal blockiert.** Ein vollständiges brauchbares Rasterpaar und Fachabnahme fehlen. Automatisierte Rekonstruktionstests nutzen synthetische Bilder/Fake-MicMac; die nachfolgenden realen Sichtbefunde sind davon getrennt.
 
 **Nutzerstand 03.11.2026 / RGB-QUAL-01 FAIL:** Das benannte MicMac-RGB-GeoTIFF wurde auf ausdrücklichen Nutzerwunsch jetzt tatsächlich visuell geprüft. Technischer RGB-Abschluss ist bestätigt, Bildqualität jedoch unbrauchbar für PV-Modulprüfung. Thermal bleibt nach zwei MST-Abbrüchen blockiert; 26 RGB/26 Thermal/25 Paare, alle Thermalaufnahmen importiert. Kein vollständiges Paar registriert und keine Freigabe.
 
-## Aktueller Schritt: vorhandene DJI-Kameralage an MicMac anbinden
+## Zurückgestellter Schritt: vorhandene DJI-Kameralage an MicMac anbinden
 
 **Dateisuche am 04.11.2026 abgeschlossen:** Nutzer hat beide PNGs gefunden und erneut bereitgestellt. Direkte PNG-Prüfung samt Kennzahlen abgeschlossen; kein neuer Bildlauf. 4.017.909 Maskenpixel sind endlich: 168.440 oben, 3.849.469 unten. Modellinterne Höhenspanne 4.756, P5–P95 3.352; keine unabhängig gemessene Genauigkeit. Ein breiter Höhenverlauf ist sichtbar, große modulartige Aussparungen bleiben maskiert. Die schwarze GrShade-Hälfte ist damit kein Nachweis fehlender unterer Höhen. Diesen Test nicht wiederholen; die beschädigten Einzelorthofotos bleiben ein echter Qualitätsfehler.
 
