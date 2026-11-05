@@ -73,6 +73,34 @@ Im neuen `rgb-pilot-…`-Job bleiben erhalten:
 
 **Abbrechen/Schließen während eines Laufs:** der eigene externe Prozessbaum wird beendet, der Dialog wartet auf die Beendigung. Keine Ergebnisübernahme oder Projektfreigabe; private Zwischenstände bleiben erhalten. Bei Fehlern nennt der Dialog nur die Stufe und relative Protokolldatei. Originale und Datenbank bleiben unverändert. Ein erneuter Start erzeugt einen frischen Job; kein automatisches Resume oder Überschreiben früherer Ergebnisse.
 
+### Zwei RGB-Kameramodelle lokal vergleichen – 05.11.2026
+
+Ordner sparse/0 und /1 bezeichnen zwei Rekonstruktionen, nicht RGB-/Thermalrollen. Der Pilot liest nur RGB-image_frames, keine thermal_frames. Mapperlog zuletzt 5/21 registrierte Frames; gespeicherte Größen/Überschneidung noch ungeprüft. Vorhandenes COLMAP liest beide Modelle ohne Überschreiben. Befehl wählt neuesten Job, prüft images.bin und filtert die Ausgabe auf Bildanzahlen/Abgleichstatus. Nur diese Zeilen teilen; komplette Ausgabe kann eine private Transformmatrix enthalten.
+
+```powershell
+$job = Get-ChildItem 'F:\Auswertung1' -Directory -Filter 'rgb-pilot-*' |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $job) { throw 'Kein Pilotordner gefunden.' }
+foreach ($modell in '0', '1') {
+    if (-not (Test-Path -LiteralPath (Join-Path $job.FullName "sparse\$modell\images.bin") -PathType Leaf)) {
+        throw 'Im neuesten Pilotordner fehlen die beiden gespeicherten Modelle.'
+    }
+}
+$vorherigeFehleraktion = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    & 'E:\Tools\colmap\bin\colmap.exe' model_comparer `
+        --input_path1 (Join-Path $job.FullName 'sparse\0') `
+        --input_path2 (Join-Path $job.FullName 'sparse\1') 2>&1 |
+        ForEach-Object { "$_" } |
+        Select-String 'Images:\s+\d+|Common images:\s+\d+|Reconstruction alignment failed'
+} finally {
+    $ErrorActionPreference = $vorherigeFehleraktion
+}
+```
+
+Gemeinsame Bilder allein garantieren keinen geometrisch gültigen Merge. Erst bei konsistenter Geometrie COLMAP model_merger prüfen, danach weiterhin alle Projektbilder verlangen. Quellcodefalle: auch nach Merge failed kann model_merger ein Modell schreiben und Exitcode 0 liefern. Noch keine Zusammenführung oder Qualitätsfreigabe. Keine Bilder/Rohlogs/Modelle übertragen.
+
 ## 5. Lokale Abnahme vor weiterer Integration
 
 Am neuen RGB-Ergebnis bei nativer Auflösung prüfen: vollständige Dach-/PV-Flächen, zusammenhängende gerade Modulränder, keine versetzten Fragmente/Doppelkonturen, sichtbare Datenlücken und plausibel belegte Lage. Anschließend mit dem unabhängig erzeugten WebODM-RGB vergleichen. Laufzeiten nur mit Bildanzahl, Recheneinstellungen und tatsächlichem Ergebnis vergleichen; keine Geschwindigkeit aus der NVIDIA-Karte allein ableiten.

@@ -1,6 +1,6 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
-> **Fortsetzung 05.11.2026 · ALT-ORTHO-01-MODEL wartet auf Modellanzahl/Mapperhinweis:** CPU-Lauf erreicht Modellprüfung; Screenshot unterscheidet null/mehrere sparse-Modelle nicht. Nummerierte Ordner und kurzer Warntext aus step-09.log erfragt, ohne Bildnamen/Pfade/GPS. Kein neues Programm/Parameterlauf oder Teilmodell als Gesamtergebnis. Code `a5dcf8b0` unverändert; letzte Übergabe-CI `0bc05449` komplett grün. RGB-/Thermal-Abnahme offen. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+> **Fortsetzung 05.11.2026 · ALT-ORTHO-01-MODEL zwei RGB-Modelle bestätigt / Vergleich offen:** Ordner 0/1, Mapperversuche zuletzt 5/21 registrierte Frames; Überschneidung ungeprüft. Pilot liest nur image_frames (RGB), nicht thermal_frames. Nächster Schritt: vorhandener COLMAP model_comparer lokal, nur Bildanzahlen/Common images/Abgleichstatus teilen. Kein größtes Teilmodell/neue Engine. [Anleitung](COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
 ### 01.11.2026 · DEV-EXTERNAL-ORTHOPHOTO-PAIR-001 – externe RGB-/Thermal-Raster bis PV-Vorschau
