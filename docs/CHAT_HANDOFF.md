@@ -1,6 +1,6 @@
 # MCM-SolarCheck – Übergabe für einen neuen Chat
 
-> **Fortsetzung 05.11.2026 · ALT-ORTHO-01-CONTINUE FAIL / GUIDED vorbereitet:** Fortsetzung unverändert 21/26 Bilder, mittlerer Pixelrestfehler 0.901954 px; keine Abdeckungs-/Qualitätsfreigabe. Fortsetzung/Modellvergleich/Merge nicht wiederholen. Ein offizieller COLMAP-guided_matching-Vergleich mit vorhandenen Merkmalen in DB-Kopie/neuem Ziel vorbereitet, CPU, keine gelockerten Toleranzen. Lokal noch nicht ausgeführt; danach alle Modellzahlen melden. [Befehl](COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+> **Fortsetzung 05.11.2026 · GUIDED FAIL / vollständige Referenzserie als nächster Test:** Modelle 3/11/21 von 26, kein vollständiger Verbund; keine weiteren blinden Parameterläufe. Nutzer bestätigt WebODM-Referenz aus größerem Bestand. Nächster Bedienweg: separates leeres Testprojekt, gesamte RGB-Serie derselben Referenz über vorhandenen JPG-Import, Pilot-Projektliste durch SQLite-Neuwahl aktualisieren, CPU-Lauf. Fehlende Überlappung nicht als bewiesene Ursache behaupten. [Anleitung](COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
 ### 01.11.2026 · DEV-EXTERNAL-ORTHOPHOTO-PAIR-001 – externe RGB-/Thermal-Raster bis PV-Vorschau

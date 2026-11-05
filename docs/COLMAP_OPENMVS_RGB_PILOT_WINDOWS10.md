@@ -1,5 +1,7 @@
 # Lokaler RGB-Pilot – COLMAP 3.12.6 und OpenMVS 2.4.0
 
+**Aktueller Praxisstand 05.11.2026:** Der 26-Bilder-Test bleibt nach Basis, Fortsetzung und GUIDED unvollständig (GUIDED: 3/11/21). Diese Diagnose-/Parameterläufe sind abgeschlossen und werden nicht erneut empfohlen. Nutzer bestätigt brauchbare WebODM-Referenz aus größerem Bestand; bisher keine gleiche Datengrundlage. Nächster Test verwendet dieselbe vollständige RGB-Serie der Referenz. Bisherige Befehle unten bleiben Entwicklungshistorie.
+
 **Korrektur 05.11.2026:** Bei bereits installiertem OpenMVS 2.4.0 konnte der Pilot die Version fälschlich ablehnen, wenn Windows die Konsolenausgabe umleitet. Der aktualisierte Starter liest zusätzlich die frisch erzeugten OpenMVS-Werkzeuglogs im privaten Jobordner. Bestehende Installation, Python-Umgebung und Projektdatei behalten; nur den Pilot-Quellcode gemäß Abschnitt 2 aktualisieren. Tatsächlich andere oder nicht erkennbare Versionen werden weiterhin abgelehnt.
 
 Der Nutzer hat diesen Pilot am 04.11.2026 bestätigt. Zielrechner: MEDION P17603, Windows 10, 64 GB RAM, Intel UHD 620 und NVIDIA MX250. Online später gegebenenfalls anpassen; jetzt den Offline-Weg praktisch belegen. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
@@ -51,6 +53,15 @@ Soll der Dialog bereits mit ausgeschaltetem NVIDIA-Häkchen öffnen, denselben v
 ```
 
 Das ändert die Auswahl für diesen Start; kein neuer Download oder Import. Für das aktuelle CUDA-Treiberproblem zunächst diesen CPU-Weg verwenden. Ein Treiberwechsel ist dafür keine Voraussetzung. Die Rechenzeit kann steigen; der echte lokale Verlauf bleibt zu prüfen.
+
+### Aktueller nächster Bedienweg: vollständige Referenzserie
+
+1. Im normalen SolarCheck separates leeres Testprojekt anlegen/aktivieren; alte Projekte behalten.
+2. Import → **„Alternativ: DJI-Originalbilder auswählen (JPG, ohne ZIP)“**: gesamte RGB-Serie derselben brauchbaren Referenz auswählen. Vorhandener Originaldatei-Import, keine Archive neu inventarisieren. Thermal kann separat bleiben, Pilot liest nur RGB-Einträge.
+3. Import abschließen, RGB-Anzahl prüfen, Hauptprogramm schließen.
+4. Im vorhandenen Pilot gleiche SQLite-Datei **erneut auswählen** (Projektliste neu lesen), neues Testprojekt wählen, NVIDIA aus, bisherige Werkzeug-/Ausgabepfade verwenden, „Pilot starten“.
+
+Vorhandener Starter mit `--cpu` möglich; kein neuer Download/Installer. Normaler Pilot-Code unverändert, GUIDED nicht als erfolgreicher Fix integriert. Mehr Bilder bedeuten längere CPU-Rechnung. Erst vollständige Registrierung/Namensmenge und echtes RGB-Orthofoto beurteilen. Zusätzliche Bilder könnten helfen, keine zugesicherte Lösung. Referenz bleibt manuell/extern, keine WebODM-Integration. Keine Originale/produktive DB/GPS hochladen.
 
 ## 4. Ablauf und gespeichertes Ergebnis
 
