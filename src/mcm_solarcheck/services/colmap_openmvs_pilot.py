@@ -159,6 +159,29 @@ def _registered_names(path):
     return names
 
 
+def _read_help_output(paths):
+    """Read only bounded outputs belonging to this explicit preflight call."""
+    chunks, total = [], 0
+    for path in paths:
+        if path.is_symlink() or not path.is_file():
+            raise PilotError('Versionsprotokoll fehlt oder ist eine Verknuepfung.')
+        total += path.stat().st_size
+        if total > 2 * 1024 * 1024:
+            raise PilotError('Werkzeug-Hilfe unerwartet gross.')
+        data = path.read_bytes()
+        encoding = 'utf-16' if data.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
+        chunks.append(data.decode(encoding, errors='replace'))
+    return '\n'.join(chunks)
+
+
+def _openmvs_versions(text):
+    # Util::LogBuild in OpenMVS 2.4 prints "OpenMVS x64 v2.4.0".
+    # Parse version records, not directory names or unlabelled numbers.
+    records = re.findall(r'\bOpenMVS\s+(?:x(?:32|64)\s+)?v([0-9]{1,3})\.([0-9]{1,3})'
+                         r'(?:\.([0-9]{1,3}))?(?![\d.])', text)
+    return {(int(major), int(minor), int(patch or 0)) for major, minor, patch in records}
+
+
 def run_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None, inputs_unchanged=None):
     """Produce one private unverified RGB GeoTIFF; never register a partial pair."""
     import numpy as np
@@ -232,9 +255,10 @@ def run_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None, input
             {key: record[key] for key in ('status', 'rgb_images', 'elapsed_seconds', 'steps',
                                           'georeferencing_verified', 'thermal_created')}, indent=2), encoding='utf-8')
 
-    def stage(label, executable, args, *, help_check=False):
+    def stage(label, executable, args, *, help_check=False, native_log_prefix=None):
         _cancel(cancel)
         progress(label)
+        native_before = set(workspace.glob(native_log_prefix + '-*.log')) if native_log_prefix else set()
         item = {'stage': label, 'status': 'running', 'seconds': None}
         record['steps'].append(item)
         save()
@@ -254,9 +278,11 @@ def run_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None, input
             item['seconds'] = round(time.monotonic() - start, 3)
             save()
         if help_check:
-            if log.stat().st_size > 2 * 1024 * 1024:
-                raise PilotError('Werkzeug-Hilfe unerwartet gross.')
-            return log.read_text(encoding='utf-8', errors='replace')
+            # Windows OpenMVS can reopen stdout as CONOUT$ (LogConsole::Open).
+            # Its own freshly created app log still contains LogBuild/help.
+            # Never accept an old log, another program's log or a prior job.
+            native_new = sorted(set(workspace.glob(native_log_prefix + '-*.log')) - native_before) if native_log_prefix else []
+            return _read_help_output([log, *native_new])
 
     save()
     try:
@@ -265,9 +291,19 @@ def run_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None, input
             raise PilotError('Dieser Pilot erwartet COLMAP 3.12.6; keine automatische Installation.')
         cpu_flags = {}
         for name, executable in tools.items():
-            help_text = stage(name + '-Version', executable, ('--help',), help_check=True)
-            if not re.search(r'OpenMVS[^\r\n]{0,60}\bv?2\.4(?:\.0)?(?![\d.])', help_text):
-                raise PilotError('Dieser Pilot erwartet OpenMVS 2.4.0.')
+            help_text = stage(name + '-Version', executable,
+                              ('--help', '--working-folder', str(workspace) + os.sep),
+                              help_check=True, native_log_prefix=name)
+            versions = _openmvs_versions(help_text)
+            if versions != {(2, 4, 0)}:
+                if not versions:
+                    reason = 'Versionsausgabe nicht erkannt'
+                elif len(versions) != 1:
+                    reason = 'widerspruechliche Versionsangaben'
+                else:
+                    reason = 'OpenMVS ' + '.'.join(map(str, next(iter(versions)))) + ' erkannt'
+                raise PilotError(f'{name}: {reason}; Pilot unterstuetzt 2.4.0. '
+                                 'Lokale Versionsprotokolle im neuen Jobordner pruefen.')
             cpu_flags[name] = ('--cuda-device', '-2') if 'cuda-device' in help_text else ()
         images = workspace / 'images'
         images.mkdir()

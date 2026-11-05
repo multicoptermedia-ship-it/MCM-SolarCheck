@@ -40,14 +40,16 @@ def scene(tmp_path):
     return tuple(frames), config
 
 
-def fake_tools(monkeypatch, *, count=4, models=1, fail=None, version='3.12.6', after=None):
+def fake_tools(monkeypatch, *, count=4, models=1, fail=None, version='3.12.6', after=None, help_hook=None):
     calls = []
     def execute(executable, args, folder, log, cancel, **kwargs):
         args = tuple(map(str, args))
         calls.append((executable.name, args))
-        if args in (('-h',), ('--help',)):
+        if args[0] in ('-h', '--help'):
             log.write_text('COLMAP ' + version if executable.name.lower().startswith('colmap')
                            else 'OpenMVS x64 v2.4.0\n--cuda-device', encoding='utf-8')
+            if help_hook:
+                help_hook(executable, args, folder, log)
             return
         log.write_text('Synthetic private tool output; not user data.')
         if args[0] == fail:
@@ -101,11 +103,11 @@ def test_pilot_to_persisted_geotiff_preserves_sources_and_times_each_stage(scene
         assert src.transform.c > 100000 and src.transform.f > 5000000
         assert src.dataset_mask()[:, 0].sum() == 0
     assert all(('--cuda-device', '-2') == args[-4:-2] or '-2' in args
-               for name, args in calls if name.startswith('Densify') and args != ('--help',))
+               for name, args in calls if name.startswith('Densify') and args[0] != '--help')
     for name, args in calls:
-        if name.startswith(('ReconstructMesh', 'RefineMesh', 'TextureMesh')) and args != ('--help',):
+        if name.startswith(('ReconstructMesh', 'RefineMesh', 'TextureMesh')) and args[0] != '--help':
             assert args[-2:] == ('--archive-type', '2')
-    texture_calls = [args for name, args in calls if name.startswith('TextureMesh') and args != ('--help',)]
+    texture_calls = [args for name, args in calls if name.startswith('TextureMesh') and args[0] != '--help']
     assert len(texture_calls) == 2
     assert '--orthographic-image-resolution' not in texture_calls[0]
     assert texture_calls[1][0] == 'textured.mvs' and '--mesh-file' in texture_calls[1]
@@ -120,7 +122,7 @@ def test_incomplete_or_split_camera_solution_never_produces_a_partial_overview(s
     job = next(config.output_parent.iterdir())
     assert json.loads((job/'job.json').read_text())['status'] == 'failed'
     assert not (job/'rgb_ortho.tif').exists()
-    assert not any(name.startswith('Densify') and args != ('--help',) for name, args in calls)
+    assert not any(name.startswith('Densify') and args[0] != '--help' for name, args in calls)
 
 
 def test_changed_project_signature_and_changed_source_do_not_publish(scene, monkeypatch):
@@ -144,6 +146,56 @@ def test_wrong_colmap_version_fails_before_any_original_copy(scene, monkeypatch)
     with pytest.raises(pilot.PilotError, match='3.12.6'):
         pilot.run_rgb_pilot(frames, config)
     assert not list(config.output_parent.glob('*/images'))
+
+
+@pytest.mark.parametrize('encoding', ['utf-8', 'utf-16'])
+def test_openmvs_native_log_only_help_can_complete_pilot(scene, monkeypatch, encoding):
+    """Windows CONOUT$ may leave captured stdout empty; app logs remain usable."""
+    frames, config = scene
+    def native_help(executable, args, folder, log):
+        if args[0] != '--help':
+            return
+        assert args[1:] == ('--working-folder', str(folder) + os.sep)
+        assert not (folder / 'images').exists()
+        log.write_bytes(b'')
+        (folder / (executable.stem + '-fresh.log')).write_text(
+            '16:30:00 [App     ] OpenMVS x64 v2.4.0\n--cuda-device\n', encoding=encoding)
+    calls = fake_tools(monkeypatch, help_hook=native_help)
+    result = pilot.run_rgb_pilot(frames, config)
+    assert result.rgb_geotiff.exists()
+    assert len(list(result.workspace.glob('*-fresh.log'))) == 5
+    # CPU selection must also be read from the native help, not empty stdout.
+    assert all('--cuda-device' in args and args[args.index('--cuda-device') + 1] == '-2'
+               for name, args in calls if name.startswith('Densify') and args[0] != '--help')
+
+
+@pytest.mark.parametrize('case,reason', [
+    ('different', 'OpenMVS 2.4.1 erkannt'),
+    ('missing', 'Versionsausgabe nicht erkannt'),
+    ('stale', 'Versionsausgabe nicht erkannt'),
+    ('unrelated', 'Versionsausgabe nicht erkannt'),
+    ('conflicting', 'widerspruechliche Versionsangaben'),
+])
+def test_openmvs_rejects_wrong_missing_stale_or_foreign_version_before_copy(scene, monkeypatch, case, reason):
+    frames, config = scene
+    def version_help(executable, args, folder, log):
+        if args[0] == '-h':
+            if case == 'stale':
+                (folder / 'InterfaceCOLMAP-old.log').write_text('OpenMVS x64 v2.4.0')
+            return
+        log.write_text('OpenMVS x64 v2.4.1' if case == 'conflicting' else '')
+        if case in ('different', 'conflicting', 'unrelated'):
+            prefix = 'TextureMesh' if case == 'unrelated' else executable.stem
+            version = '2.4.1' if case == 'different' else '2.4.0'
+            (folder / (prefix + '-fresh.log')).write_text('OpenMVS x64 v' + version)
+    calls = fake_tools(monkeypatch, help_hook=version_help)
+    with pytest.raises(pilot.PilotError, match='InterfaceCOLMAP: ' + reason) as error:
+        pilot.run_rgb_pilot(frames, config)
+    assert 'installieren' not in str(error.value).lower()
+    assert not list(config.output_parent.glob('*/images'))
+    assert not any(args[0] == 'feature_extractor' for _, args in calls)
+    job = next(config.output_parent.iterdir())
+    assert json.loads((job / 'job.json').read_text())['status'] == 'failed'
 
 
 def test_errors_are_stage_only_and_cancelled_job_stays_private(scene, monkeypatch):

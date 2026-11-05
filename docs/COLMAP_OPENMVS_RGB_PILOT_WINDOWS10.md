@@ -1,5 +1,7 @@
 # Lokaler RGB-Pilot – COLMAP 3.12.6 und OpenMVS 2.4.0
 
+**Korrektur 05.11.2026:** Bei bereits installiertem OpenMVS 2.4.0 konnte der Pilot die Version fälschlich ablehnen, wenn Windows die Konsolenausgabe umleitet. Der aktualisierte Starter liest zusätzlich die frisch erzeugten OpenMVS-Werkzeuglogs im privaten Jobordner. Bestehende Installation, Python-Umgebung und Projektdatei behalten; nur den Pilot-Quellcode gemäß Abschnitt 2 aktualisieren. Tatsächlich andere oder nicht erkennbare Versionen werden weiterhin abgelehnt.
+
 Der Nutzer hat diesen Pilot am 04.11.2026 bestätigt. Zielrechner: MEDION P17603, Windows 10, 64 GB RAM, Intel UHD 620 und NVIDIA MX250. Online später gegebenenfalls anpassen; jetzt den Offline-Weg praktisch belegen. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 Der neue Starter verarbeitet **alle bereits importierten RGB-JPGs eines ausdrücklich gewählten Projekts**. Er liest die vorhandene SQLite nur lesend, erstellt bytegleiche Arbeitskopien und einen neuen privaten Jobordner. Er verändert keine Originale, Projekt-/Thermaldateien oder Freigaben. Es ist ein separater Pilotstarter; das bisherige SolarCheck-Hauptfenster bekommt noch keinen neuen Menüpunkt. Bestehende Importe und Projekte weiterverwenden.
@@ -8,12 +10,12 @@ Der neue Starter verarbeitet **alle bereits importierten RGB-JPGs eines ausdrüc
 
 ## 1. Zwei Standardprogramme separat bereitstellen
 
-Beide ZIPs manuell herunterladen und vollständig in getrennte Werkzeugordner entpacken, beispielsweise `E:\Tools\COLMAP-3.12.6` und `E:\Tools\OpenMVS-2.4.0`. DLLs/Plugins bei ihren Programmen lassen. Bestehendes MicMac bleibt unverändert. Der Pilot lädt/installiert keine Programme, Python-Pakete oder Treiber.
+Falls die Programme noch fehlen: Beide ZIPs manuell herunterladen und vollständig in getrennte Werkzeugordner entpacken, beispielsweise `E:\Tools\COLMAP-3.12.6` und `E:\Tools\OpenMVS-2.4.0`. DLLs/Plugins bei ihren Programmen lassen. Bestehendes MicMac bleibt unverändert. Der Pilot lädt/installiert keine Programme, Python-Pakete oder Treiber.
 
 - **[COLMAP 3.12.6 Windows CUDA ZIP](https://github.com/colmap/colmap/releases/download/3.12.6/colmap-x64-windows-cuda.zip)**. Dieses Release verwendet CUDA 12.6.2 und ist der ältere GPU-Prüfkandidat für Pascal. COLMAP 4.2.1 mit CUDA 13.2 nicht als MX250-GPU-Version verwenden. Im Pilot die tatsächliche **`bin\colmap.exe`** auswählen, keine BAT-Datei.
 - **[OpenMVS 2.4.0 Windows x64 ZIP](https://github.com/cdcseacave/openMVS/releases/download/v2.4.0/OpenMVS_Windows_x64.zip)**. Für diesen Pilot das normale CPU-ZIP verwenden. Später den Ordner auswählen, in dem `InterfaceCOLMAP.exe`, `DensifyPointCloud.exe`, `ReconstructMesh.exe`, `RefineMesh.exe` und `TextureMesh.exe` liegen; ein gemeinsamer `bin`-Unterordner wird ebenfalls gefunden.
 
-Für den Pilot kein zusätzliches CUDA-Toolkit installieren; zunächst das vollständige COLMAP-Archiv verwenden. Die MX250-Version und der installierte Treiber sind hier noch nicht durch einen echten Programmstart geprüft. Der Starter prüft zunächst die Werkzeugversionen. Falls der GPU-Weg nicht startet, bleibt **[COLMAP 3.12.6 NoCUDA](https://github.com/colmap/colmap/releases/download/3.12.6/colmap-x64-windows-nocuda.zip)** mit deaktiviertem NVIDIA-Häkchen eine Alternative. Kein automatischer Treiberwechsel und kein Windows-11-Wechsel.
+Für den Pilot kein zusätzliches CUDA-Toolkit installieren; zunächst das vollständige COLMAP-Archiv verwenden. Die MX250-Version und der installierte Treiber sind hier noch nicht durch einen echten Programmstart geprüft. Der Starter prüft zunächst die Werkzeugversionen aus stdout und den jeweils frisch erzeugten, werkzeuggebundenen Logs im expliziten Jobordner. Frühere Joblogs oder andere Werkzeuglogs werden nicht als Versionsnachweis verwendet. Falls der GPU-Weg nicht startet, bleibt **[COLMAP 3.12.6 NoCUDA](https://github.com/colmap/colmap/releases/download/3.12.6/colmap-x64-windows-nocuda.zip)** mit deaktiviertem NVIDIA-Häkchen eine Alternative. Kein automatischer Treiberwechsel und kein Windows-11-Wechsel.
 
 ## 2. Pilot-Quellcode entpacken und starten
 
@@ -81,7 +83,7 @@ OpenMVS-Working-Archive werden nach dem COLMAP-Import ausdrücklich als Typ 2 ge
 
 Parameter des ersten Piloten: COLMAP-SIFT maximal 2400 Pixel für Merkmalsextraktion, originale bytegleiche Arbeitskopien/Entzerrung; OpenMVS-Dichte/Verfeinerung Auflösungsstufe 1; Orthomap maximal 8192 Pixel; bis zu acht vorhandene CPU-Threads. Das sind Testeinstellungen, keine zugesicherte GSD/Genauigkeit. Quelle, Inputsignatur, lokaler Ursprung, tatsächlicher Rastertransform und Einstellungen bleiben im privaten Job gespeichert.
 
-Primärquellen: [COLMAP 3.12.6 CLI](https://github.com/colmap/colmap/blob/3.12.6/doc/cli.rst), [Positionsabgleich](https://github.com/colmap/colmap/blob/3.12.6/src/colmap/exe/model.cc), [OpenMVS TextureMesh](https://github.com/cdcseacave/openMVS/blob/v2.4.0/apps/TextureMesh/TextureMesh.cpp), [Orthoprojektion/Float-Mesh](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/MVS/Mesh.cpp), [Kamera-/Pixelkonvention](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/MVS/Camera.h), [AABB](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/Common/AABB.inl), [Kamerabasis](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/Common/Rotation.inl).
+Primärquellen: [OpenMVS Windows-Konsole/Dateilog](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/Common/Log.cpp), [Versionsbanner](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/Common/Util.cpp), [COLMAP 3.12.6 CLI](https://github.com/colmap/colmap/blob/3.12.6/doc/cli.rst), [Positionsabgleich](https://github.com/colmap/colmap/blob/3.12.6/src/colmap/exe/model.cc), [OpenMVS TextureMesh](https://github.com/cdcseacave/openMVS/blob/v2.4.0/apps/TextureMesh/TextureMesh.cpp), [Orthoprojektion/Float-Mesh](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/MVS/Mesh.cpp), [Kamera-/Pixelkonvention](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/MVS/Camera.h), [AABB](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/Common/AABB.inl), [Kamerabasis](https://github.com/cdcseacave/openMVS/blob/v2.4.0/libs/Common/Rotation.inl).
 
 Release-SHA256 aus den offiziellen Release-Metadaten, keine hier ausgeführte Binärprüfung:
 
