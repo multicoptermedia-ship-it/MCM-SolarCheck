@@ -1,6 +1,6 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
-> **Fortsetzung 05.11.2026 · ALT-ORTHO-01-FEATURE CUDA-Ursache belegt / CPU-Neustart offen:** OpenMVS-Versionsvorlauf passiert. Nutzer meldet aus `step-07.log`: „CUDA driver version is insufficient for CUDA runtime version“. Vorhandenes NVIDIA-Häkchen entfernen → „Pilot starten“; alternativ Starter `--cpu`. Beide COLMAP-SIFT-Stufen rechnen dann CPU, OpenMVS bereits CPU. Installierte Tools/Projekt behalten; keine neue ZIP/Codeänderung/Treiberinstallation nötig, CPU-Ergebnis noch offen. Code `a5dcf8b0`, Code-/Download-CI `b090db66` Linux/Windows grün; diese Änderung nur Übergabe/Anleitung. Reale RGB-/Thermal-Abnahme offen. [Anleitung](COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+> **Fortsetzung 05.11.2026 · ALT-ORTHO-01-MODEL wartet auf Modellanzahl/Mapperhinweis:** CPU-Lauf erreicht Modellprüfung; Screenshot unterscheidet null/mehrere sparse-Modelle nicht. Nummerierte Ordner und kurzer Warntext aus step-09.log erfragt, ohne Bildnamen/Pfade/GPS. Kein neues Programm/Parameterlauf oder Teilmodell als Gesamtergebnis. Code `a5dcf8b0` unverändert; letzte Übergabe-CI `0bc05449` komplett grün. RGB-/Thermal-Abnahme offen. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
 ### 01.11.2026 · DEV-EXTERNAL-ORTHOPHOTO-PAIR-001 – externe RGB-/Thermal-Raster bis PV-Vorschau
