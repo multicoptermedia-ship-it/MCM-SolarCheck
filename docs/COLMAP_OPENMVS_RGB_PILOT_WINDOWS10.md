@@ -101,6 +101,48 @@ try {
 
 Gemeinsame Bilder allein garantieren keinen geometrisch gültigen Merge. Erst bei konsistenter Geometrie COLMAP model_merger prüfen, danach weiterhin alle Projektbilder verlangen. Quellcodefalle: auch nach Merge failed kann model_merger ein Modell schreiben und Exitcode 0 liefern. Noch keine Zusammenführung oder Qualitätsfreigabe. Keine Bilder/Rohlogs/Modelle übertragen.
 
+### Vergleich erledigt: vorhandenen Verbund einmal fortsetzen – 05.11.2026
+
+Nutzerergebnis: 5/21 Bilder, 5 gemeinsame, Reconstruction alignment failed. Damit nur 21 unterschiedliche Bilder von 26 Eingaben; ein Merge ergänzt die fehlenden fünf nicht. Das Scheitern gilt für den standardmäßigen Reprojektionsabgleich, nicht automatisch als Qualitätsurteil über jede Pose. Keine Schwellen lockern oder Teilmodell als fertiges Gesamtbild verwenden.
+
+Die [offizielle 3.12.6-FAQ](https://github.com/colmap/colmap/blob/3.12.6/doc/faq.rst) beschreibt mapper --input_path zur Fortsetzung mit weiteren Bildern/Triangulation. Folgender einmaliger lokaler Versuch läuft in PowerShell, nutzt vorhandene Merkmale/Matches/Arbeitsbilder und eine DB-Kopie, schreibt nur in einen neuen Versuchsordner. Es erfolgen keine neue Merkmalsextraktion und keine Änderung an Originalmodellen/DB. Aktuelle Pilot-GUI wird durch diesen separaten Versuch nicht automatisch fortgesetzt. CPU bleibt gesetzt. Mapper schreibt bei Fortsetzung direkt in den Zielordner, nicht in einen neuen Unterordner 0.
+
+```powershell
+$job = Get-ChildItem 'F:\Auswertung1' -Directory -Filter 'rgb-pilot-*' |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $job) { throw 'Kein Pilotordner gefunden.' }
+foreach ($datei in 'features.db', 'job.json', 'sparse\1\images.bin') {
+    if (-not (Test-Path -LiteralPath (Join-Path $job.FullName $datei) -PathType Leaf)) {
+        throw 'Im neuesten Pilotordner fehlen benoetigte Dateien.'
+    }
+}
+$erwartet = (Get-Content -LiteralPath (Join-Path $job.FullName 'job.json') -Raw | ConvertFrom-Json).rgb_images
+$versuch = Join-Path $job.FullName ('mapper-fortsetzung-' + [guid]::NewGuid().ToString('N'))
+$modell = Join-Path $versuch 'modell'
+New-Item -ItemType Directory -Path $modell -Force | Out-Null
+$db = Join-Path $versuch 'features.db'
+Copy-Item -LiteralPath (Join-Path $job.FullName 'features.db') -Destination $db
+$vorherigeFehleraktion = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    & 'E:\Tools\colmap\bin\colmap.exe' mapper `
+        --database_path $db --image_path (Join-Path $job.FullName 'images') `
+        --input_path (Join-Path $job.FullName 'sparse\1') --output_path $modell `
+        --Mapper.num_threads 8 --Mapper.ba_use_gpu 0 --Mapper.multiple_models 0 `
+        > (Join-Path $versuch 'mapper.log') 2>&1
+    if ($LASTEXITCODE -ne 0) { throw 'Fortsetzung fehlgeschlagen; mapper.log bleibt im neuen Versuchsordner.' }
+    Write-Output "Erwartete RGB-Bilder: $erwartet"
+    & 'E:\Tools\colmap\bin\colmap.exe' model_analyzer --path $modell 2>&1 |
+        ForEach-Object { "$_" } |
+        Select-String 'Registered images:\s+\d+|Mean reprojection error:'
+    if ($LASTEXITCODE -ne 0) { throw 'Modellanalyse fehlgeschlagen.' }
+} finally {
+    $ErrorActionPreference = $vorherigeFehleraktion
+}
+```
+
+Nur Erwartete RGB-Bilder/Registered images/Mean reprojection error mitteilen, keine mapper.log/Koordinaten übertragen. Erst bei vollständiger Registrierung exakte Namensmenge/Eingabesignaturen und Geometrie prüfen, bevor die bestehende Entzerrung/OpenMVS/GeoTIFF-Kette fortgesetzt wird. multiple_models=0 erzwingt keine fehlenden Zuordnungen und ist keine Freigabe. Kein fertiges Orthofoto oder reale Qualitätsabnahme aus diesem Versuch zugesichert. Falls weiterhin 21 Bilder: keine automatische Wiederholung derselben Diagnose-/Parameterläufe.
+
 ## 5. Lokale Abnahme vor weiterer Integration
 
 Am neuen RGB-Ergebnis bei nativer Auflösung prüfen: vollständige Dach-/PV-Flächen, zusammenhängende gerade Modulränder, keine versetzten Fragmente/Doppelkonturen, sichtbare Datenlücken und plausibel belegte Lage. Anschließend mit dem unabhängig erzeugten WebODM-RGB vergleichen. Laufzeiten nur mit Bildanzahl, Recheneinstellungen und tatsächlichem Ergebnis vergleichen; keine Geschwindigkeit aus der NVIDIA-Karte allein ableiten.
