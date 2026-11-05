@@ -40,9 +40,17 @@ Im Pilotdialog nacheinander wählen:
 3. **OpenMVS:** den Programmordner der entpackten Version 2.4.0.
 4. **Privater Ausgabeordner:** vorhandenen separaten Ordner, beispielsweise `F:\Auswertung-Pilot`. Er muss außerhalb von Originalbildordnern und Git liegen. Ergebnisse nicht in den Programmquellcode oder einen Cloud-Synchronisationsordner legen.
 5. **Ziel-CRS:** zunächst leer lassen; aus den echten gespeicherten Kamerapositionen wird eine passende eindeutige WGS84-UTM-Zone bestimmt. Bei uneindeutiger Zone ein tatsächlich passendes metrisches Zielsystem angeben, kein geratenes EPSG. Originalhöhen werden erhalten; ihr Höhenbezug ist nicht unabhängig geprüft.
-6. Für den ersten GPU-Versuch das NVIDIA-Häkchen gesetzt lassen. Es betrifft COLMAP-Merkmale/Bildabgleich; OpenMVS wird in diesem Pilot auf CPU betrieben.
+6. **Aktueller Auswerterechner, 05.11.2026:** NVIDIA-Häkchen entfernen. Der GPU-Versuch brach mit „CUDA driver version is insufficient for CUDA runtime version“ ab. Ohne Häkchen laufen COLMAP-Merkmale und Bildabgleich auf CPU; OpenMVS ist bereits CPU. Vorhandenes COLMAP-Paket/Projekt weiterverwenden, keine Neuinstallation erforderlich. CPU-Neustart/Ergebnis noch offen; keine bestimmte Treiberversion ungeprüft voraussetzen.
 
 Für den ersten Vergleich ein kleines, zusammenhängendes, bereits importiertes Dachprojekt wählen. Keine neue ZIP-/EXIF-Inventur oder erneuter Import nötig. Auf **„Pilot starten“** klicken. Jetzt beginnt das Lesen/Kopieren der Original-JPGs. Importierte Kamerapositionen mit Länge/Breite/absoluter Höhe sind erforderlich; fehlende Werte werden nicht erfunden. Keine externe RGB-Kalibrierungsdatei oder RTK-Fix als allgemeine Startvoraussetzung.
+
+Soll der Dialog bereits mit ausgeschaltetem NVIDIA-Häkchen öffnen, denselben vorhandenen Starter mit `--cpu` starten:
+
+```powershell
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' '.\scripts\MCM_SolarCheck_RGB_PILOT.py' --cpu
+```
+
+Das ändert die Auswahl für diesen Start; kein neuer Download oder Import. Für das aktuelle CUDA-Treiberproblem zunächst diesen CPU-Weg verwenden. Ein Treiberwechsel ist dafür keine Voraussetzung. Die Rechenzeit kann steigen; der echte lokale Verlauf bleibt zu prüfen.
 
 ## 4. Ablauf und gespeichertes Ergebnis
 
