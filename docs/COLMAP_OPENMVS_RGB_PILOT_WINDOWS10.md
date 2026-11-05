@@ -19,7 +19,7 @@ Für den Pilot kein zusätzliches CUDA-Toolkit installieren; zunächst das volls
 
 ## 2. Pilot-Quellcode entpacken und starten
 
-Den [festgelegten Pilot-Quellcode als ZIP herunterladen](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/archive/4111aed3e09e238e69f9d81c7433c65a59cd451b.zip) und in einen neuen Programmordner auf F: entpacken. Code-Stand `4111aed3e09e238e69f9d81c7433c65a59cd451b`; die heruntergeladene Quellen-ZIP wurde hier geöffnet und Starter sowie beide Fachmodule byteweise gegen den Commit geprüft. Keine Fremdprogramm-Binaries wurden dafür heruntergeladen oder ausgeführt. Alten Programmordner, vorhandene Python-Umgebung und Datenbank behalten. Die Quellcode-ZIP enthält keine Fremdprogramm-Binaries oder Kundenbilder.
+Den [festgelegten Pilot-Quellcode als ZIP herunterladen](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/archive/a5dcf8b0d8989f8d15717ab02757cc60fdbe37f8.zip) und in einen neuen Programmordner auf F: entpacken. Korrigierter Code-Stand `a5dcf8b0d8989f8d15717ab02757cc60fdbe37f8` (05.11.2026); die heruntergeladene Quellen-ZIP wurde hier geöffnet und Starter sowie beide Fachmodule byteweise gegen den Commit geprüft. Keine Fremdprogramm-Binaries wurden dafür heruntergeladen oder ausgeführt. Alten Programmordner, vorhandene Python-Umgebung und Datenbank behalten. Die Quellcode-ZIP enthält keine Fremdprogramm-Binaries oder Kundenbilder.
 
 1. Das normale SolarCheck-Fenster schließen, damit während des Piloten keine Importe geändert werden.
 2. Im **neu entpackten Ordner mit `src` und `scripts`** PowerShell öffnen.
