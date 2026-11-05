@@ -1,7 +1,12 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
-> **Fortsetzung 05.11.2026 · GUIDED FAIL / vollständige Referenzserie als nächster Test:** Modelle 3/11/21 von 26, kein vollständiger Verbund; keine weiteren blinden Parameterläufe. Nutzer bestätigt WebODM-Referenz aus größerem Bestand. Nächster Bedienweg: separates leeres Testprojekt, gesamte RGB-Serie derselben Referenz über vorhandenen JPG-Import, Pilot-Projektliste durch SQLite-Neuwahl aktualisieren, CPU-Lauf. Fehlende Überlappung nicht als bewiesene Ursache behaupten. [Anleitung](COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+> **Fortsetzung 05.11.2026 · ALT-ORTHO-01-FULL lokal aktiv:** Nutzer meldet je 287 RGB-/Thermalbilder und gestarteten Pilot. Dieser berechnet nur RGB; Thermal später. Stufe/Laufzeit/registrierte Gesamtzahl/Ergebnis offen. Endmeldung abwarten, keinen parallelen Wiederholungs-/Parameterlauf oder erneuten Import anfordern. Frühere 26er-Versuche unvollständig. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
+
+### 05.11.2026 · ALT-ORTHO-01-FULL – Nutzer startet größeren RGB-Pilot
+- Nutzer meldet „je 287 Bilder“ und laufendes Pilotprogramm; Bildbestand als 287 RGB/287 Thermal laut Nutzer festgehalten. Aktueller Stand verarbeitet nur RGB-image_frames; keine Thermal-Orthofotoerzeugung, Abdeckung oder Fachfreigabe daraus ableiten. Keine Kundendaten/DB/Originalbilder geladen, Referenz-Bildidentität hier nicht unabhängig geprüft.
+- Endmeldung/Stufe/registrierte Gesamtzahl/Laufzeit und Bildqualität noch offen. CPU kann bei größerem Bildbestand länger rechnen; keine feste Zeitprognose. Kein paralleler Neuimport/Parameter-/Wiederholungslauf, keine neue Tool-/Treiberinstallation oder Hardware-/Kalibrierungsfrage. Nutzer lässt bestehenden lokalen Prozess arbeiten. Nächster Schritt ausschließlich anhand Endmeldung/konkretem Fehler, dann vollständige Registrierung und reales Orthofoto prüfen.
+- Nur Übergabe/Status geändert, Pilot-Code unverändert; keine zusätzlichen Tests für diese Dokumentation. Vorherige Basis/Fortsetzung/GUIDED auf 26 Bildern abgeschlossen unvollständig; nicht erneut anfordern. Thermal/Qualitätsabnahme offen, kein Main-Merge.
 
 ### 05.11.2026 · ALT-ORTHO-01-GUIDED FAIL – vollständige Referenzserie als nächster Test
 - Nutzer meldet 26 Eingaben, Modelle 0/1/2 mit 3/11/21 registrierten Bildern; Pixelreste 0.587043/1.034834/1.128504 px. Kein vollständiger Verbund. Wegen möglicher Überschneidung weder 35 unterschiedliche Bilder noch dieselben fünf fehlenden Bilder behaupten; Vereinigung unbekannt. Kleine Modellfehler sind keine Orthofoto-/Abdeckungsfreigabe. OpenMVS noch nicht erreicht, keine generelle Untauglichkeit von COLMAP/OpenMVS behaupten.
