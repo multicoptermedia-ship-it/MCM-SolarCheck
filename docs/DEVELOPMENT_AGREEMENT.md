@@ -1,6 +1,6 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
-> **Fortsetzung 05.11.2026 · ALT-ORTHO-01-MODEL Vergleich fertig / Fortsetzung offen:** Modelle 5/21 Bilder, 5 gemeinsame, Reprojektionsabgleich gescheitert; Vereinigung 21 von 26 Eingaben. Merge ergänzt keine fehlenden Bilder. Vorbereiteter einzelner lokaler COLMAP-mapper-Fortsetzungsversuch aus 21er-Modell, kopierter DB und neuem Ziel; anschließend Bildanzahl/Pixelrestfehler prüfen. Keine Teilmodell-/Qualitätsfreigabe. [Befehl](COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+> **Fortsetzung 05.11.2026 · ALT-ORTHO-01-CONTINUE FAIL / GUIDED vorbereitet:** Fortsetzung unverändert 21/26 Bilder, mittlerer Pixelrestfehler 0.901954 px; keine Abdeckungs-/Qualitätsfreigabe. Fortsetzung/Modellvergleich/Merge nicht wiederholen. Ein offizieller COLMAP-guided_matching-Vergleich mit vorhandenen Merkmalen in DB-Kopie/neuem Ziel vorbereitet, CPU, keine gelockerten Toleranzen. Lokal noch nicht ausgeführt; danach alle Modellzahlen melden. [Befehl](COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
 ### 01.11.2026 · DEV-EXTERNAL-ORTHOPHOTO-PAIR-001 – externe RGB-/Thermal-Raster bis PV-Vorschau

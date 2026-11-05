@@ -143,6 +143,55 @@ try {
 
 Nur Erwartete RGB-Bilder/Registered images/Mean reprojection error mitteilen, keine mapper.log/Koordinaten übertragen. Erst bei vollständiger Registrierung exakte Namensmenge/Eingabesignaturen und Geometrie prüfen, bevor die bestehende Entzerrung/OpenMVS/GeoTIFF-Kette fortgesetzt wird. multiple_models=0 erzwingt keine fehlenden Zuordnungen und ist keine Freigabe. Kein fertiges Orthofoto oder reale Qualitätsabnahme aus diesem Versuch zugesichert. Falls weiterhin 21 Bilder: keine automatische Wiederholung derselben Diagnose-/Parameterläufe.
 
+### Fortsetzung bleibt bei 21/26: ein geführter Abgleich – 05.11.2026
+
+Fortsetzungsergebnis laut Nutzer: 21 registrierte Bilder bei 26 Eingaben, mittlerer Reprojektionsfehler 0.901954 px. Keine neue Aufnahme angeschlossen. Fortsetzung/Modellvergleich/Merge nicht wiederholen. Pixelrestfehler der rekonstruierten Beobachtungen ist kein Abdeckungs-/Boden-/Orthofoto-Nachweis.
+
+Ein einzelner anderer Vergleich nach [offizieller COLMAP-FAQ](https://github.com/colmap/colmap/blob/3.12.6/doc/faq.rst): geometrisch geführter Bildabgleich (guided_matching). Vorhandene Merkmale wiederverwenden, berechnete Paarzuordnungen in neuer DB-Kopie erneuern. database_cleaner --type matches wirkt nur auf Kopie und erhält Bildmerkmale. Frischer mapper darf weiterhin mehrere Modelle liefern; keine Toleranzen lockern. CPU-Funktion im v3.12.6-Quellcode geprüft, keine reale Ausführung hier. Neuer Zielordner, Original-DB/Modelle/Arbeitsbilder erhalten. Keine neuen Programme/ZIPs/Feature-Extraktion erforderlich. Während der Berechnung werden nur feste Stufennamen und am Ende Kennzahlen angezeigt; Rohprotokolle bleiben lokal.
+
+```powershell
+$job = Get-ChildItem 'F:\Auswertung1' -Directory -Filter 'rgb-pilot-*' |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $job) { throw 'Kein Pilotordner gefunden.' }
+foreach ($datei in 'features.db', 'job.json') {
+    if (-not (Test-Path -LiteralPath (Join-Path $job.FullName $datei) -PathType Leaf)) {
+        throw 'Im neuesten Pilotordner fehlen benoetigte Dateien.'
+    }
+}
+$erwartet = (Get-Content -LiteralPath (Join-Path $job.FullName 'job.json') -Raw | ConvertFrom-Json).rgb_images
+$vergleich = Join-Path $job.FullName ('guided-vergleich-' + [guid]::NewGuid().ToString('N'))
+$modelle = Join-Path $vergleich 'sparse'
+New-Item -ItemType Directory -Path $modelle -Force -ErrorAction Stop | Out-Null
+$testDb = Join-Path $vergleich 'features.db'
+Copy-Item -LiteralPath (Join-Path $job.FullName 'features.db') -Destination $testDb -ErrorAction Stop
+function Invoke-SolarCheckColmapTest {
+    param([string]$Stufe, [string[]]$Argumente)
+    Write-Output "COLMAP: $Stufe"
+    & 'E:\Tools\colmap\bin\colmap.exe' @Argumente > (Join-Path $vergleich "$Stufe.log") 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "COLMAP-Stufe $Stufe fehlgeschlagen; Protokoll bleibt im Vergleichsordner." }
+}
+$vorherigeFehleraktion = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    Invoke-SolarCheckColmapTest '01-matchcache' @('database_cleaner', '--database_path', $testDb, '--type', 'matches')
+    Invoke-SolarCheckColmapTest '02-guided' @('exhaustive_matcher', '--database_path', $testDb,
+        '--SiftMatching.use_gpu', '0', '--SiftMatching.num_threads', '8', '--SiftMatching.guided_matching', '1')
+    Invoke-SolarCheckColmapTest '03-mapper' @('mapper', '--database_path', $testDb,
+        '--image_path', (Join-Path $job.FullName 'images'), '--output_path', $modelle,
+        '--Mapper.num_threads', '8', '--Mapper.ba_use_gpu', '0')
+    Write-Output "Erwartete RGB-Bilder: $erwartet"
+    foreach ($teil in (Get-ChildItem -LiteralPath $modelle -Directory | Where-Object { $_.Name -match '^\d+$' })) {
+        Invoke-SolarCheckColmapTest ('04-modell-' + $teil.Name) @('model_analyzer', '--path', $teil.FullName)
+        Get-Content -LiteralPath (Join-Path $vergleich ('04-modell-' + $teil.Name + '.log')) |
+            Select-String 'Registered images:\s+\d+|Mean reprojection error:'
+    }
+} finally {
+    $ErrorActionPreference = $vorherigeFehleraktion
+}
+```
+
+Nur Erwartete RGB-Bilder und pro Modell Registered images/Mean reprojection error teilen. Noch keine automatische Ergebnisübernahme: alle 26 Bilder und anschließend Namensmenge/Geometrie erforderlich. Erfolg offen. Falls weiterhin unvollständig, keine weitere blinde Parameterfolge; lokale Ursache gezielt klären. Kundenbilder, Quellnamen, Koordinaten und Rohlogs bleiben privat. Bestehender Pilot-Code unverändert; eine Integration des geführten Abgleichs erst anhand des Ergebnisses bewerten.
+
 ## 5. Lokale Abnahme vor weiterer Integration
 
 Am neuen RGB-Ergebnis bei nativer Auflösung prüfen: vollständige Dach-/PV-Flächen, zusammenhängende gerade Modulränder, keine versetzten Fragmente/Doppelkonturen, sichtbare Datenlücken und plausibel belegte Lage. Anschließend mit dem unabhängig erzeugten WebODM-RGB vergleichen. Laufzeiten nur mit Bildanzahl, Recheneinstellungen und tatsächlichem Ergebnis vergleichen; keine Geschwindigkeit aus der NVIDIA-Karte allein ableiten.
