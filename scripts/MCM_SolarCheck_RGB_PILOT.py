@@ -6,6 +6,7 @@ Without arguments the explicit local selectors open; CLI supports later job use.
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 import queue
 import sys
@@ -25,23 +26,25 @@ def execute(database, project, config, cancel, progress):
                          inputs_unchanged=lambda: input_signature(read_rgb_project(database, project)) == expected)
 
 
-def window(*, use_gpu=True, target_crs=None):
+def window(*, use_gpu=True, target_crs=None, stage_hours=24, resume_job=None):
     import tkinter as tk
     from tkinter import filedialog, ttk
 
     root = tk.Tk()
     root.title('SolarCheck – lokaler RGB-Pilot mit COLMAP/OpenMVS')
-    root.geometry('850x570')
+    root.geometry('900x670')
     values = {key: tk.StringVar() for key in ('database', 'colmap', 'openmvs', 'output')}
     events, cancel = queue.Queue(), threading.Event()
     state = {'running': False, 'closing': False, 'projects': (), 'result': None}
     status = tk.StringVar(value='Bereit. Es wird erst nach Projektwahl und Klick auf Pilot starten gerechnet.')
     gpu = tk.BooleanVar(value=use_gpu)
     crs = tk.StringVar(value=target_crs or '')
+    hours = tk.StringVar(value=f'{stage_hours:g}')
+    resume = tk.StringVar(value=str(resume_job) if resume_job else '')
     controls = []
     ttk.Label(root, text='Verwendet alle bereits importierten RGB-JPGs des gewaehlten Projekts.\n'
-              'Projektdatei/Originale bleiben unveraendert. Fuer den ersten Pilot ein kleines,\n'
-              'zusammenhaengendes Projekt verwenden. Thermal und Fachfreigabe folgen spaeter.',
+              'Fortsetzung uebernimmt Merkmale/Paarergebnisse aus dem gewaehlten alten Job.\n'
+              'Projektdatei/Originale bleiben unveraendert. Thermal und Fachfreigabe folgen spaeter.',
               wraplength=800).pack(anchor='w', padx=16, pady=12)
 
     def choose(key):
@@ -75,6 +78,24 @@ def window(*, use_gpu=True, target_crs=None):
         button = ttk.Button(row, text='Auswaehlen', command=lambda k=key: choose(k))
         button.pack(side='left', padx=4)
         controls.append(button)
+    resume_row = ttk.Frame(root)
+    resume_row.pack(fill='x', padx=16, pady=4)
+    ttk.Label(resume_row, text='Bildabgleich fortsetzen: alter RGB-Job (optional)', width=47).pack(side='left')
+    resume_entry = ttk.Entry(resume_row, textvariable=resume)
+    resume_entry.pack(side='left', fill='x', expand=True)
+    def choose_resume():
+        selected = filedialog.askdirectory(title='Gestoppter RGB-Job mit job.json und features.db')
+        if selected:
+            resume.set(selected)
+    resume_pick = ttk.Button(resume_row, text='Job waehlen', command=choose_resume)
+    resume_pick.pack(side='left', padx=4)
+    controls.extend((resume_entry, resume_pick))
+    time_row = ttk.Frame(root)
+    time_row.pack(fill='x', padx=16, pady=4)
+    ttk.Label(time_row, text='Zeitlimit je Rechenstufe (Stunden, max. 72)', width=47).pack(side='left')
+    time_entry = ttk.Spinbox(time_row, from_=1, to=72, textvariable=hours, width=8)
+    time_entry.pack(side='left')
+    controls.append(time_entry)
     projects = ttk.Combobox(root, state='readonly')
     projects.pack(fill='x', padx=16, pady=8)
     projects.set('Zuerst vorhandene Projektdatei waehlen')
@@ -110,6 +131,13 @@ def window(*, use_gpu=True, target_crs=None):
         if selected < 0 or not all(value.get() for value in values.values()):
             status.set('Projektdatei, Projekt, beide Werkzeugpfade und Ausgabeordner auswaehlen.')
             return
+        try:
+            duration = float(hours.get())
+            if not math.isfinite(duration) or not 0 < duration <= 72:
+                raise ValueError
+        except ValueError:
+            status.set('Zeitlimit als positive Stundenzahl bis maximal 72 angeben.')
+            return
         state['running'], state['result'] = True, None
         cancel.clear()
         open_output['state'] = 'disabled'
@@ -118,7 +146,9 @@ def window(*, use_gpu=True, target_crs=None):
         start_button['state'] = 'disabled'
         close_button['text'] = 'Abbrechen'
         config = RgbPilotConfig(Path(values['colmap'].get()), Path(values['openmvs'].get()), Path(values['output'].get()),
-                                use_gpu=gpu.get(), target_crs=crs.get().strip() or None)
+                                use_gpu=gpu.get(), target_crs=crs.get().strip() or None,
+                                stage_timeout_seconds=duration * 3600,
+                                resume_job=Path(resume.get().strip()) if resume.get().strip() else None)
         threading.Thread(target=worker, args=(values['database'].get(), state['projects'][selected][0], config), daemon=False).start()
 
     def close():
@@ -176,16 +206,24 @@ def main(argv=None):
         parser.add_argument('--' + name)
     parser.add_argument('--cpu', action='store_true')
     parser.add_argument('--target-crs')
+    parser.add_argument('--stage-hours', type=float, default=24,
+                        help='Zeitlimit je Rechenstufe in Stunden (positiv, maximal 72; Standard 24).')
+    parser.add_argument('--resume-job', help='Expliziter alter RGB-Job, der beim Bildabgleich gestoppt wurde.')
     args = parser.parse_args(argv)
+    if not math.isfinite(args.stage_hours) or not 0 < args.stage_hours <= 72:
+        parser.error('Zeitlimit als positive Stundenzahl bis maximal 72 angeben.')
     if not any((args.database, args.project, args.colmap, args.openmvs, args.output)):
-        window(use_gpu=not args.cpu, target_crs=args.target_crs)
+        window(use_gpu=not args.cpu, target_crs=args.target_crs,
+               stage_hours=args.stage_hours, resume_job=args.resume_job)
         return 0
     if not all((args.database, args.project, args.colmap, args.openmvs, args.output)):
         parser.error('Alle fuenf lokalen Pfade/Projektargumente angeben oder ohne Argumente starten.')
     try:
         result = execute(args.database, args.project,
                          RgbPilotConfig(Path(args.colmap), Path(args.openmvs), Path(args.output),
-                                        use_gpu=not args.cpu, target_crs=args.target_crs),
+                                        use_gpu=not args.cpu, target_crs=args.target_crs,
+                                        stage_timeout_seconds=args.stage_hours * 3600,
+                                        resume_job=Path(args.resume_job) if args.resume_job else None),
                          lambda: False, print)
         print('Erstellt:', result.rgb_geotiff)
         print('RGB ungeprueft; keine Thermal-/Fachfreigabe.')

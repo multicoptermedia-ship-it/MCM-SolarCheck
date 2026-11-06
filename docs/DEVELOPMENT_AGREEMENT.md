@@ -1,6 +1,6 @@
 # MCM-SolarCheck – verbindliche Entwicklungsvereinbarung
 
-> **Fortsetzung 06.11.2026 · ALT-ORTHO-01-FULL Bildabgleich abgebrochen:** 287er-CPU-Pilot meldet step-08.log; Ursache offen, keine Kamerarekonstruktion/OpenMVS erreicht. Starter begrenzt Stufen auf 6 h; bis 41.041 Paare, Timeout nur Hypothese. seconds/status und kurze bereinigte Fehlerzeilen erfragt, kein Neustart. [ODM-Workflowvergleich](ODM_WORKFLOW_VERGLEICH_2026-11-06.md) erstellt; RGB/GCP + Multispektral, kein M3T-Celsiusablauf/keine ODM-Integration. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+> **Fortsetzung 06.11.2026 · ALT-ORTHO-01-RESUME technisch fertig / Nutzerlauf offen:** 287er-Abgleich nach 21602.969 s durch Starterlimit beendet. Neue Timeout-/Exit-Anzeige, sichtbares 24-h-Limit (einstellbar bis 72 h), explizite Fortsetzung im neuen Job mit validiertem SQLite-/WAL-Snapshot und unveränderten Eingaben. Merkmale/Paarergebnisse wiederverwenden; keine neue Engine. Lokal 57 Tests bestanden/3 native Tk-Tests ohne Display übersprungen, Windows-HEAD-CI prüfen. [Download/Start](COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
 ### 01.11.2026 · DEV-EXTERNAL-ORTHOPHOTO-PAIR-001 – externe RGB-/Thermal-Raster bis PV-Vorschau

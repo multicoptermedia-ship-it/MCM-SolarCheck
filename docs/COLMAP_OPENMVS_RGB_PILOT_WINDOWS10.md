@@ -1,8 +1,10 @@
 # Lokaler RGB-Pilot – COLMAP 3.12.6 und OpenMVS 2.4.0
 
-**Aktueller Stand 06.11.2026:** Größerer 287er-Pilot endet laut Screenshot im COLMAP-Bildabgleich, step-08.log. Ursache offen; erst sichere Laufzeit-/Fehlerangaben auswerten, keinen Neustart/weiteren Import anfordern. Sechs-Stunden-Grenze im Starter ist ein möglicher Grund, noch unbestätigt. [Angefragter ODM-Workflowvergleich](ODM_WORKFLOW_VERGLEICH_2026-11-06.md). Die älteren Start-/Diagnoseabschnitte dokumentieren frühere Schritte und sind kein Auftrag, sie zu wiederholen.
+**Korrektur 06.11.2026:** Der 287er-Bildabgleich wurde nach 21602.969 Sekunden von der eigenen Sechs-Stunden-Grenze beendet. Neuer Pilot: klare Timeout-/Exit-Meldung, sichtbares/einstellbares Limit (Standard 24 h je Rechenstufe, maximal 72 h) und explizite Fortsetzung mit vorhandener Merkmalsdatenbank. Alter Job bleibt erhalten. Noch keine echte RGB-/Thermal-Qualitätsabnahme. Zum Fortsetzen den neuen Quellcode verwenden; keine neue Projektanlage/Importe oder Toolinstallation.
 
-**Aktueller Praxisstand 05.11.2026:** Der 26-Bilder-Test bleibt nach Basis, Fortsetzung und GUIDED unvollständig (GUIDED: 3/11/21). Diese Diagnose-/Parameterläufe sind abgeschlossen und werden nicht erneut empfohlen. Nutzer bestätigt brauchbare WebODM-Referenz aus größerem Bestand; bisher keine gleiche Datengrundlage. Nutzer meldet inzwischen je 287 RGB-/Thermalbilder und gestarteten lokalen Pilot; Endmeldung abwarten. Der Pilot berechnet RGB, Thermal-Erzeugung folgt später. Stufe/Laufzeit/Ergebnis und exakte Referenzidentität hier ungeprüft. Keine parallelen Wiederholungs-/Parameterläufe. Bisherige Befehle unten bleiben Entwicklungshistorie.
+**Historischer Screenshotbefund vor Logprüfung (06.11.2026):** Größerer 287er-Pilot endet laut Screenshot im COLMAP-Bildabgleich, step-08.log. Ursache offen; erst sichere Laufzeit-/Fehlerangaben auswerten, keinen Neustart/weiteren Import anfordern. Sechs-Stunden-Grenze im Starter ist ein möglicher Grund, noch unbestätigt. [Angefragter ODM-Workflowvergleich](ODM_WORKFLOW_VERGLEICH_2026-11-06.md). Die älteren Start-/Diagnoseabschnitte dokumentieren frühere Schritte und sind kein Auftrag, sie zu wiederholen.
+
+**Historischer Praxisstand 05.11.2026:** Der 26-Bilder-Test bleibt nach Basis, Fortsetzung und GUIDED unvollständig (GUIDED: 3/11/21). Diese Diagnose-/Parameterläufe sind abgeschlossen und werden nicht erneut empfohlen. Nutzer bestätigt brauchbare WebODM-Referenz aus größerem Bestand; bisher keine gleiche Datengrundlage. Nutzer meldet inzwischen je 287 RGB-/Thermalbilder und gestarteten lokalen Pilot; Endmeldung abwarten. Der Pilot berechnet RGB, Thermal-Erzeugung folgt später. Stufe/Laufzeit/Ergebnis und exakte Referenzidentität hier ungeprüft. Keine parallelen Wiederholungs-/Parameterläufe. Bisherige Befehle unten bleiben Entwicklungshistorie.
 
 **Korrektur 05.11.2026:** Bei bereits installiertem OpenMVS 2.4.0 konnte der Pilot die Version fälschlich ablehnen, wenn Windows die Konsolenausgabe umleitet. Der aktualisierte Starter liest zusätzlich die frisch erzeugten OpenMVS-Werkzeuglogs im privaten Jobordner. Bestehende Installation, Python-Umgebung und Projektdatei behalten; nur den Pilot-Quellcode gemäß Abschnitt 2 aktualisieren. Tatsächlich andere oder nicht erkennbare Versionen werden weiterhin abgelehnt.
 
@@ -23,7 +25,7 @@ Für den Pilot kein zusätzliches CUDA-Toolkit installieren; zunächst das volls
 
 ## 2. Pilot-Quellcode entpacken und starten
 
-Den [festgelegten Pilot-Quellcode als ZIP herunterladen](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/archive/a5dcf8b0d8989f8d15717ab02757cc60fdbe37f8.zip) und in einen neuen Programmordner auf F: entpacken. Korrigierter Code-Stand `a5dcf8b0d8989f8d15717ab02757cc60fdbe37f8` (05.11.2026); die heruntergeladene Quellen-ZIP wurde hier geöffnet und Starter sowie beide Fachmodule byteweise gegen den Commit geprüft. Keine Fremdprogramm-Binaries wurden dafür heruntergeladen oder ausgeführt. Alten Programmordner, vorhandene Python-Umgebung und Datenbank behalten. Die Quellcode-ZIP enthält keine Fremdprogramm-Binaries oder Kundenbilder.
+Den aktuellen, geprüften Fortsetzungs-Quellcode aus dieser [Branch-Anleitung](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/blob/feature/orthofoto-license-neutral-rgb-first-20261028/docs/COLMAP_OPENMVS_RGB_PILOT_WINDOWS10.md) herunterladen und in einen neuen Programmordner auf F: entpacken. Der Download wird nach Prüfung auf einen festen Code-Commit gepinnt. Alten Programmordner, vorhandene Python-Umgebung, installierte Tools, Projekte und private Jobs behalten. Die Quellen-ZIP enthält keine Fremdprogramm-Binaries/Kundenbilder. Der alte Stand a5dcf8b0 hatte noch keine Fortsetzungsfunktion.
 
 1. Das normale SolarCheck-Fenster schließen, damit während des Piloten keine Importe geändert werden.
 2. Im **neu entpackten Ordner mit `src` und `scripts`** PowerShell öffnen.
@@ -56,7 +58,7 @@ Soll der Dialog bereits mit ausgeschaltetem NVIDIA-Häkchen öffnen, denselben v
 
 Das ändert die Auswahl für diesen Start; kein neuer Download oder Import. Für das aktuelle CUDA-Treiberproblem zunächst diesen CPU-Weg verwenden. Ein Treiberwechsel ist dafür keine Voraussetzung. Die Rechenzeit kann steigen; der echte lokale Verlauf bleibt zu prüfen.
 
-### Bereits angestoßener Bedienweg: vollständige Referenzserie (Gesamtlauf aktiv)
+### Historischer Bedienweg: vollständige Referenzserie importiert (nicht wiederholen)
 
 1. Im normalen SolarCheck separates leeres Testprojekt anlegen/aktivieren; alte Projekte behalten.
 2. Import → **„Alternativ: DJI-Originalbilder auswählen (JPG, ohne ZIP)“**: gesamte RGB-Serie derselben brauchbaren Referenz auswählen. Vorhandener Originaldatei-Import, keine Archive neu inventarisieren. Thermal kann separat bleiben, Pilot liest nur RGB-Einträge.
@@ -64,6 +66,24 @@ Das ändert die Auswahl für diesen Start; kein neuer Download oder Import. Für
 4. Im vorhandenen Pilot gleiche SQLite-Datei **erneut auswählen** (Projektliste neu lesen), neues Testprojekt wählen, NVIDIA aus, bisherige Werkzeug-/Ausgabepfade verwenden, „Pilot starten“.
 
 Vorhandener Starter mit `--cpu` möglich; kein neuer Download/Installer. Normaler Pilot-Code unverändert, GUIDED nicht als erfolgreicher Fix integriert. Mehr Bilder bedeuten längere CPU-Rechnung. Erst vollständige Registrierung/Namensmenge und echtes RGB-Orthofoto beurteilen. Zusätzliche Bilder könnten helfen, keine zugesicherte Lösung. Referenz bleibt manuell/extern, keine WebODM-Integration. Keine Originale/produktive DB/GPS hochladen.
+
+### Aktueller Bedienweg: den gestoppten Bildabgleich fortsetzen
+
+1. Alten Pilot schließen, neue Quellen-ZIP aus Abschnitt 2 entpacken. PowerShell im neuen Ordner mit src/scripts öffnen.
+2. Folgender Start wählt den neuesten privaten Pilotjob als sichtbare Vorauswahl. Es beginnt noch keine Verarbeitung; Projektdatei und Projekt werden weiterhin ausdrücklich gewählt:
+
+```powershell
+$pilotJob = Get-ChildItem 'F:\Auswertung1' -Directory -Filter 'rgb-pilot-*' |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $pilotJob) { throw 'Kein bisheriger Pilotjob gefunden.' }
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' '.\scripts\MCM_SolarCheck_RGB_PILOT.py' --cpu --stage-hours 24 --resume-job $pilotJob.FullName
+```
+
+3. Dieselbe bestehende SQLite und das 287-RGB-Projekt wählen. Bisherige COLMAP-/OpenMVS-Pfade und privaten Ausgabeordner setzen; NVIDIA aus, Zeitlimit 24 Stunden sichtbar. Im Feld **„Bildabgleich fortsetzen: alter RGB-Job“** muss der gestoppte 287er-Ordner stehen (job.json, input-map.json, features.db). Falls der neueste Ordner ein anderer ist, mit **„Job waehlen“** den richtigen wählen. Keine neue Projektanlage oder Importe.
+4. **„Pilot starten“**: Versionen/Eingaben prüfen, Arbeitskopien gegen gespeicherte Prüfsummen bereitstellen, Merkmalsdatenbank samt committed WAL in einen neuen Job übernehmen und prüfen. Merkmale werden nicht neu extrahiert. GUI zeigt die Anzahl gespeicherter Paarergebnisse. COLMAP überspringt vollständig gespeicherte Paare selbst; Blocknummern können trotzdem wieder bei 1 beginnen. Alte DB/Jobdateien werden nicht überschrieben. Bei defektem/fremdem Cache keine automatische Neu-Extraktion.
+5. Danach folgen vorhandene Kamerarekonstruktion, vollständige Bildnamensprüfung, Positionsabgleich, Entzerrung und OpenMVS/GeoTIFF. Erfolg und Bildqualität bleiben offen. Cachezähler und Endmeldung mitteilen; kein Rohdaten-/Koordinatenupload. Der CPU-Lauf kann weiter lange dauern, eine Restzeit ist nicht zugesichert.
+
+Das neue Limit gilt je Rechenstufe, nicht für den ganzen Job. Hilfe bleibt auf 60 Sekunden begrenzt; native Rechnung standardmäßig 24 Stunden, im Dialog/CLI positiv bis 72 Stunden wählbar. Timeout und Prozess-Exit werden getrennt angezeigt und in sicheren Kennzahlen vermerkt. Abbruch/Schließen beendet den eigenen Prozessbaum; auch Cacheprüfung ist abbrechbar. Die neue Laufzeit zählt die Fortsetzung, die bisherigen sechs Stunden bleiben im alten Job separat dokumentiert. Für einen bewusst neuen Lauf das Fortsetzungsfeld leeren; bei einem laufenden oder in anderer Stufe gestoppten Job wird diese Fortsetzung abgelehnt. Projekt/Originale bleiben unverändert.
 
 ## 4. Ablauf und gespeichertes Ergebnis
 

@@ -40,7 +40,28 @@ def scene(tmp_path):
     return tuple(frames), config
 
 
-def fake_tools(monkeypatch, *, count=4, models=1, fail=None, version='3.12.6', after=None, help_hook=None):
+def feature_cache(path, count=4):
+    """Minimal synthetic COLMAP SQLite data, not extracted image features."""
+    with sqlite3.connect(path) as db:
+        db.executescript('CREATE TABLE images(image_id INTEGER PRIMARY KEY,name TEXT UNIQUE);'
+                        'CREATE TABLE keypoints(image_id INTEGER PRIMARY KEY,rows INTEGER,cols INTEGER,data BLOB);'
+                        'CREATE TABLE descriptors(image_id INTEGER PRIMARY KEY,rows INTEGER,cols INTEGER,data BLOB);'
+                        'CREATE TABLE matches(pair_id INTEGER PRIMARY KEY,rows INTEGER,cols INTEGER,data BLOB);'
+                        'CREATE TABLE two_view_geometries(pair_id INTEGER PRIMARY KEY,rows INTEGER,cols INTEGER,data BLOB);')
+        for i in range(1, count + 1):
+            db.execute('INSERT INTO images VALUES(?,?)', (i, f'{i:06d}.JPG'))
+            db.execute('INSERT INTO keypoints VALUES(?,1,4,?)', (i, bytes(16)))
+            db.execute('INSERT INTO descriptors VALUES(?,1,128,?)', (i, bytes(128)))
+
+
+def cached_pair(path, second=2):
+    with sqlite3.connect(path) as db:
+        # A completed pair may have zero inliers; COLMAP caches that outcome too.
+        for table in ('matches', 'two_view_geometries'):
+            db.execute(f'INSERT OR IGNORE INTO {table} VALUES(?,0,2,NULL)', (2147483647 + second,))
+
+
+def fake_tools(monkeypatch, *, count=4, models=1, fail=None, failure=None, version='3.12.6', after=None, help_hook=None):
     calls = []
     def execute(executable, args, folder, log, cancel, **kwargs):
         args = tuple(map(str, args))
@@ -52,8 +73,12 @@ def fake_tools(monkeypatch, *, count=4, models=1, fail=None, version='3.12.6', a
                 help_hook(executable, args, folder, log)
             return
         log.write_text('Synthetic private tool output; not user data.')
+        if args[0] == 'feature_extractor':
+            feature_cache(folder / 'features.db')
+        if args[0] == 'exhaustive_matcher':
+            cached_pair(folder / 'features.db')
         if args[0] == fail:
-            raise pilot.PilotError('PRIVATE_RAW_EXCEPTION_MUST_NOT_ESCAPE')
+            raise failure or pilot.PilotError('PRIVATE_RAW_EXCEPTION_MUST_NOT_ESCAPE')
         if executable.stem == 'TextureMesh' and args[0] == 'refined.mvs' and '--orthographic-image-resolution' in args:
             raise pilot.PilotError('upstream early branch skips necessary texturing')
         if args[0] == 'mapper':
@@ -264,3 +289,147 @@ def test_owned_process_is_cancelled_and_returns_promptly(tmp_path):
         pilot._execute(Path(sys.executable), ('-c', 'import time;time.sleep(60)'), tmp_path,
                        tmp_path/'process.log', lambda: time.monotonic()-start > .3)
     assert time.monotonic()-start < 10
+
+
+def test_real_process_timeout_is_distinct_and_owned_process_is_stopped(tmp_path, monkeypatch):
+    stopped = []
+    original_stop = pilot._stop_process
+    def stop(process):
+        original_stop(process)
+        stopped.append(process.poll())
+    monkeypatch.setattr(pilot, '_stop_process', stop)
+    with pytest.raises(pilot.PilotTimeout):
+        pilot._execute(Path(sys.executable), ('-c', 'import time;time.sleep(60)'), tmp_path,
+                       tmp_path / 'timeout.log', lambda: False, timeout=.1)
+    assert len(stopped) == 1 and stopped[0] is not None
+    with pytest.raises(pilot.PilotProcessExit) as error:
+        pilot._execute(Path(sys.executable), ('-c', 'raise SystemExit(7)'), tmp_path,
+                       tmp_path / 'exit.log', lambda: False)
+    assert error.value.returncode == 7
+
+
+@pytest.mark.parametrize('failure,kind,message', [
+    (pilot.PilotTimeout('PRIVATE_MESSAGE'), 'timeout', 'Zeitlimit nach 24 Stunden'),
+    (pilot.PilotProcessExit(17), 'process_exit', 'Programm mit Code 17'),
+])
+def test_stage_failure_reason_is_visible_and_persisted_without_raw_output(scene, monkeypatch, failure, kind, message):
+    frames, config = scene
+    calls = fake_tools(monkeypatch, fail='exhaustive_matcher', failure=failure)
+    with pytest.raises(pilot.PilotError, match=message) as error:
+        pilot.run_rgb_pilot(frames, config)
+    assert 'PRIVATE' not in str(error.value)
+    summary = json.loads(next(config.output_parent.glob('*/laufzeiten.json')).read_text())
+    assert summary['status'] == 'failed'
+    step = summary['steps'][-1]
+    assert step['failure_kind'] == kind and step['timeout_seconds'] == 86400
+    assert not any(args[0] == 'mapper' for _, args in calls)
+
+
+def stopped_job(scene, monkeypatch):
+    frames, config = scene
+    fake_tools(monkeypatch, fail='exhaustive_matcher', failure=pilot.PilotTimeout())
+    with pytest.raises(pilot.PilotTimeout):
+        pilot.run_rgb_pilot(frames, config)
+    return next(config.output_parent.iterdir())
+
+
+def test_resume_preserves_committed_wal_pairs_skips_features_and_reaches_saved_geotiff(scene, monkeypatch):
+    frames, config = scene
+    old = stopped_job(scene, monkeypatch)
+    metadata = {name: (old / name).read_bytes() for name in ('job.json', 'laufzeiten.json', 'input-map.json')}
+    with sqlite3.connect(old / 'features.db') as writer:
+        writer.execute('PRAGMA journal_mode=WAL')
+        for table in ('matches', 'two_view_geometries'):
+            writer.execute(f'INSERT INTO {table} VALUES(?,0,2,NULL)', (2147483650,))
+        writer.commit()  # keep writer open: the committed second pair remains in WAL
+        before_db = (old / 'features.db').read_bytes()
+        seen = []
+        def observe(executable, args, folder):
+            if args[0] == 'exhaustive_matcher':
+                with sqlite3.connect(folder / 'features.db') as copied:
+                    seen.append(copied.execute('SELECT count(*) FROM matches').fetchone()[0])
+        calls = fake_tools(monkeypatch, after=observe)
+        result = pilot.run_rgb_pilot(frames, replace(config, resume_job=old))
+        assert seen == [2]
+        assert (old / 'features.db').read_bytes() == before_db
+        assert writer.execute('SELECT count(*) FROM matches').fetchone()[0] == 2
+    assert {name: (old / name).read_bytes() for name in metadata} == metadata
+    assert result.workspace != old and result.rgb_geotiff.exists()
+    assert not any(args[0] == 'feature_extractor' for _, args in calls)
+    saved = json.loads((result.workspace / 'laufzeiten.json').read_text())
+    reused, = [s for s in saved['steps'] if s['status'] == 'reused']
+    assert reused['cached_images'] == 4 and reused['cached_pairs'] == 2
+    assert str(old) not in (result.workspace / 'laufzeiten.json').read_text()
+
+
+@pytest.mark.parametrize('damage', ['signature', 'mapping', 'running', 'other_stage', 'cache_names', 'cache_features', 'corrupt'])
+def test_bad_resume_never_silently_reextracts_features_or_publishes(scene, monkeypatch, damage):
+    frames, config = scene
+    old = stopped_job(scene, monkeypatch)
+    record = json.loads((old / 'job.json').read_text())
+    if damage == 'signature':
+        record['input_signature'] = '0' * 64
+    elif damage == 'running':
+        record['status'] = 'running'
+    elif damage == 'other_stage':
+        record['steps'][-1]['stage'] = 'COLMAP-Kameraloesung'
+    elif damage == 'mapping':
+        mapping = json.loads((old / 'input-map.json').read_text())
+        mapping[0]['frame_id'] = 'wrong frame'
+        (old / 'input-map.json').write_text(json.dumps(mapping))
+    elif damage in ('cache_names', 'cache_features'):
+        with sqlite3.connect(old / 'features.db') as db:
+            db.execute("UPDATE images SET name='wrong.JPG' WHERE image_id=1" if damage == 'cache_names'
+                       else 'DELETE FROM descriptors WHERE image_id=1')
+    else:
+        (old / 'features.db').write_bytes(b'not sqlite')
+    (old / 'job.json').write_text(json.dumps(record))
+    calls = fake_tools(monkeypatch)
+    with pytest.raises(pilot.PilotError):
+        pilot.run_rgb_pilot(frames, replace(config, resume_job=old))
+    assert not any(args[0] in ('feature_extractor', 'exhaustive_matcher', 'mapper') for _, args in calls)
+    assert not list(config.output_parent.glob('*/rgb_ortho.tif'))
+
+
+def test_resume_binds_original_bytes_even_when_import_has_no_checksum(scene, monkeypatch):
+    frames, config = scene
+    frames = tuple(replace(f, content_sha256=None) for f in frames)
+    old = stopped_job((frames, config), monkeypatch)
+    path = Path(frames[0].source_file)
+    path.write_bytes(path.read_bytes() + b'changed')
+    calls = fake_tools(monkeypatch)
+    with pytest.raises((pilot.PilotError, RuntimeError)):
+        pilot.run_rgb_pilot(frames, replace(config, resume_job=old))
+    assert not any(args[0] == 'exhaustive_matcher' for _, args in calls)
+    assert not list(config.output_parent.glob('*/rgb_ortho.tif'))
+
+
+def test_cancel_during_sqlite_snapshot_preserves_old_job_and_does_not_start_matching(scene, monkeypatch):
+    frames, config = scene
+    old = stopped_job(scene, monkeypatch)
+    before = (old / 'features.db').read_bytes()
+    cancelled = []
+    calls = fake_tools(monkeypatch)
+    def progress(text):
+        if text.startswith('Vorhandene Merkmale'):
+            cancelled.append(True)
+    with pytest.raises(pilot.PilotCancelled):
+        pilot.run_rgb_pilot(frames, replace(config, resume_job=old),
+                            should_cancel=lambda: bool(cancelled), on_progress=progress)
+    assert (old / 'features.db').read_bytes() == before
+    assert not any(args[0] in ('feature_extractor', 'exhaustive_matcher') for _, args in calls)
+    assert any(json.loads(p.read_text())['status'] == 'cancelled' for p in config.output_parent.glob('*/job.json'))
+
+
+def test_sqlite_validation_can_be_cancelled_after_backup(tmp_path):
+    source = tmp_path / 'features.db'
+    feature_cache(source, count=1000)
+    before = source.read_bytes()
+    polls = []
+    def cancel():
+        polls.append(True)
+        return len(polls) > 1  # first poll is the small backup; then interrupt SQL
+    with pytest.raises(pilot.PilotCancelled):
+        pilot._snapshot_feature_cache(source, tmp_path / 'copy.db',
+                                      {f'{i:06d}.JPG' for i in range(1, 1001)}, cancel)
+    assert len(polls) > 1 and source.read_bytes() == before

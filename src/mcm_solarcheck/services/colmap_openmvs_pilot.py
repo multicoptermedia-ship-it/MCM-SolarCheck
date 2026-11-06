@@ -32,6 +32,16 @@ class PilotCancelled(PilotError):
     pass
 
 
+class PilotTimeout(PilotError):
+    pass
+
+
+class PilotProcessExit(PilotError):
+    def __init__(self, returncode):
+        self.returncode = int(returncode)
+        super().__init__('Externes Werkzeug meldet einen Fehler.')
+
+
 @dataclass(frozen=True)
 class RgbPilotFrame:
     frame_id: str
@@ -53,6 +63,8 @@ class RgbPilotConfig:
     target_crs: str | None = None
     # RANSAC rejection distance, NOT a measured GNSS accuracy or RTK weight.
     alignment_max_error_m: float = 3.0
+    stage_timeout_seconds: float = 86400
+    resume_job: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -107,7 +119,7 @@ def _regular(path):
     return path.resolve(strict=True)
 
 
-def _execute(executable, args, folder, log, cancel, *, allowed=(0,), timeout=21600):
+def _execute(executable, args, folder, log, cancel, *, allowed=(0,), timeout=86400):
     """Owned process tree; raw output stays in the fresh private job directory."""
     _cancel(cancel)
     env = os.environ.copy()
@@ -127,14 +139,14 @@ def _execute(executable, args, folder, log, cancel, *, allowed=(0,), timeout=216
             while process.poll() is None:
                 _cancel(cancel)
                 if time.monotonic() >= deadline:
-                    raise PilotError('Zeitlimit der lokalen Rechenstufe erreicht.')
+                    raise PilotTimeout('Zeitlimit der lokalen Rechenstufe erreicht.')
                 try:
                     process.wait(timeout=.15)
                 except subprocess.TimeoutExpired:
                     pass
             _cancel(cancel)
             if process.returncode not in allowed:
-                raise PilotError('Externes Werkzeug meldet einen Fehler; privates Stufenprotokoll pruefen.')
+                raise PilotProcessExit(process.returncode)
         finally:
             if process.poll() is None:
                 _stop_process(process)
@@ -182,6 +194,71 @@ def _openmvs_versions(text):
     return {(int(major), int(minor), int(patch or 0)) for major, minor, patch in records}
 
 
+def _resume_inputs(folder, frames):
+    """Bind an explicitly selected stopped matching job to the current inputs."""
+    folder = Path(folder)
+    try:
+        record = json.loads(_regular(folder / 'job.json').read_text(encoding='utf-8'))
+        mapping = json.loads(_regular(folder / 'input-map.json').read_text(encoding='utf-8'))
+        cache = _regular(folder / 'features.db')
+        steps = record['steps']
+        if (record['status'] not in ('failed', 'cancelled')
+                or record['input_signature'] != input_signature(frames)
+                or record['rgb_images'] != len(frames)
+                or not steps or steps[-1]['stage'] != 'COLMAP-Bildabgleich'
+                or steps[-1]['status'] not in ('failed', 'cancelled')
+                or not any(s['stage'] == 'COLMAP-Merkmale' and s['status'] in ('finished', 'reused') for s in steps)
+                or any(s['status'] not in ('finished', 'reused') for s in steps[:-1])
+                or not isinstance(mapping, list) or len(mapping) != len(frames)):
+            raise ValueError
+        digests = []
+        for index, (item, frame) in enumerate(zip(mapping, frames), 1):
+            digest = item['content_sha256']
+            if (item['working_name'] != f'{index:06d}.JPG'
+                    or item['frame_id'] != frame.frame_id or item['source_file'] != frame.source_file
+                    or not isinstance(digest, str) or not re.fullmatch('[0-9a-fA-F]{64}', digest)
+                    or (frame.content_sha256 and digest.lower() != frame.content_sha256.lower())):
+                raise ValueError
+            digests.append(digest.lower())
+        return cache, tuple(digests)
+    except (OSError, PilotError, ValueError, TypeError, KeyError, IndexError):
+        raise PilotError('Fortsetzung erfordert einen beim Bildabgleich gestoppten RGB-Job '
+                         'mit unveraenderten Projekteingaben und vollstaendiger Zuordnung.') from None
+
+
+def _snapshot_feature_cache(source, destination, expected_names, cancel):
+    """SQLite snapshot, including committed WAL pages; never alter the old job."""
+    try:
+        with closing(sqlite3.connect(source.as_uri() + '?mode=ro', uri=True)) as old:
+            old.execute('PRAGMA query_only=ON')
+            with closing(sqlite3.connect(destination)) as new:
+                old.backup(new, pages=256, progress=lambda *_: _cancel(cancel))
+                new.set_progress_handler(lambda: int(cancel()), 1000)
+                if new.execute('PRAGMA quick_check').fetchall() != [('ok',)]:
+                    raise ValueError
+                images = dict(new.execute('SELECT image_id,name FROM images'))
+                if set(images.values()) != expected_names or len(images) != len(expected_names):
+                    raise ValueError
+                for table in ('keypoints', 'descriptors'):
+                    rows = new.execute(f'SELECT image_id,rows,cols,length(data) FROM {table}').fetchall()
+                    if {r[0] for r in rows} != set(images) or len(rows) != len(images):
+                        raise ValueError
+                    for _, count, cols, size in rows:
+                        if (not isinstance(count, int) or count <= 0
+                                or cols not in ((2, 4, 6) if table == 'keypoints' else (128,))
+                                or size != count * cols * (4 if table == 'keypoints' else 1)):
+                            raise ValueError
+                pairs = new.execute('SELECT count(*) FROM matches m '
+                                    'JOIN two_view_geometries g ON m.pair_id=g.pair_id').fetchone()[0]
+                if pairs > len(images) * (len(images) - 1) // 2:
+                    raise ValueError
+                return len(images), pairs
+    except (sqlite3.Error, OSError, ValueError, TypeError):
+        _cancel(cancel)
+        raise PilotError('Merkmalsdatenbank nicht konsistent oder nicht vollstaendig fuer diese RGB-Serie. '
+                         'Der alte Job bleibt erhalten; keine Merkmale stillschweigend neu berechnet.') from None
+
+
 def run_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None, inputs_unchanged=None):
     """Produce one private unverified RGB GeoTIFF; never register a partial pair."""
     import numpy as np
@@ -193,7 +270,8 @@ def run_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None, input
     _cancel(cancel)
     if (len(frames) < 3 or len({f.frame_id for f in frames}) != len(frames)
             or not 1 <= config.threads <= 64 or not 128 <= config.orthomap_resolution <= 16384
-            or not math.isfinite(config.alignment_max_error_m) or config.alignment_max_error_m <= 0):
+            or not math.isfinite(config.alignment_max_error_m) or config.alignment_max_error_m <= 0
+            or not math.isfinite(config.stage_timeout_seconds) or not 0 < config.stage_timeout_seconds <= 259200):
         raise PilotError('Mindestens drei verschiedene RGB-Bilder und gueltige Pilotparameter erforderlich.')
     rows = [asdict(frame) for frame in frames]
     try:
@@ -233,13 +311,15 @@ def run_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None, input
     if not np.isfinite(world).all() or np.linalg.matrix_rank(world[:, :2] - world[0, :2]) < 2:
         raise PilotError('Kamerapositionen brauchen eine endliche, nicht kollineare Lageverteilung.')
     origin = world.mean(axis=0)
+    resume = _resume_inputs(config.resume_job, frames) if config.resume_job is not None else None
     workspace = Path(tempfile.mkdtemp(prefix='rgb-pilot-', dir=parent))
     signature = input_signature(frames)
     record = {'status': 'running', 'input_signature': signature, 'rgb_images': len(frames),
               'crs': crs.to_string(), 'origin_projected': origin.tolist(),
               'settings': {'use_gpu': config.use_gpu, 'threads': config.threads,
                            'orthomap_resolution': config.orthomap_resolution,
-                           'alignment_max_error_m': config.alignment_max_error_m},
+                           'alignment_max_error_m': config.alignment_max_error_m,
+                           'stage_timeout_seconds': config.stage_timeout_seconds},
               'georeferencing_verified': False, 'temperature_verified': False,
               'thermal_created': False, 'steps': []}
 
@@ -257,20 +337,33 @@ def run_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None, input
 
     def stage(label, executable, args, *, help_check=False, native_log_prefix=None):
         _cancel(cancel)
-        progress(label)
         native_before = set(workspace.glob(native_log_prefix + '-*.log')) if native_log_prefix else set()
-        item = {'stage': label, 'status': 'running', 'seconds': None}
+        limit = 60 if help_check else config.stage_timeout_seconds
+        detail = f' (Zeitlimit {limit / 3600:g} h)' if not help_check else ''
+        if label == 'COLMAP-Bildabgleich' and 'resume' in record:
+            detail += f'; {record["resume"]["cached_pairs"]} gespeicherte Paarergebnisse uebernommen'
+        progress(label + detail)
+        item = {'stage': label, 'status': 'running', 'seconds': None, 'timeout_seconds': limit}
         record['steps'].append(item)
         save()
         start = time.monotonic()
         log = workspace / f'step-{len(record["steps"]):02d}.log'
         try:
             _execute(executable, args, workspace, log, cancel,
-                     allowed=(0, 1) if help_check else (0,), timeout=60 if help_check else 21600)
+                     allowed=(0, 1) if help_check else (0,), timeout=limit)
             item['status'] = 'finished'
         except PilotCancelled:
             item['status'] = 'cancelled'
             raise
+        except PilotTimeout:
+            item.update(status='failed', failure_kind='timeout')
+            duration = f'{limit / 3600:g} Stunden' if limit >= 3600 else f'{limit:g} Sekunden'
+            raise PilotTimeout(f'{label}: Zeitlimit nach {duration} erreicht; '
+                               f'Arbeitsdateien erhalten. {log.name} lokal pruefen.') from None
+        except PilotProcessExit as error:
+            item.update(status='failed', failure_kind='process_exit', exit_code=error.returncode)
+            raise PilotError(f'{label}: Programm mit Code {error.returncode} beendet; '
+                             f'{log.name} lokal pruefen.') from None
         except (PilotError, OSError, subprocess.SubprocessError):
             item['status'] = 'failed'
             raise PilotError(f'{label}: abgebrochen oder fehlgeschlagen; {log.name} lokal pruefen.') from None
@@ -314,7 +407,8 @@ def run_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None, input
             name = f'{index:06d}.JPG'
             # Sources are absolute; the existing checked copier never needs a DB here.
             try:
-                source_signatures.append(_copy_source(row, images / name, None, cancel))
+                copy_row = {**row, 'content_sha256': resume[1][index - 1]} if resume else row
+                source_signatures.append(_copy_source(copy_row, images / name, None, cancel))
             except MicMacCancelled:
                 raise PilotCancelled('RGB-Pilot abgebrochen.') from None
             except MicMacError as error:
@@ -330,9 +424,29 @@ def run_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None, input
         for folder in (sparse, aligned, text, undistorted):
             folder.mkdir()
         db = workspace / 'features.db'
-        stage('COLMAP-Merkmale', colmap, ('feature_extractor', '--database_path', db, '--image_path', images,
-              '--SiftExtraction.use_gpu', int(config.use_gpu), '--SiftExtraction.num_threads', config.threads,
-              '--SiftExtraction.max_image_size', '2400'))
+        if resume:
+            progress('Vorhandene Merkmale und Bildpaarergebnisse pruefen und uebernehmen')
+            cached = {'stage': 'COLMAP-Merkmale', 'status': 'running', 'seconds': None}
+            record['steps'].append(cached)
+            cache_start = time.monotonic()
+            save()
+            try:
+                image_count, pair_count = _snapshot_feature_cache(
+                    resume[0], db, {f'{i:06d}.JPG' for i in range(1, len(rows) + 1)}, cancel)
+                cached.update(status='reused', cached_images=image_count, cached_pairs=pair_count)
+                record['resume'] = {'source_job': str(resume[0].parent), 'stage': 'COLMAP-Bildabgleich',
+                                    'cached_images': image_count, 'cached_pairs': pair_count}
+                progress(f'Fortsetzung: {image_count} Merkmalsaetze, {pair_count} gespeicherte Paarergebnisse')
+            except BaseException as error:
+                cached['status'] = 'cancelled' if isinstance(error, PilotCancelled) else 'failed'
+                raise
+            finally:
+                cached['seconds'] = round(time.monotonic() - cache_start, 3)
+                save()
+        else:
+            stage('COLMAP-Merkmale', colmap, ('feature_extractor', '--database_path', db, '--image_path', images,
+                  '--SiftExtraction.use_gpu', int(config.use_gpu), '--SiftExtraction.num_threads', config.threads,
+                  '--SiftExtraction.max_image_size', '2400'))
         stage('COLMAP-Bildabgleich', colmap, ('exhaustive_matcher', '--database_path', db,
               '--SiftMatching.use_gpu', int(config.use_gpu), '--SiftMatching.num_threads', config.threads))
         stage('COLMAP-Kameraloesung', colmap, ('mapper', '--database_path', db, '--image_path', images,
