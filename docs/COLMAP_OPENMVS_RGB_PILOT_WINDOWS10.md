@@ -25,7 +25,7 @@ Für den Pilot kein zusätzliches CUDA-Toolkit installieren; zunächst das volls
 
 ## 2. Pilot-Quellcode entpacken und starten
 
-Den [korrigierten Fortsetzungs-Pilot als ZIP herunterladen](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/archive/a5724cd674080fd7a70cfbb990fc1093235a6ed1.zip) und in einen neuen Programmordner auf F: entpacken. Code-Stand `a5724cd674080fd7a70cfbb990fc1093235a6ed1`. Quellen-ZIP heruntergeladen (2,718,394 Bytes), Starter und beide Fachmodule byteweise mit dem geprüften Code identisch. ZIP-SHA256 `c1b73fb512ee3d8d1904cdc2e4fdb69c196b1814caf5add6e5061d3be573e242`. Keine Tool-Binaries/Kundenbilder heruntergeladen oder verarbeitet. Alten Programmordner, vorhandene Python-Umgebung, installierte Tools, Projekte und private Jobs behalten. Der alte Stand a5dcf8b0 hatte noch keine Fortsetzungsfunktion.
+Den [korrigierten Fortsetzungs-Pilot als ZIP herunterladen](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/archive/3cfc771cfaf81cf5dd698c029fa66bc73c903f99.zip) und in einen neuen Programmordner auf F: entpacken. Code-Stand `3cfc771cfaf81cf5dd698c029fa66bc73c903f99`. Quellen-ZIP heruntergeladen (2,719,080 Bytes), Starter und beide Fachmodule byteweise mit dem geprüften Code identisch. ZIP-SHA256 `b5606ebc0aae742bed3f416e1ff07f42bf3e8ebb220a998ff571395e342eabef`. Keine Tool-Binaries/Kundenbilder heruntergeladen oder verarbeitet. Alten Programmordner, vorhandene Python-Umgebung, installierte Tools, Projekte und private Jobs behalten. Der alte Stand a5dcf8b0 hatte noch keine Fortsetzungsfunktion.
 
 1. Das normale SolarCheck-Fenster schließen, damit während des Piloten keine Importe geändert werden.
 2. Im **neu entpackten Ordner mit `src` und `scripts`** PowerShell öffnen.
