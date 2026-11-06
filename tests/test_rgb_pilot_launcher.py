@@ -1,5 +1,6 @@
 """Launcher contracts; native Tk flow on Windows/display-enabled Linux only."""
 import importlib.util
+import gc
 import os
 from pathlib import Path
 import sqlite3
@@ -17,6 +18,15 @@ def launcher():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.fixture
+def tk_lifetime(monkeypatch):
+    yield
+    # Release monkeypatch closures, then collect Tcl objects on their owner
+    # thread, before later background work could trigger cyclic collection.
+    monkeypatch.undo()
+    gc.collect()
 
 
 def test_cli_cpu_selection_uses_shared_backend_without_gui_or_installs(monkeypatch, tmp_path):
@@ -57,7 +67,7 @@ def test_invalid_time_budget_cannot_start_a_job(monkeypatch, hours):
 
 @pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='native Tk needs a display')
 @pytest.mark.parametrize('cancel_run,resume_run', [(False, False), (True, False), (False, True)])
-def test_native_tk_project_selection_start_result_or_cancel(monkeypatch, tmp_path, cancel_run, resume_run):
+def test_native_tk_project_selection_start_result_or_cancel(monkeypatch, tmp_path, tk_lifetime, cancel_run, resume_run):
     import tkinter as tk
     from tkinter import filedialog, ttk
     module = launcher()
