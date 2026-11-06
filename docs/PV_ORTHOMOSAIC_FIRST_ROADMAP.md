@@ -1,6 +1,6 @@
 # Architekturentscheidung 25.10.2026 – Orthofotos vor PV-Modulanalyse
 
-> **Fortsetzung 05.11.2026 · ALT-ORTHO-01-FULL lokal aktiv:** Nutzer meldet je 287 RGB-/Thermalbilder und gestarteten Pilot. Dieser berechnet nur RGB; Thermal später. Stufe/Laufzeit/registrierte Gesamtzahl/Ergebnis offen. Endmeldung abwarten, keinen parallelen Wiederholungs-/Parameterlauf oder erneuten Import anfordern. Frühere 26er-Versuche unvollständig. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+> **Fortsetzung 06.11.2026 · ALT-ORTHO-01-FULL Bildabgleich abgebrochen:** 287er-CPU-Pilot meldet step-08.log; Ursache offen, keine Kamerarekonstruktion/OpenMVS erreicht. Starter begrenzt Stufen auf 6 h; bis 41.041 Paare, Timeout nur Hypothese. seconds/status und kurze bereinigte Fehlerzeilen erfragt, kein Neustart. [ODM-Workflowvergleich](ODM_WORKFLOW_VERGLEICH_2026-11-06.md) erstellt; RGB/GCP + Multispektral, keine Thermal-Anleitung/ODM-Integration. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
 ### 01.11.2026 · DEV-EXTERNAL-ORTHOPHOTO-PAIR-001 – externe RGB-/Thermal-Raster bis PV-Vorschau
