@@ -1,6 +1,6 @@
 # MCM-SolarCheck – Übergabe für einen neuen Chat
 
-> **Fortsetzung 06.11.2026 · ALT-ORTHO-01-FULL Bildabgleich abgebrochen:** 287er-CPU-Pilot meldet step-08.log; Ursache offen, keine Kamerarekonstruktion/OpenMVS erreicht. Starter begrenzt Stufen auf 6 h; bis 41.041 Paare, Timeout nur Hypothese. seconds/status und kurze bereinigte Fehlerzeilen erfragt, kein Neustart. [ODM-Workflowvergleich](ODM_WORKFLOW_VERGLEICH_2026-11-06.md) erstellt; RGB/GCP + Multispektral, keine Thermal-Anleitung/ODM-Integration. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+> **Fortsetzung 06.11.2026 · ALT-ORTHO-01-FULL Bildabgleich abgebrochen:** 287er-CPU-Pilot meldet step-08.log; Ursache offen, keine Kamerarekonstruktion/OpenMVS erreicht. Starter begrenzt Stufen auf 6 h; bis 41.041 Paare, Timeout nur Hypothese. seconds/status und kurze bereinigte Fehlerzeilen erfragt, kein Neustart. [ODM-Workflowvergleich](ODM_WORKFLOW_VERGLEICH_2026-11-06.md) erstellt; RGB/GCP + Multispektral, kein M3T-Celsiusablauf/keine ODM-Integration. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
 ### 01.11.2026 · DEV-EXTERNAL-ORTHOPHOTO-PAIR-001 – externe RGB-/Thermal-Raster bis PV-Vorschau

@@ -4,7 +4,7 @@ Der Nutzer hat den Vergleich mit [Open Drone Map: Structure-from-Motion Workflow
 
 ## Was das Dokument tatsächlich behandelt
 
-Die Anleitung nennt die native Windows-Anwendung WebODM 2.8.4–2.8.8. RGB-Beispiel: DJI Mavic 2 Pro, DNG→JPG, Metadatenerhalt, im Gelände vermessene GCPs, Orthomosaik/DSM/Punktwolke. Zweiter Sensor: DJI Phantom 4 Multispectral; dessen Reflexionskorrektur und Vegetationsindizes sind kein radiometrischer Thermal-/Celsiusworkflow für DJI M3T. GCP Editor Pro und weitere Hilfsprogramme werden beschrieben; daraus folgt keine freigegebene oder notwendige SolarCheck-Komponente.
+Die Anleitung nennt die native Windows-Anwendung WebODM 2.8.4–2.8.8. RGB-Beispiel: DJI Mavic 2 Pro, DNG→JPG, Metadatenerhalt, im Gelände vermessene GCPs, Orthomosaik/DSM/Punktwolke. Zweiter Sensor: DJI Phantom 4 Multispectral; dessen Reflexionskorrektur und Vegetationsindizes sind kein radiometrischer Thermal-/Celsiusworkflow für DJI M3T. Die Anleitung erwähnt TIFF-Unterstützung für Thermaldaten, arbeitet aber keinen M3T-RJPEG-/Celsiusablauf aus. GCP Editor Pro und weitere Hilfsprogramme werden beschrieben; daraus folgt keine freigegebene oder notwendige SolarCheck-Komponente.
 
 Die Einstellungen sind fallbezogen. Beispielsweise werden hohe Merkmalszahlen, eine bestimmte Tiefenkartenauflösung und auf den Flug bezogene Ausgaberaster genannt. Das ist keine universelle Parameterempfehlung für unsere Kamera, unseren Rechner oder PV-Dächer. Die Anleitung rechnet ausdrücklich mit langen Laufzeiten bis zu Tagen.
 
