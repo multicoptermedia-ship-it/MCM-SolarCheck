@@ -11,12 +11,25 @@
 
 ## Jetzt: manuelle Installation des genehmigten Buildwerkzeugs
 
-1. Den offiziellen [Microsoft Build Tools 2022 Installer](https://aka.ms/vs/17/release/vs_BuildTools.exe) herunterladen und selbst starten. Der Link ist auf Visual Studio **17/2022** begrenzt; nicht unbesehen eine andere Produktgeneration über die allgemeine Downloadseite wählen.
+**Neuer Speicherbefund:** C: ca. 5,8 GB frei, E: ca. 291 GB frei; Nutzer noch vor dem Klick auf Installieren. Der Pfad ließ sich im Dialog nicht ändern. Die folgende Belegung auf E: ersetzt die frühere Empfehlung der Standardpfade. Kein erneuter Download nötig, wenn der offizielle Bootstrapper bereits in Downloads liegt.
+
+1. Das aktuelle Installerfenster schließen. Falls der Bootstrapper fehlt, den offiziellen [Microsoft Build Tools 2022 Installer](https://aka.ms/vs/17/release/vs_BuildTools.exe) nach Downloads herunterladen. Der Link bleibt auf **17/2022** begrenzt. Dann den vorhandenen Bootstrapper aus einer neuen PowerShell mit expliziten Speicherorten starten:
+
+```powershell
+$setup = Get-ChildItem (Join-Path $env:USERPROFILE 'Downloads') -Filter 'vs_BuildTools*.exe' -File |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1 -ExpandProperty FullName
+if (-not $setup) { throw 'Buildtools-Installer nicht in Downloads gefunden.' }
+& $setup --installPath 'E:\Tools\VSBuildTools2022' --path 'cache=E:\Tools\VSCache' --path 'shared=E:\Tools\VSShared' --norestart
+```
+
+Die unterstützten Parameter legen Produktverzeichnis, Downloadcache und gemeinsame Komponenten getrennt fest. Die Standardpfade werden nicht durch manuelles Verschieben bestehender Dateien geändert. Es werden keine stillen Installations-/Deinstallations-/Registry-/Junction-Schritte vorgegeben.
+
 2. Im Installer unter **Arbeitslasten** die Auswahl **Desktopentwicklung mit C++ / Desktop development with C++** aktivieren.
 3. In den Installationsdetails kontrollieren:
    - **MSVC v143 – VS 2022 C++ x64/x86-Buildtools** (aktueller angebotener v143-Stand).
    - **Windows-SDK** (angebotene empfohlene Version). Ein Paket mit „Windows 11 SDK“ im Namen ist ein Entwicklerpaket und führt kein Betriebssystemupgrade durch. Die offizielle SDK-Dokumentation nennt auch Windows 10 als Host; Zielplattform und konkreter Toolstart bleiben zu prüfen.
-4. **Installieren** wählen und den Abschluss abwarten. Standardpfade des Buildtools-Installers verwenden; vorhandene SolarCheck-/Miniforge-/Projektordner nicht als Installationsziel wählen. Die bestehende F:-Python-Umgebung wird nicht umgebaut.
+4. Unter **Installationsorte** die tatsächlichen Speicherorte und den angezeigten Speicherbedarf je Laufwerk prüfen. Microsoft weist ausdrücklich darauf hin, dass einige Tools/SDK-Teile trotz abweichender Pfade auf dem Systemlaufwerk bleiben. Erst installieren, wenn der verbleibende C:-Bedarf in den freien Platz passt und Reserve bleibt; nicht behaupten, die ganzen Buildtools lägen nun auf E:. Bei weiterhin gesperrten Pfaden, Parameterfehler oder zu hohem C:-Bedarf nur kurze Meldung und C:-Bedarfswert zurückmelden. Vorhandene Visual-Studio-Produkte nicht ungefragt deinstallieren. Die bestehende F:-Python-/Projektumgebung wird nicht umgebaut.
 5. Danach eine neue PowerShell öffnen und diesen Komponenten-/Versionsnachweis ausführen:
 
 ```powershell
@@ -27,6 +40,12 @@ $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer
 Die Versionszeile (vorgesehen `17.…`) zurückmelden. Leere Ausgabe oder kurzer Installerfehler sind ein offener Installationsbefund; keine vollständigen Logs, Benutzerpfade oder Kundendateien übertragen. Das ist eine gezielte Prüfung des nach Installation veränderten Zustands, keine Wiederholung der vorherigen Suche nach bekanntermaßen fehlenden Tools.
 
 Der Komponenten-/Versionsnachweis ist noch kein ausgeführter Compiler-/Linktest. Danach folgen eine getrennte OpenSfM-Umgebung, Paketlösung und tatsächlicher Build-/Werkzeugstart; bis dahin keine Kundendatenrekonstruktion oder Orthofotoqualität behaupten. Die SDK-Header und x64-Linkbibliotheken werden beim konkreten Build benötigt.
+
+### Grenzen der Pfadänderung
+
+Laut [Microsoft-Speicherortanleitung](https://learn.microsoft.com/en-us/visualstudio/install/change-installation-locations?view=vs-2022) lassen sich Produkt-/Cachepfade nur bei der ersten Einrichtung auswählen; gemeinsame Komponenten können durch frühere Visual-Studio-Installationen festgelegt und ausgegraut sein. Die [CLI-Parameterdokumentation](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio?view=vs-2022) belegt `--installPath`, `--path cache=…` und `--path shared=…`, aber keinen beliebigen Umzug bestehender Installationen. Der neue Startbefehl ist kein Override gesperrter globaler Einstellungen. Der bisherige Nutzerbefund belegt nur, dass die aktuelle Buildtools-Installation noch nicht gestartet wurde; frühere andere VS-Instanzen sind ungeprüft.
+
+Eine Anzeige „Downloadcache nicht behalten“ bzw. `--nocache` vermeidet laut [Microsoft-Cacheanleitung](https://learn.microsoft.com/en-us/visualstudio/install/disable-or-move-the-package-cache?view=vs-2022) nicht den temporären Installationsplatzbedarf. Deshalb keine Lösung allein durch diese Option versprechen. Standardmäßig den vorgesehenen Cache auf E: nutzen; keine eigenmächtige Cachelöschung oder globalen Registry-Eingriffe. Die verbleibenden Systemlaufwerksanforderungen im konkreten Installer prüfen.
 
 ## Lizenz- und Windows-10-Grenzen
 
