@@ -19,7 +19,18 @@ Die gemeinsamen Komponenten auf C: sind ein eigener Installationsort. Der Instal
 
 **App-Liste erhalten:** Nutzer nennt QGIS, Copilot, Edge, Windows Software Development Kit und Python, ohne Einzelgrößen. Diese Liste nicht erneut abfragen; der 111-GB-Gesamtwert ist keine QGIS-Größe. SDK kann für den OpenSfM-Build benötigt werden; vorhandene Python-Installationen nicht ungeprüft entfernen, ebenso wenig Edge oder gemeinsame Komponenten.
 
-Nächster Schritt: Nur den **QGIS-Installationsordner** im Explorer prüfen (bei eigenständiger Installation häufig unter `C:\Program Files\QGIS …`): Rechtsklick → **Eigenschaften**, Größe in GB melden. Wenn dort kein entsprechender Ordner existiert, „nicht gefunden“ melden; keine Laufwerks-/Benutzerordnersuche oder Rekursion starten. Eine OSGeo4W-Installation kann einen anderen und gemeinsam genutzten Aufbau haben. QGIS ist zunächst nur ein möglicher Kandidat für eine unterstützte Neuinstallation auf E:, kein belegter großer Speicherverbraucher. **Noch nichts deinstallieren oder verschieben.** Erst tatsächliche Größe, Installationsart und Nutzung prüfen, dann konkrete Anleitung unter Erhalt von Einstellungen, Plugins und Projekten vorbereiten. Programmordner nicht per Explorer verschieben. Keine zusätzlichen Analyseprogramme, keine Registry-/Junction-Umgehung oder pauschale Bereinigung. Vorhandenes F:-Python, Projekte, Originalbilder und Buildtools erhalten.
+**QGIS-Größe bestätigt: 3 GB. Nutzer stellt klar, dass eine Neuinstallation wegen seiner für die Arbeit installierten Erweiterungen nicht infrage kommt. QGIS samt Plugins/Einstellungen bleibt erhalten.** Keinen Umzug, keine Deinstallation oder Plugin-Neuaufbau vorschlagen. Die QGIS-Größenprüfung ist erledigt; keine weitere App-/Temp-Inventur ohne neuen konkreten Anlass.
+
+Nächster Schritt nur lesend: Größe der festen Windows-Ruhezustandsdatei `C:\hiberfil.sys` per PowerShell ansehen. Bei 64 GB RAM kann sie erheblich sein; Existenz und tatsächliche Größe sind noch unbekannt. Kein Zugriff auf Dateiinhalte oder andere Benutzerdateien, keine Änderungen und keine zusätzlichen Programme:
+
+```powershell
+Get-Item -LiteralPath 'C:\hiberfil.sys' -Force -ErrorAction Stop |
+    Select-Object @{Name='Groesse_GB';Expression={[math]::Round($_.Length / 1GB, 1)}}
+```
+
+Nur Größe oder Fehlermeldung zurückmelden. Ein Lesefehler ist kein Nachweis einer fehlenden Datei. Erst nach Befund und Klärung der Ruhezustandsnutzung einen konkreten Weg wählen. Microsoft dokumentiert `powercfg /hibernate off` als unterstützte Abschaltung. Hier **nicht ausführen**: Sie deaktiviert Ruhezustand, Schnellstart und hybriden Standby; diese Änderung ist nicht angeordnet. Niemals hiberfil.sys manuell löschen, keine Auslagerungsdatei abschalten oder verändern. F:-Python, Projekte, Originalbilder, Miniforge, QGIS und Buildtools erhalten.
+
+Quelle: [Microsoft powercfg-Parameter](https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/powercfg-command-line-options), Abschnitt /hibernate (07.11.2026 gelesen). Die konkrete Hiberdatei und ihre Größe wurden hier nicht geprüft.
 
 
 Der fehlende Exitcode bei noch offenem, wartendem Installer ist kein Fehlschlagnachweis; die Ausgabe erfolgt erst nach dessen Ende. Der folgende frühere Startblock bleibt ausschließlich als geprüfte Historie erhalten.
