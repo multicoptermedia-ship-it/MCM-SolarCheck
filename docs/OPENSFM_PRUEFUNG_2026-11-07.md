@@ -49,6 +49,8 @@ Die georeferenzierten `dsm.tif` und `ortho.tif` entstehen im letzten Schritt. Di
 
 ## Konkreter nächster Schritt
 
+Die [lokale OpenCL-Prüfung](OPENSFM_OPENCL_WINDOWS10.md) ist jetzt als einzelnes Standardbibliotheks-Skript vorbereitet. Hardware-/OpenSfM-Abnahme beim Nutzer steht aus.
+
 Zuerst den eigenständigen Build und OpenCL unter Windows 10 isoliert qualifizieren: separate Werkzeugumgebung, keine Änderung an vorhandener SolarCheck-Python-Umgebung, SQLite, Originalen oder gestoppten Pilotjobs. Werkzeug-/Kernelstart und vollständige Standardstufen zunächst ohne Kundendaten prüfen. Keine automatische Installation, keine Paket-/Engine-Integration in diesem Prüfblock.
 
 Erst danach einen bewusst lokal gestarteten Pilot mit einer vollständigen zusammengehörigen RGB-Serie, bestehenden Metadaten und privaten Arbeitskopien vorsehen. Quelle/Build, registrierte Bilder, Abdeckung, scharfe PV-Kanten, echte GeoTIFF-Referenz und Laufzeit festhalten. Teilmodelle nicht als Gesamtorthofoto übernehmen. Anschließend gemeinsames RGB-/Thermal-Raster und Werteerhalt gesondert qualifizieren. Keine erneuten COLMAP-/MicMac-Blindläufe, keine eigene Engine.
