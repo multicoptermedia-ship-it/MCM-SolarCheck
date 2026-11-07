@@ -49,6 +49,8 @@ Die georeferenzierten `dsm.tif` und `ortho.tif` entstehen im letzten Schritt. Di
 
 ## Konkreter nächster Schritt
 
+Aktuell: Miniforge 26.9.4 beim Nutzer bestätigt, MX250-Kerntest bestanden. Die [konkreten Compiler-Paketmetadaten](OPENSFM_MINIFORGE_WINDOWS10.md) korrigieren die upstream Aussage eines bereits mit Conda gelieferten MSVC-Compilers: es ist eine Aktivierungs-/Suchhilfe. Vor größerer Umgebung vorhandene C++-Tools abfragen, keine ungeprüfte Buildanleitung weitergeben.
+
 Die [lokale OpenCL-Prüfung](OPENSFM_OPENCL_WINDOWS10.md) ist jetzt als einzelnes Standardbibliotheks-Skript vorbereitet. Hardware-/OpenSfM-Abnahme beim Nutzer steht aus.
 
 Zuerst den eigenständigen Build und OpenCL unter Windows 10 isoliert qualifizieren: separate Werkzeugumgebung, keine Änderung an vorhandener SolarCheck-Python-Umgebung, SQLite, Originalen oder gestoppten Pilotjobs. Werkzeug-/Kernelstart und vollständige Standardstufen zunächst ohne Kundendaten prüfen. Keine automatische Installation, keine Paket-/Engine-Integration in diesem Prüfblock.
