@@ -1,5 +1,7 @@
 # Nächster OpenSfM-Schritt: OpenCL unter Windows 10 prüfen
 
+> **Nutzer-PASS 07.11.2026:** MX250 und Intel UHD 620 haben den kleinen Kernel bestanden, Python 64 Bit. MX250: 2048 MiB GPU-Speicher/512 MiB Allokationsgrenze. Prüfung abgeschlossen, nicht wiederholen. Nächster Schritt ist die [getrennte Miniforge-/OpenSfM-Einrichtung](OPENSFM_MINIFORGE_WINDOWS10.md); kein OpenSfM-/Orthofoto-PASS daraus.
+
 **OPEN-SFM-OPENCL-01 · 07.11.2026.** Nach der [Quellenprüfung beider OpenSfM-Versionen](OPENSFM_PRUEFUNG_2026-11-07.md) zuerst den vorhandenen GPU-Rechenweg qualifizieren. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md). Zielrechner bleibt Windows 10, MX250/UHD 620, vorhandenes F:-Python; kein erneuter MicMac-/COLMAP-Nachtlauf.
 
 ## Der jetzt bedienbare Schritt
