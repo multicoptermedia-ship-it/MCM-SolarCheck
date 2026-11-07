@@ -23,18 +23,11 @@ Die gemeinsamen Komponenten auf C: sind ein eigener Installationsort. Der Instal
 
 **Ruhezustandsprüfung erledigt:** Nutzer meldet `ObjectNotFound` / `PathNotFound` / `ItemNotFoundException` für `C:\hiberfil.sys`. Die konkrete Meldung lautet „nicht vorhanden“, kein Zugriffsfehler. Dort ist kein Platzgewinn belegt; die Abfrage nicht wiederholen und keine `powercfg`-Änderung veranlassen. QGIS bleibt erhalten, temporäre Dateien sind bereits bereinigt. Keine Auslagerungsdatei abschalten/verkleinern und keine System-/Installerverzeichnisse manuell entfernen.
 
-**Speicherübersicht erhalten:** Nutzer nennt **206 GB**, **4,19 GB System und reserviert** und **9,15 GB Sonstiges**. Apps und Features vorher111 GB, frei zuletzt ca.2 GB. Der Bezug der206 GB (Gesamtkapazität oder Belegung) und weitere Kategorien sind nicht geklärt. Die genannten Kategorien summieren sich zu124,34 GB; daraus keine beschädigte Belegungsanzeige oder konkrete Ursache ableiten. Nicht ungeprüft206 GB als gemessene C:-Kapazität festschreiben.
+**Speicherstand jetzt gemessen:** Nutzer hat Get-PSDrive ausgeführt: **C: gesamt206,4 GB, belegt203,8 GB, frei2,6 GB**. Diese Abfrage ist erledigt. Vorherige Kategorien: Apps111 GB, System und reserviert4,19 GB, Sonstiges9,15 GB. Die Kategorien erklären die Belegung noch nicht vollständig; daraus keine konkrete Ursache ableiten. Keine erneute Temp-/App-/QGIS-/Hiber-Inventur oder pauschale Löschrunde.
 
-**Nächster Schritt nur lesend:** aktuelle Gesamt-/Belegt-/Frei-Werte des festen Dateisystemlaufwerks C: direkt aus PowerShell abfragen, ohne Administratorrechte, Dateien/Ordner zu öffnen oder neue Werkzeuge zu installieren:
+**Nächster konkreter Schritt:** [WinDirStat Portable v2.9.3, offizielles ZIP](https://github.com/windirstat/windirstat/releases/download/release/v2.9.3/WinDirStat.zip) auf **E:** speichern und dort entpacken, etwa `E:\Tools\WinDirStat`. Keine MSI-/Store-Installation nötig. Die x64-Ausführung starten, für vollständige Systemordnerzählung gegebenenfalls per Rechtsklick **Als Administrator ausführen**; nur das lokale Laufwerk C: wählen, Duplikatsuche ausgeschaltet lassen. Analyse abwarten, zunächst ausschließlich oberste Ordnerebene ansehen. Noch nichts löschen, verschieben, komprimieren, deduplizieren oder bereinigen. Keine Scanexports, Cloud-Verbindungen oder privaten Dateien übertragen. Nur drei größte Hauptordner mit GB-Werten melden, etwa Benutzer/Windows/Programme; keine Benutzernamen oder privaten Dateinamen nötig. Anschließend gezielten nächsten Schritt aus dem tatsächlichen Befund ableiten. Kein Einbau des Diagnosewerkzeugs in SolarCheck.
 
-```powershell
-Get-PSDrive -Name C |
-    Select-Object @{Name='Gesamt_GB';Expression={[math]::Round(($_.Used + $_.Free) / 1GB, 1)}},
-                  @{Name='Belegt_GB';Expression={[math]::Round($_.Used / 1GB, 1)}},
-                  @{Name='Frei_GB';Expression={[math]::Round($_.Free / 1GB, 1)}}
-```
-
-Nur die drei Zahlen zurückmelden; der Befehl verändert nichts und liefert keine privaten Dateinamen. Erst den tatsächlichen aktuellen freien Platz einordnen, dann anhand eines konkreten Befunds fortsetzen. Keine erneute Temp-/App-/QGIS-/Hiber-Inventur, Registry-/Junction-Umgehung, pauschale Löschrunde oder Auslagerungsdateiänderung.
+**Quellenprüfung 07.11.2026:** offizielle Release-Metadaten und README unter Tag `release/v2.9.3` gelesen. Veröffentlichung11.10.2026, Windows10 laut Versions-README unterstützt, GPLv3 oder neuer für die Anwendung. ZIP3784535 Bytes (ca.3,8 MB); GitHub-Asset-Digest SHA256 `c980fee14389eb3a160415b0a07361900f3630f232501884863fec40f369a4a4`. Kein Binärdownload/Programmstart hier und noch kein Nutzer-Scan. Der neuere Standardzweig hat zusätzliche Funktionen; Anleitung stützt sich auf den genannten Release-Tag. Metadatenscan lokal unter Nutzerkontrolle ist keine Freigabe zum Hochladen privater Bilder/GPS/SQLite.
 
 
 F:-Python, Projekte, Originalbilder, Miniforge, QGIS/Erweiterungen und Buildtools erhalten. Neue Downloads, Conda-/Pip-Installationen und Builds warten weiter auf die Speicherklärung. Compiler-/SDK-Funktionsprüfung bleibt anschließend offen.
