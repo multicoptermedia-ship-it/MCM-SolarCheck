@@ -9,11 +9,43 @@
 - C++-Buildtools laut Nutzer nicht vorhanden. Am 07.11. ausdrücklich genehmigt: **Microsoft C++ Build Tools samt Windows SDK ausschließlich zum Kompilieren von OpenSfM**. Diese begrenzte Ausnahme zu REQ-ORTHO-03 nicht erneut abfragen. Sie erlaubt keine proprietäre/kostenpflichtige Orthofoto-Engine, keinen Kauf und kein generelles proprietäres Backend.
 - Compiler-/SDK-Installation und Start auf dem konkreten Windows-10-Rechner noch offen. Hier wurde kein Installer ausgeführt und keine Kundenaufnahme/SQLite verarbeitet.
 
-## Jetzt: vorhandene Setup-Protokolle gezielt auswerten
+## Korrigierter interaktiver Start
+
+**Nutzerbericht erhalten:** Älterer Installer-Lauf mit Exitcode 87, neuerer Installer-Lauf und Setup-Logs mit 0; keine Hex-Fehler. Die Nullcodes sind kein Nachweis installierter C++-Komponenten. Die reine Logprüfung ist abgeschlossen und wird nicht erneut angefordert.
+
+**Fehler im bisherigen eigenen Befehl:** `--norestart` war im interaktiven Aufruf enthalten. Laut [Microsoft-Parameterdokumentation](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio?view=vs-2022) muss dieser Schalter mit `--quiet` oder `--passive` kombiniert werden. Der bisherige Aufruf verletzte diesen Vertrag und ist zurückgezogen. Das passt zu 87 („Ungültiger Parameter“), beweist aber nicht, welches Argument im konkreten älteren Lauf beanstandet wurde. Nicht durch stillen/passiven Betrieb ersetzen: Die C:-Platzprüfung muss sichtbar bleiben.
+
+Vor diesem **gezielt korrigierten** Start noch offene Installerfenster schließen, sofern darin keine Installation läuft. Der folgende Block lädt ausdrücklich den offiziellen 17/2022-Bootstrapper nach E:; er wählt keine beliebige neueste Datei aus Downloads. Produkt-/Cache-/Shared-Verzeichnisse bleiben auf E:, ein verbleibender C:-Bedarf besteht weiterhin.
+
+<!-- tested-buildtools-interactive-start -->
+```powershell
+& {
+    New-Item -ItemType Directory -Path 'E:\Tools\Installers' -Force -ErrorAction Stop | Out-Null
+    $setup = 'E:\Tools\Installers\vs_BuildTools_2022.exe'
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://aka.ms/vs/17/release/vs_BuildTools.exe' -OutFile $setup -ErrorAction Stop
+    Write-Host 'Installer wird gestartet. Bitte im Installer den Abschluss abwarten.'
+    $argumente = @(
+        '--installPath', 'E:\Tools\VSBuildTools2022',
+        '--path', 'cache=E:\Tools\VSCache',
+        '--path', 'shared=E:\Tools\VSShared',
+        '--wait'
+    )
+    $prozess = Start-Process -FilePath $setup -ArgumentList $argumente -Wait -PassThru -ErrorAction Stop
+    Write-Host "Installer-Exitcode: $($prozess.ExitCode)"
+}
+```
+
+Im sichtbaren Installer **Desktopentwicklung mit C++**, **MSVC v143 x64/x86** und **Windows-SDK** auswählen; tatsächlichen Restbedarf auf C: vor Installieren prüfen (bisher ca. 5,8 GB frei, Reserve nötig). Bei gesperrten bestehenden Shared-/Cachepfaden oder zu hohem Restbedarf Meldung auswerten; keine Umgehungs-/Cleanup-Schritte.
+
+PowerShell wartet bewusst, solange der gestartete Installer läuft. Der angezeigte `Installer-Exitcode` kommt erst nach dessen Ende. `--wait` ist hier zulässig, weil ein Bootstrapper gestartet wird, nicht `setup.exe`; `Start-Process -Wait -PassThru` hält zudem den Prozess/Exitcode fest. Die Ausgabe sagt allein noch nicht, dass C++ vollständig vorhanden ist. Nach Ergebnis den konkreten Produkt-/Komponentenstatus prüfen; nicht erneut allgemein auf eine fehlende Ausgabe schließen.
+
+Native Windows-Tests führen genau diesen Dokumentationsblock mit simuliertem Download/Installer aus, prüfen den Microsoft-Parametervertrag, sichtbaren Modus, E:-Ziele, Warten/Exitcode und Abbruch vor Start bei Downloadfehler. Keine echten Installer oder Netzverbindungen in den Tests. Der tatsächliche korrigierte Nutzerlauf und Windows-10-/Compilernachweis stehen aus.
+
+## Abgeschlossener Schritt: vorhandene Setup-Protokolle auswerten
 
 **Neuer Nutzerbefund:** Die Installation war angehalten. Ein erneuter Start des bisherigen E:-Befehls öffnet und schließt das Fenster rasch; laut Nutzer zeigt der Installer kein Produkt. Die eingeschränkte isComplete-Abfrage und später die breite Abfrage lieferten keine verwertbare Ausgabe. Daraus weder erfolgreiche Installation noch einen bestimmten Fehler ableiten. Mit „diese Version“ war kein neuer Versionsnachweis gemeint, sondern der wiederholte Start desselben Befehls.
 
-Der nächste Schritt ist [MCM_SolarCheck_BUILDTOOLS_LOGCHECK.py](../scripts/MCM_SolarCheck_BUILDTOOLS_LOGCHECK.py). Die eigene Prüfdatei über den im aktuellen Chat genannten, geprüften Quelllink nach Downloads speichern und mit bestehendem Python ausführen:
+Der abgeschlossene Diagnoseschritt verwendete [MCM_SolarCheck_BUILDTOOLS_LOGCHECK.py](../scripts/MCM_SolarCheck_BUILDTOOLS_LOGCHECK.py). Historischer Aufruf der bereits ausgeführten Prüfdatei (nicht wiederholen):
 
 ```powershell
 $pruefung = Join-Path $env:USERPROFILE 'Downloads\MCM_SolarCheck_BUILDTOOLS_LOGCHECK.py'
@@ -26,7 +58,7 @@ Codes können zu verschiedenen Phasen/Versuchen gehören; Alter und Typ zusammen
 
 Microsoft dokumentiert [Bootstrapper-Exitcodes und --wait](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio?view=vs-2022): `--wait` gilt nur für den Bootstrapper, nicht `setup.exe`; es wäre für einen späteren beobachteten Start relevant. Beispiele sind 5003 (Installerdownload), 5005 (Argumentverarbeitung), 5007/8010 (Voraussetzungen/OS) oder 8004 (Zielverzeichnis). Keine dieser Ursachen ist bisher belegt. Ein verändertes Fensterverhalten allein genügt nicht. Der frühere Downloads-Selektor „neueste vs_BuildTools*.exe“ belegt außerdem nicht die tatsächlich verwendete Produktgeneration/Quelle; bei späterem neuem Start diese ausdrücklich qualifizieren.
 
-Technische Tests verwenden nur synthetische Logs, einschließlich künstlicher Pfade/Koordinaten und UTF-16-Tails. Sie prüfen gezielte Suche, Alter/Größenlimit, kein Rohtext-/Pfadexport, explizite leere/unlesbare Ergebnisse und Abhängigkeit nur von der Standardbibliothek. Keine echten Nutzerlogs oder Installer in CI. Der ausgeführte Nutzercheck und konkrete Abbruchgrund stehen aus.
+Technische Tests verwenden nur synthetische Logs, einschließlich künstlicher Pfade/Koordinaten und UTF-16-Tails. Sie prüfen gezielte Suche, Alter/Größenlimit, kein Rohtext-/Pfadexport, explizite leere/unlesbare Ergebnisse und Abhängigkeit nur von der Standardbibliothek. Keine echten Nutzerlogs oder Installer in CI. Der Nutzercheck ist ausgeführt; Codes87/0 erhalten. Das im konkreten älteren Lauf beanstandete Argument bleibt unbelegt, der eigene Parametervertragsfehler ist separat bestätigt.
 
 ## Historischer Installationsversuch auf E: – aktuell nicht wiederholen
 
@@ -34,13 +66,7 @@ Technische Tests verwenden nur synthetische Logs, einschließlich künstlicher P
 
 1. Das aktuelle Installerfenster schließen. Falls der Bootstrapper fehlt, den offiziellen [Microsoft Build Tools 2022 Installer](https://aka.ms/vs/17/release/vs_BuildTools.exe) nach Downloads herunterladen. Der Link bleibt auf **17/2022** begrenzt. Dann den vorhandenen Bootstrapper aus einer neuen PowerShell mit expliziten Speicherorten starten:
 
-```powershell
-$setup = Get-ChildItem (Join-Path $env:USERPROFILE 'Downloads') -Filter 'vs_BuildTools*.exe' -File |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1 -ExpandProperty FullName
-if (-not $setup) { throw 'Buildtools-Installer nicht in Downloads gefunden.' }
-& $setup --installPath 'E:\Tools\VSBuildTools2022' --path 'cache=E:\Tools\VSCache' --path 'shared=E:\Tools\VSShared' --norestart
-```
+Der frühere Downloads-Selektor und interaktive Aufruf mit `--norestart` wurden wegen des bestätigten Parametervertragsfehlers zurückgezogen. Den oben angegebenen korrigierten Block verwenden.
 
 Die unterstützten Parameter legen Produktverzeichnis, Downloadcache und gemeinsame Komponenten getrennt fest. Die Standardpfade werden nicht durch manuelles Verschieben bestehender Dateien geändert. Es werden keine stillen Installations-/Deinstallations-/Registry-/Junction-Schritte vorgegeben.
 
