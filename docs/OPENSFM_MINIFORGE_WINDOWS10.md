@@ -7,18 +7,17 @@
 - Miniforge erreichbar: Nutzer bestätigt `conda 26.9.4` per direktem PowerShell-Aufruf. Kein Neuinstallieren wegen fehlendem Startmenü-Shortcut.
 - OpenCL-Nutzertest abgeschlossen: 64-Bit-Python; GeForce MX250, CL/C 1.2, Treiber 417.49, 2048 MiB GPU-Speicher und maximal 512 MiB je Allokation. Kleiner CL1.2-Kernel korrekt; Intel UHD 620 ebenfalls PASS. Der Intel-Speicher ist kein dedizierter NVIDIA-VRAM. Diesen Test nicht wiederholen.
 - **Build Tools 2022, Version 17.14.44, sind laut Nutzerscreenshot vom 07.11. installiert** (Produkt unter „Installiert“, Ändern/Starten sichtbar). Kein erneuter Installerstart und keine erneute Logsammlung. Am 07.11. ausdrücklich genehmigt: **Microsoft C++ Build Tools samt Windows SDK ausschließlich zum Kompilieren von OpenSfM**. Diese begrenzte Ausnahme zu REQ-ORTHO-03 nicht erneut abfragen. Sie erlaubt keine proprietäre/kostenpflichtige Orthofoto-Engine, keinen Kauf und kein generelles proprietäres Backend.
-- Produktregistrierung bestätigt; C++-Arbeitslast, konkretes SDK, funktionsfähiger Compiler und OpenSfM-Start auf dem Windows-10-Rechner noch offen. Hier wurde kein Installer ausgeführt und keine Kundenaufnahme/SQLite verarbeitet.
+- Produktregistrierung und angehakte C++-Arbeitslast vom Nutzer bestätigt. Konkretes SDK, funktionsfähiger Compiler und OpenSfM-Start auf dem Windows-10-Rechner noch offen. Hier wurde kein Installer ausgeführt und keine Kundenaufnahme/SQLite verarbeitet.
 
-## Nächster Schritt: Komponenten und Speicherorte nur ansehen
+## Nächster Schritt: Speicherbelegung auf C: gezielt ansehen
 
-C: hat laut Nutzer jetzt nur etwa **2 GB frei** (vorher 5,8 GB); E: zuletzt etwa 291 GB. Weitere große Downloads, Conda-/Pip-Installationen und Builds erst nach Klärung des Systemplattenbedarfs. Der fehlende Exitcode bei noch offenem, wartendem Installer ist kein Fehlschlagnachweis; die Ausgabe erfolgt erst nach dessen Ende.
+**Nutzer bestätigt:** Desktopentwicklung mit C++ ist angehakt. Produkt und Downloadcache liegen auf **E:**, gemeinsame Komponenten auf **C:**. Diese Fragen sind erledigt. C: hat jetzt nur etwa **2 GB frei** (vorher 5,8 GB), E: zuletzt etwa 291 GB. Weitere große Downloads, Conda-/Pip-Installationen und Builds erst nach Klärung des Systemplattenbedarfs. Eine angehakte Arbeitslast ersetzt keinen funktionalen Compiler-/SDK-Nachweis.
 
-Im vorhandenen Installer **Ändern** öffnen und nur ansehen, noch keine Änderung bestätigen:
+Die gemeinsamen Komponenten auf C: sind ein eigener Installationsort. Der Installer kann einen bereits festgelegten Shared-Pfad sperren; außerdem müssen manche Komponenten auf dem Systemlaufwerk bleiben. Dass gemeinsame Komponenten auf C: liegen, belegt noch nicht, wie viel des belegten Speicherplatzes auf sie entfällt. Keine Neuinstallation und keine manuelle Verschiebung/Registry-/Junction-Umgehung. Der E:-Downloadcache ist kein belegter großer C:-Cache; ihn nicht zur vermeintlichen C:-Entlastung entfernen.
 
-1. Ist **Desktopentwicklung mit C++** bereits angehakt?
-2. Welche Laufwerke zeigt **Installationsorte** für Produkt, Downloadcache und gemeinsame Komponenten?
+Unter **Windows-Einstellungen → System → Speicher → Temporäre Dateien** die Berechnung abwarten und zunächst nur die größten Kategorien mit GB-Werten melden. **Noch nicht „Dateien entfernen“ anklicken.** Erst anhand der tatsächlich angebotenen Kategorien eine gezielte Auswahl besprechen. Downloads und Papierkorb können Originale und andere benötigte Dateien enthalten; Windows-Update-/frühere Windows-Installationsdateien können Wiederherstellungsoptionen betreffen. Keine pauschale Auswahl/Löschung, keine manuelle Windows-/Installer-Verzeichnisbereinigung. Das vorhandene F:-Python, Projekt und Originalbilder erhalten. Falls dort kaum Platz belegende Kategorien vorhanden sind, anschließend die Speicherübersicht ansehen, keine Löschschleife.
 
-Beide Antworten sind noch offen. Die im alten Befehl angeforderten E:-Pfade sind kein Nachweis der tatsächlich verwendeten Orte. Bestehende globale Shared-/Cachepfade können gesperrt sein; manche Komponenten brauchen auch bei E:-Zielen Platz auf C:. Installierte Verzeichnisse nicht manuell verschieben, keine Registry-/Junction-Umgehungen und keine pauschale Cache-, Windows- oder Kundendatenlöschung. Erst anhand der tatsächlichen Orte und Speicherbelegung einen konkreten Plan festlegen. Das vorhandene F:-Python, Projekt und Originalbilder erhalten.
+Der fehlende Exitcode bei noch offenem, wartendem Installer ist kein Fehlschlagnachweis; die Ausgabe erfolgt erst nach dessen Ende. Der folgende frühere Startblock bleibt ausschließlich als geprüfte Historie erhalten.
 
 ## Historie: korrigierter interaktiver Start – jetzt nicht erneut ausführen
 
