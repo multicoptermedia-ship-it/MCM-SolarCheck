@@ -23,7 +23,19 @@ Die gemeinsamen Komponenten auf C: sind ein eigener Installationsort. Der Instal
 
 **Ruhezustandsprüfung erledigt:** Nutzer meldet `ObjectNotFound` / `PathNotFound` / `ItemNotFoundException` für `C:\hiberfil.sys`. Die konkrete Meldung lautet „nicht vorhanden“, kein Zugriffsfehler. Dort ist kein Platzgewinn belegt; die Abfrage nicht wiederholen und keine `powercfg`-Änderung veranlassen. QGIS bleibt erhalten, temporäre Dateien sind bereits bereinigt. Keine Auslagerungsdatei abschalten/verkleinern und keine System-/Installerverzeichnisse manuell entfernen.
 
-**Nächster Schritt nur lesend:** Windows-Einstellungen → System → Speicher → C:, gegebenenfalls **Weitere Kategorien anzeigen**. Gebündelt nur die **Gesamtkapazität von C:** sowie die Größen von **System und reserviert**, **Sonstiges** und gegebenenfalls weiteren großen Kategorien außer Apps/Temp melden. Noch nichts entfernen/verschieben. Die bloße App-Sammelgröße111 GB erklärt die tatsächliche restliche Belegung nicht; Kapazität und Kategorien sind bisher unbekannt. Keine Dateinamen, privaten Ordnerinhalte oder zusätzlichen Analyseprogramme nötig. Erst anhand der Kategorien einen konkreten nächsten Weg wählen; keinen weiteren unveränderten Temp-/QGIS-/Hibercheck und keine allgemeine Löschrunde.
+**Speicherübersicht erhalten:** Nutzer nennt **206 GB**, **4,19 GB System und reserviert** und **9,15 GB Sonstiges**. Apps und Features vorher111 GB, frei zuletzt ca.2 GB. Der Bezug der206 GB (Gesamtkapazität oder Belegung) und weitere Kategorien sind nicht geklärt. Die genannten Kategorien summieren sich zu124,34 GB; daraus keine beschädigte Belegungsanzeige oder konkrete Ursache ableiten. Nicht ungeprüft206 GB als gemessene C:-Kapazität festschreiben.
+
+**Nächster Schritt nur lesend:** aktuelle Gesamt-/Belegt-/Frei-Werte des festen Dateisystemlaufwerks C: direkt aus PowerShell abfragen, ohne Administratorrechte, Dateien/Ordner zu öffnen oder neue Werkzeuge zu installieren:
+
+```powershell
+Get-PSDrive -Name C |
+    Select-Object @{Name='Gesamt_GB';Expression={[math]::Round(($_.Used + $_.Free) / 1GB, 1)}},
+                  @{Name='Belegt_GB';Expression={[math]::Round($_.Used / 1GB, 1)}},
+                  @{Name='Frei_GB';Expression={[math]::Round($_.Free / 1GB, 1)}}
+```
+
+Nur die drei Zahlen zurückmelden; der Befehl verändert nichts und liefert keine privaten Dateinamen. Erst den tatsächlichen aktuellen freien Platz einordnen, dann anhand eines konkreten Befunds fortsetzen. Keine erneute Temp-/App-/QGIS-/Hiber-Inventur, Registry-/Junction-Umgehung, pauschale Löschrunde oder Auslagerungsdateiänderung.
+
 
 F:-Python, Projekte, Originalbilder, Miniforge, QGIS/Erweiterungen und Buildtools erhalten. Neue Downloads, Conda-/Pip-Installationen und Builds warten weiter auf die Speicherklärung. Compiler-/SDK-Funktionsprüfung bleibt anschließend offen.
 
