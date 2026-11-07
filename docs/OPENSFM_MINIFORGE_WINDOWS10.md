@@ -6,16 +6,27 @@
 
 - Miniforge erreichbar: Nutzer bestätigt `conda 26.9.4` per direktem PowerShell-Aufruf. Kein Neuinstallieren wegen fehlendem Startmenü-Shortcut.
 - OpenCL-Nutzertest abgeschlossen: 64-Bit-Python; GeForce MX250, CL/C 1.2, Treiber 417.49, 2048 MiB GPU-Speicher und maximal 512 MiB je Allokation. Kleiner CL1.2-Kernel korrekt; Intel UHD 620 ebenfalls PASS. Der Intel-Speicher ist kein dedizierter NVIDIA-VRAM. Diesen Test nicht wiederholen.
-- C++-Buildtools laut Nutzer nicht vorhanden. Am 07.11. ausdrücklich genehmigt: **Microsoft C++ Build Tools samt Windows SDK ausschließlich zum Kompilieren von OpenSfM**. Diese begrenzte Ausnahme zu REQ-ORTHO-03 nicht erneut abfragen. Sie erlaubt keine proprietäre/kostenpflichtige Orthofoto-Engine, keinen Kauf und kein generelles proprietäres Backend.
-- Compiler-/SDK-Installation und Start auf dem konkreten Windows-10-Rechner noch offen. Hier wurde kein Installer ausgeführt und keine Kundenaufnahme/SQLite verarbeitet.
+- **Build Tools 2022, Version 17.14.44, sind laut Nutzerscreenshot vom 07.11. installiert** (Produkt unter „Installiert“, Ändern/Starten sichtbar). Kein erneuter Installerstart und keine erneute Logsammlung. Am 07.11. ausdrücklich genehmigt: **Microsoft C++ Build Tools samt Windows SDK ausschließlich zum Kompilieren von OpenSfM**. Diese begrenzte Ausnahme zu REQ-ORTHO-03 nicht erneut abfragen. Sie erlaubt keine proprietäre/kostenpflichtige Orthofoto-Engine, keinen Kauf und kein generelles proprietäres Backend.
+- Produktregistrierung bestätigt; C++-Arbeitslast, konkretes SDK, funktionsfähiger Compiler und OpenSfM-Start auf dem Windows-10-Rechner noch offen. Hier wurde kein Installer ausgeführt und keine Kundenaufnahme/SQLite verarbeitet.
 
-## Korrigierter interaktiver Start
+## Nächster Schritt: Komponenten und Speicherorte nur ansehen
+
+C: hat laut Nutzer jetzt nur etwa **2 GB frei** (vorher 5,8 GB); E: zuletzt etwa 291 GB. Weitere große Downloads, Conda-/Pip-Installationen und Builds erst nach Klärung des Systemplattenbedarfs. Der fehlende Exitcode bei noch offenem, wartendem Installer ist kein Fehlschlagnachweis; die Ausgabe erfolgt erst nach dessen Ende.
+
+Im vorhandenen Installer **Ändern** öffnen und nur ansehen, noch keine Änderung bestätigen:
+
+1. Ist **Desktopentwicklung mit C++** bereits angehakt?
+2. Welche Laufwerke zeigt **Installationsorte** für Produkt, Downloadcache und gemeinsame Komponenten?
+
+Beide Antworten sind noch offen. Die im alten Befehl angeforderten E:-Pfade sind kein Nachweis der tatsächlich verwendeten Orte. Bestehende globale Shared-/Cachepfade können gesperrt sein; manche Komponenten brauchen auch bei E:-Zielen Platz auf C:. Installierte Verzeichnisse nicht manuell verschieben, keine Registry-/Junction-Umgehungen und keine pauschale Cache-, Windows- oder Kundendatenlöschung. Erst anhand der tatsächlichen Orte und Speicherbelegung einen konkreten Plan festlegen. Das vorhandene F:-Python, Projekt und Originalbilder erhalten.
+
+## Historie: korrigierter interaktiver Start – jetzt nicht erneut ausführen
 
 **Nutzerbericht erhalten:** Älterer Installer-Lauf mit Exitcode 87, neuerer Installer-Lauf und Setup-Logs mit 0; keine Hex-Fehler. Die Nullcodes sind kein Nachweis installierter C++-Komponenten. Die reine Logprüfung ist abgeschlossen und wird nicht erneut angefordert.
 
 **Fehler im bisherigen eigenen Befehl:** `--norestart` war im interaktiven Aufruf enthalten. Laut [Microsoft-Parameterdokumentation](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio?view=vs-2022) muss dieser Schalter mit `--quiet` oder `--passive` kombiniert werden. Der bisherige Aufruf verletzte diesen Vertrag und ist zurückgezogen. Das passt zu 87 („Ungültiger Parameter“), beweist aber nicht, welches Argument im konkreten älteren Lauf beanstandet wurde. Nicht durch stillen/passiven Betrieb ersetzen: Die C:-Platzprüfung muss sichtbar bleiben.
 
-Vor diesem **gezielt korrigierten** Start noch offene Installerfenster schließen, sofern darin keine Installation läuft. Der folgende Block lädt ausdrücklich den offiziellen 17/2022-Bootstrapper nach E:; er wählt keine beliebige neueste Datei aus Downloads. Produkt-/Cache-/Shared-Verzeichnisse bleiben auf E:, ein verbleibender C:-Bedarf besteht weiterhin.
+Vor diesem **gezielt korrigierten** Start noch offene Installerfenster schließen, sofern darin keine Installation läuft. Der folgende Block lädt ausdrücklich den offiziellen 17/2022-Bootstrapper nach E:; er wählt keine beliebige neueste Datei aus Downloads. Produkt-/Cache-/Shared-Verzeichnisse werden dabei auf E: angefordert, ein verbleibender C:-Bedarf besteht weiterhin.
 
 <!-- tested-buildtools-interactive-start -->
 ```powershell
