@@ -9,7 +9,26 @@
 - C++-Buildtools laut Nutzer nicht vorhanden. Am 07.11. ausdrücklich genehmigt: **Microsoft C++ Build Tools samt Windows SDK ausschließlich zum Kompilieren von OpenSfM**. Diese begrenzte Ausnahme zu REQ-ORTHO-03 nicht erneut abfragen. Sie erlaubt keine proprietäre/kostenpflichtige Orthofoto-Engine, keinen Kauf und kein generelles proprietäres Backend.
 - Compiler-/SDK-Installation und Start auf dem konkreten Windows-10-Rechner noch offen. Hier wurde kein Installer ausgeführt und keine Kundenaufnahme/SQLite verarbeitet.
 
-## Jetzt: manuelle Installation des genehmigten Buildwerkzeugs
+## Jetzt: vorhandene Setup-Protokolle gezielt auswerten
+
+**Neuer Nutzerbefund:** Die Installation war angehalten. Ein erneuter Start des bisherigen E:-Befehls öffnet und schließt das Fenster rasch; laut Nutzer zeigt der Installer kein Produkt. Die eingeschränkte isComplete-Abfrage und später die breite Abfrage lieferten keine verwertbare Ausgabe. Daraus weder erfolgreiche Installation noch einen bestimmten Fehler ableiten. Mit „diese Version“ war kein neuer Versionsnachweis gemeint, sondern der wiederholte Start desselben Befehls.
+
+Der nächste Schritt ist [MCM_SolarCheck_BUILDTOOLS_LOGCHECK.py](../scripts/MCM_SolarCheck_BUILDTOOLS_LOGCHECK.py). Die eigene Prüfdatei über den im aktuellen Chat genannten, geprüften Quelllink nach Downloads speichern und mit bestehendem Python ausführen:
+
+```powershell
+$pruefung = Join-Path $env:USERPROFILE 'Downloads\MCM_SolarCheck_BUILDTOOLS_LOGCHECK.py'
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' $pruefung
+```
+
+Sie druckt eine Startzeile und einen JSON-Bericht, auch wenn keine Protokolle gefunden werden. Nur die Ausgabe zurückmelden; keine vollständigen Protokolle übertragen. Sie startet/ändert den Installer nicht, schreibt/löscht keine Dateien und ändert keine Registry. Die gezielte Suche beschränkt sich auf vorhandene Windows-Temp-Verzeichnisse und `dd_bootstrapper_*.log`, `dd_installer_*.log`, `dd_setup_*.log` der letzten 24 Stunden, maximal zwei neueste Dateien je Typ. Symlinks werden übersprungen, höchstens 256 KiB vom Ende gelesen (plus Kodierungsgrenze). UTF-8/-16 werden unterstützt. Ausgegeben werden nur Protokolltyp, Alter, Hex-/Exitcodes und Zähler fehlender/unlesbarer Codes; keine Rohtexte, Dateinamen, Pfade, Rechner-/Benutzernamen, Download-URLs oder Koordinaten.
+
+Codes können zu verschiedenen Phasen/Versuchen gehören; Alter und Typ zusammen lesen. `no_recent_setup_logs` belegt nicht, dass keine Installation vorhanden ist. Nullcodes oder ein erfolgreicher Bootstrapper sind kein Compiler-/C++-Komponentennachweis. Erst tatsächliche Codes einordnen, dann genau eine passende Korrektur ableiten. Kein weiterer unveränderter Start, keine Cleanup-/Deinstallations-/Registry-Aktionen aus diesen bisherigen Befunden.
+
+Microsoft dokumentiert [Bootstrapper-Exitcodes und --wait](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio?view=vs-2022): `--wait` gilt nur für den Bootstrapper, nicht `setup.exe`; es wäre für einen späteren beobachteten Start relevant. Beispiele sind 5003 (Installerdownload), 5005 (Argumentverarbeitung), 5007/8010 (Voraussetzungen/OS) oder 8004 (Zielverzeichnis). Keine dieser Ursachen ist bisher belegt. Ein verändertes Fensterverhalten allein genügt nicht. Der frühere Downloads-Selektor „neueste vs_BuildTools*.exe“ belegt außerdem nicht die tatsächlich verwendete Produktgeneration/Quelle; bei späterem neuem Start diese ausdrücklich qualifizieren.
+
+Technische Tests verwenden nur synthetische Logs, einschließlich künstlicher Pfade/Koordinaten und UTF-16-Tails. Sie prüfen gezielte Suche, Alter/Größenlimit, kein Rohtext-/Pfadexport, explizite leere/unlesbare Ergebnisse und Abhängigkeit nur von der Standardbibliothek. Keine echten Nutzerlogs oder Installer in CI. Der ausgeführte Nutzercheck und konkrete Abbruchgrund stehen aus.
+
+## Historischer Installationsversuch auf E: – aktuell nicht wiederholen
 
 **Neuer Speicherbefund:** C: ca. 5,8 GB frei, E: ca. 291 GB frei; Nutzer noch vor dem Klick auf Installieren. Der Pfad ließ sich im Dialog nicht ändern. Die folgende Belegung auf E: ersetzt die frühere Empfehlung der Standardpfade. Kein erneuter Download nötig, wenn der offizielle Bootstrapper bereits in Downloads liegt.
 
