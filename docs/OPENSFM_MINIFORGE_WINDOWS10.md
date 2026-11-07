@@ -21,16 +21,11 @@ Die gemeinsamen Komponenten auf C: sind ein eigener Installationsort. Der Instal
 
 **QGIS-Größe bestätigt: 3 GB. Nutzer stellt klar, dass eine Neuinstallation wegen seiner für die Arbeit installierten Erweiterungen nicht infrage kommt. QGIS samt Plugins/Einstellungen bleibt erhalten.** Keinen Umzug, keine Deinstallation oder Plugin-Neuaufbau vorschlagen. Die QGIS-Größenprüfung ist erledigt; keine weitere App-/Temp-Inventur ohne neuen konkreten Anlass.
 
-Nächster Schritt nur lesend: Größe der festen Windows-Ruhezustandsdatei `C:\hiberfil.sys` per PowerShell ansehen. Bei 64 GB RAM kann sie erheblich sein; Existenz und tatsächliche Größe sind noch unbekannt. Kein Zugriff auf Dateiinhalte oder andere Benutzerdateien, keine Änderungen und keine zusätzlichen Programme:
+**Ruhezustandsprüfung erledigt:** Nutzer meldet `ObjectNotFound` / `PathNotFound` / `ItemNotFoundException` für `C:\hiberfil.sys`. Die konkrete Meldung lautet „nicht vorhanden“, kein Zugriffsfehler. Dort ist kein Platzgewinn belegt; die Abfrage nicht wiederholen und keine `powercfg`-Änderung veranlassen. QGIS bleibt erhalten, temporäre Dateien sind bereits bereinigt. Keine Auslagerungsdatei abschalten/verkleinern und keine System-/Installerverzeichnisse manuell entfernen.
 
-```powershell
-Get-Item -LiteralPath 'C:\hiberfil.sys' -Force -ErrorAction Stop |
-    Select-Object @{Name='Groesse_GB';Expression={[math]::Round($_.Length / 1GB, 1)}}
-```
+**Nächster Schritt nur lesend:** Windows-Einstellungen → System → Speicher → C:, gegebenenfalls **Weitere Kategorien anzeigen**. Gebündelt nur die **Gesamtkapazität von C:** sowie die Größen von **System und reserviert**, **Sonstiges** und gegebenenfalls weiteren großen Kategorien außer Apps/Temp melden. Noch nichts entfernen/verschieben. Die bloße App-Sammelgröße111 GB erklärt die tatsächliche restliche Belegung nicht; Kapazität und Kategorien sind bisher unbekannt. Keine Dateinamen, privaten Ordnerinhalte oder zusätzlichen Analyseprogramme nötig. Erst anhand der Kategorien einen konkreten nächsten Weg wählen; keinen weiteren unveränderten Temp-/QGIS-/Hibercheck und keine allgemeine Löschrunde.
 
-Nur Größe oder Fehlermeldung zurückmelden. Ein Lesefehler ist kein Nachweis einer fehlenden Datei. Erst nach Befund und Klärung der Ruhezustandsnutzung einen konkreten Weg wählen. Microsoft dokumentiert `powercfg /hibernate off` als unterstützte Abschaltung. Hier **nicht ausführen**: Sie deaktiviert Ruhezustand, Schnellstart und hybriden Standby; diese Änderung ist nicht angeordnet. Niemals hiberfil.sys manuell löschen, keine Auslagerungsdatei abschalten oder verändern. F:-Python, Projekte, Originalbilder, Miniforge, QGIS und Buildtools erhalten.
-
-Quelle: [Microsoft powercfg-Parameter](https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/powercfg-command-line-options), Abschnitt /hibernate (07.11.2026 gelesen). Die konkrete Hiberdatei und ihre Größe wurden hier nicht geprüft.
+F:-Python, Projekte, Originalbilder, Miniforge, QGIS/Erweiterungen und Buildtools erhalten. Neue Downloads, Conda-/Pip-Installationen und Builds warten weiter auf die Speicherklärung. Compiler-/SDK-Funktionsprüfung bleibt anschließend offen.
 
 
 Der fehlende Exitcode bei noch offenem, wartendem Installer ist kein Fehlschlagnachweis; die Ausgabe erfolgt erst nach dessen Ende. Der folgende frühere Startblock bleibt ausschließlich als geprüfte Historie erhalten.
