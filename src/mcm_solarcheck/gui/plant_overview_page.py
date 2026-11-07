@@ -1,14 +1,12 @@
-"""Offline PV plant overview from project-scoped local module observations.
-
-This is an evidence inventory, not a surveyed site plan or a validated
-orthophoto. Page size and aggregation are controlled by the application service.
-"""
+"""Project-scoped orthophoto comparison and persisted module observations."""
 from __future__ import annotations
+
+from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QAbstractItemView, QHBoxLayout, QLabel, QPushButton,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QAbstractItemView, QComboBox, QHBoxLayout, QLabel, QPushButton,
+    QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
 )
 
 COLUMN_HEADINGS = (
@@ -21,12 +19,14 @@ COLUMN_HEADINGS = (
 def make_plant_overview_page(
     parent=None, *, current_project_id=None, overview=None,
     on_refresh=None, on_page_requested=None,
+    orthophoto_pairs=(), selected_pair_id=None, orthophoto_comparison=None,
+    orthophoto_error=None, on_pair_selected=None,
 ):
     """Display bounded, persisted evidence without any inferred GIS position."""
     page = QWidget(parent)
     page.setObjectName("plant_overview_page")
     layout = QVBoxLayout(page)
-    title = QLabel("Anlagenübersicht – vorhandene Modulbeobachtungen", page)
+    title = QLabel("Anlagenübersicht", page)
     title.setObjectName("page_heading")
     layout.addWidget(title)
 
@@ -39,6 +39,55 @@ def make_plant_overview_page(
     context.setObjectName("plant_project_context")
     context.setTextFormat(Qt.TextFormat.PlainText)
     layout.addWidget(context)
+
+    page_layout = layout
+    tabs = QTabWidget(page)
+    tabs.setObjectName("plant_overview_tabs")
+    rasters = QWidget(tabs)
+    raster_layout = QVBoxLayout(rasters)
+    tabs.addTab(rasters, "Orthofotos")
+    inventory = QWidget(tabs)
+    tabs.addTab(inventory, "Modulbeobachtungen")
+    page_layout.addWidget(tabs, 1)
+    if orthophoto_pairs and current_project_id is not None:
+        pairs = QComboBox(rasters)
+        pairs.setObjectName("plant_orthophoto_pairs")
+        pairs.setAccessibleName("Gespeichertes RGB-/Thermal-Orthofotopaar")
+        for pair in orthophoto_pairs:
+            pairs.addItem(
+                f"RGB: {Path(pair['rgb_source_path']).name} · "
+                f"Thermal: {Path(pair['thermal_source_path']).name}",
+                pair['pair_id'],
+            )
+        pairs.setCurrentIndex(max(0, pairs.findData(selected_pair_id)))
+        if on_pair_selected is not None:
+            pairs.currentIndexChanged.connect(
+                lambda _index: on_pair_selected(pairs.currentData())
+            )
+        raster_layout.addWidget(pairs)
+        if orthophoto_error is not None:
+            error = QLabel(orthophoto_error, rasters)
+            error.setObjectName("plant_orthophoto_error")
+            error.setTextFormat(Qt.TextFormat.PlainText)
+            error.setWordWrap(True)
+            raster_layout.addWidget(error)
+        if orthophoto_comparison is not None:
+            from mcm_solarcheck.gui.orthophoto_comparison import OrthophotoComparisonWidget
+            raster_layout.addWidget(OrthophotoComparisonWidget(*orthophoto_comparison, rasters), 1)
+    else:
+        empty = QLabel(
+            "Noch kein RGB-/Thermal-Orthofotopaar gespeichert. "
+            "Bitte im Importbereich beide GeoTIFFs gemeinsam registrieren."
+            if current_project_id is not None else
+            "Bitte ein Offline-Projekt öffnen, um gespeicherte Orthofotos anzuzeigen.",
+            rasters,
+        )
+        empty.setObjectName("plant_orthophoto_empty_state")
+        empty.setWordWrap(True)
+        raster_layout.addWidget(empty)
+        raster_layout.addStretch()
+
+    layout = QVBoxLayout(inventory)
 
     if overview is None:
         state = QLabel(
@@ -202,7 +251,7 @@ def make_plant_overview_page(
     )
     if on_refresh is not None and current_project_id is not None:
         refresh.clicked.connect(on_refresh)
-    layout.addWidget(refresh)
+    page_layout.addWidget(refresh)
 
     disclaimer = QLabel(
         "Angezeigt werden lokale Bild-/Detektorbeobachtungen, keine gezählten "

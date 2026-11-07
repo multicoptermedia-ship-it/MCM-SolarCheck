@@ -26,10 +26,20 @@ class OrthophotoComparisonWidget(QWidget):
         super().__init__(parent)
         if rgb.dtype != np.uint8 or rgb.ndim != 3 or rgb.shape[2] != 3:
             raise ValueError("RGB layer must be uint8 HxWx3")
-        if thermal.ndim != 2 or thermal.shape != rgb.shape[:2]:
+        scalar = thermal.ndim == 2 and thermal.shape == rgb.shape[:2]
+        visual = thermal.ndim == 3 and thermal.shape == rgb.shape
+        if not (scalar or visual):
             raise ValueError("Thermal layer must match aligned RGB grid")
+        if (not np.issubdtype(thermal.dtype, np.number)
+                or np.issubdtype(thermal.dtype, np.complexfloating)):
+            raise ValueError("Thermal layer needs real numeric samples")
+        if visual:
+            finite = thermal[np.isfinite(thermal)]
+            if finite.size and (finite.min() < 0 or finite.max() > 255):
+                raise ValueError("Visual thermal RGB samples must be between 0 and 255")
         self._rgb = rgb.copy()
         self._thermal = thermal.astype(np.float32, copy=True)
+        self._thermal_is_visual = visual
         self._zoom = 1.0
         self._label = QLabel(self)
         self._label.setObjectName("orthophoto_comparison_image")
@@ -56,7 +66,9 @@ class OrthophotoComparisonWidget(QWidget):
         reset.clicked.connect(lambda: self._set_zoom(1.0))
         controls.addWidget(reset)
         layout.addLayout(controls)
-        layout.addWidget(QLabel("RGB ← Ebenenüberblendung → Thermal", self))
+        description = ("Thermal-Farbbild (keine Temperaturwerte)" if visual else
+                       "Thermal-Rasterwerte (keine Celsius-Kalibrierung bestätigt)")
+        layout.addWidget(QLabel("RGB ← Ebenenüberblendung → " + description, self))
         layout.addWidget(self._slider)
         self._update_image()
 
@@ -66,8 +78,13 @@ class OrthophotoComparisonWidget(QWidget):
 
     def _update_image(self, *_args):
         valid = np.isfinite(self._thermal)
-        thermal_rgb = np.zeros_like(self._rgb)
-        if valid.any():
+        if self._thermal_is_visual:
+            valid = np.all(valid, axis=2)
+            thermal_rgb = np.zeros_like(self._rgb)
+            thermal_rgb[valid] = self._thermal[valid].astype(np.uint8)
+        else:
+            thermal_rgb = np.zeros_like(self._rgb)
+        if not self._thermal_is_visual and valid.any():
             values = self._thermal[valid]
             low, high = np.percentile(values, (2, 98))
             if high > low:

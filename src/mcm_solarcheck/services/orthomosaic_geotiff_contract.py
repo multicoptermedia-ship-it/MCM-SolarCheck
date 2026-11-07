@@ -5,7 +5,7 @@ This does not generate a GeoTIFF and must not be used to promote RGB previews.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import isfinite
+from math import isfinite, isnan
 from pathlib import Path
 
 
@@ -31,8 +31,9 @@ def validate_geotiff_reference(reference: GeoTIFFSpatialReference) -> None:
     a, b, _, d, e, _ = reference.transform
     if abs(a * e - b * d) <= 1e-15:
         raise ValueError("GeoTIFF affine transform must be invertible")
-    if reference.nodata is not None and not isfinite(reference.nodata):
-        raise ValueError("GeoTIFF NoData must be finite")
+    if (reference.nodata is not None and
+            not (isfinite(reference.nodata) or isnan(reference.nodata))):
+        raise ValueError("GeoTIFF NoData must be finite or NaN")
 
 
 def require_geotiff_export_target(path: str | Path, reference: GeoTIFFSpatialReference) -> Path:
@@ -129,6 +130,10 @@ def inspect_existing_geotiff(path: str | Path) -> GeoTIFFSpatialReference:
     source = Path(path)
     if source.suffix.lower() not in (".tif", ".tiff"):
         raise ValueError("Expected a GeoTIFF file")
+    # GDAL can otherwise open virtual/network filesystems. The project import
+    # boundary accepts an existing local artifact only, never a URL or VSI path.
+    if not source.is_file():
+        raise ValueError("GeoTIFF must be an existing local file")
     try:
         dataset_context = rasterio.open(source)
     except rasterio.errors.RasterioIOError as error:

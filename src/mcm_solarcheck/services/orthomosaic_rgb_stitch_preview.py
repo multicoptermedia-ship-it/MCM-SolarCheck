@@ -24,19 +24,26 @@ class RGBStitchPreview:
     frame_count: int = 2
 
 
-def stitch_rgb_preview(
-    first_path: str | Path,
-    second_path: str | Path,
-    *,
-    max_side: int = 1400,
-    max_canvas_pixels: int = 12_000_000,
-    minimum_inliers: int = 20,
-) -> RGBStitchPreview:
-    """Create a memory-bounded diagnostic mosaic from two real RGB photographs."""
-    if not 128 <= max_side <= 4096 or max_canvas_pixels < 100_000:
-        raise ValueError("invalid preview resource limits")
-    if minimum_inliers < 4:
-        raise ValueError("minimum_inliers must be at least four")
+def _read_private_stitch_preview_rgb(path: Path, max_side: int) -> np.ndarray:
+    image = cv2.imread(str(path), cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError("cannot decode RGB image")
+    h, w = image.shape[:2]
+    if max(h, w) > max_side:
+        factor = max_side / max(h, w)
+        image = cv2.resize(image, (round(w * factor), round(h * factor)),
+                           interpolation=cv2.INTER_AREA)
+    return image
+
+
+
+def _estimate_private_stitch_pair(first_path: Path, second_path: Path,
+                                  max_side: int, minimum_inliers: int):
+    """Fit the SAME validated 2D homography using two ORIGINAL RGB frames.
+
+    Return right->left transform in preview-resolution pixels. Never match a
+    new source photo against a previously resampled RGB composite.
+    """
     first_path, second_path = Path(first_path), Path(second_path)
     preliminary = match_rgb_feature_pair(
         "first", first_path, "second", second_path,
@@ -45,18 +52,7 @@ def stitch_rgb_preview(
     if not preliminary.geometrically_plausible:
         raise ValueError("RGB images do not have verified pairwise overlap")
 
-    def read(path: Path) -> np.ndarray:
-        image = cv2.imread(str(path), cv2.IMREAD_COLOR)
-        if image is None:
-            raise ValueError("cannot decode RGB image")
-        h, w = image.shape[:2]
-        if max(h, w) > max_side:
-            factor = max_side / max(h, w)
-            image = cv2.resize(image, (round(w * factor), round(h * factor)),
-                               interpolation=cv2.INTER_AREA)
-        return image
-
-    left, right = read(first_path), read(second_path)
+    left, right = _read_private_stitch_preview_rgb(first_path, max_side), _read_private_stitch_preview_rgb(second_path, max_side)
     orb = cv2.ORB_create(nfeatures=3000)
     points_a, desc_a = orb.detectAndCompute(cv2.cvtColor(left, cv2.COLOR_BGR2GRAY), None)
     points_b, desc_b = orb.detectAndCompute(cv2.cvtColor(right, cv2.COLOR_BGR2GRAY), None)
@@ -76,6 +72,35 @@ def stitch_rgb_preview(
     inlier_errors = errors[mask.ravel().astype(bool)]
     if not np.isfinite(inlier_errors).all() or float(np.median(inlier_errors)) > 3.0:
         raise ValueError("RGB alignment residual exceeds tolerance")
+    h2, w2 = right.shape[:2]
+    transformed = cv2.perspectiveTransform(
+        np.float32([[0, 0], [w2, 0], [w2, h2], [0, h2]]).reshape(-1, 1, 2),
+        matrix,
+    ).reshape(-1, 2)
+    if not np.isfinite(transformed).all():
+        raise ValueError("nonfinite image transformation")
+    transformed_area = float(cv2.contourArea(transformed.astype(np.float32)))
+    if not .25 * float(w2 * h2) <= transformed_area <= 4. * float(w2 * h2):
+        raise ValueError("implausible RGB transform scale")
+    return left, right, matrix, int(np.count_nonzero(mask)), float(np.median(inlier_errors))
+
+
+def stitch_rgb_preview(
+    first_path: str | Path,
+    second_path: str | Path,
+    *,
+    max_side: int = 1400,
+    max_canvas_pixels: int = 12_000_000,
+    minimum_inliers: int = 20,
+) -> RGBStitchPreview:
+    """Create a memory-bounded diagnostic mosaic from two real RGB photographs."""
+    if not 128 <= max_side <= 4096 or max_canvas_pixels < 100_000:
+        raise ValueError("invalid preview resource limits")
+    if minimum_inliers < 4:
+        raise ValueError("minimum_inliers must be at least four")
+    left, right, matrix, inliers, median_error = _estimate_private_stitch_pair(
+        Path(first_path), Path(second_path), max_side, minimum_inliers,
+    )
     h1, w1 = left.shape[:2]
     h2, w2 = right.shape[:2]
     corners = np.float32([[0, 0], [w2, 0], [w2, h2], [0, h2]]).reshape(-1, 1, 2)
@@ -102,8 +127,8 @@ def stitch_rgb_preview(
     canvas[y:y+h1, x:x+w1] = left
     right_mask[y:y+h1, x:x+w1] = 1
     coverage = float(np.count_nonzero(right_mask)) / (width * height)
-    return RGBStitchPreview(canvas, int(np.count_nonzero(mask)), covered_fraction=coverage,
-                            median_reprojection_error_px=float(np.median(inlier_errors)))
+    return RGBStitchPreview(canvas, inliers, covered_fraction=coverage,
+                            median_reprojection_error_px=median_error)
 
 
 def save_rgb_stitch_preview(preview: RGBStitchPreview, output_path: str | Path) -> Path:
@@ -130,13 +155,15 @@ def stitch_rgb_series_preview(
     max_canvas_pixels: int = 12_000_000,
     minimum_inliers: int = 20,
 ) -> RGBStitchPreview:
-    """Sequentially stitch a small local series; diagnostic preview only.
+    """Compose a short ORIGINAL-frame 2D strip with exactly one RGB warp/view.
 
-    This intentionally does not claim flight-wide coverage or georectification.
-    Every adjacent composition must pass the existing pixel-overlap gate.
+    Match each original against the previous ORIGINAL frame and compose its
+    homography to the first frame. Warping a saved intermediate mosaic for
+    each next photo re-interpolates old PV edges and spreads prior errors.
+    Render each read-only source once to the final canvas, never blend
+    misregistered roof edges. Still a small unverified NONMETRIC preview;
+    no claim of complete 160-photo coverage or real roof ortho accuracy.
     """
-    from tempfile import TemporaryDirectory
-
     if not 2 <= max_frames <= 32:
         raise ValueError("max_frames must be between 2 and 32")
     if not 2 <= len(image_paths) <= max_frames:
@@ -144,25 +171,82 @@ def stitch_rgb_series_preview(
     paths = tuple(Path(path) for path in image_paths)
     if len(set(paths)) != len(paths):
         raise ValueError("RGB series must contain distinct input paths")
-    with TemporaryDirectory(prefix="mcm-rgb-preview-") as directory:
-        result = stitch_rgb_preview(
-            paths[0], paths[1], max_side=max_side,
-            max_canvas_pixels=max_canvas_pixels, minimum_inliers=minimum_inliers,
-        )
-        min_pair_inliers = result.inliers
-        for index, path in enumerate(paths[2:], start=2):
-            previous = Path(directory) / f"stage-{index}.png"
-            save_rgb_stitch_preview(result, previous)
-            result = stitch_rgb_preview(
-                previous, path, max_side=max_side,
-                max_canvas_pixels=max_canvas_pixels, minimum_inliers=minimum_inliers,
-            )
-            min_pair_inliers = min(min_pair_inliers, result.inliers)
-    return RGBStitchPreview(result.image, min_pair_inliers,
-                            covered_fraction=result.covered_fraction,
-                            median_reprojection_error_px=result.median_reprojection_error_px,
-                            frame_count=len(paths))
+    if not 128 <= max_side <= 4096 or max_canvas_pixels < 100_000:
+        raise ValueError("invalid preview resource limits")
+    if minimum_inliers < 4:
+        raise ValueError("minimum_inliers must be at least four")
 
+    transforms = [np.eye(3, dtype=np.float64)]
+    dimensions = []
+    inliers_min = None
+    median_last = None
+    for index in range(1, len(paths)):
+        left, right, relative, inliers, median_last = (
+            _estimate_private_stitch_pair(
+                paths[index - 1], paths[index], max_side, minimum_inliers,
+            )
+        )
+        if not dimensions:
+            dimensions.append((left.shape[1], left.shape[0]))
+        dimensions.append((right.shape[1], right.shape[0]))
+        matrix = transforms[-1] @ relative
+        if not np.isfinite(matrix).all() or abs(matrix[2, 2]) < 1.e-12:
+            raise ValueError("nonfinite RGB series transform")
+        matrix /= matrix[2, 2]
+        transforms.append(matrix)
+        inliers_min = inliers if inliers_min is None else min(inliers_min, inliers)
+
+    # Determine the global 2D output bounds before allocating any canvas.
+    projected = []
+    for (w, h), matrix in zip(dimensions, transforms):
+        corners = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
+        bounds = cv2.perspectiveTransform(
+            corners.reshape(-1, 1, 2), matrix,
+        ).reshape(-1, 2)
+        if not np.isfinite(bounds).all() or np.max(np.abs(bounds)) > 1.e7:
+            raise ValueError("invalid RGB series canvas geometry")
+        projected.append(bounds)
+    all_points = np.vstack(projected)
+    low = np.floor(all_points.min(axis=0)).astype(np.int64)
+    high = np.ceil(all_points.max(axis=0)).astype(np.int64)
+    width, height = map(int, high - low)
+    if width < 1 or height < 1 or width * height > max_canvas_pixels:
+        raise ValueError("stitching canvas exceeds resource limits")
+    translate = np.array([
+        [1., 0., -float(low[0])],
+        [0., 1., -float(low[1])],
+        [0., 0., 1.],
+    ], dtype=np.float64)
+    canvas = np.zeros((height, width, 3), dtype=np.uint8)
+    covered = np.zeros((height, width), dtype=bool)
+
+    for index, (path, matrix, (w, h)) in enumerate(
+        zip(paths, transforms, dimensions)
+    ):
+        # Decoding originals a second time avoids keeping dozens of 4000px
+        # RGB frames in memory and avoids writing temporary private PNGs.
+        original = _read_private_stitch_preview_rgb(path, max_side)
+        if original.shape[:2] != (h, w):
+            raise ValueError("original RGB frame dimensions changed during preview")
+        if index == 0:
+            x, y = int(-low[0]), int(-low[1])
+            canvas[y:y + h, x:x + w] = original
+            covered[y:y + h, x:x + w] = True
+            continue
+        transform = translate @ matrix
+        warped = cv2.warpPerspective(original, transform, (width, height))
+        mask = cv2.warpPerspective(
+            np.ones((h, w), dtype=np.uint8), transform, (width, height),
+            flags=cv2.INTER_NEAREST,
+        ).astype(bool)
+        fresh = mask & ~covered
+        canvas[fresh] = warped[fresh]
+        covered |= mask
+    coverage = float(np.count_nonzero(covered)) / (width * height)
+    return RGBStitchPreview(
+        canvas, int(inliers_min), covered_fraction=coverage,
+        median_reprojection_error_px=median_last, frame_count=len(paths),
+    )
 
 def save_rgb_preview_manifest(
     preview: RGBStitchPreview,

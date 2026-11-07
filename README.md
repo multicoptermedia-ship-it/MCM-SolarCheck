@@ -1,12 +1,14 @@
 # MCM-SolarCheck
 
-> **Verbindliche Entwicklungsgrundlage (Stand 26.10.2026):** Vor neuer Programmierung zuerst [Start für Folgechats](docs/PROJECT_START_HERE.md), [Branch-Bestandsaufnahme](docs/REPOSITORY_BRANCH_INVENTORY_2026-10-26.md), [Entwicklungsregister](docs/DEVELOPMENT_STEP_REGISTER.md) und [Entwicklungsvereinbarung](docs/DEVELOPMENT_AGREEMENT.md) lesen. Die nachfolgenden ursprünglichen Pipeline-/ODM-/Modellideen in diesem README sind **historische Planung**, keine Freigabe für ODM/WebODM, Docker, Cloud, YOLO-Lizenzänderungen, °C-Behauptungen oder ein ungeprüftes Orthofoto. **Neue Integrationsbasis ist `main` ab dem CI-geprüften Fast-forward vom 26.10.2026.** Das ist Quellcode für weitere Entwicklung, **kein fertig abgenommenes Windows-10-Release**. Herkunft: `feature/offline-human-report-approval`. [Integrationsstatus und offene Freigabegates](docs/MAIN_INTEGRATION_BASELINE_2026-10-26.md).
+> **ZUERST LESEN, verbindlicher laufender Entwicklungsstand:** [AKTUELLER_ENTWICKLUNGSSTAND.md](docs/AKTUELLER_ENTWICKLUNGSSTAND.md) (31.10.2026, Branch/PR im Dokument). Alte Ideen sind historische Planung. **ODM/WebODM/ODX werden ausdrücklich NICHT eingebunden; keine neue Photogrammetrie-Engine.** Etablierte freie Software berechnet lokal je ein RGB- und Thermal-Orthofoto; SolarCheck verwendet den vorhandenen GeoTIFF-Import, die PV-Modulerkennung und die GIS-basierte Thermal-Zuordnung. [Werkzeugprüfung einschließlich MicMac](docs/FREIE_ORTHOFOTO_WERKZEUGE.md).
+
+> **Historische Entwicklungsgrundlage (Stand 26.10.2026; aktueller Auftrag steht oben):** Vor neuer Programmierung zuerst [Start für Folgechats](docs/PROJECT_START_HERE.md), [Branch-Bestandsaufnahme](docs/REPOSITORY_BRANCH_INVENTORY_2026-10-26.md), [Entwicklungsregister](docs/DEVELOPMENT_STEP_REGISTER.md) und [Entwicklungsvereinbarung](docs/DEVELOPMENT_AGREEMENT.md) lesen. Die nachfolgenden ursprünglichen Pipeline-/ODM-/Modellideen in diesem README sind **historische Planung**, keine Freigabe für ODM/WebODM, Docker, Cloud, YOLO-Lizenzänderungen, °C-Behauptungen oder ein ungeprüftes Orthofoto. **Neue Integrationsbasis ist `main` ab dem CI-geprüften Fast-forward vom 26.10.2026.** Das ist Quellcode für weitere Entwicklung, **kein fertig abgenommenes Windows-10-Release**. Herkunft: `feature/offline-human-report-approval`. [Integrationsstatus und offene Freigabegates](docs/MAIN_INTEGRATION_BASELINE_2026-10-26.md).
 
 Automatisierte PV-Anlagenprüfung aus georeferenzierten RGB- und Thermaldaten.
 
 ## Ziel
 
-MCM-SolarCheck soll RTK-georeferenzierte Einzelbilder kleiner und mittlerer PV-Anlagen importieren, für geeignete Dachanlagen ein Orthofoto erzeugen, RGB- und Thermaldaten KI-gestützt auswerten und einen editierbaren deutschsprachigen Prüfbericht als ODT/PDF erzeugen.
+MCM-SolarCheck soll lokal mit etablierten freien Werkzeugen berechnete RGB- und Thermal-Orthofotos importieren, PV-Modulvorschläge prüfen, die Thermalflächen räumlich zuordnen und einen editierbaren deutschsprachigen Prüfbericht als ODT/PDF erzeugen. Originalbilder bleiben lokal; keine eigene Orthofoto-Engine.
 
 Für große Freiflächenanlagen kann ein vorhandenes Orthofoto als Eingang verwendet werden.
 
@@ -16,7 +18,7 @@ Für große Freiflächenanlagen kann ein vorhandenes Orthofoto als Eingang verwe
 
 1. Projekt anlegen und Bilder importieren
 2. Metadaten/RTK-GPS aus EXIF/XMP auslesen und validieren
-3. Orthomosaik für kleine/mittlere Dachanlagen erzeugen
+3. Extern lokal berechnetes RGB- und Thermal-GeoTIFF als Projektpaar registrieren
 4. PV-Module segmentieren/detek­tieren
 5. Thermische und visuelle Anomalien erkennen
 6. Ergebnisse georeferenzieren und nach Schweregrad priorisieren
@@ -28,7 +30,7 @@ Für große Freiflächenanlagen kann ein vorhandenes Orthofoto als Eingang verwe
 - Python 3.11+
 - PySide6 für die Desktop-Oberfläche
 - OpenCV/Pillow/rasterio/GDAL für Bild- und Geodaten
-- OpenDroneMap/WebODM bzw. kompatible Photogrammetrie-Pipeline für Orthofotos
+- **Etablierte freie Orthofoto-Werkzeuge statt eigener Photogrammetrie**; zwei lokale GeoTIFFs als Eingang. MicMac und seine konkreten Komponenten werden geprüft, nicht ungeprüft gebündelt. **Kein** ODM/WebODM/ODX-Code, -Prozess, -API, -Container oder -Runtime.
 - Ultralytics YOLO für Detektion/Segmentierung
 - U-Net/ähnliche Modelle für pixelgenaue Segmentierung, soweit für den jeweiligen Defektdatensatz sinnvoll
 - GeoPackage/SQLite für Projekte, Befunde und Geometrien
@@ -43,7 +45,7 @@ Die KI-Erkennung ist als Assistenzsystem zu behandeln. Eine automatische Klassif
 Die Import-, Radiometrie-, Lokalisierungs-/Priorisierungs- sowie Modell-/Trainingsdatenverträge bis einschließlich Phase 8 sind testgestützt aufgebaut. Phase 9 ist abgeschlossen und ergänzt den backend-neutralen Inspektionsbericht, Review- und Release-Gates, Bild-/Temperatur-Provenienz, deterministische Report-Assets sowie den gemeinsamen DOCX-/ODT-/PDF-Export. Modellklassifikation bleibt ausdrücklich eine überprüfbare Empfehlung; die fachkundige menschliche Prüfung bleibt die maßgebliche Befundentscheidung. Ein wissenschaftlich validiertes Produktionsmodell, die Prüfung gegen die lizenzierte Norm und die kommerzielle Softwarefreigabe bleiben eigenständige Gates.
 
 
-## Nächster Arbeitsblock
+## Historischer Planungsabschnitt (überholt; NICHT nächster Arbeitsblock)
 
 Phase 10 wird aus einer Bestandsaufnahme der vollständigen Projektpipeline abgeleitet. Vorrang haben Integrations- und Betriebsreife-Lücken zwischen Projektanlage, Import, Verarbeitung, Review und Berichtsexport; neue Komfortfunktionen werden erst danach eingeplant.
 
