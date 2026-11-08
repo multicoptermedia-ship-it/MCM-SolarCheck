@@ -2,57 +2,34 @@
 
 **OPEN-SFM-SETUP-01 · Nutzerfreigabe 07.11.2026.** [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md) · [OpenSfM-Quellenprüfung](OPENSFM_PRUEFUNG_2026-11-07.md).
 
-## Aktueller Stand und abgegrenzte Freigabe
+## Aktueller Stand – 08.11.2026
 
-- Miniforge erreichbar: Nutzer bestätigt `conda 26.9.4` per direktem PowerShell-Aufruf. Kein Neuinstallieren wegen fehlendem Startmenü-Shortcut.
-- OpenCL-Nutzertest abgeschlossen: 64-Bit-Python; GeForce MX250, CL/C 1.2, Treiber 417.49, 2048 MiB GPU-Speicher und maximal 512 MiB je Allokation. Kleiner CL1.2-Kernel korrekt; Intel UHD 620 ebenfalls PASS. Der Intel-Speicher ist kein dedizierter NVIDIA-VRAM. Diesen Test nicht wiederholen.
-- **Build Tools 2022, Version 17.14.44, sind laut Nutzerscreenshot vom 07.11. installiert** (Produkt unter „Installiert“, Ändern/Starten sichtbar). Kein erneuter Installerstart und keine erneute Logsammlung. Am 07.11. ausdrücklich genehmigt: **Microsoft C++ Build Tools samt Windows SDK ausschließlich zum Kompilieren von OpenSfM**. Diese begrenzte Ausnahme zu REQ-ORTHO-03 nicht erneut abfragen. Sie erlaubt keine proprietäre/kostenpflichtige Orthofoto-Engine, keinen Kauf und kein generelles proprietäres Backend.
-- Produktregistrierung und angehakte C++-Arbeitslast vom Nutzer bestätigt. Konkretes SDK, funktionsfähiger Compiler und OpenSfM-Start auf dem Windows-10-Rechner noch offen. Hier wurde kein Installer ausgeführt und keine Kundenaufnahme/SQLite verarbeitet.
+Der Nutzer hat den Rechner aufgeräumt und meldet **28 GB freien Speicher auf C:**. Die Speicherklärung ist beendet. Keine weiteren WinDirStat-/AppData-/Arduino-/Hiber-Abfragen oder Bereinigungsaufträge. Welche einzelnen Schritte er durchgeführt hat, ist nicht angegeben; keinen konkreten staging-Umzug als bestätigt melden. QGIS samt Erweiterungen, beide Profile, bestehende Arduino-Nutzung und SolarCheck-Projekt erhalten.
 
-## Nächster Schritt: Speicherbelegung auf C: gezielt ansehen
+- Build Tools2022 **17.14.44** laut Screenshot installiert, Desktopentwicklung mit C++ angehakt. Produkt und Downloadcache auf E:, gemeinsame Komponenten auf C:. Keine Neuinstallation/erneute Logsammlung.
+- Miniforge **conda26.9.4** erreichbar, OpenCL-Kerntest auf MX250/Intel bestanden; nicht wiederholen. Diese Befunde beweisen noch keinen OpenSfM-Build.
+- Microsoft-C++-Buildtools/SDK ausschließlich für den OpenSfM-Build freigegeben (REQ-ORTHO-03A); nicht erneut bestätigen lassen. Windows10 bleibt Zielplattform, vorhandenes F:-Python und SQLite werden erhalten.
+- Neue Builddateien und Paket-Caches weiterhin auf E: vorsehen. 28 GB sind ein aktueller Nutzerbefund, keine allgemeine Garantie für den Speicherbedarf aller noch ungelösten Pakete.
 
-**Nutzer bestätigt:** Desktopentwicklung mit C++ ist angehakt. Produkt und Downloadcache liegen auf **E:**, gemeinsame Komponenten auf **C:**. Diese Fragen sind erledigt. C: hat jetzt nur etwa **2 GB frei** (vorher 5,8 GB), E: zuletzt etwa 291 GB. Weitere große Downloads, Conda-/Pip-Installationen und Builds erst nach Klärung des Systemplattenbedarfs. Eine angehakte Arbeitslast ersetzt keinen funktionalen Compiler-/SDK-Nachweis.
+## Nächster Schritt: tatsächlicher Compiler-/SDK-/x64-Test
 
-Die gemeinsamen Komponenten auf C: sind ein eigener Installationsort. Der Installer kann einen bereits festgelegten Shared-Pfad sperren; außerdem müssen manche Komponenten auf dem Systemlaufwerk bleiben. Dass gemeinsame Komponenten auf C: liegen, belegt noch nicht, wie viel des belegten Speicherplatzes auf sie entfällt. Keine Neuinstallation und keine manuelle Verschiebung/Registry-/Junction-Umgehung. Der E:-Downloadcache ist kein belegter großer C:-Cache; ihn nicht zur vermeintlichen C:-Entlastung entfernen.
+[Prüfdatei MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py](../scripts/MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py) als kleine SolarCheck-Quelldatei nach `E:\Tools\SolarCheck-Checks` speichern und mit dem bestehenden Python starten:
 
-**Neuer Nutzerbefund:** Temporäre Dateien sind bereits bereinigt und fast leer. **Apps und Features belegen laut Speicherübersicht 111 GB.** Keine weitere Temp-Prüfung oder pauschale Bereinigung anfordern. Diese Kategorie ist keine einzeln löschbare Datei; aus ihrem Gesamtwert folgt kein bestimmter Verursacher, auch nicht die Größe der gemeinsamen Buildtools-Komponenten.
+```powershell
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\Tools\SolarCheck-Checks\MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py'
+```
 
-**App-Liste erhalten:** Nutzer nennt QGIS, Copilot, Edge, Windows Software Development Kit und Python, ohne Einzelgrößen. Diese Liste nicht erneut abfragen; der 111-GB-Gesamtwert ist keine QGIS-Größe. SDK kann für den OpenSfM-Build benötigt werden; vorhandene Python-Installationen nicht ungeprüft entfernen, ebenso wenig Edge oder gemeinsame Komponenten.
+Die Prüfdatei verwendet nur die Python-Standardbibliothek und die vorhandenen VS2022-C++-Werkzeuge. Sie startet keinen Installer, lädt keine Pakete herunter und liest keine Projekt-/Fotoordner. Registrierte vollständige VS2022-Installation wird über das vorhandene vswhere gefunden. Ausschließlich eigene neue Dateien unter **E:\Tools\SolarCheck-BuildCheck\probe-…**: synthetisches C++17-Programm, Batchdatei, Objekt/EXE, lokale Protokolle und Temp-Unterordner. Kein C:-Fallback und keine Bereinigung/Überschreibung alter Läufe. TEMP/TMP nur im Testkindprozess auf den eigenen E:-Unterordner gesetzt, keine dauerhaften Umgebungs-/Registry-/PowerShell-Einstellungen.
 
-**QGIS-Größe bestätigt: 3 GB. Nutzer stellt klar, dass eine Neuinstallation wegen seiner für die Arbeit installierten Erweiterungen nicht infrage kommt. QGIS samt Plugins/Einstellungen bleibt erhalten.** Keinen Umzug, keine Deinstallation oder Plugin-Neuaufbau vorschlagen. Die QGIS-Größenprüfung ist erledigt; keine weitere App-/Temp-Inventur ohne neuen konkreten Anlass.
+Der Test kompiliert Windows-SDK-Header, linkt eine Kernel32-Funktion und C++-Standardbibliothek, prüft den x64-PE-Typ und startet die eigene kleine EXE mit fest erwarteter Ausgabe. Nur ein Build-Exitcode0 reicht nicht für PASS. Installer-/OpenSfM-Start und Fotos sind nicht Teil der Prüfung. VS-Abfrage maximal15 Sekunden, Compiler-/Testlauf45 Sekunden; bei Überschreitung nur eigenen Prozessbaum beenden. Rohprotokolle bleiben lokal, zurückmelden nur die kurze JSON-Ausgabe; sie enthält keine Benutzer-/Kundenpfade. Kompilerfehler werden als feste Codes wie C1083/LNK1104 ausgegeben. Kein ungeprüfter Treiber-/SDK-/Installer-Neustart aus einem Fehlerstatus.
 
-**Ruhezustandsprüfung erledigt:** Nutzer meldet `ObjectNotFound` / `PathNotFound` / `ItemNotFoundException` für `C:\hiberfil.sys`. Die konkrete Meldung lautet „nicht vorhanden“, kein Zugriffsfehler. Dort ist kein Platzgewinn belegt; die Abfrage nicht wiederholen und keine `powercfg`-Änderung veranlassen. QGIS bleibt erhalten, temporäre Dateien sind bereits bereinigt. Keine Auslagerungsdatei abschalten/verkleinern und keine System-/Installerverzeichnisse manuell entfernen.
+`status: passed` mit `cpp17_windows_sdk_x64: passed` bestätigt diese kleine Toolchain-Probe auf dem konkreten Rechner. `opensfm: not_tested` bleibt ausdrücklich erhalten. Erst danach getrennte OpenSfM-Umgebung/Paketlösung, echter Build und Werkzeugstart; noch keine Kundenbilder oder Orthofotoqualität. Der upstream Windows-Lock/pure-conda-forge-Ersatz ist weiterhin ungeklärt, keine komplette Einrichtung behaupten.
 
-**Speicherstand jetzt gemessen:** Nutzer hat Get-PSDrive ausgeführt: **C: gesamt206,4 GB, belegt203,8 GB, frei2,6 GB**. Diese Abfrage ist erledigt. Vorherige Kategorien: Apps111 GB, System und reserviert4,19 GB, Sonstiges9,15 GB. Die Kategorien erklären die Belegung noch nicht vollständig; daraus keine konkrete Ursache ableiten. Keine erneute Temp-/App-/QGIS-/Hiber-Inventur oder pauschale Löschrunde.
+**Prüfstatus:** Neue synthetische Fehler-/Datenschutztests und echter MSVC-/SDK-/x64-Test für Windows-CI/Python3.11/3.12 vorbereitet. Linux kann den nativen Teil nicht ausführen; exakten neuen Windows-HEAD vor Rückmeldung separat prüfen. Reale Windows10-Nutzerausgabe steht aus.
 
-**WinDirStat-Nutzerlauf erfolgt:** Screenshot zeigt WinDirStat2.9.3 als Administrator, Laufwerk C:, Status „Bereit“. Physische Größen: **Users93,99 GiB**, **Program Files36,11 GiB**, **Windows23,37 GiB**, Program Files(x86)10,65 GiB, ProgramData7,86 GiB. Frei2,43 GiB. Users ist der größte sichtbare Bereich; konkrete Unterverteilung und freigebbare Daten sind noch unbekannt. Logische und physische Spalte unterscheiden sich, daher zum Einordnen die physische Größe verwenden. Dateitypsummen wie ZIP sind laufwerksweit und nicht automatisch Downloads zuzuordnen. Screenshot nicht ins Repository übernehmen.
+## Abgeschlossene Speicherklärung – Historie
 
-**Zwei eigene Benutzerprofile bestätigt:** Beide enthalten nach Nutzerangabe seine Daten; keines entfernen/zusammenführen oder als Fremd-/Restprofil behandeln. Keine Profilnamen im Repository festhalten.
-
-**Aktueller Nutzerbefund:** Großer Anteil AppData → Local → **Arduino15**; **staging und packages ungefähr gleich groß**. Konkrete GiB nicht genannt; deshalb keinen bestimmten freizugebenden Betrag behaupten. Videos/Downloads laut Nutzer klein. Users93,99 GiB ist weiterhin keine Arduino-Größe. Ordner-/Oberbereichsfragen erledigt.
-
-**Konkreter nächster Schritt, Anleitung bereit / Nutzeraktion offen:** Die bestehenden heruntergeladenen Installationsarchive unter **staging** manuell auf E: archivieren. QGIS/Plugins, beide Benutzerprofile, Arduino-Projekte sowie installierte Boardpakete/Compiler unter **packages** erhalten. Keine Arduino-Deinstallation/Neuinstallation und keine automatische CLI-/IDE-Konfigurationsänderung.
-
-1. Arduino IDE und laufende Board-/Bibliotheksdownloads normal beenden; offene Arbeit sichern.
-2. Auf E: einen neuen **leeren** Archivordner anlegen, beispielsweise `E:\Arduino-Downloadarchiv`. Falls dieser bereits Daten enthält, einen anderen neuen Ordner wählen; nichts überschreiben/zusammenführen.
-3. Aus dem in WinDirStat identifizierten Arduino15-Verzeichnis genau den Ordner **staging** im Windows-Explorer markieren. Mit **Ausschneiden (Strg+X) → Einfügen (Strg+V)** in den neuen E:-Archivordner verschieben. Ergebnis beispielsweise `E:\Arduino-Downloadarchiv\staging`. Nicht Arduino15, packages, das Benutzerprofil oder andere Ordner verschieben. Keine harten/symbolischen Links/Registry-Umgehungen.
-4. Den erfolgreichen Abschluss der Übertragung abwarten, Archive am E:-Ziel prüfen und anschließend den freien Platz auf C: im Explorer melden. Bei einer Fehlermeldung nichts manuell nachlöschen; zuerst den konkreten Fehler einordnen. Kein Zugriff auf Kundendateien und keine Scan-/Archivübertragung in Git/Cloud.
-
-Der Explorer-Umzug erhält die Archive auf E: und gibt ihren bisherigen Platz auf C: frei. Ohne anschließenden tatsächlichen Nutzerbefund weder gewonnenen Speicher noch Arduino-/OpenSfM-Erfolg melden. Arduino kann staging bei späteren Downloads am bisherigen Ort auf C: neu anlegen; das ist keine dauerhafte Umkonfiguration der Downloadablage. Bei Bedarf lassen sich die archivierten Downloads an ihren bisherigen Ort zurückbringen. Existierende Arduino-Boards/Compiler bleiben unter packages.
-
-**Quellengrundlage:** [Offizielle Arduino-CLI-Konfiguration](https://docs.arduino.cc/arduino-cli/configuration/) (07.11.2026 gelesen) trennt `directories.data` für Indizes/Boardplattformen von `directories.downloads` für heruntergeladene Installationsarchive (Standard **staging** unter Arduino15). Deshalb den Umzug auf diesen bestätigten Unterordner begrenzen. Keine manuelle Leerung von packages/Local und keine pauschale Cache-/Benutzerbereinigung.
-
-
-Der [offizielle portable ZIP-Download](https://github.com/windirstat/windirstat/releases/download/release/v2.9.3/WinDirStat.zip) war als lokales Werkzeug auf E: vorgesehen; nicht erneut herunterladen/installieren oder in SolarCheck einbauen.
-
-
-**Quellenprüfung 07.11.2026:** offizielle Release-Metadaten und README unter Tag `release/v2.9.3` gelesen. Veröffentlichung11.10.2026, Windows10 laut Versions-README unterstützt, GPLv3 oder neuer für die Anwendung. ZIP3784535 Bytes (ca.3,8 MB); GitHub-Asset-Digest SHA256 `c980fee14389eb3a160415b0a07361900f3630f232501884863fec40f369a4a4`. Kein Binärdownload/Programmstart hier; Nutzerscreenshot bestätigt inzwischen lokalen Start/Scan. Der neuere Standardzweig hat zusätzliche Funktionen; Anleitung stützt sich auf den genannten Release-Tag. Metadatenscan lokal unter Nutzerkontrolle ist keine Freigabe zum Hochladen privater Bilder/GPS/SQLite.
-
-
-F:-Python, Projekte, Originalbilder, Miniforge, QGIS/Erweiterungen und Buildtools erhalten. Neue Downloads, Conda-/Pip-Installationen und Builds warten weiter auf die Speicherklärung. Compiler-/SDK-Funktionsprüfung bleibt anschließend offen.
-
-
-Der fehlende Exitcode bei noch offenem, wartendem Installer ist kein Fehlschlagnachweis; die Ausgabe erfolgt erst nach dessen Ende. Der folgende frühere Startblock bleibt ausschließlich als geprüfte Historie erhalten.
+Zuvor C206,4 GB gesamt/203,8 belegt/2,6 frei; WinDirStat zeigte Users93,99 GiB als größten Bereich. AppData/Local/Arduino15, staging/packages ungefähr gleich groß. Manuelle Archivierung nur von staging auf E: war vorbereitet; packages/Arduino/QGIS/Plugins und Projekte sollten erhalten bleiben. Nutzer meldet08.11. nur das Ergebnis28 GB frei. Kein weiterer Verschiebe-/Löschauftrag. Offizielle [Arduino-CLI-Doku](https://docs.arduino.cc/arduino-cli/configuration/) unterscheidet Boarddaten und staging-Downloadarchive. Früherer WinDirStat-Portable-Scan ist erledigt, Tool nicht in SolarCheck integrieren. Hiberdatei war nicht vorhanden; keine powercfg-/Auslagerungsdatei-/Profil-/Registry-Eingriffe.
 
 ## Historie: korrigierter interaktiver Start – jetzt nicht erneut ausführen
 
