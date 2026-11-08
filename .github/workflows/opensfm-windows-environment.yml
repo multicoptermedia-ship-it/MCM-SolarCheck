@@ -13,6 +13,10 @@ on:
         description: Resolve candidate specifications instead of testing the committed lock
         type: boolean
         default: false
+      build_source:
+        description: Qualify the pinned OpenSfM source build without photos
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -107,6 +111,47 @@ jobs:
           $actual = @(Get-Content "$work\installed-explicit.lock" | Where-Object { $_ -like 'https://*' } | Sort-Object)
           $expected = @($explicit | Where-Object { $_ -like 'https://*' } | Sort-Object)
           if (Compare-Object $actual $expected) { throw 'Installed package URLs/hashes differ from the tested plan.' }
+      - name: Build pinned OpenSfM source and exercise native modules
+        if: github.event_name == 'workflow_dispatch' && inputs.build_source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $work = Join-Path $env:RUNNER_TEMP 'solarcheck-opensfm'
+          $conda = Join-Path $env:CONDA 'Scripts\conda.exe'
+          $prefix = Join-Path $work 'env'
+          $source = Join-Path $work 'source'
+          $headers = Join-Path $work 'opencl-clhpp'
+          $env:CONDA_PKGS_DIRS = Join-Path $work 'pkgs'
+          $env:TEMP = Join-Path $work 'tmp'
+          $env:TMP = $env:TEMP
+          $env:MPLCONFIGDIR = Join-Path $work 'matplotlib'
+          $env:PROJ_NETWORK = 'OFF'
+          $env:CMAKE_BUILD_PARALLEL_LEVEL = '2'
+          $env:CMAKE_GENERATOR = 'Ninja'
+          $git = Join-Path $prefix 'Library\bin\git.exe'
+          foreach ($record in @(
+            @($source,'https://github.com/OpenSfM/OpenSfM.git','8b6b77efddebf4429044d3206c7dc21c4e767e08'),
+            @($headers,'https://github.com/KhronosGroup/OpenCL-CLHPP.git','2a608428f725cad7903ef55e1ce5b995895838f5')
+          )) {
+            & $git init $record[0]
+            if ($LASTEXITCODE -ne 0) { throw 'Source init failed.' }
+            & $git -C $record[0] fetch --depth 1 $record[1] $record[2]
+            if ($LASTEXITCODE -ne 0) { throw 'Pinned source fetch failed.' }
+            & $git -C $record[0] checkout --detach FETCH_HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Pinned source checkout failed.' }
+            $actual = & $git -C $record[0] rev-parse HEAD
+            if ($LASTEXITCODE -ne 0 -or $actual -ne $record[2]) { throw 'Source revision mismatch.' }
+          }
+          & $conda run --no-capture-output --prefix $prefix python -m pip wheel --no-deps --no-build-isolation --no-index --wheel-dir "$work\wheel" --config-settings=cmake.define.OPENSFM_BUILD_TESTS=OFF --config-settings=cmake.define.CMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF "--config-settings=cmake.define.FETCHCONTENT_SOURCE_DIR_OPENCLHEADERSCPP=$headers" --config-settings=build.tool-args=-j2 --verbose $source
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned OpenSfM source build failed.' }
+          $cache = Get-Content "$source\build\CMakeCache.txt" -Raw
+          if ($cache -notmatch '(?m)^OPENSFM_HAVE_OPENCL:BOOL=ON\s*$') { throw 'Required OpenCL support was not compiled.' }
+          $wheel = @(Get-ChildItem "$work\wheel" -Filter 'opensfm-*.whl' -File)
+          if ($wheel.Count -ne 1) { throw 'Expected one built OpenSfM wheel.' }
+          & $conda run --no-capture-output --prefix $prefix python -m pip install --no-deps --no-index $wheel[0].FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Built wheel installation failed.' }
+          & $conda run --no-capture-output --prefix $prefix python -I scripts/MCM_SolarCheck_OPENSFM_BUILD_PRUEFUNG.py
+          if ($LASTEXITCODE -ne 0) { throw 'Built OpenSfM module check failed.' }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -117,4 +162,5 @@ jobs:
             ${{ runner.temp }}/solarcheck-opensfm/installed-explicit.lock
             ${{ runner.temp }}/solarcheck-opensfm/install.json
             ${{ runner.temp }}/solarcheck-opensfm/inventory.json
+            ${{ runner.temp }}/solarcheck-opensfm/source/build/CMakeCache.txt
           retention-days: 7
