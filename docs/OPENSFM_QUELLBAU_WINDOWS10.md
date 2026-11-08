@@ -8,6 +8,8 @@ Build mit vorhandenem VS2022/x64/v143-Generator und zwei parallelen MSBuild-Proz
 
 [Windows-Quellbau42517970232](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42517970232), Quelle d8e6eb3c: Lockinstallation, unveränderter Engine-Quellbau, Wheelinstallation, OpenCL-Buildflag ON, neun native Module aus dem Prefix, Konstantentest und CLI-Registry bestanden. Keine GPU-Hardware/Fotoverarbeitung im CI. Zehn Vertragsfälle des exakten PowerShell-Blocks aus Quelle c38ad2a7 auf Windows/Python3.11 und3.12 bestanden; externe Werkzeuge dort inert, wirklicher Build separat wie oben. Eigener Win10-Quellbaunachweis bleibt offen.
 
+**Aktueller Nutzerbefund:** Git-fetch endet mit Startermeldung Quelltextdownload fehlgeschlagen; ursprüngliche Git-Fehlerzeile fehlt. Build noch nicht erreicht. Vorhandenen Buildordner/Umgebung erhalten, Vollblock nicht erneut ausführen. Zuerst nur originale fatal/error-Zeile und Exitcode ermitteln, keine Neuinstallation oder TLS-Abschaltung auf Verdacht.
+
 ## Lokaler Block – in normaler PowerShell
 
 Ein eigener neuer Buildordner auf E:, Quellen und Protokoll bleiben bei einem Fehler erhalten. Eine bereits installierte OpenSfM-Paketmappe wird nicht überschrieben. Temporäre Prozessvariablen werden zurückgesetzt. F:-Python/Projekte bleiben erhalten.
