@@ -11,13 +11,11 @@ Der Nutzer hat den Rechner aufgeräumt und meldet **28 GB freien Speicher auf C:
 - Microsoft-C++-Buildtools/SDK ausschließlich für den OpenSfM-Build freigegeben (REQ-ORTHO-03A); nicht erneut bestätigen lassen. Windows10 bleibt Zielplattform, vorhandenes F:-Python und SQLite werden erhalten.
 - Neue Builddateien und Paket-Caches weiterhin auf E: vorsehen. 28 GB sind ein aktueller Nutzerbefund, keine allgemeine Garantie für den Speicherbedarf aller noch ungelösten Pakete.
 
-## Nächster Schritt: qualifizierte OpenSfM-Abhängigkeiten auf E:
+## Nächster Schritt: OpenSfM-Quellbau qualifizieren
 
-**MSVC-SDK-01 beim Nutzer abgeschlossen.** Für die getrennte Umgebung den [konkreten Startblock](OPENSFM_UMGEBUNG_WINDOWS10.md) verwenden, nicht nochmals diesen Compiler-/Installationsverlauf abarbeiten.
+**MSVC-SDK-01 und OPEN-SFM-ENV-01 beim Nutzer abgeschlossen.** Die getrennte Umgebung E:\SolarCheck-OpenSfM\env wurde am08.11.2026 mit Python3.10.22 erfolgreich geprüft:22 isolierte Bibliotheksimporte, GeoTIFF-Treiber verfügbar, PROJ-Netz aus. Nicht neu anlegen oder entfernen. [Abgeschlossener Umgebungsweg](OPENSFM_UMGEBUNG_WINDOWS10.md). F:-Python/SQLite bleiben erhalten.
 
-**OPEN-SFM-ENV-01:** Festgeschriebene293-Paket-Lösung für Windows/Python3.10, nur conda-forge, CPU-Ceres2.2/OpenBLAS/Headless-OpenCV/Git. Reale Installation aus dem Lock und22 isolierte Bibliotheksimporte inklusive GeoTIFF-Treiber im Windows-Lauf42514749322 erfolgreich. Ca508,5 MiB Paketdownloads, zusätzlicher entpackter Platz auf E:. Neue Clientumgebung E:\SolarCheck-OpenSfM\env, vorhandener F:-Fachkern/SQLite bleibt erhalten; kein conda init oder globaler Python-/PATH-Umbau. Reale Win10-Umgebungs-JSON-Ausgabe noch offen.
-
-OpenSfM-v1.1-Quellbau/Engine-Start und echte RGB-/Thermal-Rekonstruktion sind **noch nicht ausgeführt**. `opensfm: not_built` im nächsten Abhängigkeitstest ist richtig. Danach Quellbau aus8b6b77efddebf4429044d3206c7dc21c4e767e08 getrennt qualifizieren; bestehende GeoTIFF-/PV-Kette erhalten. Candidate-Rezept nur bewusst aktualisieren, keine neue Paketauflösung im Nutzerlauf.
+OpenSfM-v1.1-Quellbau aus8b6b77efddebf4429044d3206c7dc21c4e767e08 wird zunächst mit genau diesem Lock auf Windows qualifiziert. Native C++-Module, OpenCL-Kompilierung und CLI-Registry ohne Fotos prüfen, dann einen konkreten Nutzerbaublock bereitstellen. Noch kein Engine-/GPU-Last-/RGB-/Thermalnachweis. `opensfm: not_built` im abgeschlossenen Abhängigkeitstest ist richtig. Keine erneute Paketauflösung/Compiler-/SDK-/OpenCL-Inventur. Bestehende GeoTIFF-/PV-Kette erhalten.
 
 ## Abgeschlossen: Compiler-/SDK-/x64-Test – nicht erneut ausführen
 

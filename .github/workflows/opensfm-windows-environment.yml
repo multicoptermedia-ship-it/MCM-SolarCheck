@@ -127,7 +127,9 @@ jobs:
           $env:MPLCONFIGDIR = Join-Path $work 'matplotlib'
           $env:PROJ_NETWORK = 'OFF'
           $env:CMAKE_BUILD_PARALLEL_LEVEL = '2'
-          $env:CMAKE_GENERATOR = 'Ninja'
+          # vs2022_win-64 activation supplies x64/v143 platform parameters.
+          # Use their matching generator; Ninja rejects those parameters.
+          $env:CMAKE_GENERATOR = 'Visual Studio 17 2022'
           $git = Join-Path $prefix 'Library\bin\git.exe'
           foreach ($record in @(
             @($source,'https://github.com/OpenSfM/OpenSfM.git','8b6b77efddebf4429044d3206c7dc21c4e767e08'),
@@ -142,7 +144,7 @@ jobs:
             $actual = & $git -C $record[0] rev-parse HEAD
             if ($LASTEXITCODE -ne 0 -or $actual -ne $record[2]) { throw 'Source revision mismatch.' }
           }
-          & $conda run --no-capture-output --prefix $prefix python -m pip wheel --no-deps --no-build-isolation --no-index --wheel-dir "$work\wheel" --config-settings=cmake.define.OPENSFM_BUILD_TESTS=OFF --config-settings=cmake.define.CMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF "--config-settings=cmake.define.FETCHCONTENT_SOURCE_DIR_OPENCLHEADERSCPP=$headers" --config-settings=build.tool-args=-j2 --verbose $source
+          & $conda run --no-capture-output --prefix $prefix python -m pip wheel --no-deps --no-build-isolation --no-index --wheel-dir "$work\wheel" --config-settings=cmake.define.OPENSFM_BUILD_TESTS=OFF --config-settings=cmake.define.CMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF "--config-settings=cmake.define.FETCHCONTENT_SOURCE_DIR_OPENCLHEADERSCPP=$headers" --config-settings=build.tool-args=/m:2 --verbose $source
           if ($LASTEXITCODE -ne 0) { throw 'Pinned OpenSfM source build failed.' }
           $cache = Get-Content "$source\build\CMakeCache.txt" -Raw
           if ($cache -notmatch '(?m)^OPENSFM_HAVE_OPENCL:BOOL=ON\s*$') { throw 'Required OpenCL support was not compiled.' }
