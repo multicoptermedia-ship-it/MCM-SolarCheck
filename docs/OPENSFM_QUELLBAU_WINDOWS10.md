@@ -1,12 +1,14 @@
 # OpenSfM-Quellbau in der vorhandenen Windows-10-Umgebung
 
-**OPEN-SFM-BUILD-01 in Qualifikation. Diesen Block erst nach erfolgreichem Windows-Baunachweis verwenden.** Compiler-/SDK-Test und Abhängigkeitsprüfung sind beim Nutzer am08.11.2026 bestanden. Die Umgebung `E:\SolarCheck-OpenSfM\env` erhalten; nicht erneut einrichten. Keine Fotos, SQLite oder Rekonstruktion in diesem Schritt. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+**OPEN-SFM-BUILD-01: Windows-CI bestanden, Nutzer-Windows10-Build offen.** Compiler-/SDK-Test und Abhängigkeitsprüfung sind beim Nutzer am08.11.2026 bestanden. Die Umgebung `E:\SolarCheck-OpenSfM\env` erhalten; nicht erneut einrichten. Keine Fotos, SQLite oder Rekonstruktion in diesem Schritt. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 Unveränderter OpenSfM-v1.1-Quellcommit `8b6b77efddebf4429044d3206c7dc21c4e767e08`. Der von diesem Quellstand benötigte Khronos-OpenCL-C++-Header v2025.07.22 wird separat am Commit `2a608428f725cad7903ef55e1ce5b995895838f5` geladen; CMake erhält diesen lokalen Pfad, keine freie Tagauflösung beim Bauen. BSD-/Apache-Quellen, keine ODM/WebODM/ODX-Anbindung, keine eigenen Algorithmen. Öffentliche Quelltexte werden beim Einrichten geladen; spätere Bildverarbeitung muss offline bleiben.
 
 Build mit vorhandenem VS2022/x64/v143-Generator und zwei parallelen MSBuild-Prozessen. Condas VS-Aktivierung setzt Plattform/Toolset; Ninja akzeptiert diese Parameter nicht (CI42517685656). Keine neue Compiler-/Paketinstallation und kein globaler PATH-/Python-Umbau. Pip verwendet vorhandene Abhängigkeiten ohne Index/Build-Isolation. Die intern noch angegebene Paketversion0.5.2 identifiziert nicht den geprüften v1.1-Quellstand.
 
-## Lokaler Block – nach Qualifikation in normaler PowerShell
+[Windows-Quellbau42517970232](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42517970232), Quelle d8e6eb3c: Lockinstallation, unveränderter Engine-Quellbau, Wheelinstallation, OpenCL-Buildflag ON, neun native Module aus dem Prefix, Konstantentest und CLI-Registry bestanden. Keine GPU-Hardware/Fotoverarbeitung im CI. Zehn Vertragsfälle des exakten PowerShell-Blocks aus Quelle c38ad2a7 auf Windows/Python3.11 und3.12 bestanden; externe Werkzeuge dort inert, wirklicher Build separat wie oben. Eigener Win10-Quellbaunachweis bleibt offen.
+
+## Lokaler Block – in normaler PowerShell
 
 Ein eigener neuer Buildordner auf E:, Quellen und Protokoll bleiben bei einem Fehler erhalten. Eine bereits installierte OpenSfM-Paketmappe wird nicht überschrieben. Temporäre Prozessvariablen werden zurückgesetzt. F:-Python/Projekte bleiben erhalten.
 
@@ -66,6 +68,6 @@ Ein eigener neuer Buildordner auf E:, Quellen und Protokoll bleiben bei einem Fe
 }
 ```
 
-Nur den letzten JSON-Block zurückmelden. Erwartet nach Qualifikation: `check: solarcheck-opensfm-build-1`, `status: passed`, neun native Module aus dem isolierten Prefix, mathematischer Konstantentest und CLI-Registry bestanden. `dataset: not_tested` und `gpu_execution: not_tested` bleiben korrekt. Keine Fotos, Kundenpfade oder vollständigen Protokolle übertragen.
+Nur den letzten JSON-Block zurückmelden. Erwartet: `check: solarcheck-opensfm-build-1`, `status: passed`, neun native Module aus dem isolierten Prefix, mathematischer Konstantentest und CLI-Registry bestanden. `dataset: not_tested` und `gpu_execution: not_tested` bleiben korrekt. Keine Fotos, Kundenpfade oder vollständigen Protokolle übertragen.
 
 Der Test importiert die wirklichen Erweiterungen und die Upstream-Befehlsregistrierung; er rechnet keine Rekonstruktion und startet keinen GPU-Kernel. Erfolgreicher Build ersetzt weder einen begrenzten lokalen RGB-Pilot noch den Thermal-/GeoTIFF-Qualitätsnachweis. Das Quellpaket und der gemeinsame Python-Fachkern bleiben Grundlage für die spätere Online-Version; Windows-Buildadapter werden nicht in die Fachlogik übernommen.

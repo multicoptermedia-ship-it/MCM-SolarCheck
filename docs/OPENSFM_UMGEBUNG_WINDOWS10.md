@@ -8,7 +8,7 @@
 
 [Festgeschriebener Windows-Lock](../config/opensfm/conda-win64-explicit.lock) ausschließlich conda-forge/win-64/noarch. [Candidate-Rezept](../config/opensfm/conda-win64-specs.txt) dient nur bewusstem späteren Aktualisieren; der Nutzerlauf löst keine neuen Versionen auf. Ziel für den späteren Quellbau ist OpenSfM v1.1, Commit `8b6b77efddebf4429044d3206c7dc21c4e767e08`.
 
-**Das ist noch kein gebautes OpenSfM und kein Orthofoto-/GPU-/Thermal-Nachweis.** Reale Windows10-Nutzerprüfung08.11.2026 bestanden: status passed, Python3.10.22,22 isolierte Importe, GeoTIFF-Treiber verfügbar und PROJ-Netz aus. Umgebung eingerichtet, nicht erneut installieren. Server2022-CI und Nutzerbefund sind getrennte Nachweise. Nach erfolgreicher Nutzerprüfung folgt der getrennte Quellbau. Gemeinsame SolarCheck-Fachlogik für Offline/Online bleibt erhalten; dieser Windows-Lock ist betriebssystemspezifisch.
+**Das ist noch kein gebautes OpenSfM und kein Orthofoto-/GPU-/Thermal-Nachweis.** Reale Windows10-Nutzerprüfung08.11.2026 bestanden: status passed, Python3.10.22,22 isolierte Importe, GeoTIFF-Treiber verfügbar und PROJ-Netz aus. Umgebung eingerichtet, nicht erneut installieren. Server2022-CI und Nutzerbefund sind getrennte Nachweise. Als Nächstes folgt der [getrennte Quellbau](OPENSFM_QUELLBAU_WINDOWS10.md) in genau dieser vorhandenen Umgebung. Gemeinsame SolarCheck-Fachlogik für Offline/Online bleibt erhalten; dieser Windows-Lock ist betriebssystemspezifisch.
 
 ## Einmaliger Start in normaler PowerShell
 

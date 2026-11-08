@@ -15,7 +15,7 @@ Der Nutzer hat den Rechner aufgeräumt und meldet **28 GB freien Speicher auf C:
 
 **MSVC-SDK-01 und OPEN-SFM-ENV-01 beim Nutzer abgeschlossen.** Die getrennte Umgebung E:\SolarCheck-OpenSfM\env wurde am08.11.2026 mit Python3.10.22 erfolgreich geprüft:22 isolierte Bibliotheksimporte, GeoTIFF-Treiber verfügbar, PROJ-Netz aus. Nicht neu anlegen oder entfernen. [Abgeschlossener Umgebungsweg](OPENSFM_UMGEBUNG_WINDOWS10.md). F:-Python/SQLite bleiben erhalten.
 
-OpenSfM-v1.1-Quellbau aus8b6b77efddebf4429044d3206c7dc21c4e767e08 wird zunächst mit genau diesem Lock auf Windows qualifiziert. Native C++-Module, OpenCL-Kompilierung und CLI-Registry ohne Fotos prüfen, dann einen konkreten Nutzerbaublock bereitstellen. Noch kein Engine-/GPU-Last-/RGB-/Thermalnachweis. `opensfm: not_built` im abgeschlossenen Abhängigkeitstest ist richtig. Keine erneute Paketauflösung/Compiler-/SDK-/OpenCL-Inventur. Bestehende GeoTIFF-/PV-Kette erhalten.
+OpenSfM-v1.1-Quellbau aus8b6b77efddebf4429044d3206c7dc21c4e767e08 ist im Windows-Lauf42517970232 (Quelle d8e6eb3c) gegen genau diesen Lock bestanden: neun native Module, OpenCL mitkompiliert, Konstantentest/CLI-Registry PASS. Jetzt [konkreten Nutzerbaublock](OPENSFM_QUELLBAU_WINDOWS10.md) verwenden. Reale Windows10-Build-JSON-Ausgabe und GPU-/RGB-/Thermalnachweis bleiben offen. Keine erneute Paketauflösung/Compiler-/SDK-/OpenCL-Inventur. Bestehende GeoTIFF-/PV-Kette erhalten.
 
 ## Abgeschlossen: Compiler-/SDK-/x64-Test – nicht erneut ausführen
 
