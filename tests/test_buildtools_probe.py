@@ -122,11 +122,22 @@ def test_x86_executable_cannot_pass_as_x64(tmp_path):
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Requires actual MSVC and Windows SDK")
-def test_native_windows_cpp17_sdk_compile_link_and_execution(tmp_path):
+@pytest.mark.parametrize("folder", ["probe-files", "probe files (spaces) & tools"])
+def test_native_windows_cpp17_sdk_compile_link_and_execution(tmp_path, folder):
     # Required on the pinned windows-2022 CI image, not silently skipped if
     # the SDK/toolchain is absent. Only the explicit disposable CI directory.
-    report = probe.check(tmp_path / "probe files (spaces) & tools")
-    assert report["status"] == "passed", report
+    output = tmp_path / folder
+    report = probe.check(output)
+    if report["status"] != "passed":
+        # Diagnostics from this test's newly generated, synthetic CI build only.
+        # The standalone user command still never prints its raw local logs.
+        details = [json.dumps(report, indent=2)]
+        for work in output.glob("probe-*"):
+            for name in ("driver.log", "activate.log", "build.log", "run.log"):
+                log = work / name
+                if log.is_file():
+                    details.append(name + ": " + log.read_bytes()[-3000:].decode("utf-8", "replace"))
+        pytest.fail("\n".join(details))
     assert report["cpp17_windows_sdk_x64"] == "passed"
     assert report["opensfm"] == "not_tested"
     assert report["installer_started"] is False
