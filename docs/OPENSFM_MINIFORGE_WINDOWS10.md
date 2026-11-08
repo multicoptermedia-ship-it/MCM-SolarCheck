@@ -6,12 +6,20 @@
 
 Der Nutzer hat den Rechner aufgeräumt und meldet **28 GB freien Speicher auf C:**. Die Speicherklärung ist beendet. Keine weiteren WinDirStat-/AppData-/Arduino-/Hiber-Abfragen oder Bereinigungsaufträge. Welche einzelnen Schritte er durchgeführt hat, ist nicht angegeben; keinen konkreten staging-Umzug als bestätigt melden. QGIS samt Erweiterungen, beide Profile, bestehende Arduino-Nutzung und SolarCheck-Projekt erhalten.
 
-- Build Tools2022 **17.14.44** laut Screenshot installiert, Desktopentwicklung mit C++ angehakt. Produkt und Downloadcache auf E:, gemeinsame Komponenten auf C:. Keine Neuinstallation/erneute Logsammlung.
+- **MSVC-SDK-01 beim Nutzer bestanden:** status/cpp17_windows_sdk_x64 passed, vs_version17.14.37827.9. Tatsächliche C++17-/Windows-SDK-/x64-Compile/Link/Run-Prüfung unter Windows10 abgeschlossen. Build Tools2022 17.14.44 laut Installerbild. Produkt und Downloadcache auf E:, gemeinsame Komponenten auf C:. Keine Neuinstallation/erneute Logsammlung.
 - Miniforge **conda26.9.4** erreichbar, OpenCL-Kerntest auf MX250/Intel bestanden; nicht wiederholen. Diese Befunde beweisen noch keinen OpenSfM-Build.
 - Microsoft-C++-Buildtools/SDK ausschließlich für den OpenSfM-Build freigegeben (REQ-ORTHO-03A); nicht erneut bestätigen lassen. Windows10 bleibt Zielplattform, vorhandenes F:-Python und SQLite werden erhalten.
 - Neue Builddateien und Paket-Caches weiterhin auf E: vorsehen. 28 GB sind ein aktueller Nutzerbefund, keine allgemeine Garantie für den Speicherbedarf aller noch ungelösten Pakete.
 
-## Nächster Schritt: tatsächlicher Compiler-/SDK-/x64-Test
+## Nächster Schritt: getrennte OpenSfM-Paketumgebung (in Arbeit)
+
+**OPEN-SFM-ENV-01:** Der Compiler-/SDK-Test ist abgeschlossen; nicht erneut ausführen. Die neue Umgebung soll einschließlich Paket-Caches/Temp auf E: liegen, getrennt von F:-SolarCheck. Quelle OpenSfM v1.1 `8b6b77efddebf4429044d3206c7dc21c4e767e08`, Python3.10 entsprechend upstream. Bestehende Miniforge-Installation weiterverwenden, kein conda init oder globales PATH-/Default-Python-Umschalten.
+
+[Candidate-Spezifikation](../config/opensfm/conda-win64-specs.txt): ausschließlich expliziter conda-forge-Kanal mit override-channels/strikter Priorität, CPU-Ceres2.2, OpenBLAS statt MKL, Headless-OpenCV; native Build-/Python-Laufzeitabhängigkeiten aus dem Quellstand aufgenommen. Paketmetadaten belegen passende Windows/Python3.10-Varianten für igraph1.0, leidenalg0.11 und rerun-sdk0.27.2. Das ist **noch keine gelöste oder installierte Umgebung**. Nicht den upstream-Mischlock verwenden und nicht bereits ungeprüft das neue Kandidatenrezept beim Nutzer installieren.
+
+Neue unabhängige Windows2022-CI nutzt das dort vorhandene Conda26.9.4 nur für einen Dry-run des Kandidatenrezepts in separatem Arbeits-/Cache-/Tempbereich. Zunächst tatsächliche Paketlösung/Quellen/CPU-Varianten prüfen; erst danach konkreten isolierten Installationsweg bereitstellen. Keine Fotos, Kundenordner, SQLite oder Engine-Serienläufe in CI.
+
+## Abgeschlossen: Compiler-/SDK-/x64-Test – nicht erneut ausführen
 
 [Prüfdatei MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py](../scripts/MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py), festgelegte Quelle **d6fa78cb751a6443ff742b91b035852ef8c45c67**. Dieser Block in einer normalen PowerShell lädt nur die kleine SolarCheck-Quelldatei nach E: und startet sie mit dem vorhandenen F:-Python. Ein Downloadfehler beendet den Block vor dem Start einer alten Datei:
 
@@ -36,7 +44,7 @@ Der feste E:-Standardpfad verwendet nur einfache ASCII-Zeichen. `output_path_uns
 
 `status: passed` mit `cpp17_windows_sdk_x64: passed` bestätigt diese kleine Toolchain-Probe auf dem konkreten Rechner. `opensfm: not_tested` bleibt ausdrücklich erhalten. Erst danach getrennte OpenSfM-Umgebung/Paketlösung, echter Build und Werkzeugstart; noch keine Kundenbilder oder Orthofotoqualität. Der upstream Windows-Lock/pure-conda-forge-Ersatz ist weiterhin ungeklärt, keine komplette Einrichtung behaupten.
 
-**Prüfstatus Quelle d6fa78cb:** Lokal68 zielgerichtete Tests bestanden/vier native Windows-Skips. Der tatsächliche Compiler-/SDK-/x64-Lauf ist auf Windows2022/Python3.11 und3.12 im [Windows-CI-Lauf](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42508265683) bestanden. Alle drei vollständigen Workflows am Quell-HEAD d6fa78cb sind erfolgreich (Windows42508265683, Linux42508265618/42508261362). Ein neuer Dokumentations-HEAD wird dadurch nicht automatisch grün. Das ist kein realer Windows10-Nutzerbefund. Nächster benötigter Befund ist die kurze JSON-Ausgabe vom Nutzer; bei PASS danach Engine-Umgebung/Paketlösung/Build, keine erneute Compiler-/Installer-/OpenCL-Schleife ohne Fehlerbefund.
+**Prüfstatus Quelle d6fa78cb:** Lokal68 zielgerichtete Tests bestanden/vier native Windows-Skips. Der tatsächliche Compiler-/SDK-/x64-Lauf ist auf Windows2022/Python3.11 und3.12 im [Windows-CI-Lauf](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42508265683) bestanden. Alle drei vollständigen Workflows am Quell-HEAD d6fa78cb sind erfolgreich (Windows42508265683, Linux42508265618/42508261362). Ein neuer Dokumentations-HEAD wird dadurch nicht automatisch grün. Nutzer08.11. meldet inzwischen denselben PASS unter Windows10 mit vs_version17.14.37827.9. Diese Qualifikation ist abgeschlossen; nächster Schritt Engine-Umgebung/Paketlösung/Build. Keine erneute Compiler-/Installer-/OpenCL-Schleife ohne Fehlerbefund.
 
 
 ## Abgeschlossene Speicherklärung – Historie

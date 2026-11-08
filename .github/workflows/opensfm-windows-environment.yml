@@ -1,0 +1,42 @@
+name: opensfm-windows-environment
+on:
+  push:
+    branches: [main, 'feature/**']
+    paths:
+      - '.github/workflows/opensfm-windows-environment.yml'
+      - 'config/opensfm/**'
+      - 'scripts/opensfm_conda_*'
+      - 'tests/test_opensfm_conda_*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve isolated Windows dependencies from conda-forge only
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $work = Join-Path $env:RUNNER_TEMP 'solarcheck-opensfm'
+          $env:CONDA_PKGS_DIRS = Join-Path $work 'pkgs'
+          $env:TEMP = Join-Path $work 'tmp'
+          $env:TMP = $env:TEMP
+          New-Item -ItemType Directory -Path $work,$env:CONDA_PKGS_DIRS,$env:TEMP -Force | Out-Null
+          $conda = Join-Path $env:CONDA 'Scripts\conda.exe'
+          & $conda create --dry-run --json --solver libmamba --prefix "$work\env" --override-channels --channel https://conda.anaconda.org/conda-forge --strict-channel-priority --file config/opensfm/conda-win64-specs.txt |
+            Set-Content -Encoding utf8 "$work\plan.json"
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content "$work\plan.json"
+            throw 'OpenSfM Windows package resolution failed.'
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: opensfm-windows-conda-plan
+          path: '${{ runner.temp }}/solarcheck-opensfm/plan.json'
+          retention-days: 7

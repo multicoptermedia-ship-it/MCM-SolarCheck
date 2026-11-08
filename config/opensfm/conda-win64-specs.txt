@@ -1,0 +1,46 @@
+# OpenSfM v1.1, source 8b6b77efddebf4429044d3206c7dc21c4e767e08.
+# Input specifications, NOT an explicit lock or a tested engine build.
+# Resolve using --override-channels --strict-channel-priority and only
+# https://conda.anaconda.org/conda-forge. Keep existing application Python separate.
+python=3.10
+pip
+cmake=3.31.*
+ninja
+vs2022_win-64
+scikit-build-core>=0.8,<1.0
+pybind11>=2.10,<3.1
+wheel
+libopencv[version='>=4.8,<5',build='headless*']
+py-opencv[version='>=4.8,<5',build='headless*']
+ceres-solver[version='2.2.*',build='cpu*']
+metis=5.1.*
+suitesparse=7.10.*
+libabseil[build='cxx17*']
+gflags
+llvm-openmp
+openblas
+libblas[build='*openblas']
+liblapack[build='*openblas']
+fast_float
+gdal<4
+laszip
+opencl-headers
+khronos-opencl-icd-loader
+cloudpickle>=0.4
+exifread>=2.1.2
+flask>=2.3.2
+fpdf2>=2.4.6
+python-igraph=1.0.*
+joblib>=1.0
+lz4>=4.4.5
+matplotlib-base
+networkx>=2.5
+leidenalg=0.11.*
+numpy=2.2.*
+pillow>=8.1.1
+pyproj>=1.9.5.1
+python-dateutil>=2.7
+pyyaml>=5.4
+scipy>=1.10
+xmltodict>=0.10.2
+rerun-sdk=0.27.2
