@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 @pytest.mark.parametrize("scenario, calls", [
     ("success", 3), ("exists", 0), ("download", 0), ("checksum", 0),
     ("fetch", 0), ("revision", 0), ("build", 1), ("opencl", 1),
-    ("install", 2), ("probe", 3),
+    ("install", 2), ("probe", 3), ("resume", 3), ("resume_bad_hash", 3),
 ])
 def test_build_command_stops_before_install_on_failure_and_restores_settings(tmp_path, scenario, calls):
     doc = (ROOT / "docs/OPENSFM_QUELLBAU_WINDOWS10.md").read_text(encoding="utf-8")
@@ -31,6 +31,8 @@ foreach ($key in @('CONDA_PKGS_DIRS','TEMP','TMP','MPLCONFIGDIR','PROJ_NETWORK',
 $script:Calls = 0
 $script:Fetches = 0
 $script:Downloads = 0
+$script:Inits = 0
+$script:Checkouts = 0
 function Join-Path {
     param([string]$Path, [string]$ChildPath)
     [IO.Path]::Combine($Path, $ChildPath)
@@ -39,6 +41,9 @@ function Test-Path {
     param([string]$LiteralPath, [string]$PathType)
     if ($LiteralPath -in @('Test-Conda','Test-SourceGit','E:\SolarCheck-OpenSfM\env\python.exe')) { return $true }
     if ($LiteralPath -eq 'E:\SolarCheck-OpenSfM\env\Lib\site-packages\opensfm') { return ($script:Scenario -eq 'exists') }
+    if ($LiteralPath -match '\\build-[0-9a-f]{32}\\buildcheck.py$') { return $true }
+    if ($LiteralPath -match '\\build-[0-9a-f]{32}\\source\\.git$') { return ($script:Scenario -in @('resume','resume_bad_hash') -and $LiteralPath.Contains(('a' * 32))) }
+    if ($LiteralPath -match '\\build-[0-9a-f]{32}\\opencl-clhpp\\.git$') { return $false }
     throw 'Unexpected file query'
 }
 function New-Item {
@@ -46,6 +51,7 @@ function New-Item {
     param([string]$ItemType, [string[]]$Path, [switch]$Force)
     foreach ($p in $Path) {
         if ($p -notmatch '^E:\\SolarCheck-OpenSfM\\(build-[0-9a-f]{32}|tmp|matplotlib)$') { throw 'Unexpected write destination' }
+        if ($script:Scenario -eq 'resume' -and $p.EndsWith(('a' * 32))) { throw 'Existing build directory was recreated' }
     }
 }
 function Invoke-WebRequest {
@@ -59,22 +65,23 @@ function Get-FileHash {
     param([string]$LiteralPath, [string]$Algorithm)
     $hash = '426877f7135cc94669af14cd617a740e4f45808547f7037e1380e00e15990349'
     if ($script:Scenario -eq 'checksum') { $hash = '0' * 64 }
+    if ($script:Scenario -eq 'resume_bad_hash' -and $LiteralPath.Contains(('a' * 32))) { $hash = '0' * 64 }
     [pscustomobject]@{ Hash = $hash }
 }
 function Test-SourceGit {
     $global:LASTEXITCODE = 0
-    if ($args[0] -eq 'init') { return }
+    if ($args[0] -eq 'init') { $script:Inits++; return }
     if ($args[2] -eq 'fetch') {
         $script:Fetches++
         if ($args[3] -ne '--depth' -or $args[4] -ne '1') { throw 'Unbounded source fetch' }
         $expected = if ($script:Fetches -eq 1) {
-            @('https://github.com/OpenSfM/OpenSfM.git','8b6b77efddebf4429044d3206c7dc21c4e767e08')
-        } else { @('https://github.com/KhronosGroup/OpenCL-CLHPP.git','2a608428f725cad7903ef55e1ce5b995895838f5') }
+            @('https://github.com/OpenSfM/OpenSfM.git','refs/tags/v1.1')
+        } else { @('https://github.com/KhronosGroup/OpenCL-CLHPP.git','refs/tags/v2025.07.22') }
         if ($args[5] -ne $expected[0] -or $args[6] -ne $expected[1]) { throw 'Wrong source pin' }
         if ($script:Scenario -eq 'fetch') { $global:LASTEXITCODE = 7 }
         return
     }
-    if ($args[2] -eq 'checkout') { return }
+    if ($args[2] -eq 'checkout') { $script:Checkouts++; return }
     if ($args[2] -eq 'rev-parse') {
         if ($script:Scenario -eq 'revision') { return ('0' * 40) }
         if ($script:Fetches -eq 1) { return '8b6b77efddebf4429044d3206c7dc21c4e767e08' }
@@ -88,7 +95,16 @@ function Get-Content {
     return 'OPENSFM_HAVE_OPENCL:BOOL=ON'
 }
 function Get-ChildItem {
-    param([string]$Path, [string]$Filter, [switch]$File)
+    param([string]$Path, [string]$LiteralPath, [string]$Filter, [switch]$File, [switch]$Directory)
+    if ($Directory) {
+        if ($LiteralPath -ne 'E:\SolarCheck-OpenSfM') { throw 'Unexpected directory search' }
+        if ($script:Scenario -in @('resume','resume_bad_hash')) {
+            return [pscustomobject]@{ Name=('build-' + ('a' * 32)); FullName=('E:\SolarCheck-OpenSfM\build-' + ('a' * 32)); CreationTime=[datetime]'2026-11-08' }
+        }
+        return
+    }
+    if ($script:Scenario -eq 'resume' -and -not $Path.Contains(('a' * 32))) { throw 'Build was not resumed' }
+    if ($script:Scenario -eq 'resume_bad_hash' -and $Path.Contains(('a' * 32))) { throw 'Unqualified existing build was used' }
     [pscustomobject]@{ FullName = "$Path\opensfm-test.whl" }
 }
 function Test-Conda {
@@ -119,7 +135,7 @@ __COMMAND__
         'exists' { 'OpenSfM ist bereits vorhanden; bitte melden, nicht ueberschreiben.' }
         'download' { 'synthetic-download-error' }
         'checksum' { 'Buildpruefung-Pruefsumme stimmt nicht.' }
-        'fetch' { 'Quelltextdownload fehlgeschlagen.' }
+        'fetch' { 'Quelltextdownload OpenSfM fehlgeschlagen, Git-Exitcode: 7. Bitte die Git-Fehlerzeile davor beachten.' }
         'revision' { 'Quellcommit stimmt nicht.' }
         'build' { 'OpenSfM-Quellbau fehlgeschlagen; lokales pip-build.log erhalten.' }
         'opencl' { 'OpenCL-Unterstuetzung wurde nicht mitgebaut.' }
@@ -129,9 +145,11 @@ __COMMAND__
     }
     if ($_.Exception.Message -ne $expected) { throw }
 }
-if ($caught -ne ($script:Scenario -ne 'success')) { throw 'Incorrect error outcome' }
+if ($caught -ne ($script:Scenario -notin @('success','resume','resume_bad_hash'))) { throw 'Incorrect error outcome' }
 if ($script:Calls -ne $script:ExpectedCalls) { throw 'Unexpected build/install/probe count' }
 if ($script:Scenario -eq 'exists' -and $script:Downloads -ne 0) { throw 'Existing engine was touched' }
+if ($script:Scenario -eq 'resume' -and $script:Inits -ne 1) { throw 'Existing source repository was reinitialized' }
+if ($script:Scenario -in @('fetch','revision') -and $script:Checkouts -ne 0) { throw 'Unverified source was checked out' }
 foreach ($key in $before.Keys) {
     if ([Environment]::GetEnvironmentVariable($key, 'Process') -ne $before[$key]) { throw "Setting not restored: $key" }
 }

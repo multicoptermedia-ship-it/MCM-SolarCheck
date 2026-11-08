@@ -8,11 +8,11 @@ Build mit vorhandenem VS2022/x64/v143-Generator und zwei parallelen MSBuild-Proz
 
 [Windows-Quellbau42517970232](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42517970232), Quelle d8e6eb3c: Lockinstallation, unveränderter Engine-Quellbau, Wheelinstallation, OpenCL-Buildflag ON, neun native Module aus dem Prefix, Konstantentest und CLI-Registry bestanden. Keine GPU-Hardware/Fotoverarbeitung im CI. Zehn Vertragsfälle des exakten PowerShell-Blocks aus Quelle c38ad2a7 auf Windows/Python3.11 und3.12 bestanden; externe Werkzeuge dort inert, wirklicher Build separat wie oben. Eigener Win10-Quellbaunachweis bleibt offen.
 
-**Aktueller Nutzerbefund:** Git-fetch endet mit Startermeldung Quelltextdownload fehlgeschlagen; ursprüngliche Git-Fehlerzeile fehlt. Build noch nicht erreicht. Vorhandenen Buildordner/Umgebung erhalten, Vollblock nicht erneut ausführen. Zuerst nur originale fatal/error-Zeile und Exitcode ermitteln, keine Neuinstallation oder TLS-Abschaltung auf Verdacht.
+**Aktueller Nutzerbefund:** Git-fetch war abgebrochen, ursprüngliche Fehlerzeile fehlt. Danach öffentlicher ls-remote erfolgreich: v1.1 zeigt den erwarteten8b6b77ef, Exitcode0. Erreichbarkeit bestätigt; Grund des früheren Fetch-Abbruchs weiter unbelegt. Angepasster Block setzt im letzten eindeutig zu diesem Aufbau gehörenden Ordner fort, lädt benannte Release-Refs und prüft die festen Commits vor Checkout. Quellen werden pro Stufe benannt; bei erneutem Fehler kurze originale Git-Zeile plus Exitcode übernehmen. Keine Neuinstallation oder TLS-Abschaltung auf Verdacht.
 
 ## Lokaler Block – in normaler PowerShell
 
-Ein eigener neuer Buildordner auf E:, Quellen und Protokoll bleiben bei einem Fehler erhalten. Eine bereits installierte OpenSfM-Paketmappe wird nicht überschrieben. Temporäre Prozessvariablen werden zurückgesetzt. F:-Python/Projekte bleiben erhalten.
+Ein vorhandener `build-<32 Hexzeichen>`-Ordner wird nur mit passender geprüfter buildcheck.py und Source-Gitordner wiederverwendet. Bei mehreren passenden Versuchen wird der zuletzt angelegte verwendet; keine beliebigen Privatordner. Ohne passenden Versuch neuer Buildordner auf E:. Quellen und Protokoll bleiben bei Fehlern erhalten; keine erzwungene Checkout-/Reset-/Clean-Operation. Eine bereits installierte OpenSfM-Paketmappe wird nicht überschrieben. Temporäre Prozessvariablen werden zurückgesetzt. F:-Python/Projekte bleiben erhalten.
 
 <!-- tested-opensfm-source-build-start -->
 ```powershell
@@ -26,28 +26,46 @@ Ein eigener neuer Buildordner auf E:, Quellen und Protokoll bleiben bei einem Fe
         if (-not (Test-Path -LiteralPath $datei -PathType Leaf)) { throw 'Vorhandene OpenSfM-Umgebung oder Miniforge fehlt.' }
     }
     if (Test-Path -LiteralPath "$prefix\Lib\site-packages\opensfm") { throw 'OpenSfM ist bereits vorhanden; bitte melden, nicht ueberschreiben.' }
-    $build = Join-Path $wurzel ('build-' + [Guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory -Path $build | Out-Null
+    $hash = '426877f7135cc94669af14cd617a740e4f45808547f7037e1380e00e15990349'
+    $altBuild = Get-ChildItem -LiteralPath $wurzel -Directory -Filter 'build-*' |
+        Where-Object {
+            $_.Name -match '^build-[0-9a-f]{32}$' -and
+            (Test-Path -LiteralPath "$($_.FullName)\buildcheck.py" -PathType Leaf) -and
+            (Test-Path -LiteralPath "$($_.FullName)\source\.git" -PathType Container) -and
+            (Get-FileHash -LiteralPath "$($_.FullName)\buildcheck.py" -Algorithm SHA256).Hash -eq $hash
+        } | Sort-Object CreationTime -Descending | Select-Object -First 1
+    if ($altBuild) {
+        $build = $altBuild.FullName
+        Write-Host 'Vorhandener Buildordner wird fortgesetzt.'
+    } else {
+        $build = Join-Path $wurzel ('build-' + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $build | Out-Null
+    }
     New-Item -ItemType Directory -Path "$wurzel\tmp","$wurzel\matplotlib" -Force | Out-Null
     $source = Join-Path $build 'source'
     $headers = Join-Path $build 'opencl-clhpp'
     $pruefung = Join-Path $build 'buildcheck.py'
     $url = 'https://raw.githubusercontent.com/multicoptermedia-ship-it/MCM-SolarCheck/1085a6ad774bd1a67c371c868b34853c8f95d462/scripts/MCM_SolarCheck_OPENSFM_BUILD_PRUEFUNG.py'
     Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $pruefung
-    if ((Get-FileHash -LiteralPath $pruefung -Algorithm SHA256).Hash -ne '426877f7135cc94669af14cd617a740e4f45808547f7037e1380e00e15990349') { throw 'Buildpruefung-Pruefsumme stimmt nicht.' }
+    if ((Get-FileHash -LiteralPath $pruefung -Algorithm SHA256).Hash -ne $hash) { throw 'Buildpruefung-Pruefsumme stimmt nicht.' }
     $neu = @{ CONDA_PKGS_DIRS="$wurzel\pkgs"; TEMP="$wurzel\tmp"; TMP="$wurzel\tmp"; MPLCONFIGDIR="$wurzel\matplotlib"; PROJ_NETWORK='OFF'; CMAKE_GENERATOR='Visual Studio 17 2022'; CMAKE_BUILD_PARALLEL_LEVEL='2' }
     $alt = @{}
     foreach ($key in $neu.Keys) { $alt[$key] = [Environment]::GetEnvironmentVariable($key, 'Process') }
     try {
         foreach ($key in $neu.Keys) { [Environment]::SetEnvironmentVariable($key, $neu[$key], 'Process') }
         foreach ($record in @(
-            @($source,'https://github.com/OpenSfM/OpenSfM.git','8b6b77efddebf4429044d3206c7dc21c4e767e08'),
-            @($headers,'https://github.com/KhronosGroup/OpenCL-CLHPP.git','2a608428f725cad7903ef55e1ce5b995895838f5')
+            @($source,'https://github.com/OpenSfM/OpenSfM.git','8b6b77efddebf4429044d3206c7dc21c4e767e08','refs/tags/v1.1','OpenSfM'),
+            @($headers,'https://github.com/KhronosGroup/OpenCL-CLHPP.git','2a608428f725cad7903ef55e1ce5b995895838f5','refs/tags/v2025.07.22','OpenCL-Header')
         )) {
-            & $git init $record[0]
-            if ($LASTEXITCODE -ne 0) { throw 'Quellordner konnte nicht angelegt werden.' }
-            & $git -C $record[0] fetch --depth 1 $record[1] $record[2]
-            if ($LASTEXITCODE -ne 0) { throw 'Quelltextdownload fehlgeschlagen.' }
+            if (-not (Test-Path -LiteralPath (Join-Path $record[0] '.git') -PathType Container)) {
+                & $git init $record[0]
+                if ($LASTEXITCODE -ne 0) { throw 'Quellordner konnte nicht angelegt werden.' }
+            }
+            Write-Host ('Quelltextdownload: ' + $record[4])
+            & $git -C $record[0] fetch --depth 1 $record[1] $record[3]
+            if ($LASTEXITCODE -ne 0) { throw ('Quelltextdownload ' + $record[4] + ' fehlgeschlagen, Git-Exitcode: ' + $LASTEXITCODE + '. Bitte die Git-Fehlerzeile davor beachten.') }
+            $actual = & $git -C $record[0] rev-parse 'FETCH_HEAD^{commit}'
+            if ($LASTEXITCODE -ne 0 -or $actual -ne $record[2]) { throw 'Quellcommit stimmt nicht.' }
             & $git -C $record[0] checkout --detach FETCH_HEAD
             if ($LASTEXITCODE -ne 0) { throw 'Quellstand konnte nicht aktiviert werden.' }
             $actual = & $git -C $record[0] rev-parse HEAD
