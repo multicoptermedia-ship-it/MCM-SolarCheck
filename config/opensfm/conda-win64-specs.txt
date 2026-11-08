@@ -6,6 +6,7 @@ python=3.10
 pip
 cmake=3.31.*
 ninja
+git
 vs2022_win-64
 scikit-build-core>=0.8,<1.0
 pybind11>=2.10,<3.1
