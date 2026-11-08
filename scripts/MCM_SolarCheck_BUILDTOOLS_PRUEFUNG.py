@@ -79,7 +79,9 @@ def compiler_batch(vcvars):
 
 
 def run_batch(work, env):
-    system = Path(env["SystemRoot"]) / "System32"
+    # os.environ is case-insensitive on Windows; its copied dict is not and
+    # normally contains SYSTEMROOT. Also support differently cased test maps.
+    system = Path({key.upper(): value for key, value in env.items()}["SYSTEMROOT"]) / "System32"
     with (work / "driver.log").open("wb") as output:
         process = subprocess.Popen(
             [str(system / "cmd.exe"), "/d", "/c", "check.cmd"],

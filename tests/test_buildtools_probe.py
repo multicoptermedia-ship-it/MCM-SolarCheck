@@ -93,7 +93,8 @@ def test_success_exit_without_valid_executable_and_output_is_rejected(tmp_path, 
     assert probe.check(tmp_path / "output")["status"] == "result_invalid"
 
 
-def test_timeout_stops_only_the_owned_process_tree(tmp_path, monkeypatch):
+@pytest.mark.parametrize("root_key", ["SystemRoot", "SYSTEMROOT", "systemroot"])
+def test_timeout_stops_only_the_owned_process_tree(tmp_path, monkeypatch, root_key):
     class Process:
         pid = 12345
         calls = 0
@@ -108,7 +109,7 @@ def test_timeout_stops_only_the_owned_process_tree(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(probe.subprocess, "Popen", lambda *a, **kw: process)
     monkeypatch.setattr(probe.subprocess, "run", lambda args, **kw: calls.append(args))
-    assert probe.run_batch(tmp_path, {"SystemRoot": str(tmp_path / "synthetic Windows")}) is None
+    assert probe.run_batch(tmp_path, {root_key: str(tmp_path / "synthetic Windows")}) is None
     assert calls == [[str(tmp_path / "synthetic Windows" / "System32" / "taskkill.exe"),
                       "/PID", "12345", "/T", "/F"]]
     assert process.calls == 2
