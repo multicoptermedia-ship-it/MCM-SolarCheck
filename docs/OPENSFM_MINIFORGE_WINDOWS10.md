@@ -13,11 +13,20 @@ Der Nutzer hat den Rechner aufgeräumt und meldet **28 GB freien Speicher auf C:
 
 ## Nächster Schritt: tatsächlicher Compiler-/SDK-/x64-Test
 
-[Prüfdatei MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py](../scripts/MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py) als kleine SolarCheck-Quelldatei nach `E:\Tools\SolarCheck-Checks` speichern und mit dem bestehenden Python starten:
+[Prüfdatei MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py](../scripts/MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py), festgelegte Quelle **d6fa78cb751a6443ff742b91b035852ef8c45c67**. Dieser Block in einer normalen PowerShell lädt nur die kleine SolarCheck-Quelldatei nach E: und startet sie mit dem vorhandenen F:-Python. Ein Downloadfehler beendet den Block vor dem Start einer alten Datei:
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\Tools\SolarCheck-Checks\MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py'
+& {
+    $zielOrdner = 'E:\Tools\SolarCheck-Checks'
+    New-Item -ItemType Directory -Path $zielOrdner -Force -ErrorAction Stop | Out-Null
+    $pruefung = Join-Path $zielOrdner 'MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py'
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/multicoptermedia-ship-it/MCM-SolarCheck/d6fa78cb751a6443ff742b91b035852ef8c45c67/scripts/MCM_SolarCheck_BUILDTOOLS_PRUEFUNG.py' -OutFile $pruefung -ErrorAction Stop
+    & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' $pruefung
+}
 ```
+
+Quell-URL erfolgreich gelesen und bytegenau mit der Repositorydatei verglichen:8038 Bytes, SHA256 `6e2487b806740f9c7c5155214b2049650d36e614508cd334cbaef910e7ac4855`. Kein Installer oder Paketdownload durch die Prüfdatei selbst; der obige manuelle Startblock benötigt Internet nur zum Laden ihres Quellcodes.
+
 
 Die Prüfdatei verwendet nur die Python-Standardbibliothek und die vorhandenen VS2022-C++-Werkzeuge. Sie startet keinen Installer, lädt keine Pakete herunter und liest keine Projekt-/Fotoordner. Registrierte vollständige VS2022-Installation wird über das vorhandene vswhere gefunden. Ausschließlich eigene neue Dateien unter **E:\Tools\SolarCheck-BuildCheck\probe-…**: synthetisches C++17-Programm, Batchdatei, Objekt/EXE, lokale Protokolle und Temp-Unterordner. Kein C:-Fallback und keine Bereinigung/Überschreibung alter Läufe. TEMP/TMP nur im Testkindprozess auf den eigenen E:-Unterordner gesetzt, keine dauerhaften Umgebungs-/Registry-/PowerShell-Einstellungen.
 
@@ -27,7 +36,8 @@ Der feste E:-Standardpfad verwendet nur einfache ASCII-Zeichen. `output_path_uns
 
 `status: passed` mit `cpp17_windows_sdk_x64: passed` bestätigt diese kleine Toolchain-Probe auf dem konkreten Rechner. `opensfm: not_tested` bleibt ausdrücklich erhalten. Erst danach getrennte OpenSfM-Umgebung/Paketlösung, echter Build und Werkzeugstart; noch keine Kundenbilder oder Orthofotoqualität. Der upstream Windows-Lock/pure-conda-forge-Ersatz ist weiterhin ungeklärt, keine komplette Einrichtung behaupten.
 
-**Prüfstatus:** Neue synthetische Fehler-/Datenschutztests und echter MSVC-/SDK-/x64-Test für Windows-CI/Python3.11/3.12 vorbereitet. Linux kann den nativen Teil nicht ausführen; exakten neuen Windows-HEAD vor Rückmeldung separat prüfen. Reale Windows10-Nutzerausgabe steht aus.
+**Prüfstatus Quelle d6fa78cb:** Lokal68 zielgerichtete Tests bestanden/vier native Windows-Skips. Der tatsächliche Compiler-/SDK-/x64-Lauf ist auf Windows2022/Python3.11 und3.12 im [Windows-CI-Lauf](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42508265683) bestanden. Vollständige Workflows separat prüfen; neuer Dokumentations-HEAD wird dadurch nicht automatisch grün. Das ist kein realer Windows10-Nutzerbefund. Nächster benötigter Befund ist die kurze JSON-Ausgabe vom Nutzer; bei PASS danach Engine-Umgebung/Paketlösung/Build, keine erneute Compiler-/Installer-/OpenCL-Schleife ohne Fehlerbefund.
+
 
 ## Abgeschlossene Speicherklärung – Historie
 
