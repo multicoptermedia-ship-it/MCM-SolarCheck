@@ -144,7 +144,8 @@ def check(output_root):
         return {**report, "status": "windows_required"}
     # VsDevCmd internally expands TEMP/CWD in batch commands. Do not feed it
     # shell metacharacters, even though our own redirections are quoted.
-    if not batch_path_supported(output_root):
+    if (not batch_path_supported(output_root)
+            or any(char.isspace() or char in "()" for char in str(output_root))):
         return {**report, "status": "output_path_unsupported"}
     candidate = find_vs2022()
     if candidate is None:

@@ -50,7 +50,7 @@ def test_command_expansion_and_non_ascii_setup_paths_are_not_executed(tmp_path, 
     assert not output.exists()
 
 
-@pytest.mark.parametrize("suffix", [' & tools', '%PATH%', '!tools', '^tools', '\u00e4'])
+@pytest.mark.parametrize("suffix", [' & tools', '%PATH%', '!tools', '^tools', '\u00e4', ' space', '(tools)'])
 def test_unsupported_workspace_is_rejected_before_any_write_or_discovery(tmp_path, monkeypatch, suffix):
     monkeypatch.setattr(probe.sys, "platform", "win32")
 
@@ -68,7 +68,7 @@ def test_failures_keep_raw_logs_local_and_do_not_change_existing_files(tmp_path,
     installed_fixture(tmp_path, monkeypatch)
     original = tmp_path / "existing-project.txt"
     original.write_bytes(b"unchanged-project-fixture")
-    output = tmp_path / "owned probes"
+    output = tmp_path / "owned-probes"
 
     def failed(work, env):
         assert Path(env["TEMP"]).parent == work
@@ -134,11 +134,10 @@ def test_x86_executable_cannot_pass_as_x64(tmp_path):
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Requires actual MSVC and Windows SDK")
-@pytest.mark.parametrize("folder", ["probe-files", "probe files (spaces)"])
-def test_native_windows_cpp17_sdk_compile_link_and_execution(tmp_path, folder):
+def test_native_windows_cpp17_sdk_compile_link_and_execution(tmp_path):
     # Required on the pinned windows-2022 CI image, not silently skipped if
     # the SDK/toolchain is absent. Only the explicit disposable CI directory.
-    output = tmp_path / folder
+    output = tmp_path / "probe-files"
     report = probe.check(output)
     if report["status"] != "passed":
         # Diagnostics from this test's newly generated, synthetic CI build only.
