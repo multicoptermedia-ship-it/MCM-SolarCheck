@@ -30,7 +30,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install pytest
-          python -m pytest -q tests/test_buildtools_probe.py
+          python -m pytest -q tests/test_buildtools_probe.py tests/test_opensfm_environment_command.py
       - name: Install runtime and test dependencies
         shell: pwsh
         run: |

@@ -11,13 +11,13 @@ Der Nutzer hat den Rechner aufgeräumt und meldet **28 GB freien Speicher auf C:
 - Microsoft-C++-Buildtools/SDK ausschließlich für den OpenSfM-Build freigegeben (REQ-ORTHO-03A); nicht erneut bestätigen lassen. Windows10 bleibt Zielplattform, vorhandenes F:-Python und SQLite werden erhalten.
 - Neue Builddateien und Paket-Caches weiterhin auf E: vorsehen. 28 GB sind ein aktueller Nutzerbefund, keine allgemeine Garantie für den Speicherbedarf aller noch ungelösten Pakete.
 
-## Nächster Schritt: getrennte OpenSfM-Paketumgebung (in Arbeit)
+## Nächster Schritt: qualifizierte OpenSfM-Abhängigkeiten auf E:
 
-**OPEN-SFM-ENV-01:** Der Compiler-/SDK-Test ist abgeschlossen; nicht erneut ausführen. Die neue Umgebung soll einschließlich Paket-Caches/Temp auf E: liegen, getrennt von F:-SolarCheck. Quelle OpenSfM v1.1 `8b6b77efddebf4429044d3206c7dc21c4e767e08`, Python3.10 entsprechend upstream. Bestehende Miniforge-Installation weiterverwenden, kein conda init oder globales PATH-/Default-Python-Umschalten.
+**MSVC-SDK-01 beim Nutzer abgeschlossen.** Für die getrennte Umgebung den [konkreten Startblock](OPENSFM_UMGEBUNG_WINDOWS10.md) verwenden, nicht nochmals diesen Compiler-/Installationsverlauf abarbeiten.
 
-[Candidate-Spezifikation](../config/opensfm/conda-win64-specs.txt): ausschließlich expliziter conda-forge-Kanal mit override-channels/strikter Priorität, CPU-Ceres2.2, OpenBLAS statt MKL, Headless-OpenCV; native Build-/Python-Laufzeitabhängigkeiten aus dem Quellstand aufgenommen. Paketmetadaten belegen passende Windows/Python3.10-Varianten für igraph1.0, leidenalg0.11 und rerun-sdk0.27.2. Das ist **noch keine gelöste oder installierte Umgebung**. Nicht den upstream-Mischlock verwenden und nicht bereits ungeprüft das neue Kandidatenrezept beim Nutzer installieren.
+**OPEN-SFM-ENV-01:** Festgeschriebene293-Paket-Lösung für Windows/Python3.10, nur conda-forge, CPU-Ceres2.2/OpenBLAS/Headless-OpenCV/Git. Reale Installation aus dem Lock und22 isolierte Bibliotheksimporte inklusive GeoTIFF-Treiber im Windows-Lauf42514749322 erfolgreich. Ca508,5 MiB Paketdownloads, zusätzlicher entpackter Platz auf E:. Neue Clientumgebung E:\SolarCheck-OpenSfM\env, vorhandener F:-Fachkern/SQLite bleibt erhalten; kein conda init oder globaler Python-/PATH-Umbau. Reale Win10-Umgebungs-JSON-Ausgabe noch offen.
 
-Neue unabhängige Windows2022-CI nutzt das dort vorhandene Conda26.9.4 nur für einen Dry-run des Kandidatenrezepts in separatem Arbeits-/Cache-/Tempbereich. Zunächst tatsächliche Paketlösung/Quellen/CPU-Varianten prüfen; erst danach konkreten isolierten Installationsweg bereitstellen. Keine Fotos, Kundenordner, SQLite oder Engine-Serienläufe in CI.
+OpenSfM-v1.1-Quellbau/Engine-Start und echte RGB-/Thermal-Rekonstruktion sind **noch nicht ausgeführt**. `opensfm: not_built` im nächsten Abhängigkeitstest ist richtig. Danach Quellbau aus8b6b77efddebf4429044d3206c7dc21c4e767e08 getrennt qualifizieren; bestehende GeoTIFF-/PV-Kette erhalten. Candidate-Rezept nur bewusst aktualisieren, keine neue Paketauflösung im Nutzerlauf.
 
 ## Abgeschlossen: Compiler-/SDK-/x64-Test – nicht erneut ausführen
 
