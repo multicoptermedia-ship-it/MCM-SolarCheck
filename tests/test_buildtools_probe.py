@@ -16,8 +16,7 @@ spec.loader.exec_module(probe)
 
 
 def installed_fixture(tmp_path, monkeypatch):
-    # Spaces, parentheses and ampersands must not break the batch CALL/cwd.
-    installation = tmp_path / "synthetic VS (2022) & SDK"
+    installation = tmp_path / "synthetic VS (2022) SDK"
     vcvars = installation / "VC" / "Auxiliary" / "Build" / "vcvars64.bat"
     vcvars.parent.mkdir(parents=True)
     vcvars.write_text("@echo off\n", encoding="ascii")
@@ -36,7 +35,7 @@ def test_missing_cpp_tools_writes_nothing(tmp_path, monkeypatch):
     assert not output.exists()
 
 
-@pytest.mark.parametrize("character", ['%', '!', '^', '"', '\r', '\n', '\u00e4'])
+@pytest.mark.parametrize("character", ['%', '!', '^', '"', '&', '|', '<', '>', '\r', '\n', '\u00e4'])
 def test_command_expansion_and_non_ascii_setup_paths_are_not_executed(tmp_path, monkeypatch, character):
     if character in '<>"\r\n' and sys.platform == "win32":
         # Windows does not permit these characters in an actual path.
@@ -48,6 +47,19 @@ def test_command_expansion_and_non_ascii_setup_paths_are_not_executed(tmp_path, 
     monkeypatch.setattr(probe, "compiler_batch", lambda path: original_batch(str(path) + character))
     output = tmp_path / "not-created"
     assert probe.check(output)["status"] == "setup_path_unsupported"
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("suffix", [' & tools', '%PATH%', '!tools', '^tools', '\u00e4'])
+def test_unsupported_workspace_is_rejected_before_any_write_or_discovery(tmp_path, monkeypatch, suffix):
+    monkeypatch.setattr(probe.sys, "platform", "win32")
+
+    def no_discovery():
+        pytest.fail("Unsupported workspace must fail before starting discovery")
+
+    monkeypatch.setattr(probe, "find_vs2022", no_discovery)
+    output = tmp_path / ("probe" + suffix)
+    assert probe.check(output)["status"] == "output_path_unsupported"
     assert not output.exists()
 
 
@@ -122,7 +134,7 @@ def test_x86_executable_cannot_pass_as_x64(tmp_path):
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Requires actual MSVC and Windows SDK")
-@pytest.mark.parametrize("folder", ["probe-files", "probe files (spaces) & tools"])
+@pytest.mark.parametrize("folder", ["probe-files", "probe files (spaces)"])
 def test_native_windows_cpp17_sdk_compile_link_and_execution(tmp_path, folder):
     # Required on the pinned windows-2022 CI image, not silently skipped if
     # the SDK/toolchain is absent. Only the explicit disposable CI directory.

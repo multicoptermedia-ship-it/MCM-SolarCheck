@@ -18,6 +18,7 @@ import tempfile
 
 OUTPUT_ROOT = r"E:\Tools\SolarCheck-BuildCheck"
 TOKEN = b"SOLARCHECK_CXX17_SDK_X64_OK"
+UNSAFE_BATCH_PATH = '%!^"&|<>\r\n'
 SOURCE = r"""#include <windows.h>
 #include <cstdio>
 #include <numeric>
@@ -59,10 +60,15 @@ def find_vs2022():
     return candidates[0]
 
 
+def batch_path_supported(path):
+    value = str(path)
+    return value.isascii() and not any(char in value for char in UNSAFE_BATCH_PATH)
+
+
 def compiler_batch(vcvars):
     # CALL expands its argument twice. Refuse expansion characters rather than
     # attempting to repair arbitrary command syntax in an installation path.
-    if any(char in str(vcvars) for char in '%!^"\r\n'):
+    if not batch_path_supported(vcvars):
         raise ValueError("unsupported setup path")
     return (
         '@echo off\r\nsetlocal\r\n'
@@ -136,6 +142,10 @@ def check(output_root):
               "installer_started": False, "opensfm": "not_tested"}
     if sys.platform != "win32":
         return {**report, "status": "windows_required"}
+    # VsDevCmd internally expands TEMP/CWD in batch commands. Do not feed it
+    # shell metacharacters, even though our own redirections are quoted.
+    if not batch_path_supported(output_root):
+        return {**report, "status": "output_path_unsupported"}
     candidate = find_vs2022()
     if candidate is None:
         return {**report, "status": "vs2022_cpp_not_found"}
