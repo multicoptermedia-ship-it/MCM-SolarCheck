@@ -5,9 +5,14 @@ on:
     paths:
       - '.github/workflows/opensfm-windows-environment.yml'
       - 'config/opensfm/**'
-      - 'scripts/opensfm_conda_*'
+      - 'scripts/MCM_SolarCheck_OPENSFM_UMGEBUNG*'
       - 'tests/test_opensfm_conda_*'
   workflow_dispatch:
+    inputs:
+      refresh_lock:
+        description: Resolve candidate specifications instead of testing the committed lock
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,7 +27,7 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - name: Resolve and install exact CPU environment and verify isolated imports
+      - name: Install pinned CPU environment and verify isolated imports
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -34,33 +39,46 @@ jobs:
           $env:PROJ_NETWORK = 'OFF'
           New-Item -ItemType Directory -Path $work,$env:CONDA_PKGS_DIRS,$env:TEMP -Force | Out-Null
           $conda = Join-Path $env:CONDA 'Scripts\conda.exe'
-          & $conda create --dry-run --json --solver libmamba --prefix "$work\env" --override-channels --channel https://conda.anaconda.org/conda-forge --strict-channel-priority --file config/opensfm/conda-win64-specs.txt |
-            Set-Content -Encoding utf8 "$work\plan.json"
-          if ($LASTEXITCODE -ne 0) {
-            Get-Content "$work\plan.json"
-            throw 'OpenSfM Windows package resolution failed.'
+          $locked = 'config/opensfm/conda-win64-explicit.lock'
+          $refresh = '${{ github.event.inputs.refresh_lock }}' -eq 'true'
+          if ((Test-Path $locked) -and !$refresh) {
+            Copy-Item $locked "$work\conda-win64-explicit.lock"
+            $explicit = @(Get-Content "$work\conda-win64-explicit.lock")
+          } else {
+            & $conda create --dry-run --json --solver libmamba --prefix "$work\env" --override-channels --channel https://conda.anaconda.org/conda-forge --strict-channel-priority --file config/opensfm/conda-win64-specs.txt |
+              Set-Content -Encoding utf8 "$work\plan.json"
+            if ($LASTEXITCODE -ne 0) {
+              Get-Content "$work\plan.json"
+              throw 'OpenSfM Windows package resolution failed.'
+            }
+            $plan = Get-Content "$work\plan.json" -Raw | ConvertFrom-Json
+            $links = @($plan.actions.LINK)
+            $fetch = @($plan.actions.FETCH)
+            if (!$plan.success -or $links.Count -lt 1 -or $links.Count -ne $fetch.Count) {
+              throw 'Expected a complete plan with a fresh package cache.'
+            }
+            foreach ($item in $links) {
+              if ($item.base_url -ne 'https://conda.anaconda.org/conda-forge') { throw 'Unexpected package source.' }
+              if ($item.name -match '^(cuda-|cudatoolkit|cudnn|libcu(bl|fft|rand|solver|sparse)|mkl|onemkl|intel-openmp)') { throw 'Unexpected CUDA/MKL package.' }
+              if ($item.name -eq 'ceres-solver' -and $item.build_string -notlike 'cpu*') { throw 'CPU Ceres required.' }
+              if ($item.name -in @('libblas','liblapack') -and $item.build_string -notlike '*openblas*') { throw 'OpenBLAS required.' }
+            }
+            $linked = @($links | ForEach-Object { "$($_.name)|$($_.version)|$($_.build_string)" } | Sort-Object)
+            $fetched = @($fetch | ForEach-Object { "$($_.name)|$($_.version)|$($_.build)" } | Sort-Object)
+            if (Compare-Object $linked $fetched) { throw 'Link/fetch records differ.' }
+            $explicit = @('@EXPLICIT')
+            foreach ($item in ($fetch | Sort-Object name)) {
+              if ($item.url -cnotmatch '^https://conda[.]anaconda[.]org/conda-forge/(win-64|noarch)/[^/?#]+[.](conda|tar[.]bz2)$' -or $item.md5 -notmatch '^[0-9a-f]{32}$') { throw 'Invalid explicit package record.' }
+              $explicit += "$($item.url)#$($item.md5)"
+            }
+            $explicit | Set-Content -Encoding utf8 "$work\conda-win64-explicit.lock"
           }
-          $plan = Get-Content "$work\plan.json" -Raw | ConvertFrom-Json
-          $links = @($plan.actions.LINK)
-          $fetch = @($plan.actions.FETCH)
-          if (!$plan.success -or $links.Count -lt 1 -or $links.Count -ne $fetch.Count) {
-            throw 'Expected a complete plan with a fresh package cache.'
+          if (@($explicit | Where-Object { $_ -ceq '@EXPLICIT' }).Count -ne 1) { throw 'Explicit lock header missing.' }
+          $expected = @($explicit | Where-Object { $_ -like 'https://*' } | Sort-Object)
+          if ($expected.Count -lt 1 -or @($expected | Select-Object -Unique).Count -ne $expected.Count) { throw 'Empty/duplicate explicit lock.' }
+          foreach ($url in $expected) {
+            if ($url -cnotmatch '^https://conda[.]anaconda[.]org/conda-forge/(win-64|noarch)/[^/?#]+[.](conda|tar[.]bz2)#[0-9a-f]{32}$') { throw 'Unapproved explicit package URL/hash.' }
           }
-          foreach ($item in $links) {
-            if ($item.base_url -ne 'https://conda.anaconda.org/conda-forge') { throw 'Unexpected package source.' }
-            if ($item.name -match '^(cuda-|cudatoolkit|cudnn|libcu(bl|fft|rand|solver|sparse)|mkl|onemkl|intel-openmp)') { throw 'Unexpected CUDA/MKL package.' }
-            if ($item.name -eq 'ceres-solver' -and $item.build_string -notlike 'cpu*') { throw 'CPU Ceres required.' }
-            if ($item.name -in @('libblas','liblapack') -and $item.build_string -notlike '*openblas*') { throw 'OpenBLAS required.' }
-          }
-          $linked = @($links | ForEach-Object { "$($_.name)|$($_.version)|$($_.build_string)" } | Sort-Object)
-          $fetched = @($fetch | ForEach-Object { "$($_.name)|$($_.version)|$($_.build)" } | Sort-Object)
-          if (Compare-Object $linked $fetched) { throw 'Link/fetch records differ.' }
-          $explicit = @('@EXPLICIT')
-          foreach ($item in ($fetch | Sort-Object name)) {
-            if ($item.url -cnotmatch '^https://conda[.]anaconda[.]org/conda-forge/(win-64|noarch)/[^/?#]+[.](conda|tar[.]bz2)$' -or $item.md5 -notmatch '^[0-9a-f]{32}$') { throw 'Invalid explicit package record.' }
-            $explicit += "$($item.url)#$($item.md5)"
-          }
-          $explicit | Set-Content -Encoding utf8 "$work\conda-win64-explicit.lock"
           & $conda create --yes --prefix "$work\env" --file "$work\conda-win64-explicit.lock" --json |
             Set-Content -Encoding utf8 "$work\install.json"
           if ($LASTEXITCODE -ne 0) {
@@ -69,6 +87,20 @@ jobs:
           }
           & $conda run --no-capture-output --prefix "$work\env" python -I scripts/MCM_SolarCheck_OPENSFM_UMGEBUNG_PRUEFUNG.py
           if ($LASTEXITCODE -ne 0) { throw 'OpenSfM dependency imports failed.' }
+          & $conda list --prefix "$work\env" --json |
+            Set-Content -Encoding utf8 "$work\inventory.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Installed inventory unavailable.' }
+          $inventory = @(Get-Content "$work\inventory.json" -Raw | ConvertFrom-Json)
+          $names = @($inventory | ForEach-Object { $_.name })
+          foreach ($required in @('python','ceres-solver','libblas','liblapack','libopencv','py-opencv','git')) {
+            if ($required -notin $names) { throw 'Required native dependency missing.' }
+          }
+          foreach ($item in $inventory) {
+            if ($item.name -match '^(cuda-|cudatoolkit|cudnn|nccl|libcu(bl|fft|rand|solver|sparse)|libnvjitlink|mkl|onemkl|intel-openmp)') { throw 'Unexpected CUDA/MKL package.' }
+            if ($item.name -eq 'ceres-solver' -and $item.build_string -notlike 'cpu*') { throw 'CPU Ceres required.' }
+            if ($item.name -in @('libblas','liblapack') -and $item.build_string -notlike '*openblas*') { throw 'OpenBLAS required.' }
+            if ($item.name -in @('libopencv','py-opencv') -and $item.build_string -notlike 'headless*') { throw 'Headless OpenCV required.' }
+          }
           & $conda list --prefix "$work\env" --explicit --md5 |
             Set-Content -Encoding utf8 "$work\installed-explicit.lock"
           if ($LASTEXITCODE -ne 0) { throw 'Installed environment export failed.' }
@@ -84,4 +116,5 @@ jobs:
             ${{ runner.temp }}/solarcheck-opensfm/conda-win64-explicit.lock
             ${{ runner.temp }}/solarcheck-opensfm/installed-explicit.lock
             ${{ runner.temp }}/solarcheck-opensfm/install.json
+            ${{ runner.temp }}/solarcheck-opensfm/inventory.json
           retention-days: 7
