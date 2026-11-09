@@ -87,10 +87,13 @@ static Frame locate(DWORD64 pc, const std::vector<Module>& list) {
     return {"unknown_module", 0, false};
 }
 
-static std::vector<Frame> capture(HANDLE process, HANDLE thread, const wchar_t* empty_symbols) {
+static std::vector<Frame> capture(HANDLE process, HANDLE thread, const wchar_t* empty_symbols,
+    std::string& unwind_stage, DWORD& unwind_error) {
     CONTEXT context{};
     context.ContextFlags = CONTEXT_FULL;
-    if (!GetThreadContext(thread, &context)) return {};
+    if (!GetThreadContext(thread, &context)) {
+        unwind_stage = "context_failed"; unwind_error = GetLastError(); return {};
+    }
     auto list = modules(process);
     std::vector<Frame> result{locate(context.Rip, list)};
     // Ignore environment symbol paths AND embedded PDB references. We only
@@ -98,7 +101,10 @@ static std::vector<Frame> capture(HANDLE process, HANDLE thread, const wchar_t* 
     SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_FAIL_CRITICAL_ERRORS |
         SYMOPT_NO_PROMPTS | SYMOPT_IGNORE_NT_SYMPATH | SYMOPT_IGNORE_CVREC |
         SYMOPT_DISABLE_SYMSRV_AUTODETECT | SYMOPT_SECURE);
-    if (!SymInitializeW(process, empty_symbols, TRUE)) return result;
+    if (!SymInitializeW(process, empty_symbols, TRUE)) {
+        unwind_stage = "symbols_failed"; unwind_error = GetLastError(); return result;
+    }
+    unwind_stage = "walking";
     STACKFRAME64 frame{};
     frame.AddrPC.Offset = context.Rip;
     frame.AddrPC.Mode = AddrModeFlat;
@@ -108,9 +114,11 @@ static std::vector<Frame> capture(HANDLE process, HANDLE thread, const wchar_t* 
     frame.AddrFrame.Mode = AddrModeFlat;
     DWORD64 previous_pc = context.Rip, previous_sp = context.Rsp;
     for (int i = 0; i < 31; ++i) {
+        SetLastError(0);
         if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, process, thread, &frame, &context,
-            nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr) || !frame.AddrPC.Offset)
-            break;
+            nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr) || !frame.AddrPC.Offset) {
+            unwind_error = GetLastError(); break;
+        }
         if (frame.AddrPC.Offset == previous_pc && frame.AddrStack.Offset == previous_sp) break;
         // StackWalk's first result may describe the current instruction.
         if (frame.AddrPC.Offset != previous_pc)
@@ -170,6 +178,8 @@ int wmain(int argc, wchar_t** argv) {
     ULONGLONG deadline = GetTickCount64() + limit;
     bool captured = false, exited = false, timed_out = false, initial_break = true;
     DWORD exit_code = STILL_ACTIVE, exception = 0;
+    DWORD unwind_error = 0;
+    std::string unwind_stage = "not_started";
     std::vector<Frame> frames;
     while (!exited && GetTickCount64() < deadline) {
         DEBUG_EVENT event{};
@@ -195,7 +205,7 @@ int wmain(int argc, wchar_t** argv) {
                 captured = true;
                 exception = code;
                 HANDLE thread = OpenThread(THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, event.dwThreadId);
-                if (thread) { frames = capture(process.hProcess, thread, symbols); CloseHandle(thread); }
+                if (thread) { frames = capture(process.hProcess, thread, symbols, unwind_stage, unwind_error); CloseHandle(thread); }
             }
         } else if (event.dwDebugEventCode == EXIT_PROCESS_DEBUG_EVENT) {
             exited = true;
@@ -230,7 +240,7 @@ int wmain(int argc, wchar_t** argv) {
         if (frames[i].known) std::printf(",\"offset\":\"0x%llX\"", frames[i].offset);
         std::putchar('}');
     }
-    std::puts("]}");
+    std::printf("],\"unwind_stage\":\"%s\",\"unwind_error\":%lu}\n", unwind_stage.c_str(), unwind_error);
     return captured && !timed_out ? 0 : 1;
 }
 '''
@@ -326,9 +336,14 @@ def filtered_report(stdout, helper_exit):
             safe.append(row)
         if status == 'captured' and (helper_exit != 0 or code == 0 or exception == '0x00000000'):
             raise ValueError('inconsistent capture')
+        extra = {}
+        if raw.get('unwind_stage') in ('not_started', 'context_failed', 'symbols_failed', 'walking'):
+            extra['unwind_stage'] = raw['unwind_stage']
+        if type(raw.get('unwind_error')) is int and 0 <= raw['unwind_error'] <= 0xffffffff:
+            extra['unwind_error'] = raw['unwind_error']
         return {'status': status, 'target_exit_code': code,
                 'target_exit_code_hex': f'0x{code:08X}', 'exception_code_hex': exception,
-                'frames': safe}
+                'frames': safe, **extra}
     except (ValueError, TypeError, KeyError):
         return {'status': 'invalid_debugger_report'}
 
