@@ -194,3 +194,30 @@ def test_partial_native_error_is_diagnostic_and_does_not_expose_exception_text()
     assert result == {'reported_status': 'native_check_failed', 'accepted_as_success': False,
                       'error_type': 'RuntimeError'}
     assert probe.before_exit_summary({'status': 'private/path'}) == {}
+
+
+def test_official_cli_registry_is_imported_before_native_subset(monkeypatch):
+    order = []
+    prefix = Path(probe.sys.prefix)
+    def load(name):
+        order.append(name)
+        return SimpleNamespace(__file__=str(prefix / 'synthetic-packages' / name / '__init__.py'))
+    monkeypatch.setattr(probe.importlib, 'import_module', load)
+    modules = probe.load_engine(cli_imports=True)
+    assert order == ['opensfm.commands', 'numpy', 'opensfm.pyfeatures', 'opensfm.pydense']
+    assert len(modules) == 3
+
+
+def test_cli_start_requires_explicit_cache_before_any_native_work(monkeypatch):
+    monkeypatch.delenv('MPLCONFIGDIR', raising=False)
+    def load(**kwargs):
+        pytest.fail('Missing cache must stop before imports')
+    assert probe.worker('inventory', load=load, cli_imports=True) == {'status': 'cache_not_configured'}
+
+
+def test_cli_start_is_forwarded_to_each_isolated_worker(monkeypatch):
+    def launch(args, **kwargs):
+        assert '--cli-imports' in args and '--system-opencl' in args and '-I' in args
+        return SimpleNamespace(communicate=lambda timeout: (probe.MARKER + '{"status":"completed"}', ''), returncode=0)
+    monkeypatch.setattr(probe.subprocess, 'Popen', launch)
+    assert probe.run_worker('inventory', system_opencl=True, cli_imports=True)['status'] == 'completed'
