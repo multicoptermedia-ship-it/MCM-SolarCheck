@@ -17,15 +17,25 @@ ROOT = Path(__file__).resolve().parents[1]
     ("fetch", 0), ("revision", 0), ("build", 1), ("opencl", 1),
     ("install", 2), ("probe", 3), ("resume", 3), ("resume_bad_hash", 3),
 ])
-def test_build_command_stops_before_install_on_failure_and_restores_settings(tmp_path, scenario, calls):
+@pytest.mark.parametrize("existing_git_config", [False, True])
+def test_build_command_stops_before_install_on_failure_and_restores_settings(tmp_path, scenario, calls, existing_git_config):
     doc = (ROOT / "docs/OPENSFM_QUELLBAU_WINDOWS10.md").read_text(encoding="utf-8")
     section = doc.split("<!-- tested-opensfm-source-build-start -->", 1)[1]
     command = re.search(r"```powershell\n(.*?)\n```", section, re.S).group(1)
     command = command.replace("'E:\\Tools\\Miniforge3\\Scripts\\conda.exe'", "'Test-Conda'")
     command = command.replace("Join-Path $prefix 'Library\\bin\\git.exe'", "'Test-SourceGit'")
     preamble = r"""
+# Only this disposable PowerShell child is changed, never the host's config.
+foreach ($key in @('GIT_CONFIG_COUNT','GIT_CONFIG_KEY_0','GIT_CONFIG_VALUE_0','GIT_CONFIG_KEY_1','GIT_CONFIG_VALUE_1','GIT_CONFIG_KEY_2','GIT_CONFIG_VALUE_2')) {
+    [Environment]::SetEnvironmentVariable($key, $null, 'Process')
+}
+if ($script:ExistingGitConfig) {
+    $env:GIT_CONFIG_COUNT = '1'
+    $env:GIT_CONFIG_KEY_0 = 'user.synthetic'
+    $env:GIT_CONFIG_VALUE_0 = 'preserved'
+}
 $before = @{}
-foreach ($key in @('CONDA_PKGS_DIRS','TEMP','TMP','MPLCONFIGDIR','PROJ_NETWORK','CMAKE_GENERATOR','CMAKE_BUILD_PARALLEL_LEVEL')) {
+foreach ($key in @('CONDA_PKGS_DIRS','TEMP','TMP','MPLCONFIGDIR','PROJ_NETWORK','CMAKE_GENERATOR','CMAKE_BUILD_PARALLEL_LEVEL','GIT_CONFIG_COUNT','GIT_CONFIG_KEY_0','GIT_CONFIG_VALUE_0','GIT_CONFIG_KEY_1','GIT_CONFIG_VALUE_1','GIT_CONFIG_KEY_2','GIT_CONFIG_VALUE_2')) {
     $before[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
 }
 $script:Calls = 0
@@ -33,6 +43,17 @@ $script:Fetches = 0
 $script:Downloads = 0
 $script:Inits = 0
 $script:Checkouts = 0
+function Assert-GitScope {
+    $start = if ($script:ExistingGitConfig) { 1 } else { 0 }
+    if ([int]$env:GIT_CONFIG_COUNT -ne $start + 2) { throw 'Wrong Git config count' }
+    if ($script:ExistingGitConfig -and ($env:GIT_CONFIG_KEY_0 -ne 'user.synthetic' -or $env:GIT_CONFIG_VALUE_0 -ne 'preserved')) { throw 'Existing Git settings overwritten' }
+    $safePaths = @()
+    foreach ($i in @($start, ($start+1))) {
+        if ([Environment]::GetEnvironmentVariable("GIT_CONFIG_KEY_$i", 'Process') -ne 'safe.directory') { throw 'Wrong Git exception key' }
+        $safePaths += [Environment]::GetEnvironmentVariable("GIT_CONFIG_VALUE_$i", 'Process')
+    }
+    if ($safePaths[0] -notmatch '^E:/SolarCheck-OpenSfM/build-[0-9a-f]{32}/source$' -or $safePaths[1] -ne ($safePaths[0] -replace '/source$', '/opencl-clhpp')) { throw 'Git exception outside the two repositories' }
+}
 function Join-Path {
     param([string]$Path, [string]$ChildPath)
     [IO.Path]::Combine($Path, $ChildPath)
@@ -69,6 +90,7 @@ function Get-FileHash {
     [pscustomobject]@{ Hash = $hash }
 }
 function Test-SourceGit {
+    Assert-GitScope
     $global:LASTEXITCODE = 0
     if ($args[0] -eq 'init') { $script:Inits++; return }
     if ($args[2] -eq 'fetch') {
@@ -108,6 +130,7 @@ function Get-ChildItem {
     [pscustomobject]@{ FullName = "$Path\opensfm-test.whl" }
 }
 function Test-Conda {
+    Assert-GitScope
     $script:Calls++
     $global:LASTEXITCODE = 0
     $index = [Array]::IndexOf($args, '--prefix')
@@ -155,9 +178,9 @@ foreach ($key in $before.Keys) {
 }
 Write-Output 'SOURCE_BUILD_COMMAND_CONTRACT_PASSED'
 """
-    settings = f"\n$script:Scenario = '{scenario}'\n$script:ExpectedCalls = {calls}\n"
+    settings = f"\n$script:Scenario = '{scenario}'\n$script:ExpectedCalls = {calls}\n$script:ExistingGitConfig = ${str(existing_git_config).lower()}\n"
     script = tmp_path / "source-build-command.ps1"
-    script.write_text(preamble + settings + tail.replace("__COMMAND__", command), encoding="utf-8-sig")
+    script.write_text(settings + preamble + tail.replace("__COMMAND__", command), encoding="utf-8-sig")
     ps = shutil.which("powershell.exe")
     assert ps
     result = subprocess.run([ps, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(script)],

@@ -8,7 +8,7 @@ Build mit vorhandenem VS2022/x64/v143-Generator und zwei parallelen MSBuild-Proz
 
 [Windows-Quellbau42517970232](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42517970232), Quelle d8e6eb3c: Lockinstallation, unveränderter Engine-Quellbau, Wheelinstallation, OpenCL-Buildflag ON, neun native Module aus dem Prefix, Konstantentest und CLI-Registry bestanden. Keine GPU-Hardware/Fotoverarbeitung im CI. Zehn Vertragsfälle des exakten PowerShell-Blocks aus Quelle c38ad2a7 auf Windows/Python3.11 und3.12 bestanden; externe Werkzeuge dort inert, wirklicher Build separat wie oben. Eigener Win10-Quellbaunachweis bleibt offen.
 
-**Aktueller Nutzerbefund:** Git-fetch war abgebrochen, ursprüngliche Fehlerzeile fehlt. Danach öffentlicher ls-remote erfolgreich: v1.1 zeigt den erwarteten8b6b77ef, Exitcode0. Erreichbarkeit bestätigt; Grund des früheren Fetch-Abbruchs weiter unbelegt. Angepasster Block setzt im letzten eindeutig zu diesem Aufbau gehörenden Ordner fort, lädt benannte Release-Refs und prüft die festen Commits vor Checkout. Quellen werden pro Stufe benannt; bei erneutem Fehler kurze originale Git-Zeile plus Exitcode übernehmen. Keine Neuinstallation oder TLS-Abschaltung auf Verdacht.
+**Nutzerbefund09.11.2026:** Git meldet dubious ownership/Exitcode128: Dateisystem auf E: speichert keine Besitzinformationen. ls-remote/Netzverbindung bestanden. Der Block ergänzt ausschließlich für seinen Prozess und dessen Kindprozesse zwei genaue safe.directory-Einträge für Source/OpenCL-Header; vorhandene Git-Prozesskonfiguration bleibt erhalten und wird vollständig zurückgesetzt. Keine globale Git-Konfigurationsdatei, kein Sternchen, keine ACL-/Dateisystemänderung oder TLS-Abschaltung. Damit gilt dieselbe begrenzte Freigabe auch für Git-Unterprozesse des Paketbaus. Vorhandenen Buildordner/Umgebung weiterverwenden; feste Quellcommits weiter prüfen. Die lange Buildordner-ID des Nutzers wird nicht im Repository gespeichert.
 
 Fortsetzungsblock Quelle d62d5874: zwölf native PowerShell-Vertragsfälle auf Windows/Python3.11 und3.12 bestanden (42519812618), insbesondere Wiederaufnahme ohne Neuinitialisierung, Nichtverwendung abweichender Prüfdaten und keine Checkout-/Build-/Installationsfortsetzung nach fehlgeschlagenem Fetch/Commitnachweis. Öffentliche Tags erneut geprüft: beide zeigen die festgelegten Commits. Kein erneuter Enginebau nötig für diese reine Starteränderung; ursprünglicher nativer Baunachweis bleibt getrennt bestehen. Tatsächlicher Nutzerdownload/Build weiterhin offen.
 
@@ -51,6 +51,16 @@ Ein vorhandener `build-<32 Hexzeichen>`-Ordner wird nur mit passender geprüfter
     Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $pruefung
     if ((Get-FileHash -LiteralPath $pruefung -Algorithm SHA256).Hash -ne $hash) { throw 'Buildpruefung-Pruefsumme stimmt nicht.' }
     $neu = @{ CONDA_PKGS_DIRS="$wurzel\pkgs"; TEMP="$wurzel\tmp"; TMP="$wurzel\tmp"; MPLCONFIGDIR="$wurzel\matplotlib"; PROJ_NETWORK='OFF'; CMAKE_GENERATOR='Visual Studio 17 2022'; CMAKE_BUILD_PARALLEL_LEVEL='2' }
+    $gitCount = 0
+    $vorherGitCount = [Environment]::GetEnvironmentVariable('GIT_CONFIG_COUNT', 'Process')
+    if ($vorherGitCount -and -not [int]::TryParse($vorherGitCount, [ref]$gitCount)) { throw 'Ungueltige vorhandene Git-Prozesskonfiguration.' }
+    if ($gitCount -lt 0) { throw 'Ungueltige vorhandene Git-Prozesskonfiguration.' }
+    foreach ($repoPfad in @($source, $headers)) {
+        $neu["GIT_CONFIG_KEY_$gitCount"] = 'safe.directory'
+        $neu["GIT_CONFIG_VALUE_$gitCount"] = [IO.Path]::GetFullPath($repoPfad).Replace('\', '/')
+        $gitCount++
+    }
+    $neu['GIT_CONFIG_COUNT'] = [string]$gitCount
     $alt = @{}
     foreach ($key in $neu.Keys) { $alt[$key] = [Environment]::GetEnvironmentVariable($key, 'Process') }
     try {
