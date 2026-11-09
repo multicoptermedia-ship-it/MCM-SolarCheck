@@ -54,7 +54,7 @@ jobs:
         run: python -m pytest -q tests/test_rgb_pilot_launcher.py
       - name: Test standalone read-only Windows setup probes
         shell: pwsh
-        run: python -m pytest -q tests/test_opencl_probe.py tests/test_buildtools_logcheck.py tests/test_buildtools_interactive_command.py
+        run: python -m pytest -q tests/test_opencl_probe.py tests/test_opensfm_gpu_probe.py tests/test_buildtools_logcheck.py tests/test_buildtools_interactive_command.py
       - name: Test real Windows DPAPI and local desktop/admin boundaries
         shell: pwsh
         env:
