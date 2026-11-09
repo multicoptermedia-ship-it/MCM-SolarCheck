@@ -1,4 +1,6 @@
-# Einmaliger Vergleich mit dem regulären OpenSfM-Importeinstieg
+# Abgeschlossener Vergleich mit dem regulären OpenSfM-Importeinstieg
+
+**Abgeschlossen09.11.2026 – nicht erneut ausführen:** Nutzer bestätigt completed/device_count1/gpu_count1 vor Exit, danach0xC0000005. Ein GPU-Gerät erkannt, Matching nicht gestartet. Keine weiteren Startvarianten. Weiter mit [nativer Aufrufkette](OPENSFM_NATIVE_STACK_WINDOWS10.md); der folgende alte Block ist Historie.
 
 **Nutzerbefund09.11.2026:** GPU-Inventarworker schreibt JSON/worker_complete, danach0xC0000005. Windows meldet zweimal ntdll.dll10.0.19041.6456/Offset0000000000024785. Ntdll ist die Erkennungsstelle, kein Beleg einer defekten Windows-DLL oder eines bestimmten Treibers. Inventarergebnis vor Exit blieb bisher unbekannt. Compiler/SDK/Umgebung/Quellbau sind abgeschlossen, Windows-Logabfrage ebenfalls; nichts davon wiederholen. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
@@ -33,4 +35,4 @@ Jeder Worker30 s begrenzt, Prozessfehler bleibt FAIL. Nach gescheitertem Inventa
 
 Den gesamten letzten JSON-Block melden, auch bei Fehler: `startup_mode: official_cli`, `loader_mode: system32_preload`; ggf. inventory.before_exit sowie last_stage/Exitcode. dataset/dense_reconstruction bleiben not_tested. Ein Conda-Fehlerhinweis nach JSON ist bei fehlgeschlagenem Probe-Exit erwartbar; keine vollständigen Rohlogs/Pfade/Dumps übertragen.
 
-Quelle3367b364:24 lokale Adapter-/Protokolltests bestanden, darunter regulärer Registry-Import zuerst, Cachepflicht und Weitergabe des Startprofils an jeden isolierten Worker. Zwei Übergabetests bestanden; Windows-HEAD-CI separat prüfen. Diese Tests simulieren native Funktionen und beweisen keine GPU-/Fototauglichkeit. Nutzervergleich ist offen. Vorhandene GeoTIFF-/PV-/Thermal-Funktionen bleiben erhalten, beide echten Orthofotos und deren Qualität/Georeferenz/Laufzeit noch nachzuweisen.
+Quelle3367b364:24 lokale Adapter-/Protokolltests bestanden, darunter regulärer Registry-Import zuerst, Cachepflicht und Weitergabe des Startprofils an jeden isolierten Worker. Zwei Übergabetests bestanden; Windows-HEAD-CI separat prüfen. Diese Tests simulieren native Funktionen und beweisen keine GPU-/Fototauglichkeit. Nutzervergleich ist mit FAIL abgeschlossen. Vorhandene GeoTIFF-/PV-/Thermal-Funktionen bleiben erhalten, beide echten Orthofotos und deren Qualität/Georeferenz/Laufzeit noch nachzuweisen.
