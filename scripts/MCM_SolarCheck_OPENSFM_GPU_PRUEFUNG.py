@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes as ct
+from contextlib import nullcontext
 import importlib
 import json
 import os
@@ -10,6 +11,7 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
+import tempfile
 import time
 
 
@@ -20,6 +22,7 @@ STAGES = ('system_loader', 'native_imports', 'official_cli_imports', 'import_num
           'device_metadata', 'native_matching', 'worker_complete')
 DESCRIPTORS = 64
 DIMENSIONS = 128
+READY_TOKEN = b'SOLARCHECK_ENGINE_READY_1'
 
 
 def stage(name):
@@ -74,7 +77,7 @@ def load_engine(cli_imports=False):
     return modules
 
 
-def worker(mode, index=0, load=load_engine, system_opencl=False, cli_imports=False):
+def worker(mode, index=0, load=load_engine, system_opencl=False, cli_imports=False, ready_file=None):
     try:
         if cli_imports and not Path(os.environ.get('MPLCONFIGDIR', '')).is_absolute():
             return {'status': 'cache_not_configured'}
@@ -84,6 +87,16 @@ def worker(mode, index=0, load=load_engine, system_opencl=False, cli_imports=Fal
             runtime = preload_system_opencl()
         stage('native_imports')
         np, features, dense = load(cli_imports=True) if cli_imports else load()
+        if ready_file is not None:
+            ready = Path(ready_file)
+            if (not ready.is_absolute() or ready.name != 'ready'
+                    or ready.parent.parent != Path(__file__).resolve().parent
+                    or not ready.parent.name.startswith('gpu-start-')):
+                raise ValueError('unsupported_ready_path')
+            # Exclusive creation in the parent's fresh adjacent directory.
+            # On Windows communicate() does not expose partial pipe output.
+            with ready.open('xb') as stream:
+                stream.write(READY_TOKEN)
         stage('engine_ready')
         devices = dense.DepthmapClusterEstimator
         stage('dense_device_count')
@@ -159,12 +172,22 @@ def before_exit_summary(report):
     return summary
 
 
-def communicate_with_phase_limits(process, startup_seconds=120, native_seconds=30, clock=None):
+def ready_file_written(path):
+    try:
+        with path.open('rb') as stream:
+            return stream.read(len(READY_TOKEN) + 1) == READY_TOKEN
+    except OSError:
+        return False
+
+
+def communicate_with_phase_limits(process, startup_seconds=120, native_seconds=30, clock=None,
+                                  is_ready=None):
     """Give imports their own budget; never extend a native operation's budget.
 
     Retrying Popen.communicate after TimeoutExpired is supported and preserves
-    accumulated output. Only our exact flushed readiness marker starts the
-    native budget, once. No engine import, warmup job or second worker here.
+    accumulated output. Windows buffers its stdout reader until EOF, so the
+    actual worker uses an owned tiny readiness file rather than partial stdout.
+    The stdout fallback is useful for protocol tests. No extra worker here.
     """
     clock = clock or time.monotonic
     deadline = clock() + startup_seconds
@@ -182,18 +205,29 @@ def communicate_with_phase_limits(process, startup_seconds=120, native_seconds=3
             output = error.output or ''
             if isinstance(output, bytes):
                 output = output.decode('utf-8', errors='replace')
-            if phase == 'startup' and STAGE_MARKER + 'engine_ready' in output.splitlines():
+            ready = is_ready() if is_ready is not None else STAGE_MARKER + 'engine_ready' in output.splitlines()
+            if phase == 'startup' and ready:
                 phase = 'native'
                 deadline = clock() + native_seconds
 
 
 def run_worker(mode, index=0, system_opencl=False, cli_imports=False, phase_timeouts=False):
+    scope = (tempfile.TemporaryDirectory(prefix='gpu-start-', dir=Path(__file__).resolve().parent)
+             if phase_timeouts else nullcontext(None))
+    with scope as directory:
+        return run_owned_worker(mode, index, system_opencl, cli_imports,
+                                Path(directory) / 'ready' if directory else None)
+
+
+def run_owned_worker(mode, index, system_opencl, cli_imports, ready_file):
     command = [sys.executable, '-I', str(Path(__file__).resolve()), '--worker', mode,
                '--device-index', str(index)]
     if system_opencl:
         command.append('--system-opencl')
     if cli_imports:
         command.append('--cli-imports')
+    if ready_file is not None:
+        command += ['--ready-file', str(ready_file)]
     try:
         process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
@@ -201,8 +235,9 @@ def run_worker(mode, index=0, system_opencl=False, cli_imports=False, phase_time
     except OSError:
         return {'status': 'launch_failed'}
     try:
-        if phase_timeouts:
-            stdout, timeout_phase = communicate_with_phase_limits(process)
+        if ready_file is not None:
+            stdout, timeout_phase = communicate_with_phase_limits(process,
+                is_ready=lambda: ready_file_written(ready_file))
             if timeout_phase:
                 return {'status': 'timeout', 'timeout_phase': timeout_phase,
                         'limit_seconds': 120 if timeout_phase == 'startup' else 30,
@@ -256,6 +291,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='OpenSfM-GPU-Funktionsprobe ohne Fotos')
     parser.add_argument('--worker', choices=('inventory', 'matching'), help=argparse.SUPPRESS)
     parser.add_argument('--device-index', type=int, default=0, help=argparse.SUPPRESS)
+    parser.add_argument('--ready-file', help=argparse.SUPPRESS)
     parser.add_argument('--system-opencl', action='store_true',
                         help='Preload and verify the existing Windows System32 OpenCL runtime in each worker')
     parser.add_argument('--cli-imports', action='store_true',
@@ -268,7 +304,8 @@ def main(argv=None):
         return 1
     if args.worker:
         print(MARKER + json.dumps(worker(args.worker, args.device_index,
-            system_opencl=args.system_opencl, cli_imports=args.cli_imports), ensure_ascii=True), flush=True)
+            system_opencl=args.system_opencl, cli_imports=args.cli_imports,
+            ready_file=args.ready_file), ensure_ascii=True), flush=True)
         stage('worker_complete')
         return 0
     if sys.platform != 'win32' or sys.version_info[:2] != (3, 10) or struct.calcsize('P') != 8:

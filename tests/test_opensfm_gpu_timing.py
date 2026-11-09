@@ -93,7 +93,7 @@ def test_phase_timeout_reports_import_limit_and_never_runs_matching(monkeypatch)
     monkeypatch.setattr(probe.subprocess, 'Popen', lambda *args, **kwargs: process)
     supervisor = probe.communicate_with_phase_limits
     monkeypatch.setattr(probe, 'communicate_with_phase_limits',
-                        lambda child: supervisor(child, clock=lambda: child.now))
+                        lambda child, **kwargs: supervisor(child, clock=lambda: child.now, **kwargs))
     calls = []
     def runner(mode, index=0):
         calls.append(mode)
@@ -110,7 +110,7 @@ def test_phase_supervision_never_accepts_json_after_process_crash(monkeypatch):
     payload = probe.MARKER + '{"status":"completed","devices":[{"is_gpu":true}]}\n'
     process = SimpleNamespace(returncode=3221225477)
     monkeypatch.setattr(probe.subprocess, 'Popen', lambda *args, **kwargs: process)
-    monkeypatch.setattr(probe, 'communicate_with_phase_limits', lambda child: (payload, None))
+    monkeypatch.setattr(probe, 'communicate_with_phase_limits', lambda child, **kwargs: (payload, None))
     result = probe.run_worker('inventory', phase_timeouts=True)
     assert result['status'] == 'worker_failed'
     assert result['exit_code_hex'] == '0xC0000005'
@@ -136,14 +136,16 @@ def test_cli_uses_phase_limits_for_inventory_and_matching_and_reports_budgets(mo
 
 @pytest.mark.parametrize('mode,expected', [('finish', None), ('native_hang', 'native'),
                                           ('startup_hang', 'startup')])
-def test_actual_subprocess_pipe_retries_and_owned_timeout(mode, expected):
+def test_actual_subprocess_pipe_retries_and_owned_timeout(mode, expected, tmp_path):
     # Runs on Windows CI and Linux with only an owned isolated Python process.
-    code = ('import time\n'
+    ready = tmp_path / 'ready'
+    code = ('import time\nfrom pathlib import Path\n'
             f'print({(probe.STAGE_MARKER + "official_cli_imports")!r}, flush=True)\n')
     if mode == 'startup_hang':
         code += 'time.sleep(10)\n'
     else:
         code += 'time.sleep(0.2)\n'
+        code += f'Path({str(ready)!r}).write_bytes({probe.READY_TOKEN!r})\n'
         code += f'print({(probe.STAGE_MARKER + "engine_ready")!r}, flush=True)\n'
         code += 'time.sleep(0.3)\n' if mode == 'finish' else 'time.sleep(10)\n'
         payload = probe.MARKER + json.dumps({'status': 'completed'})
@@ -154,7 +156,8 @@ def test_actual_subprocess_pipe_retries_and_owned_timeout(mode, expected):
     try:
         output, phase = probe.communicate_with_phase_limits(process,
             startup_seconds=0.5 if mode == 'startup_hang' else 10,
-            native_seconds=1 if mode == 'finish' else 0.2)
+            native_seconds=1 if mode == 'finish' else 0.2,
+            is_ready=lambda: probe.ready_file_written(ready))
     finally:
         if process.poll() is None:
             process.kill()
@@ -165,3 +168,59 @@ def test_actual_subprocess_pipe_retries_and_owned_timeout(mode, expected):
     else:
         assert process.returncode == 0
         assert probe.read_report(output)['status'] == 'completed'
+
+
+def test_windows_style_buffering_still_starts_native_budget():
+    process = ScheduledProcess(ready=0.3, finish=10)
+    # Windows communicate timeouts provide no partial stdout to the supervisor.
+    communicate = process.communicate
+    def buffered(timeout=None):
+        try:
+            return communicate(timeout)
+        except subprocess.TimeoutExpired as error:
+            error.output = None
+            raise
+    process.communicate = buffered
+    _output, phase = probe.communicate_with_phase_limits(process,
+        startup_seconds=2, native_seconds=0.5, clock=lambda: process.now,
+        is_ready=lambda: process.now >= process.ready)
+    assert phase == 'native' and process.killed
+    assert 0.8 <= process.now <= 1.0
+
+
+def test_ready_signal_is_exclusive_adjacent_and_precedes_device_access(tmp_path, monkeypatch):
+    monkeypatch.setattr(probe, '__file__', str(tmp_path / 'probe.py'))
+    directory = tmp_path / 'gpu-start-synthetic'
+    directory.mkdir()
+    ready = directory / 'ready'
+    def count():
+        assert ready.read_bytes() == probe.READY_TOKEN
+        return 0
+    features = SimpleNamespace(opencl_num_devices=count)
+    dense = SimpleNamespace(DepthmapClusterEstimator=SimpleNamespace(num_devices=count))
+    load = lambda: (None, features, dense)
+    assert probe.worker('inventory', load=load, ready_file=str(ready))['status'] == 'completed'
+    assert probe.worker('inventory', load=load, ready_file=str(ready))['status'] == 'native_check_failed'
+    assert ready.read_bytes() == probe.READY_TOKEN
+    outside = tmp_path / 'must-not-be-written'
+    assert probe.worker('inventory', load=load, ready_file=str(outside))['status'] == 'native_check_failed'
+    assert not outside.exists()
+
+
+def test_phase_scope_passes_ready_path_and_removes_only_own_signal(tmp_path, monkeypatch):
+    monkeypatch.setattr(probe, '__file__', str(tmp_path / 'probe.py'))
+    sentinel = tmp_path / 'keep-existing-file'
+    sentinel.write_bytes(b'keep')
+    def launch(args, **kwargs):
+        ready = Path(args[args.index('--ready-file') + 1])
+        assert ready.parent.parent == tmp_path
+        assert ready.parent.name.startswith('gpu-start-')
+        ready.write_bytes(probe.READY_TOKEN)
+        return SimpleNamespace(returncode=0)
+    def supervise(child, *, is_ready):
+        assert is_ready() is True
+        return probe.MARKER + '{"status":"completed"}', None
+    monkeypatch.setattr(probe.subprocess, 'Popen', launch)
+    monkeypatch.setattr(probe, 'communicate_with_phase_limits', supervise)
+    assert probe.run_worker('inventory', phase_timeouts=True)['status'] == 'completed'
+    assert list(tmp_path.iterdir()) == [sentinel]
