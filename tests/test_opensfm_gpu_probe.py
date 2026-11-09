@@ -96,3 +96,67 @@ def test_worker_protocol_ignores_driver_noise_and_rejects_invalid_output(monkeyp
     result = probe.run_worker('inventory')
     assert result['status'] == expected
     assert 'private/path' not in json.dumps(result)
+
+
+def test_system_loader_is_preloaded_before_any_native_import(monkeypatch):
+    order = []
+    monkeypatch.setattr(probe, 'preload_system_opencl', lambda: order.append('system32'))
+    def load():
+        order.append('imports')
+        return engine()
+    assert probe.worker('inventory', load=load, system_opencl=True)['status'] == 'completed'
+    assert order == ['system32', 'imports']
+
+
+@pytest.mark.parametrize('existing_outside, loaded_outside', [(False, False), (True, False), (False, True)])
+def test_system_loader_verifies_actual_module_path_and_never_changes_search_environment(tmp_path, existing_outside, loaded_outside):
+    system = tmp_path / 'System32'
+    expected = system / 'OpenCL.dll'
+    outside = tmp_path / 'private' / 'OpenCL.dll'
+    calls = []
+    def system_directory(buffer, length):
+        buffer.value = str(system)
+        return len(buffer.value)
+    def module_path(handle, buffer, length):
+        buffer.value = str(outside if (handle == 9 or loaded_outside) else expected)
+        return len(buffer.value)
+    def module_handle(name):
+        assert name == 'OpenCL.dll'
+        return 9 if existing_outside else None
+    kernel = SimpleNamespace(GetSystemDirectoryW=system_directory,
+                             GetModuleFileNameW=module_path, GetModuleHandleW=module_handle)
+    loader = SimpleNamespace(_handle=7)
+    def load_dll(name, **kwargs):
+        calls.append((name, kwargs))
+        assert kwargs == {'winmode': 0x800}
+        if name == 'kernel32.dll':
+            return kernel
+        assert name == str(expected).casefold()
+        return loader
+    if existing_outside or loaded_outside:
+        with pytest.raises(RuntimeError, match='opencl_module_outside_system32'):
+            probe.preload_system_opencl(load_dll)
+    else:
+        assert probe.preload_system_opencl(load_dll) is loader
+    assert len(calls) == (1 if existing_outside else 2)
+
+
+@pytest.mark.parametrize('checkpoint, result_written', [('dense_device_count', False), ('worker_complete', True)])
+def test_native_access_violation_reports_stage_and_never_converts_partial_result_to_pass(monkeypatch, checkpoint, result_written):
+    output = probe.STAGE_MARKER + checkpoint + '\n'
+    if result_written:
+        output = probe.MARKER + '{"status":"completed"}\n' + output
+    def launch(args, **kwargs):
+        assert '--system-opencl' in args and '-I' in args
+        return SimpleNamespace(communicate=lambda timeout: (output, 'private/path'), returncode=3221225477)
+    monkeypatch.setattr(probe.subprocess, 'Popen', launch)
+    result = probe.run_worker('inventory', system_opencl=True)
+    assert result['status'] == 'worker_failed'
+    assert result['exit_code_hex'] == '0xC0000005'
+    assert result['last_stage'] == checkpoint
+    assert result['structured_result_written'] is result_written
+    assert 'private/path' not in json.dumps(result)
+
+
+def test_unknown_stage_never_leaks_driver_output():
+    assert probe.last_stage(probe.STAGE_MARKER + 'private/path') == {}
