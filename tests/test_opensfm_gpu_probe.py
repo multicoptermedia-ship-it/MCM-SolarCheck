@@ -168,3 +168,29 @@ def test_truncated_json_after_crash_is_not_reported_as_a_completed_result(monkey
     result = probe.run_worker('inventory')
     assert result['status'] == 'worker_failed'
     assert result['structured_result_written'] is False
+
+
+def test_shutdown_failure_preserves_only_safe_inventory_facts_and_blocks_matching(monkeypatch):
+    payload = {'status': 'completed', 'devices': [{'is_gpu': True, 'name': 'private/path'}],
+               'traceback': 'private/path'}
+    output = probe.MARKER + json.dumps(payload) + '\n' + probe.STAGE_MARKER + 'worker_complete\n'
+    monkeypatch.setattr(probe.subprocess, 'Popen', lambda *a, **k: SimpleNamespace(
+        communicate=lambda timeout: (output, ''), returncode=3221225477))
+    calls = []
+    def runner(mode, index=0):
+        calls.append(mode)
+        return probe.run_worker(mode, index)
+    result = probe.probe(runner)
+    assert result['status'] == 'inventory_failed'
+    assert calls == ['inventory']
+    assert result['inventory']['before_exit'] == {
+        'reported_status': 'completed', 'accepted_as_success': False, 'device_count': 1, 'gpu_count': 1}
+    assert 'private/path' not in json.dumps(result)
+
+
+def test_partial_native_error_is_diagnostic_and_does_not_expose_exception_text():
+    result = probe.before_exit_summary({'status': 'native_check_failed',
+        'error_type': 'RuntimeError', 'reason': 'private/path', 'message': 'private/path'})
+    assert result == {'reported_status': 'native_check_failed', 'accepted_as_success': False,
+                      'error_type': 'RuntimeError'}
+    assert probe.before_exit_summary({'status': 'private/path'}) == {}

@@ -128,6 +128,26 @@ def read_report(stdout):
         return None
 
 
+def before_exit_summary(report):
+    """Preserve diagnostic facts, never turn a failed process into success."""
+    if not isinstance(report, dict) or report.get('status') not in (
+            'completed', 'passed', 'native_check_failed', 'device_inventory_mismatch',
+            'not_a_gpu', 'unexpected_matches'):
+        return {}
+    summary = {'reported_status': report['status'], 'accepted_as_success': False}
+    rows = report.get('devices')
+    if isinstance(rows, list) and len(rows) <= 32 and all(
+            isinstance(row, dict) and type(row.get('is_gpu')) is bool for row in rows):
+        summary['device_count'] = len(rows)
+        summary['gpu_count'] = sum(row['is_gpu'] for row in rows)
+    if report.get('error_type') in ('ImportError', 'ModuleNotFoundError', 'OSError',
+            'FileNotFoundError', 'RuntimeError', 'AttributeError', 'TypeError', 'ValueError'):
+        summary['error_type'] = report['error_type']
+    if report.get('reason') == 'opencl_module_outside_system32':
+        summary['reason'] = report['reason']
+    return summary
+
+
 def run_worker(mode, index=0, system_opencl=False):
     command = [sys.executable, '-I', str(Path(__file__).resolve()), '--worker', mode,
                '--device-index', str(index)]
@@ -150,9 +170,13 @@ def run_worker(mode, index=0, system_opencl=False):
     report = read_report(stdout)
     if process.returncode != 0:
         # Even a completed JSON result cannot be PASS after a native shutdown crash.
-        return {'status': 'worker_failed', 'exit_code': process.returncode,
+        result = {'status': 'worker_failed', 'exit_code': process.returncode,
                 'exit_code_hex': f'0x{process.returncode & 0xffffffff:08X}',
                 'structured_result_written': report is not None, **last_stage(stdout)}
+        summary = before_exit_summary(report)
+        if summary:
+            result['before_exit'] = summary
+        return result
     if report is None:
         return {'status': 'invalid_worker_output'}
     if report.get('status') not in ('passed', 'completed'):

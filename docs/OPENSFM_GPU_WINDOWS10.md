@@ -2,6 +2,8 @@
 
 **OPEN-SFM-BUILD-01 beim Nutzer09.11.2026 bestanden. Nicht erneut bauen/installieren.** OPEN-SFM-GPU-01 ist dagegen beim Inventar mit worker_failed/3221225477=0xC0000005 abgebrochen, ohne Matching-/Fotoergebnis. Genaue native Stelle und ursprünglicher DLL-Pfad sind unbekannt. OPEN-SFM-GPU-02 ist ein einmaliger Runtimevergleich in derselben vorhandenen Umgebung `E:\SolarCheck-OpenSfM\env`. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
+
+**Aktueller Stand:** System32-Vergleich ebenfalls mit0xC0000005 nach worker_complete und vollständigem JSON beendet. Der alte Elternbericht enthält nur dessen Existenz, nicht dessen Ergebnis; keine erfolgreiche GPU-Erkennung daraus ableiten. Jetzt nur den [vorhandenen Windows-Absturzbericht filtern](OPENSFM_WINDOWS_ABSTURZMODUL.md). Den Runtimevergleich darunter vorerst nicht erneut starten. Ein geplanter GPU-Test ist keine Freigabe des bisherigen Ergebnisses.
 Die separate generische OpenCL-Prüfung ist abgeschlossen und wird nicht wiederholt. Dieser Test lädt die gebauten OpenSfM-Erweiterungen aus dem isolierten Prefix und ruft **deren eigenen OpenCL-Matcher** auf:64 künstliche Float32-Deskriptoren mit128 Dimensionen,32 KiB pro Eingabepuffer. Alle64 eindeutigen Identitätspaare müssen zurückkommen. Keine eigene Matcher-/Rekonstruktions-Engine, keine Fotos, Projekte oder SQLite, keine Paket-/Treiberinstallation. Nur als GPU ausgewiesene OpenSfM-Geräte zählen; CPU-Fallback liefert kein GPU-PASS. Indizes sind OpenSfM-eigen, nicht die Indizes der alten allgemeinen OpenCL-Prüfung. Der Upstream-Zweig kann Intel-GPUs ausblenden, wenn eine diskrete GPU vorhanden ist.
 
 Eigener Kindprozess für Inventar und jeden GPU-Matchinglauf, je30 Sekunden begrenzt; Timeout/Abbruch beendet den eigenen Worker. Rohes Treiber-/Exception-Logging wird nicht als Bericht ausgegeben. Bericht enthält Gerätename/Speicher, Status und ggf. Fehlertyp/Workerexitcode, keine privaten Pfade. Kein Vollspeicher-/Dense-/Orthofotonachweis: `dataset` und `dense_reconstruction` bleiben `not_tested`.
@@ -14,7 +16,7 @@ Die frühere erfolgreiche allgemeine Probe lud OpenCL gezielt aus System32; welc
 
 Feste Fortschrittsmarken unterscheiden Systemloader, Modulimporte, Dense-/Features-Geräteabfrage, Metadaten, Matching und Workerabschluss. Der Elternprozess gibt bei Crash/Timeout nur bekannte Stufen, Exitcode/Hex und die Information aus, ob bereits ein strukturierter Bericht geschrieben wurde. Auch nach geschriebenem Ergebnis führt ein nativer Prozessabsturz weiterhin zu FAIL; ein Absturz beim Beenden wird nicht als GPU-PASS verborgen. Keine privaten Treiberpfade/Stacktraces im Bericht. Matching startet nur nach erfolgreich abgeschlossenem Inventar, weiterhin nur mit künstlichen Deskriptoren.
 
-## In normaler PowerShell starten
+## Bereits ausgeführter Runtimevergleich – vorerst nicht wiederholen
 
 Die kleine öffentliche Prüfdatei wird nach E: geladen und per SHA256 geprüft. TEMP/TMP gelten nur für diesen Aufruf und werden zurückgesetzt. Die bestehende Umgebung wird verwendet.
 
@@ -45,3 +47,6 @@ Die kleine öffentliche Prüfdatei wird nach E: geladen und per SHA256 geprüft.
 Nur den letzten JSON-Block melden: `check: solarcheck-opensfm-gpu-1`, nun `loader_mode: system32_preload`; erhofft `status: passed` und unter mindestens einem GPU-Gerät `native_matching.status: passed`. Auch ein Fehler-/Timeout-JSON ist ein verwertbarer Befund; keine vollständigen lokalen Protokolle übertragen. Ein PASS bestätigt den kleinen nativen Matchingkernel, keine Dense-Rekonstruktion, Speicherreserve oder reale RGB-/Thermalqualität. Danach begrenzten lokalen RGB-Pilot planen, bestehende GeoTIFF-/PV-Funktionen weiterverwenden; Thermal bleibt Pflicht.
 
 Lokal19 Adapter-/Protokolltests bestanden, zusätzlich Loader-Reihenfolge/Modulpfadprüfung mit simulierten Windows-APIs, feste Absturzstufen und kein PASS nach Shutdown-Absturz. Keine echte GPU-Ausführung im CI; Quelle37576c37 der ersten Probe hatte alle drei CI-Läufe bestanden, Nutzer-GPU-Test dennoch FAIL. Neue HEAD-CI separat prüfen. Die Adaptertests führen keinen GPU-Kernel aus; tatsächlicher Nutzer-GPU-Befund bleibt offen. Die Windows-CI prüft den Wrapper mit synthetischen Adaptern, keine Hardware-/Fotoabnahme.
+
+
+Nachträgliche Berichtskorrektur: Bei einem künftigen nativen Absturz bewahrt die Probe ausschließlich einen begrenzten before_exit-Status, Geräte-/GPU-Anzahl und bekannten Fehlertyp. Diese Diagnosefakten sind accepted_as_success false; selbst eine zuvor fertige Inventarliste startet nach Prozessabsturz kein Matching. Lokal21 Adapter-/Protokolltests bestanden, tatsächliche Ursache weiter offen. Noch keinen erneuten GPU-Lauf zur Gewinnung dieser Felder verlangen; zuerst den bestehenden Windows-Fehlermoduleintrag verwenden.
