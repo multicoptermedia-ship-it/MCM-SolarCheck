@@ -88,6 +88,7 @@ def worker(mode, index=0, load=load_engine, system_opencl=False):
                  'is_gpu': bool(devices.device_is_gpu(i)),
                  'memory_mib': int(devices.device_memory_bytes(i)) // 1048576}
                 for i in range(count)]}
+        stage('device_metadata')
         if not 0 <= index < count or not devices.device_is_gpu(index):
             return {'status': 'not_a_gpu'}
         # Existing upstream GPU matcher compiles/executes its own OpenCL kernel.
@@ -116,6 +117,17 @@ def last_stage(stdout, include_completion=True):
     return {'last_stage': valid[-1]} if valid else {}
 
 
+def read_report(stdout):
+    try:
+        lines = [line[len(MARKER):] for line in stdout.splitlines() if line.startswith(MARKER)]
+        if len(lines) != 1:
+            return None
+        result = json.loads(lines[0])
+        return result if isinstance(result, dict) else None
+    except (ValueError, TypeError):
+        return None
+
+
 def run_worker(mode, index=0, system_opencl=False):
     command = [sys.executable, '-I', str(Path(__file__).resolve()), '--worker', mode,
                '--device-index', str(index)]
@@ -135,24 +147,17 @@ def run_worker(mode, index=0, system_opencl=False):
         if isinstance(error, KeyboardInterrupt):
             raise
         return {'status': 'timeout', **last_stage(stdout)}
+    report = read_report(stdout)
     if process.returncode != 0:
         # Even a completed JSON result cannot be PASS after a native shutdown crash.
-        completed = any(line.startswith(MARKER) for line in stdout.splitlines())
         return {'status': 'worker_failed', 'exit_code': process.returncode,
                 'exit_code_hex': f'0x{process.returncode & 0xffffffff:08X}',
-                'structured_result_written': completed, **last_stage(stdout)}
-    try:
-        lines = [line[len(MARKER):] for line in stdout.splitlines() if line.startswith(MARKER)]
-        if len(lines) != 1:
-            return {'status': 'invalid_worker_output'}
-        report = json.loads(lines[0])
-        if not isinstance(report, dict):
-            return {'status': 'invalid_worker_output'}
-        if report.get('status') not in ('passed', 'completed'):
-            return {**report, **last_stage(stdout, include_completion=False)}
-        return report
-    except (ValueError, TypeError):
+                'structured_result_written': report is not None, **last_stage(stdout)}
+    if report is None:
         return {'status': 'invalid_worker_output'}
+    if report.get('status') not in ('passed', 'completed'):
+        return {**report, **last_stage(stdout, include_completion=False)}
+    return report
 
 
 def probe(runner=run_worker, loader_mode='process_default'):

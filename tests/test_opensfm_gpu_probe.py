@@ -160,3 +160,11 @@ def test_native_access_violation_reports_stage_and_never_converts_partial_result
 
 def test_unknown_stage_never_leaks_driver_output():
     assert probe.last_stage(probe.STAGE_MARKER + 'private/path') == {}
+
+
+def test_truncated_json_after_crash_is_not_reported_as_a_completed_result(monkeypatch):
+    monkeypatch.setattr(probe.subprocess, 'Popen', lambda *a, **k: SimpleNamespace(
+        communicate=lambda timeout: (probe.MARKER + '{"status":', ''), returncode=3221225477))
+    result = probe.run_worker('inventory')
+    assert result['status'] == 'worker_failed'
+    assert result['structured_result_written'] is False
