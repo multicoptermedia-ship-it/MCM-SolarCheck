@@ -119,7 +119,9 @@ static std::vector<Frame> capture(HANDLE process, HANDLE thread, const wchar_t* 
             nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr) || !frame.AddrPC.Offset) {
             unwind_error = GetLastError(); break;
         }
-        if (frame.AddrPC.Offset == previous_pc && frame.AddrStack.Offset == previous_sp) break;
+        // The first StackWalk call initializes its internal walk state and may
+        // return exactly the supplied current frame. That is not a cycle.
+        if (i > 0 && frame.AddrPC.Offset == previous_pc && frame.AddrStack.Offset == previous_sp) break;
         // StackWalk's first result may describe the current instruction.
         if (frame.AddrPC.Offset != previous_pc)
             result.push_back(locate(frame.AddrPC.Offset, list));
