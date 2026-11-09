@@ -1,5 +1,7 @@
 # Abgeschlossener Vergleich mit dem regulären OpenSfM-Importeinstieg
 
+**Neuester Stand09.11.2026:** Stackdiagnose abgeschlossen; NVIDIA-OpenCL beim Prozessende beteiligt. Keine weitere unveränderte Start-/Loaderprobe. [Gezielter manueller Kompatibilitätsschritt](OPENSFM_NVIDIA_WINDOWS10.md) ist jetzt der Einstieg; untenstehende frühere Aufträge sind Historie.
+
 **Abgeschlossen09.11.2026 – nicht erneut ausführen:** Nutzer bestätigt completed/device_count1/gpu_count1 vor Exit, danach0xC0000005. Ein GPU-Gerät erkannt, Matching nicht gestartet. Keine weiteren Startvarianten. Weiter mit [nativer Aufrufkette](OPENSFM_NATIVE_STACK_WINDOWS10.md); der folgende alte Block ist Historie.
 
 **Nutzerbefund09.11.2026:** GPU-Inventarworker schreibt JSON/worker_complete, danach0xC0000005. Windows meldet zweimal ntdll.dll10.0.19041.6456/Offset0000000000024785. Ntdll ist die Erkennungsstelle, kein Beleg einer defekten Windows-DLL oder eines bestimmten Treibers. Inventarergebnis vor Exit blieb bisher unbekannt. Compiler/SDK/Umgebung/Quellbau sind abgeschlossen, Windows-Logabfrage ebenfalls; nichts davon wiederholen. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).

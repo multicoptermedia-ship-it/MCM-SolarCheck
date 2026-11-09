@@ -1,5 +1,7 @@
 # OpenSfM-eigener GPU-Matcher – kleiner Funktionstest
 
+**Neuester Stand09.11.2026:** Stackdiagnose abgeschlossen; NVIDIA-OpenCL beim Prozessende beteiligt. Keine weitere unveränderte Start-/Loaderprobe. [Gezielter manueller Kompatibilitätsschritt](OPENSFM_NVIDIA_WINDOWS10.md) ist jetzt der Einstieg; untenstehende frühere Aufträge sind Historie.
+
 **OPEN-SFM-BUILD-01 beim Nutzer09.11.2026 bestanden. Nicht erneut bauen/installieren.** OPEN-SFM-GPU-01 ist dagegen beim Inventar mit worker_failed/3221225477=0xC0000005 abgebrochen, ohne Matching-/Fotoergebnis. Genaue native Stelle und ursprünglicher DLL-Pfad sind unbekannt. OPEN-SFM-GPU-02 ist ein einmaliger Runtimevergleich in derselben vorhandenen Umgebung `E:\SolarCheck-OpenSfM\env`. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
