@@ -1,5 +1,7 @@
 # OpenSfM: gezielter NVIDIA-Kompatibilitätsschritt unter Windows 10
 
+**Abgeschlossen09.11.2026:** Nutzer bestätigt582.78 installiert und Rechner neu gestartet. Keine erneute Treiberinstallation oder Versionsfrage. Neuer Probe-Lauf endet beim CLI-Import nach30 s; GPU-API noch nicht erreicht. Weiter mit [getrennten Import-/Native-Zeitfenstern](OPENSFM_GPU_STARTZEIT_WINDOWS10.md). Die früheren Installations-/Startschritte darunter sind Historie.
+
 ## Belegter Stand vom 09.11.2026
 
 **OPEN-SFM-STACK-01 abgeschlossen:** Nutzer meldet `native_capture_selftest: passed`, Inventarprozess `captured`, ursprünglicher Exit `0xC0000005`, 31 Stackframes, `unwind_stage: walking` und `unwind_error: 0`. Die Aufrufkette enthält beim Prozessende `pyfeatures.cp310-win_amd64.pyd`, C-Runtime, mehrere Aufrufe aus `nvopencl64.dll` und die Erkennungsstelle `ntdll.dll`/Offset24785. Damit ist NVIDIAs OpenCL-Pfad beteiligt. Es ist noch kein Beweis, ob der Ursprung ein Treiberfehler oder die Ressourcenlebensdauer im Zusammenspiel mit OpenSfM ist. Kein Matching gestartet; `accepted_as_gpu_success: false` bleibt richtig. Die native Stackdiagnose nicht erneut ausführen.

@@ -10,12 +10,13 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
+import time
 
 
 MARKER = 'SOLARCHECK_GPU_JSON='
 STAGE_MARKER = 'SOLARCHECK_GPU_STAGE='
 STAGES = ('system_loader', 'native_imports', 'official_cli_imports', 'import_numpy', 'import_pyfeatures',
-          'import_pydense', 'dense_device_count', 'features_device_count',
+          'import_pydense', 'engine_ready', 'dense_device_count', 'features_device_count',
           'device_metadata', 'native_matching', 'worker_complete')
 DESCRIPTORS = 64
 DIMENSIONS = 128
@@ -83,6 +84,7 @@ def worker(mode, index=0, load=load_engine, system_opencl=False, cli_imports=Fal
             runtime = preload_system_opencl()
         stage('native_imports')
         np, features, dense = load(cli_imports=True) if cli_imports else load()
+        stage('engine_ready')
         devices = dense.DepthmapClusterEstimator
         stage('dense_device_count')
         count = int(devices.num_devices())
@@ -157,7 +159,35 @@ def before_exit_summary(report):
     return summary
 
 
-def run_worker(mode, index=0, system_opencl=False, cli_imports=False):
+def communicate_with_phase_limits(process, startup_seconds=120, native_seconds=30, clock=None):
+    """Give imports their own budget; never extend a native operation's budget.
+
+    Retrying Popen.communicate after TimeoutExpired is supported and preserves
+    accumulated output. Only our exact flushed readiness marker starts the
+    native budget, once. No engine import, warmup job or second worker here.
+    """
+    clock = clock or time.monotonic
+    deadline = clock() + startup_seconds
+    phase = 'startup'
+    while True:
+        remaining = deadline - clock()
+        if remaining <= 0:
+            process.kill()
+            stdout, _stderr = process.communicate()
+            return stdout, phase
+        try:
+            stdout, _stderr = process.communicate(timeout=min(0.1, remaining))
+            return stdout, None
+        except subprocess.TimeoutExpired as error:
+            output = error.output or ''
+            if isinstance(output, bytes):
+                output = output.decode('utf-8', errors='replace')
+            if phase == 'startup' and STAGE_MARKER + 'engine_ready' in output.splitlines():
+                phase = 'native'
+                deadline = clock() + native_seconds
+
+
+def run_worker(mode, index=0, system_opencl=False, cli_imports=False, phase_timeouts=False):
     command = [sys.executable, '-I', str(Path(__file__).resolve()), '--worker', mode,
                '--device-index', str(index)]
     if system_opencl:
@@ -171,7 +201,14 @@ def run_worker(mode, index=0, system_opencl=False, cli_imports=False):
     except OSError:
         return {'status': 'launch_failed'}
     try:
-        stdout, _stderr = process.communicate(timeout=30)
+        if phase_timeouts:
+            stdout, timeout_phase = communicate_with_phase_limits(process)
+            if timeout_phase:
+                return {'status': 'timeout', 'timeout_phase': timeout_phase,
+                        'limit_seconds': 120 if timeout_phase == 'startup' else 30,
+                        **last_stage(stdout)}
+        else:
+            stdout, _stderr = process.communicate(timeout=30)
     except (subprocess.TimeoutExpired, KeyboardInterrupt) as error:
         process.kill()
         stdout, _stderr = process.communicate()
@@ -223,6 +260,8 @@ def main(argv=None):
                         help='Preload and verify the existing Windows System32 OpenCL runtime in each worker')
     parser.add_argument('--cli-imports', action='store_true',
                         help='Import the official OpenSfM command registry before native modules')
+    parser.add_argument('--phase-timeouts', action='store_true',
+                        help='Allow 120 s for imports, then a separate 30 s for native work and shutdown')
     args = parser.parse_args(argv)
     if not sys.flags.isolated:
         print(json.dumps({'check': 'solarcheck-opensfm-gpu-1', 'status': 'requires_isolated_python_flag'}))
@@ -235,13 +274,17 @@ def main(argv=None):
     if sys.platform != 'win32' or sys.version_info[:2] != (3, 10) or struct.calcsize('P') != 8:
         print(json.dumps({'check': 'solarcheck-opensfm-gpu-1', 'status': 'requires_windows_python310_x64'}))
         return 1
-    print('OpenSfM-eigener GPU-Matcher, nur synthetische Zahlen. 30 Sekunden je Teiltest.', flush=True)
+    limits = '120 Sekunden fuer Importe, danach 30 Sekunden fuer native Arbeit/Prozessende.' if args.phase_timeouts else '30 Sekunden je Teiltest.'
+    print('OpenSfM-eigener GPU-Matcher, nur synthetische Zahlen. ' + limits, flush=True)
     try:
-        report = probe(lambda mode, index=0: run_worker(mode, index, args.system_opencl, args.cli_imports),
+        report = probe(lambda mode, index=0: run_worker(mode, index, args.system_opencl,
+                       args.cli_imports, phase_timeouts=args.phase_timeouts),
                        loader_mode='system32_preload' if args.system_opencl else 'process_default',
                        startup_mode='official_cli' if args.cli_imports else 'minimal_modules')
     except KeyboardInterrupt:
         return 130
+    if args.phase_timeouts:
+        report['time_limits_seconds'] = {'startup': 120, 'native_including_shutdown': 30}
     print(json.dumps(report, indent=2, ensure_ascii=True))
     return 0 if report['status'] == 'passed' else 1
 
