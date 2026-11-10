@@ -35,6 +35,11 @@ def inputs(tmp_path):
     return frames, pilot.OpenSfMPilotConfig((sys.executable,), runner, output)
 
 
+def metric_path(folder):
+    manifest = json.loads((folder / 'job.json').read_text())
+    return folder / manifest['metrics_filename']
+
+
 def reconstruction(names):
     return [{'cameras': {'camera': {'projection_type': 'perspective'}},
              'shots': {name: {'camera': 'camera', 'rotation': [0.0] * 3,
@@ -96,7 +101,7 @@ def test_full_standard_stage_chain_preserves_sources_and_never_claims_approval(t
     profile = json.loads((result.workspace / 'config.yaml').read_text())
     assert profile['matcher_type'] == 'OPENCL_BF' and profile['proj_cdn_enabled'] is False
     assert not (result.workspace / 'camera_models_overrides.json').exists()
-    summary = json.loads((result.workspace / 'laufzeiten.json').read_text())
+    summary = json.loads(metric_path(result.workspace).read_text())
     assert summary['status'] == 'finished' and summary['orthophoto_created']
     assert summary['registration_complete'] and summary['points'] == 1
     assert not summary['georeferencing_verified'] and not summary['thermal_created']
@@ -119,7 +124,7 @@ def test_partial_or_multiple_or_foreign_models_stop_before_dense(tmp_path, model
         pilot.run_opensfm_rgb_pilot(frames, config, executor=fake_engine(calls, model=models))
     assert calls == list(pilot.STAGES[:5])
     folder, = config.output_parent.iterdir()
-    summary = json.loads((folder / 'laufzeiten.json').read_text())
+    summary = json.loads(metric_path(folder).read_text())
     assert summary['status'] == 'failed' and not summary['registration_complete']
     assert not summary['orthophoto_created']
 
@@ -145,7 +150,7 @@ def test_failure_retains_workspace_and_only_sanitized_stage_exit(tmp_path):
         pilot.run_opensfm_rgb_pilot(frames, config,
             executor=fake_engine([], fail='match_features'), on_workspace=seen.append)
     assert len(seen) == 1 and (seen[0] / 'step-03.log').is_file()
-    result = json.loads((seen[0] / 'laufzeiten.json').read_text())
+    result = json.loads(metric_path(seen[0]).read_text())
     assert result['steps'][-1]['failure_kind'] == 'process_exit'
     assert result['steps'][-1]['exit_code'] == 123
     assert result['status'] == 'failed'
@@ -158,13 +163,13 @@ def test_cancellation_and_timeout_keep_distinct_status(tmp_path):
     with pytest.raises(PilotCancelled):
         pilot.run_opensfm_rgb_pilot(frames, config, executor=cancelled)
     folder, = config.output_parent.iterdir()
-    assert json.loads((folder / 'laufzeiten.json').read_text())['status'] == 'cancelled'
+    assert json.loads(metric_path(folder).read_text())['status'] == 'cancelled'
     def timed_out(*args, **kwargs):
         raise PilotTimeout('synthetic')
     with pytest.raises(PilotTimeout):
         pilot.run_opensfm_rgb_pilot(frames, config, executor=timed_out)
     folder = max(config.output_parent.iterdir(), key=lambda path: path.stat().st_mtime_ns)
-    summary = json.loads((folder / 'laufzeiten.json').read_text())
+    summary = json.loads(metric_path(folder).read_text())
     assert summary['status'] == 'failed' and summary['steps'][-1]['failure_kind'] == 'timeout'
 
 
@@ -189,7 +194,7 @@ def test_missing_or_unprojected_crs_or_empty_output_is_not_published(tmp_path, c
     with pytest.raises(PilotError, match='GeoTIFF'):
         pilot.run_opensfm_rgb_pilot(frames, config, executor=fake_engine([], crs=crs, empty=empty))
     folder, = config.output_parent.iterdir()
-    assert not json.loads((folder / 'laufzeiten.json').read_text())['orthophoto_created']
+    assert not json.loads(metric_path(folder).read_text())['orthophoto_created']
 
 
 def test_changed_database_inputs_prevent_result_acceptance(tmp_path):
@@ -249,3 +254,55 @@ def test_job_environment_is_child_scoped_before_launcher_activation(tmp_path, mo
     assert seen[0]['MPLCONFIGDIR'] == str(tmp_path / 'cache')
     assert seen[0]['TEMP'] == str(tmp_path / 'tmp')
     assert seen[0]['PROJ_NETWORK'] == 'OFF' and seen[0]['VSCMD_SKIP_SENDTELEMETRY'] == '1'
+
+
+def test_time_first_folder_and_report_identify_engine_without_sharing_project_name(tmp_path):
+    frames, config = inputs(tmp_path)
+    result = pilot.run_opensfm_rgb_pilot(frames, replace(config, project_label='Privates Demo-Dach'),
+                                       executor=fake_engine([]))
+    import re
+    assert re.fullmatch(r'[0-9]{8}_[0-9]{6}_OpenSfM_RGB_Privates-Demo-Dach_[a-z0-9_]{8}', result.workspace.name)
+    assert metric_path(result.workspace).name.startswith('OpenSfM_RGB_')
+    assert not (result.workspace / 'laufzeiten.json').exists()
+    report = pilot.read_opensfm_metrics(result.workspace)
+    assert report['pipeline'] == 'opensfm_rgb'
+    assert report['started_at'] and report['run_id']
+    assert 'Privates' not in json.dumps(report) and 'project_label' not in report
+    label = pilot.local_run_label(result.workspace)
+    assert 'Privates Demo-Dach' in label and 'Start ' in label
+
+
+def test_old_opensfm_metrics_remain_readable_but_colmap_reports_are_refused(tmp_path):
+    folder = tmp_path / 'opensfm-rgb-legacy'
+    folder.mkdir()
+    manifest = folder / 'job.json'
+    manifest.write_text(json.dumps({'expected_engine_source': pilot.ENGINE_SOURCE}))
+    report = folder / 'laufzeiten.json'
+    report.write_text(json.dumps({'status': 'failed', 'rgb_images': 3,
+        'source_file': 'private-must-not-leak',
+        'steps': [{'stage': 'extract_metadata', 'status': 'finished',
+                   'seconds': 1, 'private_path': 'must-not-leak'}]}))
+    assert pilot.read_opensfm_metrics(folder)['pipeline'] == 'opensfm_rgb'
+    assert 'leak' not in json.dumps(pilot.read_opensfm_metrics(folder))
+    assert 'Berichtsstand' in pilot.local_run_label(folder)
+    cache = folder / 'undistorted' / 'depthmaps'
+    cache.mkdir(parents=True)
+    (cache / 'synthetic.JPG.raw.npz').write_bytes(b'count only; deliberately not a valid depthmap')
+    (cache / 'synthetic.JPG.clean.npz').write_bytes(b'count only')
+    assert pilot.read_opensfm_metrics(folder)['stored_depthmaps'] == {'raw': 1, 'clean': 1}
+    report.write_text(json.dumps({'status': 'failed', 'steps': [
+        {'stage': 'COLMAP-Bildabgleich', 'status': 'failed'}]}))
+    with pytest.raises(PilotError, match='OpenSfM'):
+        pilot.read_opensfm_metrics(folder)
+    manifest.write_text('{}')
+    with pytest.raises(PilotError, match='OpenSfM'):
+        pilot.read_opensfm_metrics(folder)
+
+
+def test_report_filename_cannot_escape_private_job_folder(tmp_path):
+    folder = tmp_path / 'opensfm-rgb-legacy'
+    folder.mkdir()
+    (folder / 'job.json').write_text(json.dumps({'expected_engine_source': pilot.ENGINE_SOURCE,
+                                               'metrics_filename': '../do-not-open.json'}))
+    with pytest.raises(PilotError, match='Namen'):
+        pilot.read_opensfm_metrics(folder)

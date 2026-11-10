@@ -1,5 +1,7 @@
 # Erster lokaler RGB-Orthofoto-Pilot mit OpenSfM
 
+**Aktueller Nutzerbefund10.11.2026:**287/287 RGB-Aufnahmen in einem Modell,137082 Punkte. Tiefenkartenstufe nach einer Stunde begrenzt beendet, Gesamt rund1 h45 min; noch kein Orthofoto. Vorhandenen Lauf nachlesen, nicht neu starten. Die zuvor übermittelten COLMAP-Berichte stammen von anderen Jobs.
+
 **10.11.2026 · GPU-Funktionstest bestanden:** Nutzer meldet status passed, MX250/2047 MiB und64 korrekt zugeordnete künstliche Deskriptoren im OpenSfM-eigenen Matcher. NVIDIA582.78 und getrennte Import-/Native-Zeitfenster sind bestätigt. Compiler, Umgebung, Quellbau und GPU-Startprüfung sind abgeschlossen; nichts davon erneut installieren oder prüfen. Dataset und Dense waren ausdrücklich not_tested.
 
 **OPEN-SFM-RGB-01** verbindet nun die vorhandene Projektwahl/den nur lesenden RGB-Projektzugriff und geprüfte Arbeitskopien mit den installierten Standardstufen von OpenSfM. Kein neuer Importer und keine neue Photogrammetrie-Engine. Dies ist ein separater lokaler Pilot; das Hauptprogramm und seine vorhandenen Projekte werden nicht aktualisiert oder umregistriert. Der tatsächliche Windows-10-/Bildqualitätslauf bleibt offen.
@@ -28,47 +30,26 @@ Nach Erfolg das TIFF lokal ansehen; später den vorhandenen GeoTIFF-Import und d
 
 ## Nur diese Kennzahlen zurückgeben
 
-**laufzeiten.json** im neuen Jobordner enthält Status, Bild-/Kamera-/Modell-/Punktzahlen und Stufenlaufzeiten. Diese Datei beziehungsweise ihr Text kann als nächster Befund übermittelt werden. Keine Bildnamen, Originalpfade oder Kamerakoordinaten darin. georeferencing_verified, temperature_verified und thermal_created bleiben false.
+**OpenSfM_RGB_…_Kennzahlen.json** im neuen Jobordner enthält Status, Bild-/Kamera-/Modell-/Punktzahlen und Stufenlaufzeiten. Diese Datei beziehungsweise ihr Text kann als nächster Befund übermittelt werden. Keine Bildnamen, Originalpfade oder Kamerakoordinaten darin. georeferencing_verified, temperature_verified und thermal_created bleiben false.
 
 job.json, input-map.json, Metadaten, Rekonstruktionen, TIFFs und step-XX.log sind **private lokale Daten**. Sie bleiben auf dem Auswerterechner; nicht vollständig hochladen oder nach Git kopieren. Fehlerdialog nennt nur Stufe, Exitcode beziehungsweise Zeitlimit und relativen Lognamen. Wiederöffnung/Sichtprüfung erfolgt aus dem erhaltenen Ordner ohne erneute Berechnung.
 
-## Vollständiger PowerShell-Startblock
+## Lauf erkennen und vorhandene Kennzahlen kopieren
 
-Dieser Block lädt nur die SolarCheck-Quell-ZIP (ca.2,9 MB), prüft SHA256, entpackt in einen neuen E:-Ordner und öffnet den separaten Pilotdialog. **Kein Git-Checkout und keine Aktualisierung/Neuinstallation des bisherigen Hauptprogramms nötig.** Die vorhandene Projektdatei erst im Dialog wählen. Das Entpacken allein startet noch keine Bildverarbeitung.
+Neue Ordner beginnen mit der lokalen Verarbeitungszeit, zum Beispiel **20261110_204300_OpenSfM_RGB_Demo-Dach_abcdefgh**. Das Projektkürzel bleibt lokal. Der neue Bericht heißt **OpenSfM_RGB_20261110_204300_abcdefgh_Kennzahlen.json**; pipeline/run_id/started_at unterscheiden Engine und Lauf ohne Kundennamen im teilbaren JSON.
 
-```powershell
-& {
-    $ErrorActionPreference = 'Stop'
-    $python = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
-    if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
-        throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden; keine Neuinstallation starten.'
-    }
-    $basis = 'E:\SolarCheck-Pilot'
-    New-Item -ItemType Directory -Path $basis -Force | Out-Null
-    $ziel = Join-Path $basis ('rgb-' + [Guid]::NewGuid().ToString('N').Substring(0,12))
-    New-Item -ItemType Directory -Path $ziel | Out-Null
-    $zip = Join-Path $ziel 'solarcheck-source.zip'
-    $url = 'https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/68f0f8e5489ba70660e327c2fee352304856b70b'
-    Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zip
-    if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne '25a0c32740bc46029eda3eb73c58359aae31c6991083682f669dbab22e82f1bf') {
-        throw 'Quell-ZIP-Pruefsumme stimmt nicht; keine Ausfuehrung.'
-    }
-    $quelle = Join-Path $ziel 'source'
-    Expand-Archive -LiteralPath $zip -DestinationPath $quelle
-    $pakete = @(Get-ChildItem -LiteralPath $quelle -Directory)
-    if ($pakete.Count -ne 1) { throw 'Quell-ZIP hat einen unerwarteten Aufbau.' }
-    $starter = Join-Path $pakete[0].FullName 'scripts\MCM_SolarCheck_OPENSFM_RGB_PILOT.py'
-    if (-not (Test-Path -LiteralPath $starter -PathType Leaf)) {
-        throw 'OpenSfM-RGB-Pilotstarter fehlt in der geprueften Quell-ZIP.'
-    }
-    & $python $starter
-}
-```
+Im Dialog stehen Projekt, Zeit und Laufordner separat zur gewählten Projektdatei. **Kennzahlen kopieren** bezieht sich genau auf den angezeigten abgeschlossenen Lauf und erhält die Fehlermeldung sichtbar. **Lauf laden** öffnet einen vorhandenen OpenSfM-Job ohne neue Bildverarbeitung. Bei alten Jobs fehlt der Projektname im gespeicherten Manifest; die Anzeige bezeichnet die Dateizeit deshalb ausdrücklich als Berichtsstand. Ein COLMAP-Ordner wird abgelehnt.
 
-Nach Start im Dialog Projektdatei → richtiges Projekt → privaten Ausgabeordner wählen und **RGB-Pilot starten**. Nach Ende bitte **laufzeiten.json aus dem neuen opensfm-rgb-…-Ordner** als nächsten Befund senden. Nicht den ZIP-Quellordner mit dem privaten Ergebnisordner verwechseln.
+Für den bereits abgebrochenen Lauf: im bisherigen Dialog **Ausgabeordner öffnen** anklicken und dessen exakten Ordnerpfad merken. Im aktualisierten Dialog **Lauf laden**, diesen Ordner auswählen, dann **Kennzahlen kopieren** und hier als Text einfügen. **RGB-Pilot starten ist dafür nicht erforderlich.** Die vorhandenen Ordner werden nicht umbenannt.
+
+Die Kennzahlen ergänzen stored_depthmaps.raw/clean aus den vorhandenen Engine-Ausgabedateien. Nur Dateianzahlen, kein Bildinhalt und keine Integritäts-/Qualitätsfreigabe. Die Dateiendung .npz bedeutet im geprüften Enginezweig LZ4-verpackte Daten; vorhandene Ladefunktionen sind für eine spätere Prüfung maßgeblich. Noch keine automatische Fortsetzung, Zeitverlängerung oder Cachelöschung.
+
+## Aktualisierter Startblock
+
+Wird nach Windows-Abnahme mit fester Quell-ZIP und Prüfsumme bereitgestellt. Er öffnet den aktualisierten Dialog; danach nur **Lauf laden/Kennzahlen kopieren** verwenden. Kein neuer Bildlauf, Treiber-/Compiler-/Engine-Neubau oder Datenbankupdate.
 
 ## Prüfstand
 
-Lokal29 Tests bestanden, zwei native Tk-Fälle auf Linux ohne Display übersprungen. Synthetische Tests verbinden alle zehn Stufen, Eingabeunveränderlichkeit, Teilmodell-Stopp, GPS-/Raster-Grenzen, Abbruch-/Zeitlimitstatus und sichere Kennzahlen. Ein tatsächlicher isolierter Pythonprozess prüft die dünne CLI-Delegation/cleanup gegen eine bewusst funktionslose Test-Engine; dies ist kein echter OpenSfM-/Bildtest. Quelle68f0f8e5: [Windows-CI42847018314](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42847018314) auf Python3.11 und3.12 vollständig bestanden, einschließlich tatsächlicher isolierter CLI-Prozesse mit Test-Engine sowie nativer Tk-Projektwahl/Start/Ergebnis-/Abbruchbedienung und synthetischem Job bis GeoTIFF. Kleine Erweiterung des vorhandenen Prozessstarters kapselt TEMP/TMP/MPL-Cache und deaktivierte VS-Telemetrie nur im Kindprozess, schon vor Conda-Aktivierung;36 bestehende Backendtests zusätzlich lokal bestanden. ZIP-SHA256 und fünf ausgelieferte Start-/Helper-/Service-Dateien bytegenau verglichen. Windows Server2022/Stub-Engine sind keine reale Windows10-/OpenSfM-/Flugbildabnahme; Nutzerlauf bleibt offen. Neuen Dokumentations-HEAD separat prüfen. Kein Kundenbild wurde hier verarbeitet.
+Für diese Erweiterung lokal33 Tests bestanden, vier native Tk-Fälle auf Linux ohne Display übersprungen; native Prüfung der neuen Lauf-/Kopierbedienung noch offen. Der bisherige Pilotstand ist bereits technisch geprüft: Synthetische Tests verbinden alle zehn Stufen, Eingabeunveränderlichkeit, Teilmodell-Stopp, GPS-/Raster-Grenzen, Abbruch-/Zeitlimitstatus und sichere Kennzahlen. Ein tatsächlicher isolierter Pythonprozess prüft die dünne CLI-Delegation/cleanup gegen eine bewusst funktionslose Test-Engine; dies ist kein echter OpenSfM-/Bildtest. Quelle68f0f8e5: [Windows-CI42847018314](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42847018314) auf Python3.11 und3.12 vollständig bestanden, einschließlich tatsächlicher isolierter CLI-Prozesse mit Test-Engine sowie nativer Tk-Projektwahl/Start/Ergebnis-/Abbruchbedienung und synthetischem Job bis GeoTIFF. Kleine Erweiterung des vorhandenen Prozessstarters kapselt TEMP/TMP/MPL-Cache und deaktivierte VS-Telemetrie nur im Kindprozess, schon vor Conda-Aktivierung;36 bestehende Backendtests zusätzlich lokal bestanden. ZIP-SHA256 und fünf ausgelieferte Start-/Helper-/Service-Dateien bytegenau verglichen. Windows Server2022/Stub-Engine sind keine reale Windows10-/OpenSfM-/Flugbildabnahme; Nutzerlauf bleibt offen. Neuen Dokumentations-HEAD separat prüfen. Kein Kundenbild wurde hier verarbeitet.
 
 Der gemeinsame Jobkern akzeptiert RGB-Datensätze und einen expliziten Engineaufruf; Datenbankwahl, Windows-Pfade und Tk bleiben im Desktopadapter. Für die spätere Onlinefassung ist derselbe Jobkern verwendbar. Jetzt keine zweite Web-/Cloudkette oder neue Engine, keine ODM/WebODM/ODX-Integration und kein Merge nach main. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).

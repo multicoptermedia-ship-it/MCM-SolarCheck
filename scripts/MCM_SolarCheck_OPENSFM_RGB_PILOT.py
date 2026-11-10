@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 import queue
@@ -14,7 +15,7 @@ from mcm_solarcheck.services.colmap_openmvs_pilot import (  # noqa: E402
     PilotCancelled, PilotError, input_signature, project_choices, read_rgb_project,
 )
 from mcm_solarcheck.services.opensfm_rgb_pilot import (  # noqa: E402
-    OpenSfMPilotConfig, run_opensfm_rgb_pilot,
+    LABELS, STAGES, OpenSfMPilotConfig, local_run_label, read_opensfm_metrics, run_opensfm_rgb_pilot,
 )
 
 CONDA = r'E:\Tools\Miniforge3\Scripts\conda.exe'
@@ -30,7 +31,8 @@ def execute(database, project, conda, environment, output, cancel, progress, wor
     signature = input_signature(frames)
     config = OpenSfMPilotConfig(
         (str(conda), 'run', '--no-capture-output', '--prefix', str(prefix), 'python'),
-        Path(__file__).with_name('MCM_SolarCheck_OPENSFM_STAGE.py'), Path(output))
+        Path(__file__).with_name('MCM_SolarCheck_OPENSFM_STAGE.py'), Path(output),
+        project_label=dict(project_choices(database)).get(project, 'Projekt'))
     return run_opensfm_rgb_pilot(frames, config, should_cancel=cancel, on_progress=progress,
         on_workspace=workspace,
         inputs_unchanged=lambda: input_signature(read_rgb_project(database, project)) == signature)
@@ -41,13 +43,15 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
     from tkinter import filedialog, ttk
     root = tk.Tk()
     root.title('SolarCheck – RGB-Orthofoto mit OpenSfM testen')
-    root.geometry('1000x570')
+    root.geometry('1000x650')
     values = {key: tk.StringVar(value=value) for key, value in (
         ('database', ''), ('conda', str(conda)), ('environment', str(environment)), ('output', ''))}
     events, cancel = queue.Queue(), threading.Event()
     state = {'running': False, 'closing': False, 'projects': (), 'workspace': None, 'tick': None}
     status = tk.StringVar(value='Projektdatei und Projekt bewusst auswaehlen; gerechnet wird erst nach dem Startklick.')
     clock = tk.StringVar(value='')
+    run_info = tk.StringVar(value='Noch kein OpenSfM-Lauf ausgewaehlt.')
+    copy_note = tk.StringVar(value='')
     controls = []
     ttk.Label(root, text='Erster Bildlauf: ein kleines, vollstaendiges RGB-Projekt mit 3 bis 300 Bildern.\n'
         'Alle importierten RGB-JPGs werden als private Arbeitskopien verarbeitet. '
@@ -90,8 +94,10 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
     projects.pack(fill='x', padx=16, pady=8)
     projects.set('Zuerst vorhandene Projektdatei waehlen')
     controls.append(projects)
+    ttk.Label(root, textvariable=run_info, wraplength=950).pack(anchor='w', padx=16, pady=5)
     ttk.Label(root, textvariable=status, wraplength=950).pack(anchor='w', padx=16, pady=12)
     ttk.Label(root, textvariable=clock).pack(anchor='w', padx=16)
+    ttk.Label(root, textvariable=copy_note).pack(anchor='w', padx=16)
     buttons = ttk.Frame(root)
     buttons.pack(fill='x', padx=16, pady=12)
 
@@ -115,10 +121,13 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
             status.set('Projektdatei, Projekt und privaten Ausgabeordner auswaehlen.')
             return
         state.update(running=True, workspace=None, tick=time.monotonic())
+        run_info.set('Neuer OpenSfM-Lauf wird vorbereitet.')
+        copy_note.set('')
         cancel.clear()
         for control in controls:
             control['state'] = 'disabled'
         start_button['state'], cancel_button['state'], open_button['state'] = 'disabled', 'normal', 'disabled'
+        copy_button['state'] = 'disabled'
         args = (values['database'].get(), state['projects'][index][0], values['conda'].get(),
                 values['environment'].get(), values['output'].get())
         threading.Thread(target=work, args=(args,), daemon=False).start()
@@ -140,6 +149,10 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
                 kind, payload = events.get_nowait()
                 if kind == 'workspace':
                     state['workspace'] = payload
+                    try:
+                        run_info.set(local_run_label(payload))
+                    except (OSError, PilotError):
+                        run_info.set('OpenSfM RGB · Ordner: ' + payload.name)
                     open_button['state'] = 'normal'
                     continue
                 if kind == 'progress':
@@ -153,6 +166,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
                 for control in controls:
                     control['state'] = 'readonly' if control is projects else 'normal'
                 start_button['state'], cancel_button['state'] = 'normal', 'disabled'
+                copy_button['state'] = 'normal' if state['workspace'] is not None else 'disabled'
                 if kind == 'success':
                     status.set('RGB-Ergebnis zur Sichtpruefung erstellt: ' + str(payload.rgb_geotiff))
                 else:
@@ -167,12 +181,53 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
         if state['workspace'] is not None:
             os.startfile(state['workspace'])
 
+    def copy_metrics():
+        if state['workspace'] is None:
+            return
+        try:
+            text = json.dumps(read_opensfm_metrics(state['workspace']), indent=2, ensure_ascii=False)
+            root.clipboard_clear()
+            root.clipboard_append(text)
+            copy_note.set('Kennzahlen dieses OpenSfM-Laufs kopiert; hier als Text einfuegen.')
+        except (OSError, PilotError):
+            copy_note.set('Kennzahlen noch nicht lesbar oder kein OpenSfM-Bericht. Keine Rohprotokolle kopieren.')
+
+    def load_run():
+        if state['running']:
+            return
+        chosen = filedialog.askdirectory(title='Gespeicherten OpenSfM-Laufordner mit job.json auswaehlen',
+            initialdir=values['output'].get() or r'F:\Auswertung1')
+        if not chosen:
+            return
+        try:
+            report = read_opensfm_metrics(chosen)
+            label = local_run_label(chosen)
+        except (OSError, PilotError):
+            copy_note.set('Kein gueltiger OpenSfM-Lauf. COLMAP-Ordner werden nicht uebernommen.')
+            return
+        state['workspace'] = Path(chosen)
+        run_info.set(label)
+        copy_note.set('Gespeicherter Lauf geladen; es wird nichts neu berechnet.')
+        states = {'running': 'laeuft', 'finished': 'abgeschlossen',
+                  'failed': 'fehlgeschlagen', 'cancelled': 'abgebrochen'}
+        last = report['steps'][-1]['stage'] if report['steps'] else None
+        stage_label = ' · ' + dict(zip(STAGES, LABELS))[last] if last else ''
+        status.set('Gespeicherter OpenSfM-Lauf: ' + states[report['status']] + stage_label)
+        clock.set(f'Gespeicherte Gesamtlaufzeit: {report.get("elapsed_seconds", 0):.0f} Sekunden')
+        open_button['state'] = 'normal'
+        copy_button['state'] = 'normal' if report['status'] != 'running' else 'disabled'
+
     start_button = ttk.Button(buttons, text='RGB-Pilot starten', command=start)
     start_button.pack(side='left')
     cancel_button = ttk.Button(buttons, text='Abbrechen', state='disabled', command=abort)
     cancel_button.pack(side='left', padx=6)
     open_button = ttk.Button(buttons, text='Ausgabeordner oeffnen', state='disabled', command=show_output)
     open_button.pack(side='left', padx=6)
+    copy_button = ttk.Button(buttons, text='Kennzahlen kopieren', state='disabled', command=copy_metrics)
+    copy_button.pack(side='left', padx=6)
+    load_button = ttk.Button(buttons, text='Lauf laden', command=load_run)
+    load_button.pack(side='left', padx=6)
+    controls.append(load_button)
     ttk.Button(buttons, text='Schliessen', command=close).pack(side='right')
     root.protocol('WM_DELETE_WINDOW', close)
     root.after(150, poll)

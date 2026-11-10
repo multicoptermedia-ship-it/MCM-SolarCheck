@@ -1,6 +1,7 @@
 """Read-only project bridge and actual Tk flow; synthetic local records only."""
 import gc
 import importlib.util
+import json
 import os
 from pathlib import Path
 import sqlite3
@@ -92,6 +93,11 @@ def test_native_tk_explicit_project_start_workspace_and_result_or_cancel(tmp_pat
     def execute(*args):
         seen.append(args[:5])
         cancel, progress, workspace = args[5:]
+        (output / 'job.json').write_text(json.dumps({
+            'expected_engine_source': '8b6b77efddebf4429044d3206c7dc21c4e767e08',
+            'project_label': 'Synthetic project', 'started_at': '2026-11-10T20:43:00+01:00'}))
+        (output / 'laufzeiten.json').write_text(json.dumps({
+            'status': 'cancelled' if cancel_run else 'finished', 'rgb_images': 3, 'steps': []}))
         workspace(output)
         progress('synthetic stage')
         started.set()
@@ -130,6 +136,8 @@ def test_native_tk_explicit_project_start_workspace_and_result_or_cancel(tmp_pat
             root.after(50, lambda: finish(root))
             return
         assert str(button(root, 'Ausgabeordner oeffnen')['state']) == 'normal'
+        button(root, 'Kennzahlen kopieren').invoke()
+        assert json.loads(root.clipboard_get())['pipeline'] == 'opensfm_rgb'
         outcome['finished'] = True
         button(root, 'Schliessen').invoke()
     try:
@@ -137,6 +145,61 @@ def test_native_tk_explicit_project_start_workspace_and_result_or_cancel(tmp_pat
         assert not errors and outcome['finished']
         assert seen[0][:2] == (str(db), 'P')
         assert db.read_bytes() == before
+    finally:
+        monkeypatch.undo()
+        roots.clear()
+        gc.collect()
+
+
+@pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
+@pytest.mark.parametrize('wrong_engine', [False, True])
+def test_native_tk_loads_old_run_and_copies_only_opensfm_metrics_without_recalculation(tmp_path, monkeypatch, wrong_engine):
+    import tkinter as tk
+    from tkinter import filedialog, ttk
+    from mcm_solarcheck.services.opensfm_rgb_pilot import ENGINE_SOURCE, STAGES
+    module = launcher()
+    folder = tmp_path / ('rgb-pilot-old' if wrong_engine else 'opensfm-rgb-old')
+    folder.mkdir()
+    (folder / 'job.json').write_text(json.dumps({} if wrong_engine else {'expected_engine_source': ENGINE_SOURCE}))
+    (folder / 'laufzeiten.json').write_text(json.dumps({'status': 'failed', 'rgb_images': 3,
+        'elapsed_seconds': 60, 'steps': [{'stage': 'COLMAP-Bildabgleich' if wrong_engine else STAGES[0],
+                                        'status': 'failed', 'seconds': 60}]}))
+    before = {path.name: path.read_bytes() for path in folder.iterdir()}
+    errors, outcome, roots = [], {'checked': False}, []
+    real_tk = tk.Tk
+    def descendants(widget):
+        for child in widget.winfo_children():
+            yield child
+            yield from descendants(child)
+    def activate(root):
+        widgets = list(descendants(root))
+        button = lambda text: next(widget for widget in widgets
+                                  if isinstance(widget, ttk.Button) and widget['text'] == text)
+        button('Lauf laden').invoke()
+        if wrong_engine:
+            assert str(button('Kennzahlen kopieren')['state']) == 'disabled'
+        else:
+            assert str(button('Kennzahlen kopieren')['state']) == 'normal'
+            button('Kennzahlen kopieren').invoke()
+            result = json.loads(root.clipboard_get())
+            assert result['pipeline'] == 'opensfm_rgb' and result['status'] == 'failed'
+            assert 'stored_depthmaps' in result
+        outcome['checked'] = True
+        button('Schliessen').invoke()
+    def create(*args, **kwargs):
+        root = real_tk(*args, **kwargs)
+        roots.append(root)
+        root.report_callback_exception = lambda *args: errors.append(args)
+        root.after(20, lambda: activate(root))
+        root.after(8000, root.destroy)
+        return root
+    monkeypatch.setattr(tk, 'Tk', create)
+    monkeypatch.setattr(filedialog, 'askdirectory', lambda **kwargs: str(folder))
+    monkeypatch.setattr(module, 'execute', lambda *args: pytest.fail('Loading metrics must not start an engine'))
+    try:
+        module.window()
+        assert not errors and outcome['checked']
+        assert {path.name: path.read_bytes() for path in folder.iterdir()} == before
     finally:
         monkeypatch.undo()
         roots.clear()

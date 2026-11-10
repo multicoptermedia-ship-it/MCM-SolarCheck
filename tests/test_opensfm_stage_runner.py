@@ -90,6 +90,17 @@ def test_actual_dispatch_error_still_runs_upstream_dataset_cleanup(isolated_engi
     assert (folder / 'cleanup.txt').read_text() == 'done'
 
 
+def test_time_first_project_folder_is_accepted_by_isolated_stage_adapter(isolated_engine, tmp_path):
+    python, runner = isolated_engine
+    folder = owned_dataset(tmp_path)
+    renamed = folder.with_name('20261110_204300_OpenSfM_RGB_Demo-Projekt_abc12345')
+    folder.rename(renamed)
+    result = subprocess.run([str(python), '-I', str(runner), 'extract_metadata', str(renamed)],
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert (renamed / 'dispatch.json').exists()
+
+
 def test_missing_gpu_cannot_silently_switch_pilot_to_cpu_matching(isolated_engine, tmp_path):
     python, runner = isolated_engine
     folder = owned_dataset(tmp_path)

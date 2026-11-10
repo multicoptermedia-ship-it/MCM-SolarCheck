@@ -7,6 +7,7 @@ from contextlib import contextmanager
 import importlib.util
 import os
 from pathlib import Path
+import re
 import struct
 import sys
 
@@ -23,7 +24,9 @@ def main():
     if sys.argv[3:] != (['--georeferenced'] if sys.argv[1] == 'dense_merging' else []):
         raise RuntimeError('unsupported_stage_arguments')
     dataset = Path(sys.argv[2])
-    if (not dataset.is_absolute() or not dataset.name.startswith('opensfm-rgb-')
+    owned_name = (dataset.name.startswith('opensfm-rgb-') or re.fullmatch(
+        r'[0-9]{8}_[0-9]{6}_OpenSfM_RGB_[A-Za-z0-9-]{1,32}_[a-z0-9_]{8}', dataset.name))
+    if (not dataset.is_absolute() or not owned_name
             or not (dataset / 'job.json').is_file() or not (dataset / 'config.yaml').is_file()):
         raise RuntimeError('owned_dataset_required')
     for name in ('tmp', 'matplotlib'):

@@ -6,13 +6,16 @@ stay in the launcher; a later server worker can use the same job API.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from hashlib import file_digest
 import json
 import math
 from pathlib import Path
+import re
 import shutil
 import tempfile
 import time
+import unicodedata
 
 from mcm_solarcheck.services.colmap_openmvs_pilot import (
     PilotCancelled, PilotError, PilotProcessExit, PilotTimeout,
@@ -52,6 +55,7 @@ class OpenSfMPilotConfig:
     output_parent: Path
     stage_timeout_seconds: float = 3600
     total_timeout_seconds: float = 10800
+    project_label: str = 'Projekt'
 
 
 @dataclass(frozen=True)
@@ -70,6 +74,83 @@ def _json(path):
         return json.loads(source.read_text(encoding='utf-8'))
     except (UnicodeError, ValueError):
         raise PilotError('OpenSfM-Ergebnisdatei ungueltig; lokale Protokolle pruefen.') from None
+
+
+METRIC_KEYS = ('pipeline', 'run_id', 'started_at', 'status', 'rgb_images', 'registered_images',
+               'registration_complete', 'models', 'missing_images', 'foreign_images', 'points',
+               'orthophoto_created', 'georeferencing_verified', 'temperature_verified',
+               'thermal_created', 'elapsed_seconds', 'steps', 'stored_depthmaps')
+
+
+def _stored_depthmaps(workspace):
+    directory = Path(workspace) / 'undistorted' / 'depthmaps'
+    # Presence counts only, not validation of LZ4-wrapped engine caches.
+    return {name: sum(path.is_file() and not path.is_symlink() for path in directory.glob('*.' + name + '.npz'))
+            for name in ('raw', 'clean')}
+
+
+def read_opensfm_metrics(workspace):
+    """Return only shareable fields; refuse COLMAP/other-engine reports."""
+    workspace = Path(workspace)
+    manifest = _json(workspace / 'job.json')
+    if (not isinstance(manifest, dict) or manifest.get('expected_engine_source') != ENGINE_SOURCE):
+        raise PilotError('Kein OpenSfM-Laufordner. Bitte den Ordner des OpenSfM-Piloten waehlen.')
+    filename = manifest.get('metrics_filename', 'laufzeiten.json')
+    if (not isinstance(filename, str) or (filename != 'laufzeiten.json' and not re.fullmatch(
+            r'OpenSfM_RGB_[0-9]{8}_[0-9]{6}_[a-z0-9_]{8}_Kennzahlen[.]json', filename))):
+        raise PilotError('OpenSfM-Kennzahlendatei hat einen ungueltigen Namen.')
+    report = _json(workspace / filename)
+    if (not isinstance(report, dict) or report.get('pipeline', 'opensfm_rgb') != 'opensfm_rgb'
+            or report.get('status') not in ('running', 'finished', 'failed', 'cancelled')):
+        raise PilotError('Kein gueltiger OpenSfM-Kennzahlenbericht.')
+    steps = report.get('steps')
+    if not isinstance(steps, list) or len(steps) > len(STAGES):
+        raise PilotError('Kein gueltiger OpenSfM-Stufenbericht.')
+    safe_steps = []
+    for index, item in enumerate(steps):
+        if (not isinstance(item, dict) or item.get('stage') != STAGES[index]
+                or item.get('status') not in ('running', 'finished', 'failed', 'cancelled')):
+            raise PilotError('Dieser Bericht gehoert nicht zum OpenSfM-Piloten.')
+        for key in ('seconds', 'timeout_seconds', 'exit_code'):
+            value = item.get(key)
+            if value is not None and (type(value) not in (int, float) or not math.isfinite(value)):
+                raise PilotError('OpenSfM-Kennzahlen enthalten ungueltige Zahlen.')
+        if item.get('failure_kind') not in (None, 'timeout', 'process_exit'):
+            raise PilotError('OpenSfM-Kennzahlen enthalten einen unbekannten Fehlerstatus.')
+        safe_steps.append({k: item[k] for k in ('stage', 'status', 'seconds', 'timeout_seconds',
+                                               'failure_kind', 'exit_code') if k in item})
+    safe = {key: report[key] for key in METRIC_KEYS if key in report and key != 'steps'}
+    for key in ('rgb_images', 'registered_images', 'models', 'missing_images', 'foreign_images', 'points', 'elapsed_seconds'):
+        if key in safe and (type(safe[key]) not in (int, float) or not math.isfinite(safe[key]) or safe[key] < 0):
+            raise PilotError('OpenSfM-Kennzahlen enthalten ungueltige Zahlen.')
+    for key in ('registration_complete', 'orthophoto_created', 'georeferencing_verified', 'temperature_verified', 'thermal_created'):
+        if key in safe and type(safe[key]) is not bool:
+            raise PilotError('OpenSfM-Kennzahlen enthalten einen ungueltigen Status.')
+    if 'run_id' in safe and not re.fullmatch(r'opensfm-rgb-[0-9]{8}-[0-9]{6}-[a-z0-9_]{8}', str(safe['run_id'])):
+        raise PilotError('OpenSfM-Laufkennung ungueltig.')
+    if 'started_at' in safe:
+        try:
+            datetime.fromisoformat(safe['started_at'])
+        except (TypeError, ValueError):
+            raise PilotError('OpenSfM-Laufdatum ungueltig.') from None
+    safe.update(pipeline='opensfm_rgb', steps=safe_steps, stored_depthmaps=_stored_depthmaps(workspace))
+    return safe
+
+
+def local_run_label(workspace):
+    """Private desktop label, deliberately separate from shareable metrics."""
+    workspace = Path(workspace)
+    manifest = _json(workspace / 'job.json')
+    project = str(manifest.get('project_label') or 'Projektname im aelteren Lauf nicht gespeichert')[:120]
+    when = manifest.get('started_at')
+    if when:
+        try:
+            stamp = 'Start ' + datetime.fromisoformat(when).strftime('%d.%m.%Y %H:%M:%S')
+        except (ValueError, TypeError):
+            raise PilotError('OpenSfM-Laufdatum ungueltig.') from None
+    else:
+        stamp = 'Berichtsstand ' + datetime.fromtimestamp((workspace / 'laufzeiten.json').stat().st_mtime).astimezone().strftime('%d.%m.%Y %H:%M:%S')
+    return f'OpenSfM RGB · {project} · {stamp}\nOrdner: {workspace.name}'
 
 
 def reconstruction_summary(path, expected):
@@ -181,12 +262,18 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
     if cancel():
         raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
     parent = _validate_inputs(frames, config)
-    workspace = Path(tempfile.mkdtemp(prefix='opensfm-rgb-', dir=parent))
-    if on_workspace is not None:
-        on_workspace(workspace)
+    began = datetime.now().astimezone()
+    stamp = began.strftime('%Y%m%d_%H%M%S')
+    label = unicodedata.normalize('NFKD', str(config.project_label)).encode('ascii', 'ignore').decode()
+    slug = re.sub('[^A-Za-z0-9]+', '-', label).strip('-')[:32] or 'Projekt'
+    workspace = Path(tempfile.mkdtemp(prefix=f'{stamp}_OpenSfM_RGB_{slug}_', dir=parent))
+    run_id = f'opensfm-rgb-{stamp.replace("_", "-")}-{workspace.name[-8:]}'
+    metrics_filename = f'OpenSfM_RGB_{stamp}_{workspace.name[-8:]}_Kennzahlen.json'
     started = time.monotonic()
     deadline = started + config.total_timeout_seconds
     record = {'status': 'running', 'rgb_images': len(frames), 'registered_images': 0,
+              'pipeline': 'opensfm_rgb', 'run_id': run_id, 'started_at': began.isoformat(timespec='seconds'),
+              'project_label': str(config.project_label), 'metrics_filename': metrics_filename,
               'models': 0, 'missing_images': len(frames), 'foreign_images': 0, 'points': 0,
               'registration_complete': False, 'orthophoto_created': False,
               'georeferencing_verified': False, 'temperature_verified': False,
@@ -202,19 +289,19 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
 
     def save():
         record['elapsed_seconds'] = round(time.monotonic() - started, 3)
+        record['stored_depthmaps'] = _stored_depthmaps(workspace)
         temporary = workspace / 'job.next.json'
         temporary.write_text(json.dumps(record, indent=2), encoding='utf-8')
         temporary.replace(workspace / 'job.json')
-        safe_keys = ('status', 'rgb_images', 'registered_images', 'registration_complete',
-                     'models', 'missing_images', 'foreign_images', 'points',
-                     'orthophoto_created', 'georeferencing_verified', 'temperature_verified',
-                     'thermal_created', 'elapsed_seconds', 'steps')
-        (workspace / 'laufzeiten.json').write_text(json.dumps(
-            {k: record[k] for k in safe_keys}, indent=2), encoding='utf-8')
+        temporary = workspace / 'metrics.next.json'
+        temporary.write_text(json.dumps({k: record[k] for k in METRIC_KEYS}, indent=2), encoding='utf-8')
+        temporary.replace(workspace / metrics_filename)
 
     sources, mapping = [], []
     save()
     try:
+        if on_workspace is not None:
+            on_workspace(workspace)
         for name in ('tmp', 'matplotlib'):
             (workspace / name).mkdir()
         runtime_env = {'TEMP': str(workspace / 'tmp'), 'TMP': str(workspace / 'tmp'),
@@ -284,7 +371,7 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
                 save()
                 if not summary['registration_complete']:
                     raise PilotError('OpenSfM: kein einzelner vollstaendiger RGB-Kameraverbund; '
-                                     'vor der dichteren Rechnung gestoppt. Nur laufzeiten.json melden.')
+                                     'vor der dichteren Rechnung gestoppt. Kennzahlen dieses Laufs kopieren.')
         for source, signature in sources:
             stat = source.stat()
             if (stat.st_size, stat.st_mtime_ns, stat.st_ino) != signature:
