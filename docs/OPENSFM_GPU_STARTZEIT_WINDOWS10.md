@@ -1,5 +1,7 @@
 # OpenSfM-GPU-Probe: Importzeit und native Laufzeit getrennt begrenzen
 
+**Abgeschlossen10.11.2026 – nicht erneut ausführen:** Nutzer meldet passed/MX250/2047 MiB,64 korrekte128-dimensionale Deskriptorpaare. Inventar/Matching inklusive Prozessende bestanden. Dataset/Dense ungetestet. Weiter mit [lokalem RGB-Pilot](OPENSFM_RGB_PILOT_WINDOWS10.md); der folgende Prüfblock ist Historie.
+
 **OPEN-SFM-NVIDIA-01 abgeschlossen:** Nutzer bestätigt NVIDIA582.78 installiert und Rechner neu gestartet. Treiber, Compiler und OpenSfM nicht nochmals installieren.
 
 **Neuer Nutzerbefund09.11.2026:** Die bisherige Probe endet mit inventory_failed/timeout, last_stage official_cli_imports. Das ist ein anderer Befund als der vorherige0xC0000005-Absturz beim Prozessende. Die expliziten Geräteabfragen und der Matcher wurden noch nicht erreicht. Daraus weder behobenen Treiberfehler noch neue GPU-Untauglichkeit ableiten. Die Visual-Studio-Aktivierung davor ist kein Compilerfehler.

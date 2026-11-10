@@ -1,0 +1,319 @@
+"""Local job adapter for the qualified OpenSfM engine; no photogrammetry here.
+
+The shared API accepts authorized RGB records. SQLite selection and desktop UI
+stay in the launcher; a later server worker can use the same job API.
+"""
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from hashlib import file_digest
+import json
+import math
+from pathlib import Path
+import shutil
+import tempfile
+import time
+
+from mcm_solarcheck.services.colmap_openmvs_pilot import (
+    PilotCancelled, PilotError, PilotProcessExit, PilotTimeout,
+    _execute, _regular, input_signature,
+)
+from mcm_solarcheck.services.micmac_orthophotos import MicMacCancelled, MicMacError, _copy_source
+from mcm_solarcheck.services.orthomosaic_geotiff_contract import inspect_existing_geotiff
+
+
+ENGINE_SOURCE = '8b6b77efddebf4429044d3206c7dc21c4e767e08'
+STAGES = ('extract_metadata', 'detect_features', 'match_features', 'create_tracks',
+          'reconstruct', 'undistort', 'dense_clustering', 'compute_depthmaps',
+          'fuse_depthmaps', 'dense_merging')
+# Existing upstream settings only. This is a bounded 2-GiB pilot profile,
+# not a demonstrated memory guarantee or a final PV-resolution preset.
+PROFILE = {
+    'processes': 4, 'io_processes': 2, 'proj_cdn_enabled': False,
+    'feature_type': 'HAHOG', 'feature_process_size': 2048,
+    'matcher_type': 'OPENCL_BF', 'matching_gps_neighbors': 12,
+    'matching_gps_distance': 0, 'matching_time_neighbors': 6,
+    'matching_order_neighbors': 6, 'matching_vlad_neighbors': 0,
+    'matching_bow_neighbors': 0, 'use_altitude_tag': True,
+    'undistorted_image_max_size': 4000, 'depthmap_max_image_size': 1600,
+    'depthmap_num_neighbors': 6, 'depthmap_num_matching_views': 4,
+    'depthmap_cluster_max_size': 8, 'depthmap_max_cluster_views': 16,
+    'dsm_enabled': True,
+}
+LABELS = ('Metadaten', 'RGB-Merkmale', 'Bildabgleich', 'Bildspuren', 'Kameraverbund',
+          'Entzerrung', 'Dense-Cluster', 'Tiefenkarten', 'Fusion', 'RGB-GeoTIFF')
+
+
+@dataclass(frozen=True)
+class OpenSfMPilotConfig:
+    # E.g. (python,) or (conda, run, --prefix, prefix, python). No shell.
+    engine_command: tuple[str, ...]
+    runner: Path
+    output_parent: Path
+    stage_timeout_seconds: float = 3600
+    total_timeout_seconds: float = 10800
+
+
+@dataclass(frozen=True)
+class OpenSfMPilotResult:
+    workspace: Path
+    rgb_geotiff: Path
+    rgb_images: int
+    registered_images: int
+
+
+def _json(path):
+    source = _regular(path)
+    if source.stat().st_size > 256 * 1024 * 1024:
+        raise PilotError('OpenSfM-Ergebnisdatei fuer diesen Pilot unerwartet gross.')
+    try:
+        return json.loads(source.read_text(encoding='utf-8'))
+    except (UnicodeError, ValueError):
+        raise PilotError('OpenSfM-Ergebnisdatei ungueltig; lokale Protokolle pruefen.') from None
+
+
+def reconstruction_summary(path, expected):
+    """Read an existing engine result, never compute/merge camera poses."""
+    models = _json(path)
+    if not isinstance(models, list):
+        raise PilotError('OpenSfM-Kameraverbund hat ein ungueltiges Format.')
+    names = set()
+    for model in models:
+        if not isinstance(model, dict) or not isinstance(model.get('shots'), dict):
+            raise PilotError('OpenSfM-Kameraverbund hat ein ungueltiges Format.')
+        names.update(model['shots'])
+    result = {'models': len(models), 'registered_images': len(names),
+              'missing_images': len(expected - names), 'foreign_images': len(names - expected)}
+    complete = len(models) == 1 and names == expected
+    if complete:
+        model = models[0]
+        cameras = model.get('cameras')
+        points = model.get('points')
+        complete = isinstance(cameras, dict) and isinstance(points, dict) and bool(points)
+        if complete:
+            for shot in model['shots'].values():
+                if (not isinstance(shot, dict) or not isinstance(shot.get('camera'), str)
+                        or shot['camera'] not in cameras):
+                    complete = False
+                    break
+                for key in ('rotation', 'translation'):
+                    values = shot.get(key)
+                    if (not isinstance(values, list) or len(values) != 3
+                            or any(type(v) not in (float, int) or not math.isfinite(v) for v in values)):
+                        complete = False
+        result['points'] = len(points) if isinstance(points, dict) else 0
+        if complete:
+            for point in points.values():
+                values = point.get('coordinates') if isinstance(point, dict) else None
+                if (not isinstance(values, list) or len(values) != 3
+                        or any(type(v) not in (float, int) or not math.isfinite(v) for v in values)):
+                    complete = False
+                    break
+    result['registration_complete'] = bool(complete)
+    return result
+
+
+def _require_engine_gps(workspace, expected):
+    # Validate the engine's normal metadata output, without another EXIF reader
+    # or an override that could discard DJI RTK/accuracy/camera information.
+    for name in expected:
+        metadata = _json(workspace / 'exif' / (name + '.exif'))
+        try:
+            gps = metadata['gps']
+            coords = [float(gps[key]) for key in ('latitude', 'longitude', 'altitude')]
+            valid = (all(math.isfinite(v) for v in coords)
+                     and -90 <= coords[0] <= 90 and -180 <= coords[1] <= 180)
+        except (ValueError, TypeError, KeyError):
+            valid = False
+        if not valid:
+            raise PilotError('OpenSfM-Metadaten enthalten keine vollstaendigen Kamerapositionen; '
+                             'keine geratenen GPS-/CRS-Werte einsetzen.')
+
+
+def _validate_inputs(frames, config):
+    if not 3 <= len(frames) <= 300 or len({f.frame_id for f in frames}) != len(frames):
+        raise PilotError('Erster Pilot: vollstaendiges zusammengehoeriges Projekt mit 3 bis 300 RGB-JPGs waehlen.')
+    if (not math.isfinite(config.stage_timeout_seconds) or not 0 < config.stage_timeout_seconds <= 3600
+            or not math.isfinite(config.total_timeout_seconds) or not 0 < config.total_timeout_seconds <= 10800):
+        raise PilotError('Pilot ist auf maximal 60 Minuten je Stufe und drei Stunden insgesamt begrenzt.')
+    if not config.engine_command or any(not isinstance(p, str) or not p or '\0' in p for p in config.engine_command):
+        raise PilotError('OpenSfM-Prozessaufruf fehlt oder ist ungueltig.')
+    # Software interpreter symlinks are normal in a Unix virtual environment;
+    # keep the invocation path (and thus its prefix), validate its real target.
+    _regular(Path(config.engine_command[0]).resolve(strict=True))
+    _regular(config.runner)
+    parent = Path(config.output_parent)
+    if not parent.is_dir() or any(p.is_symlink() for p in (parent, *parent.parents)):
+        raise PilotError('Vorhandenen privaten Ausgabeordner auswaehlen.')
+    parent = parent.resolve(strict=True)
+    if any((p / '.git').is_file() or (p / '.git' / 'HEAD').is_file() for p in (parent, *parent.parents)):
+        raise PilotError('Pilot-Ausgabe muss ausserhalb eines Git-Checkouts liegen.')
+    paths, total = set(), 0
+    for frame in frames:
+        source = Path(frame.source_file)
+        if not source.is_absolute():
+            raise PilotError('Importierte RGB-Quellen muessen absolute lokale Pfade haben.')
+        source = _regular(source)
+        if (source.suffix.lower() not in ('.jpg', '.jpeg') or source in paths
+                or source.parent == parent or source.parent in parent.parents or parent in source.parents):
+            raise PilotError('RGB-JPGs und davon getrennten Ausgabeordner waehlen; keine doppelten Quellen.')
+        paths.add(source)
+        try:
+            coords = (float(frame.latitude), float(frame.longitude), float(frame.altitude_m))
+        except (ValueError, TypeError):
+            raise PilotError('Importierte Kamerapositionen fehlen; kein georeferenziertes Ergebnis behaupten.') from None
+        if (not all(math.isfinite(v) for v in coords) or not -90 <= coords[0] <= 90
+                or not -180 <= coords[1] <= 180):
+            raise PilotError('Importierte Kamerapositionen sind ungueltig.')
+        total += source.stat().st_size
+    if shutil.disk_usage(parent).free < total * 4 + 512 * 1024 * 1024:
+        raise PilotError('Privater Ausgabeordner hat zu wenig freien Platz fuer Arbeitskopien und Zwischenstaende.')
+    return parent
+
+
+def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None,
+                          inputs_unchanged=None, executor=None, on_workspace=None):
+    """Qualified standard stages -> checked existing GeoTIFF, no project writes."""
+    frames = tuple(frames)
+    cancel = should_cancel or (lambda: False)
+    progress = on_progress or (lambda text: None)
+    execute = executor or _execute
+    if cancel():
+        raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
+    parent = _validate_inputs(frames, config)
+    workspace = Path(tempfile.mkdtemp(prefix='opensfm-rgb-', dir=parent))
+    if on_workspace is not None:
+        on_workspace(workspace)
+    started = time.monotonic()
+    deadline = started + config.total_timeout_seconds
+    record = {'status': 'running', 'rgb_images': len(frames), 'registered_images': 0,
+              'models': 0, 'missing_images': len(frames), 'foreign_images': 0, 'points': 0,
+              'registration_complete': False, 'orthophoto_created': False,
+              'georeferencing_verified': False, 'temperature_verified': False,
+              'thermal_created': False, 'steps': [], 'expected_engine_source': ENGINE_SOURCE,
+              'input_signature': input_signature(frames), 'profile': PROFILE,
+              'stage_timeout_seconds': config.stage_timeout_seconds,
+              'total_timeout_seconds': config.total_timeout_seconds}
+
+    def stopped():
+        if time.monotonic() >= deadline:
+            raise PilotTimeout('Gesamtzeitlimit des OpenSfM-Piloten erreicht; Arbeitsdateien bleiben erhalten.')
+        return cancel()
+
+    def save():
+        record['elapsed_seconds'] = round(time.monotonic() - started, 3)
+        temporary = workspace / 'job.next.json'
+        temporary.write_text(json.dumps(record, indent=2), encoding='utf-8')
+        temporary.replace(workspace / 'job.json')
+        safe_keys = ('status', 'rgb_images', 'registered_images', 'registration_complete',
+                     'models', 'missing_images', 'foreign_images', 'points',
+                     'orthophoto_created', 'georeferencing_verified', 'temperature_verified',
+                     'thermal_created', 'elapsed_seconds', 'steps')
+        (workspace / 'laufzeiten.json').write_text(json.dumps(
+            {k: record[k] for k in safe_keys}, indent=2), encoding='utf-8')
+
+    sources, mapping = [], []
+    save()
+    try:
+        images = workspace / 'images'
+        images.mkdir()
+        for index, frame in enumerate(frames, 1):
+            if stopped():
+                raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
+            progress(f'RGB-Arbeitskopien {index}/{len(frames)}')
+            name = f'{index:06d}.JPG'
+            try:
+                sources.append(_copy_source(asdict(frame), images / name, None, stopped))
+            except MicMacCancelled:
+                raise PilotCancelled('OpenSfM-Pilot abgebrochen.') from None
+            except MicMacError:
+                raise PilotError('RGB-Arbeitskopie fehlgeschlagen oder Quelle veraendert; Originale bleiben erhalten.') from None
+            digest = frame.content_sha256
+            if not digest:
+                with (images / name).open('rb') as stream:
+                    digest = file_digest(stream, 'sha256').hexdigest()
+            mapping.append({'working_name': name, 'frame_id': frame.frame_id,
+                            'source_file': frame.source_file, 'content_sha256': digest})
+        (workspace / 'input-map.json').write_text(json.dumps(mapping, indent=2), encoding='utf-8')
+        # JSON is a YAML subset; no added app dependency or camera override.
+        (workspace / 'config.yaml').write_text(json.dumps(PROFILE, indent=2), encoding='utf-8')
+        expected = {item['working_name'] for item in mapping}
+        for index, (stage, label) in enumerate(zip(STAGES, LABELS), 1):
+            if stopped():
+                raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
+            limit = min(config.stage_timeout_seconds, deadline - time.monotonic())
+            progress(f'{index}/{len(STAGES)} OpenSfM: {label} (max. {limit / 60:.0f} min)')
+            item = {'stage': stage, 'status': 'running', 'seconds': None,
+                    'timeout_seconds': round(limit, 3)}
+            record['steps'].append(item)
+            save()
+            tick = time.monotonic()
+            log = workspace / f'step-{index:02d}.log'
+            arguments = (*config.engine_command[1:], '-I', str(config.runner), stage, str(workspace))
+            if stage == 'dense_merging':
+                arguments += ('--georeferenced',)
+            try:
+                execute(Path(config.engine_command[0]), arguments, workspace, log, stopped, timeout=limit)
+                item['status'] = 'finished'
+            except PilotProcessExit as error:
+                item.update(status='failed', failure_kind='process_exit', exit_code=error.returncode)
+                raise PilotError(f'OpenSfM {label}: Code {error.returncode}; {log.name} nur lokal pruefen.') from None
+            except PilotCancelled:
+                item['status'] = 'cancelled'
+                raise
+            except PilotTimeout:
+                item.update(status='failed', failure_kind='timeout')
+                raise PilotTimeout(f'OpenSfM {label}: Zeitlimit erreicht; {log.name} nur lokal pruefen.') from None
+            except (OSError, PilotError):
+                item['status'] = 'failed'
+                raise PilotError(f'OpenSfM {label} fehlgeschlagen; {log.name} nur lokal pruefen.') from None
+            finally:
+                item['seconds'] = round(time.monotonic() - tick, 3)
+                save()
+            if stage == 'extract_metadata':
+                _require_engine_gps(workspace, expected)
+            if stage == 'reconstruct':
+                summary = reconstruction_summary(workspace / 'reconstruction.json', expected)
+                record.update(summary)
+                save()
+                if not summary['registration_complete']:
+                    raise PilotError('OpenSfM: kein einzelner vollstaendiger RGB-Kameraverbund; '
+                                     'vor der dichteren Rechnung gestoppt. Nur laufzeiten.json melden.')
+        for source, signature in sources:
+            stat = source.stat()
+            if (stat.st_size, stat.st_mtime_ns, stat.st_ino) != signature:
+                raise PilotError('RGB-Originalquelle waehrend des Piloten veraendert; kein Ergebnis uebernehmen.')
+        if inputs_unchanged is not None and not inputs_unchanged():
+            raise PilotError('Projekteingaben waehrend des Piloten veraendert; kein Ergebnis uebernehmen.')
+        if stopped():
+            raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
+        ortho = _regular(workspace / 'undistorted' / 'depthmaps' / 'ortho.tif')
+        try:
+            reference = inspect_existing_geotiff(ortho)
+            import rasterio
+            from rasterio.transform import Affine
+            with rasterio.open(ortho) as raster:
+                if (not raster.crs.is_projected or raster.count not in (3, 4)
+                        or raster.transform == Affine.identity()):
+                    raise ValueError
+                nonempty = False
+                for _index, window in raster.block_windows(1):
+                    if stopped():
+                        raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
+                    if raster.dataset_mask(window=window).any():
+                        nonempty = True
+                        break
+                if not nonempty:
+                    raise ValueError
+            record['raster'] = {'crs': reference.crs, 'width': reference.width, 'height': reference.height}
+        except (PilotCancelled, PilotTimeout):
+            raise
+        except Exception:
+            raise PilotError('OpenSfM-Ausgabe ohne verwendbares projiziertes RGB-GeoTIFF; keine CRS-Ergaenzung.') from None
+        record.update(status='finished', orthophoto_created=True)
+        save()
+        return OpenSfMPilotResult(workspace, ortho, len(frames), record['registered_images'])
+    except BaseException as error:
+        record['status'] = 'cancelled' if isinstance(error, (PilotCancelled, KeyboardInterrupt)) else 'failed'
+        save()
+        raise
