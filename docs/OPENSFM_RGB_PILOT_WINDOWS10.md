@@ -32,12 +32,43 @@ Nach Erfolg das TIFF lokal ansehen; später den vorhandenen GeoTIFF-Import und d
 
 job.json, input-map.json, Metadaten, Rekonstruktionen, TIFFs und step-XX.log sind **private lokale Daten**. Sie bleiben auf dem Auswerterechner; nicht vollständig hochladen oder nach Git kopieren. Fehlerdialog nennt nur Stufe, Exitcode beziehungsweise Zeitlimit und relativen Lognamen. Wiederöffnung/Sichtprüfung erfolgt aus dem erhaltenen Ordner ohne erneute Berechnung.
 
-## Startblock
+## Vollständiger PowerShell-Startblock
 
-Wird nach Windows-Abnahme mit fester Quellversion und SHA256 der Quell-ZIP ergänzt. Bis dahin keinen neuen Bildlauf starten. Die bestehenden GPU-/Buildprüfungen sind abgeschlossen.
+Dieser Block lädt nur die SolarCheck-Quell-ZIP (ca.2,9 MB), prüft SHA256, entpackt in einen neuen E:-Ordner und öffnet den separaten Pilotdialog. **Kein Git-Checkout und keine Aktualisierung/Neuinstallation des bisherigen Hauptprogramms nötig.** Die vorhandene Projektdatei erst im Dialog wählen. Das Entpacken allein startet noch keine Bildverarbeitung.
+
+```powershell
+& {
+    $ErrorActionPreference = 'Stop'
+    $python = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
+    if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+        throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden; keine Neuinstallation starten.'
+    }
+    $basis = 'E:\SolarCheck-Pilot'
+    New-Item -ItemType Directory -Path $basis -Force | Out-Null
+    $ziel = Join-Path $basis ('rgb-' + [Guid]::NewGuid().ToString('N').Substring(0,12))
+    New-Item -ItemType Directory -Path $ziel | Out-Null
+    $zip = Join-Path $ziel 'solarcheck-source.zip'
+    $url = 'https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/68f0f8e5489ba70660e327c2fee352304856b70b'
+    Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zip
+    if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne '25a0c32740bc46029eda3eb73c58359aae31c6991083682f669dbab22e82f1bf') {
+        throw 'Quell-ZIP-Pruefsumme stimmt nicht; keine Ausfuehrung.'
+    }
+    $quelle = Join-Path $ziel 'source'
+    Expand-Archive -LiteralPath $zip -DestinationPath $quelle
+    $pakete = @(Get-ChildItem -LiteralPath $quelle -Directory)
+    if ($pakete.Count -ne 1) { throw 'Quell-ZIP hat einen unerwarteten Aufbau.' }
+    $starter = Join-Path $pakete[0].FullName 'scripts\MCM_SolarCheck_OPENSFM_RGB_PILOT.py'
+    if (-not (Test-Path -LiteralPath $starter -PathType Leaf)) {
+        throw 'OpenSfM-RGB-Pilotstarter fehlt in der geprueften Quell-ZIP.'
+    }
+    & $python $starter
+}
+```
+
+Nach Start im Dialog Projektdatei → richtiges Projekt → privaten Ausgabeordner wählen und **RGB-Pilot starten**. Nach Ende bitte **laufzeiten.json aus dem neuen opensfm-rgb-…-Ordner** als nächsten Befund senden. Nicht den ZIP-Quellordner mit dem privaten Ergebnisordner verwechseln.
 
 ## Prüfstand
 
-Lokal29 Tests bestanden, zwei native Tk-Fälle auf Linux ohne Display übersprungen. Synthetische Tests verbinden alle zehn Stufen, Eingabeunveränderlichkeit, Teilmodell-Stopp, GPS-/Raster-Grenzen, Abbruch-/Zeitlimitstatus und sichere Kennzahlen. Ein tatsächlicher isolierter Pythonprozess prüft die dünne CLI-Delegation/cleanup gegen eine bewusst funktionslose Test-Engine; dies ist kein echter OpenSfM-/Bildtest. Windows-Prozess-/Tk-Abnahme noch offen. Kein Kundenbild wurde hier verarbeitet.
+Lokal29 Tests bestanden, zwei native Tk-Fälle auf Linux ohne Display übersprungen. Synthetische Tests verbinden alle zehn Stufen, Eingabeunveränderlichkeit, Teilmodell-Stopp, GPS-/Raster-Grenzen, Abbruch-/Zeitlimitstatus und sichere Kennzahlen. Ein tatsächlicher isolierter Pythonprozess prüft die dünne CLI-Delegation/cleanup gegen eine bewusst funktionslose Test-Engine; dies ist kein echter OpenSfM-/Bildtest. Quelle68f0f8e5: [Windows-CI42847018314](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42847018314) auf Python3.11 und3.12 vollständig bestanden, einschließlich tatsächlicher isolierter CLI-Prozesse mit Test-Engine sowie nativer Tk-Projektwahl/Start/Ergebnis-/Abbruchbedienung und synthetischem Job bis GeoTIFF. Kleine Erweiterung des vorhandenen Prozessstarters kapselt TEMP/TMP/MPL-Cache und deaktivierte VS-Telemetrie nur im Kindprozess, schon vor Conda-Aktivierung;36 bestehende Backendtests zusätzlich lokal bestanden. ZIP-SHA256 und fünf ausgelieferte Start-/Helper-/Service-Dateien bytegenau verglichen. Windows Server2022/Stub-Engine sind keine reale Windows10-/OpenSfM-/Flugbildabnahme; Nutzerlauf bleibt offen. Neuen Dokumentations-HEAD separat prüfen. Kein Kundenbild wurde hier verarbeitet.
 
 Der gemeinsame Jobkern akzeptiert RGB-Datensätze und einen expliziten Engineaufruf; Datenbankwahl, Windows-Pfade und Tk bleiben im Desktopadapter. Für die spätere Onlinefassung ist derselbe Jobkern verwendbar. Jetzt keine zweite Web-/Cloudkette oder neue Engine, keine ODM/WebODM/ODX-Integration und kein Merge nach main. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
