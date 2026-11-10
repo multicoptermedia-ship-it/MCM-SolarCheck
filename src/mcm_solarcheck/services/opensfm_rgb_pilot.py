@@ -215,6 +215,11 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
     sources, mapping = [], []
     save()
     try:
+        for name in ('tmp', 'matplotlib'):
+            (workspace / name).mkdir()
+        runtime_env = {'TEMP': str(workspace / 'tmp'), 'TMP': str(workspace / 'tmp'),
+                       'MPLCONFIGDIR': str(workspace / 'matplotlib'),
+                       'VSCMD_SKIP_SENDTELEMETRY': '1'}
         images = workspace / 'images'
         images.mkdir()
         for index, frame in enumerate(frames, 1):
@@ -253,7 +258,8 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
             if stage == 'dense_merging':
                 arguments += ('--georeferenced',)
             try:
-                execute(Path(config.engine_command[0]), arguments, workspace, log, stopped, timeout=limit)
+                execute(Path(config.engine_command[0]), arguments, workspace, log, stopped,
+                        timeout=limit, env_overrides=runtime_env)
                 item['status'] = 'finished'
             except PilotProcessExit as error:
                 item.update(status='failed', failure_kind='process_exit', exit_code=error.returncode)

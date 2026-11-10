@@ -38,6 +38,6 @@ Wird nach Windows-Abnahme mit fester Quellversion und SHA256 der Quell-ZIP ergä
 
 ## Prüfstand
 
-Lokal28 Tests bestanden, zwei native Tk-Fälle auf Linux ohne Display übersprungen. Synthetische Tests verbinden alle zehn Stufen, Eingabeunveränderlichkeit, Teilmodell-Stopp, GPS-/Raster-Grenzen, Abbruch-/Zeitlimitstatus und sichere Kennzahlen. Ein tatsächlicher isolierter Pythonprozess prüft die dünne CLI-Delegation/cleanup gegen eine bewusst funktionslose Test-Engine; dies ist kein echter OpenSfM-/Bildtest. Windows-Prozess-/Tk-Abnahme noch offen. Kein Kundenbild wurde hier verarbeitet.
+Lokal29 Tests bestanden, zwei native Tk-Fälle auf Linux ohne Display übersprungen. Synthetische Tests verbinden alle zehn Stufen, Eingabeunveränderlichkeit, Teilmodell-Stopp, GPS-/Raster-Grenzen, Abbruch-/Zeitlimitstatus und sichere Kennzahlen. Ein tatsächlicher isolierter Pythonprozess prüft die dünne CLI-Delegation/cleanup gegen eine bewusst funktionslose Test-Engine; dies ist kein echter OpenSfM-/Bildtest. Windows-Prozess-/Tk-Abnahme noch offen. Kein Kundenbild wurde hier verarbeitet.
 
 Der gemeinsame Jobkern akzeptiert RGB-Datensätze und einen expliziten Engineaufruf; Datenbankwahl, Windows-Pfade und Tk bleiben im Desktopadapter. Für die spätere Onlinefassung ist derselbe Jobkern verwendbar. Jetzt keine zweite Web-/Cloudkette oder neue Engine, keine ODM/WebODM/ODX-Integration und kein Merge nach main. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).

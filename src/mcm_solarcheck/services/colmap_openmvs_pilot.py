@@ -119,10 +119,12 @@ def _regular(path):
     return path.resolve(strict=True)
 
 
-def _execute(executable, args, folder, log, cancel, *, allowed=(0,), timeout=86400):
+def _execute(executable, args, folder, log, cancel, *, allowed=(0,), timeout=86400, env_overrides=None):
     """Owned process tree; raw output stays in the fresh private job directory."""
     _cancel(cancel)
     env = os.environ.copy()
+    if env_overrides:
+        env.update(env_overrides)
     env['PATH'] = str(executable.parent) + os.pathsep + env.get('PATH', '')
     env['PROJ_NETWORK'] = 'OFF'
     plugins = executable.parent.parent / 'plugins'

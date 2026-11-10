@@ -2,6 +2,7 @@
 from dataclasses import replace
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -12,6 +13,7 @@ import rasterio
 from rasterio.transform import from_origin
 
 from mcm_solarcheck.services import opensfm_rgb_pilot as pilot
+from mcm_solarcheck.services import colmap_openmvs_pilot as common
 from mcm_solarcheck.services.colmap_openmvs_pilot import (
     PilotCancelled, PilotError, PilotProcessExit, PilotTimeout, RgbPilotFrame,
 )
@@ -51,9 +53,12 @@ def geotiff(path, *, crs='EPSG:32632', empty=False):
 
 
 def fake_engine(calls, *, model=None, fail=None, crs='EPSG:32632', empty=False):
-    def execute(executable, args, folder, log, cancel, *, timeout):
+    def execute(executable, args, folder, log, cancel, *, timeout, env_overrides):
         assert executable == Path(sys.executable)
         assert '-I' in args and timeout <= 3600
+        assert env_overrides['TEMP'] == env_overrides['TMP'] == str(folder / 'tmp')
+        assert env_overrides['MPLCONFIGDIR'] == str(folder / 'matplotlib')
+        assert env_overrides['VSCMD_SKIP_SENDTELEMETRY'] == '1'
         stage = args[args.index('-I') + 2]
         assert args[args.index('-I') + 3] == str(folder)
         if stage == 'dense_merging':
@@ -227,3 +232,20 @@ def test_missing_engine_gps_is_not_replaced_with_camera_guesses(tmp_path):
     with pytest.raises(PilotError, match='Kamerapositionen'):
         pilot.run_opensfm_rgb_pilot(frames, config, executor=missing)
     assert calls == ['extract_metadata']
+
+
+def test_job_environment_is_child_scoped_before_launcher_activation(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    seen = []
+    monkeypatch.setenv('MPLCONFIGDIR', 'parent-cache-must-remain')
+    def launch(args, **kwargs):
+        seen.append(kwargs['env'])
+        return SimpleNamespace(poll=lambda: 0, returncode=0)
+    monkeypatch.setattr(common.subprocess, 'Popen', launch)
+    common._execute(Path(sys.executable), ('-I', 'owned.py'), tmp_path, tmp_path / 'own.log',
+        lambda: False, env_overrides={'MPLCONFIGDIR': str(tmp_path / 'cache'),
+                                     'TEMP': str(tmp_path / 'tmp'), 'VSCMD_SKIP_SENDTELEMETRY': '1'})
+    assert os.environ['MPLCONFIGDIR'] == 'parent-cache-must-remain'
+    assert seen[0]['MPLCONFIGDIR'] == str(tmp_path / 'cache')
+    assert seen[0]['TEMP'] == str(tmp_path / 'tmp')
+    assert seen[0]['PROJ_NETWORK'] == 'OFF' and seen[0]['VSCMD_SKIP_SENDTELEMETRY'] == '1'
