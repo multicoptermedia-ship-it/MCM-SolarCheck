@@ -77,10 +77,39 @@ OpenSfM darf rohe Tiefenkarten nach erfolgreicher Bereinigung regulär freigeben
 
 ## Aktualisierter Startblock
 
-Der feste ZIP-/SHA256-Startblock für die Fortsetzungsfassung folgt nach nativer Windows-Prüfung. Den bisherigen Dialog anschließend schließen und denselben gespeicherten Lauf laden; keinen neuen RGB-Erstlauf starten.
+Bisherigen Pilotdialog schließen, dann diesen Block vollständig in PowerShell ausführen. Er lädt die feste Fortsetzungsfassung (ca2,9 MB), prüft SHA256 und öffnet sie aus einem neuen kurzen E:-Ordner. Vorhandenes F:-Python und OpenSfM bleiben erhalten; keine Installation oder automatische Bildverarbeitung.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$pilotPython = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
+if (-not (Test-Path -LiteralPath $pilotPython -PathType Leaf)) {
+    throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden.'
+}
+$pilotCommit = '1b9532af3768cbdcf4c458d2d59295e2e40fe96f'
+$pilotSha256 = 'bca41170905aa08237b9de7fc8602c06073e0dd3c44ae7ce03cccecd9cc5fe94'
+$pilotDir = Join-Path 'E:\SolarCheck-Pilot' ('rgb-' + [guid]::NewGuid().ToString('N').Substring(0,12))
+New-Item -ItemType Directory -Path $pilotDir -ErrorAction Stop | Out-Null
+$pilotZip = Join-Path $pilotDir 'source.zip'
+$pilotSource = Join-Path $pilotDir 'source'
+Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
+if ((Get-FileHash -LiteralPath $pilotZip -Algorithm SHA256).Hash -ne $pilotSha256) {
+    throw 'Pruefsumme stimmt nicht. Start abgebrochen.'
+}
+Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotSource -ErrorAction Stop
+$pilotRoot = Join-Path $pilotSource ('MCM-SolarCheck-' + $pilotCommit)
+$pilotScript = Join-Path $pilotRoot 'scripts\MCM_SolarCheck_OPENSFM_RGB_PILOT.py'
+if (-not (Test-Path -LiteralPath $pilotScript -PathType Leaf)) {
+    throw 'Startdatei im entpackten Quelltext fehlt.'
+}
+& $pilotPython $pilotScript
+if ($LASTEXITCODE -ne 0) { throw 'Pilotdialog mit Fehler beendet.' }
+```
+
+Danach **Lauf laden → denselben Lauf vom12.11.,17:00:18 auswählen → Tiefenkarten fortsetzen**. Die erfolgreiche gespeicherte Cacheprüfung wird geladen und vor der Fortsetzung automatisch nochmals geprüft. Kein erneutes manuelles Tiefenkarten-pruefen oder RGB-Pilot-starten erforderlich. Nach Ende/Fehler **Kennzahlen kopieren** und den Text im Chat einfügen; der Abschnitt dense_continuation gehört zur neuen Fortsetzung.
 
 ## Prüfstand
 
-DENSE-RESUME-01: lokal59 Tests inklusive zweier Übergabetests bestanden; sechs native Tk-Fälle ohne Display übersprungen. Windows-CI/Hashstart noch abschließen. Synthetische Fälle prüfen genau drei Standardstufen, wiederholte Cachevorprüfung, sichere Sperre gegen Parallelstart, Timeout/Abbruch, unveränderte geschützte Dateien, Erhaltung alter Berichte/Logs und verweigerte falsche Raster. Native Tk deckt Laden→Prüfen→Fortsetzen→Speichern→Wiederladen→Kopieren sowie Abbruch ab. Vorherige Cachekorrektur real PASS und Quelle44ae2a0e vollständig CI-grün. Keine echten Fotos/Cachematrizen hier verarbeitet; tatsächlicher Win10-Fortsetzungslauf und Orthofotoqualität bleiben offen.
+DENSE-RESUME-01: lokal59 Tests inklusive zweier Übergabetests bestanden; sechs native Tk-Fälle ohne Display übersprungen. Quelle **1b9532af3768cbdcf4c458d2d59295e2e40fe96f**: alle drei regulären CI-Workflows grün. [Windows43293104897](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/43293104897) auf Python3.11 und3.12 einschließlich tatsächlicher OS-Dateisperre, Fortsetzungs-/Zeitlimit-/Raster-/Provenienztests und nativer Tk-Bedienung mit Erfolg/Abbruch bestanden. Fester Quell-ZIP-SHA256 und sieben ausgelieferte Codeeinträge bytegenau geprüft. Nachfolgenden reinen Dokumentations-HEAD separat prüfen. Windows Server2022/inaktive Test-Engine sind kein echter Win10-Flug-/Orthofotoqualitätsnachweis. Synthetische Fälle prüfen genau drei Standardstufen, wiederholte Cachevorprüfung, sichere Sperre gegen Parallelstart, Timeout/Abbruch, unveränderte geschützte Dateien, Erhaltung alter Berichte/Logs und verweigerte falsche Raster. Native Tk deckt Laden→Prüfen→Fortsetzen→Speichern→Wiederladen→Kopieren sowie Abbruch ab. Vorherige Cachekorrektur real PASS und Quelle44ae2a0e vollständig CI-grün. Keine echten Fotos/Cachematrizen hier verarbeitet; tatsächlicher Win10-Fortsetzungslauf und Orthofotoqualität bleiben offen.
 
 Der gemeinsame Jobkern akzeptiert RGB-Datensätze und einen expliziten Engineaufruf; Datenbankwahl, Windows-Pfade und Tk bleiben im Desktopadapter. Für die spätere Onlinefassung ist derselbe Jobkern verwendbar. Keine neue Engine, keine ODM/WebODM/ODX-Integration und kein Merge nach main. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
