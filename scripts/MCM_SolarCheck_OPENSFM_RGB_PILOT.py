@@ -16,7 +16,10 @@ from mcm_solarcheck.services.colmap_openmvs_pilot import (  # noqa: E402
 )
 from mcm_solarcheck.services.opensfm_rgb_pilot import (  # noqa: E402
     LABELS, STAGES, OpenSfMPilotConfig, check_opensfm_depthmap_cache, local_run_label,
-    read_opensfm_cache_metrics, read_opensfm_metrics, run_opensfm_rgb_pilot,
+    run_opensfm_rgb_pilot,
+)
+from mcm_solarcheck.services.opensfm_dense_continuation import (  # noqa: E402
+    can_continue_opensfm, read_opensfm_run_metrics, run_opensfm_dense_continuation,
 )
 
 CONDA = r'E:\Tools\Miniforge3\Scripts\conda.exe'
@@ -39,14 +42,23 @@ def execute(database, project, conda, environment, output, cancel, progress, wor
         inputs_unchanged=lambda: input_signature(read_rgb_project(database, project)) == signature)
 
 
-def execute_cache(workspace, conda, environment, cancel):
+def saved_config(workspace, conda, environment):
     prefix = Path(environment)
     if not (prefix / ('python.exe' if os.name == 'nt' else 'bin/python')).is_file():
         raise PilotError('Vorhandene OpenSfM-Umgebung nicht gefunden.')
     config = OpenSfMPilotConfig(
         (str(conda), 'run', '--no-capture-output', '--prefix', str(prefix), 'python'),
         Path(__file__).with_name('MCM_SolarCheck_OPENSFM_STAGE.py'), Path(workspace).parent)
-    return check_opensfm_depthmap_cache(workspace, config, should_cancel=cancel)
+    return config
+
+
+def execute_cache(workspace, conda, environment, cancel):
+    return check_opensfm_depthmap_cache(workspace, saved_config(workspace, conda, environment), should_cancel=cancel)
+
+
+def execute_continue(workspace, conda, environment, cancel, progress):
+    return run_opensfm_dense_continuation(workspace, saved_config(workspace, conda, environment),
+                                          should_cancel=cancel, on_progress=progress)
 
 
 def window(*, conda=CONDA, environment=ENVIRONMENT):
@@ -54,7 +66,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
     from tkinter import filedialog, ttk
     root = tk.Tk()
     root.title('SolarCheck – RGB-Orthofoto mit OpenSfM testen')
-    root.geometry('1100x680')
+    root.geometry('1100x730')
     values = {key: tk.StringVar(value=value) for key, value in (
         ('database', ''), ('conda', str(conda)), ('environment', str(environment)), ('output', ''))}
     events, cancel = queue.Queue(), threading.Event()
@@ -68,7 +80,8 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
         'Alle importierten RGB-JPGs werden als private Arbeitskopien verarbeitet. '
         'Maximal 60 Minuten je Stufe, drei Stunden insgesamt.\n'
         'RGB-Ergebnis zur Sichtpruefung; Thermal und fachliche Abnahme folgen danach.\n'
-        'Gespeicherten Dense-Lauf laden → Tiefenkarten pruefen: maximal zehn Minuten, keine neue Bildberechnung.',
+        'Gespeicherten Dense-Lauf laden → Tiefenkarten pruefen: maximal zehn Minuten.\n'
+        'Nach erfolgreicher Pruefung: Tiefenkarten fortsetzen (max. zwei Stunden Tiefenkarten, drei Stunden insgesamt).',
         wraplength=950).pack(anchor='w', padx=16, pady=12)
 
     def choose(key):
@@ -112,6 +125,8 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
     ttk.Label(root, textvariable=copy_note).pack(anchor='w', padx=16)
     buttons = ttk.Frame(root)
     buttons.pack(fill='x', padx=16, pady=12)
+    saved_buttons = ttk.Frame(root)
+    saved_buttons.pack(fill='x', padx=16, pady=6)
 
     def work(args):
         try:
@@ -141,6 +156,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
         start_button['state'], cancel_button['state'], open_button['state'] = 'disabled', 'normal', 'disabled'
         copy_button['state'] = 'disabled'
         cache_button['state'] = 'disabled'
+        continue_button['state'] = 'disabled'
         args = (values['database'].get(), state['projects'][index][0], values['conda'].get(),
                 values['environment'].get(), values['output'].get())
         threading.Thread(target=work, args=(args,), daemon=False).start()
@@ -181,6 +197,11 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
                 start_button['state'], cancel_button['state'] = 'normal', 'disabled'
                 copy_button['state'] = 'normal' if state['workspace'] is not None else 'disabled'
                 cache_button['state'] = copy_button['state']
+                try:
+                    eligible = state['workspace'] is not None and can_continue_opensfm(read_opensfm_run_metrics(state['workspace']))
+                except (OSError, PilotError):
+                    eligible = False
+                continue_button['state'] = 'normal' if eligible else 'disabled'
                 if kind == 'success':
                     status.set('RGB-Ergebnis zur Sichtpruefung erstellt: ' + str(payload.rgb_geotiff))
                 elif kind == 'cache':
@@ -203,7 +224,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
         if state['workspace'] is None:
             return
         try:
-            text = json.dumps(read_opensfm_cache_metrics(state['workspace']), indent=2, ensure_ascii=False)
+            text = json.dumps(read_opensfm_run_metrics(state['workspace']), indent=2, ensure_ascii=False)
             root.clipboard_clear()
             root.clipboard_append(text)
             copy_note.set('Kennzahlen dieses OpenSfM-Laufs kopiert; hier als Text einfuegen.')
@@ -218,7 +239,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
         if not chosen:
             return
         try:
-            report = read_opensfm_cache_metrics(chosen)
+            report = read_opensfm_run_metrics(chosen)
             label = local_run_label(chosen)
         except (OSError, PilotError):
             copy_note.set('Kein gueltiger OpenSfM-Lauf. COLMAP-Ordner werden nicht uebernommen.')
@@ -232,12 +253,17 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
         stage_label = ' · ' + dict(zip(STAGES, LABELS))[last] if last else ''
         status.set('Gespeicherter OpenSfM-Lauf: ' + states[report['status']] + stage_label)
         clock.set(f'Gespeicherte Gesamtlaufzeit: {report.get("elapsed_seconds", 0):.0f} Sekunden')
+        continuation = report.get('dense_continuation')
+        if continuation:
+            status.set('Gespeicherte Fortsetzung: ' + states[continuation['status']] + '; urspruenglicher Bildlauf bleibt als Historie erhalten.')
+            clock.set(f'Fortsetzung: {continuation["elapsed_seconds"]:.0f} Sekunden; urspruenglicher Lauf: {report.get("elapsed_seconds", 0):.0f} Sekunden')
         open_button['state'] = 'normal'
         copy_button['state'] = 'normal' if report['status'] != 'running' else 'disabled'
         cache_button['state'] = ('normal' if report['status'] in ('failed', 'cancelled')
                                  and report.get('registration_complete') else 'disabled')
+        continue_button['state'] = 'normal' if can_continue_opensfm(report) else 'disabled'
 
-    def check_cache():
+    def check_cache(continue_run=False):
         if state['running'] or state['workspace'] is None:
             return
         args = (state['workspace'], values['conda'].get(), values['environment'].get())
@@ -246,16 +272,22 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
         for control in controls:
             control['state'] = 'disabled'
         start_button['state'], copy_button['state'], cache_button['state'] = 'disabled', 'disabled', 'disabled'
+        continue_button['state'] = 'disabled'
         cancel_button['state'] = 'normal'
-        status.set('Gespeicherte Tiefenkarten und Cluster pruefen; keine neue Bildverarbeitung. Maximal zehn Minuten.')
+        status.set('Fortsetzung wird vorbereitet; max. zwei Stunden Tiefenkarten/drei Stunden insgesamt.' if continue_run
+                   else 'Gespeicherte Tiefenkarten und Cluster pruefen; keine neue Bildverarbeitung. Maximal zehn Minuten.')
         copy_note.set('')
         def work_cache():
             try:
-                events.put(('cache', execute_cache(*args, cancel.is_set)))
+                if continue_run:
+                    result = execute_continue(*args, cancel.is_set, lambda text: events.put(('progress', text)))
+                    events.put(('success', result))
+                else:
+                    events.put(('cache', execute_cache(*args, cancel.is_set)))
             except PilotError as error:
                 events.put(('error', str(error)))
             except Exception:
-                events.put(('error', 'Cachepruefung fehlgeschlagen; vorhandene Ergebnisse bleiben erhalten.'))
+                events.put(('error', 'Fortsetzung/Cachepruefung fehlgeschlagen; gespeicherten Bericht kopieren.'))
         threading.Thread(target=work_cache, daemon=False).start()
 
     start_button = ttk.Button(buttons, text='RGB-Pilot starten', command=start)
@@ -264,13 +296,15 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
     cancel_button.pack(side='left', padx=6)
     open_button = ttk.Button(buttons, text='Ausgabeordner oeffnen', state='disabled', command=show_output)
     open_button.pack(side='left', padx=6)
-    copy_button = ttk.Button(buttons, text='Kennzahlen kopieren', state='disabled', command=copy_metrics)
-    copy_button.pack(side='left', padx=6)
-    load_button = ttk.Button(buttons, text='Lauf laden', command=load_run)
+    load_button = ttk.Button(saved_buttons, text='Lauf laden', command=load_run)
     load_button.pack(side='left', padx=6)
     controls.append(load_button)
-    cache_button = ttk.Button(buttons, text='Tiefenkarten pruefen', state='disabled', command=check_cache)
+    cache_button = ttk.Button(saved_buttons, text='Tiefenkarten pruefen', state='disabled', command=check_cache)
     cache_button.pack(side='left', padx=6)
+    continue_button = ttk.Button(saved_buttons, text='Tiefenkarten fortsetzen', state='disabled', command=lambda: check_cache(True))
+    continue_button.pack(side='left', padx=6)
+    copy_button = ttk.Button(saved_buttons, text='Kennzahlen kopieren', state='disabled', command=copy_metrics)
+    copy_button.pack(side='left', padx=6)
     ttk.Button(buttons, text='Schliessen', command=close).pack(side='right')
     root.protocol('WM_DELETE_WINDOW', close)
     root.after(150, poll)

@@ -1,6 +1,6 @@
 """Thin isolated entry adapter to the installed upstream OpenSfM command runner.
 
-Only invoked by the local RGB pilot in its own fresh dataset. No algorithms,
+Invoked in the pilot's own fresh or explicitly continued private dataset. No algorithms,
 downloads, guessed calibration or project/SQLite access live in this adapter.
 """
 from contextlib import contextmanager

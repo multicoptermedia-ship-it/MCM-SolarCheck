@@ -307,6 +307,33 @@ def _require_engine_gps(workspace, expected):
                              'keine geratenen GPS-/CRS-Werte einsetzen.')
 
 
+def _inspect_rgb_geotiff(workspace, stopped):
+    """The same existing raster gate for an initial run and a continuation."""
+    ortho = _regular(workspace / 'undistorted' / 'depthmaps' / 'ortho.tif')
+    try:
+        reference = inspect_existing_geotiff(ortho)
+        import rasterio
+        from rasterio.transform import Affine
+        with rasterio.open(ortho) as raster:
+            if (not raster.crs.is_projected or raster.count not in (3, 4)
+                    or raster.transform == Affine.identity()):
+                raise ValueError
+            nonempty = False
+            for _index, window in raster.block_windows(1):
+                if stopped():
+                    raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
+                if raster.dataset_mask(window=window).any():
+                    nonempty = True
+                    break
+            if not nonempty:
+                raise ValueError
+        return ortho, {'crs': reference.crs, 'width': reference.width, 'height': reference.height}
+    except (PilotCancelled, PilotTimeout):
+        raise
+    except Exception:
+        raise PilotError('OpenSfM-Ausgabe ohne verwendbares projiziertes RGB-GeoTIFF; keine CRS-Ergaenzung.') from None
+
+
 def _validate_inputs(frames, config):
     if not 3 <= len(frames) <= 300 or len({f.frame_id for f in frames}) != len(frames):
         raise PilotError('Erster Pilot: vollstaendiges zusammengehoeriges Projekt mit 3 bis 300 RGB-JPGs waehlen.')
@@ -476,29 +503,7 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
             raise PilotError('Projekteingaben waehrend des Piloten veraendert; kein Ergebnis uebernehmen.')
         if stopped():
             raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
-        ortho = _regular(workspace / 'undistorted' / 'depthmaps' / 'ortho.tif')
-        try:
-            reference = inspect_existing_geotiff(ortho)
-            import rasterio
-            from rasterio.transform import Affine
-            with rasterio.open(ortho) as raster:
-                if (not raster.crs.is_projected or raster.count not in (3, 4)
-                        or raster.transform == Affine.identity()):
-                    raise ValueError
-                nonempty = False
-                for _index, window in raster.block_windows(1):
-                    if stopped():
-                        raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
-                    if raster.dataset_mask(window=window).any():
-                        nonempty = True
-                        break
-                if not nonempty:
-                    raise ValueError
-            record['raster'] = {'crs': reference.crs, 'width': reference.width, 'height': reference.height}
-        except (PilotCancelled, PilotTimeout):
-            raise
-        except Exception:
-            raise PilotError('OpenSfM-Ausgabe ohne verwendbares projiziertes RGB-GeoTIFF; keine CRS-Ergaenzung.') from None
+        ortho, record['raster'] = _inspect_rgb_geotiff(workspace, stopped)
         record.update(status='finished', orthophoto_created=True)
         save()
         return OpenSfMPilotResult(workspace, ortho, len(frames), record['registered_images'])

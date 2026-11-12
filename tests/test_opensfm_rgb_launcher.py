@@ -207,10 +207,12 @@ def test_native_tk_loads_old_run_and_copies_only_opensfm_metrics_without_recalcu
 
 
 @pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
-def test_native_tk_checks_saved_depthmaps_and_reopens_copies_report_without_new_job(tmp_path, monkeypatch):
+@pytest.mark.parametrize('continue_cancel', [False, True])
+def test_native_tk_checks_saved_depthmaps_continues_and_reopens_report_without_new_job(tmp_path, monkeypatch, continue_cancel):
     import tkinter as tk
     from tkinter import filedialog, ttk
     from mcm_solarcheck.services import opensfm_rgb_pilot as pilot
+    from mcm_solarcheck.services import opensfm_dense_continuation as resume
     module = launcher()
     folder = tmp_path / 'opensfm-rgb-synthetic'
     folder.mkdir()
@@ -222,6 +224,7 @@ def test_native_tk_checks_saved_depthmaps_and_reopens_copies_report_without_new_
     before = {p: p.read_bytes() for p in folder.iterdir()}
     calls, roots, errors = [], [], []
     done = {'value': False}
+    continuing = threading.Event()
     real_tk = tk.Tk
     def descendants(w):
         for c in w.winfo_children():
@@ -234,13 +237,35 @@ def test_native_tk_checks_saved_depthmaps_and_reopens_copies_report_without_new_
         calls.append(workspace)
         detail = dict.fromkeys(pilot.CACHE_COUNTS, 0)
         detail.update(check='solarcheck-opensfm-cache-1', status='completed', working_images=3,
-                      raw_readable=2, clusters=1, clusters_partly_cached=1, clustered_images=3,
+                      raw_readable=2, clusters=2, clusters_fully_cached=1, clusters_without_cache=1, clustered_images=3,
                       changed_during_check=False, geometric_quality_verified=False, resume_implemented=False)
         result = {**report, 'depthmap_cache_check': detail}
         inspection = folder / 'cache-check-abc12345'
         inspection.mkdir()
         (inspection / 'Kennzahlen.json').write_text(json.dumps(result))
         return result
+    def continue_saved(workspace, conda, environment, cancel, progress):
+        assert Path(workspace) == folder
+        continuing.set()
+        progress('synthetic dense continuation')
+        if continue_cancel:
+            deadline = time.monotonic() + 5
+            while not cancel() and time.monotonic() < deadline:
+                time.sleep(.02)
+            assert cancel()
+        attempt = folder / 'dense-resume-20261112_203000-abc12345'
+        attempt.mkdir()
+        record = dict(check=resume.CHECK, run_id=None, continuation_id=attempt.name,
+            started_at='2026-11-12T20:30:00+01:00', status='cancelled' if continue_cancel else 'finished',
+            elapsed_seconds=1,
+            steps=[dict(stage=s, status='finished') for s in pilot.STAGES[7:]] if not continue_cancel else [],
+            stored_depthmaps={'raw': 0, 'clean': 3}, reused_initial_stages=7,
+            orthophoto_created=not continue_cancel, georeferencing_verified=False, temperature_verified=False,
+            thermal_created=False, protected_digests={'PRIVATE PATH': 'not shareable'})
+        (attempt / 'continuation.json').write_text(json.dumps(record))
+        if continue_cancel:
+            raise module.PilotCancelled('synthetic cancellation')
+        return SimpleNamespace(rgb_geotiff=folder / 'synthetic-ortho.tif')
     def activate(root):
         button(root, 'Lauf laden').invoke()
         assert str(button(root, 'Tiefenkarten pruefen')['state']) == 'normal'
@@ -255,6 +280,25 @@ def test_native_tk_checks_saved_depthmaps_and_reopens_copies_report_without_new_
         result = json.loads(root.clipboard_get())
         assert result['depthmap_cache_check']['raw_readable'] == 2
         assert result['status'] == 'failed' and not result['depthmap_cache_check']['resume_implemented']
+        assert str(button(root, 'Tiefenkarten fortsetzen')['state']) == 'normal'
+        button(root, 'Tiefenkarten fortsetzen').invoke()
+        root.after(50, lambda: finish_continuation(root))
+    def finish_continuation(root):
+        if not continuing.is_set():
+            root.after(50, lambda: finish_continuation(root))
+            return
+        if continue_cancel and not done.get('cancelled'):
+            done['cancelled'] = True
+            button(root, 'Abbrechen').invoke()
+        if str(button(root, 'Kennzahlen kopieren')['state']) != 'normal':
+            root.after(50, lambda: finish_continuation(root))
+            return
+        button(root, 'Lauf laden').invoke()
+        button(root, 'Kennzahlen kopieren').invoke()
+        result = json.loads(root.clipboard_get())
+        assert result['dense_continuation']['status'] == ('cancelled' if continue_cancel else 'finished')
+        assert result['dense_continuation']['orthophoto_created'] is (not continue_cancel)
+        assert 'PRIVATE PATH' not in json.dumps(result)
         done['value'] = True
         button(root, 'Schliessen').invoke()
     def create(*args, **kwargs):
@@ -267,6 +311,7 @@ def test_native_tk_checks_saved_depthmaps_and_reopens_copies_report_without_new_
     monkeypatch.setattr(tk, 'Tk', create)
     monkeypatch.setattr(filedialog, 'askdirectory', lambda **kw: str(folder))
     monkeypatch.setattr(module, 'execute_cache', inspect)
+    monkeypatch.setattr(module, 'execute_continue', continue_saved)
     monkeypatch.setattr(module, 'execute', lambda *a: pytest.fail('No new photo job'))
     try:
         module.window()

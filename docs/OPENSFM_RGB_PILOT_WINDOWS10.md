@@ -1,8 +1,6 @@
 # Erster lokaler RGB-Orthofoto-Pilot mit OpenSfM
 
-**Aktueller Nutzerbefund 12.11.2026:** 287/287 RGB-Aufnahmen in einem Modell,137425 Punkte. Erste sieben Stufen bestanden. Tiefenkarten nach3600,219 s am Stufenlimit beendet, Gesamt5960,282 s (rund1 h39 min).123 rohe/0 bereinigte Tiefenkartendateien vorhanden; deren Lesbarkeit und vollständige Cluster sind noch nicht geprüft. Noch kein Orthofoto. Den vorhandenen neuen Lauf erhalten, keine Kopien/Sparse-/Entzerrungs-/Cluster-Neuberechnung.
-
-**Bisherige Cacheprüfung auf Windows10 fehlgeschlagen:** Nutzer-Screenshot zeigt Fehler nach etwa7 Sekunden, kein Zehn-Minuten-Timeout. Im Adapter ist ein Fehler belegt: Arbeitsnamen und entzerrte Bildkennungen können unterschiedlich sein (.JPG→.JPG.jpg, siehe Upstream undistort.py/config.py). FIX1 liest die gespeicherte Enginezuordnung mit load_undistorted_shot_ids, ohne Namen zu erraten oder Dateien zu ändern. Nutzerlog bestätigt inzwischen ValueError: invalid_saved_clusters nach erfolgreichen Engineimporten. Korrigierte Fassung ausschließlich für die Prüfung desselben gespeicherten Laufs verwenden.
+**Aktueller Nutzerbefund12.11.2026:**287/287 RGB-Bilder in1 Modell,137425 Punkte. Erste sieben Stufen bestanden; Dense nach3600,219 s Stufenlimit beendet, Gesamt5960,282 s. Korrigierte Cacheprüfung real bestanden in13,516 s:123 rohe Dateien lesbar,0 unlesbar/fremd/Änderungen, noch0 clean.19 von43 Clustern vollständig,24 fehlen,0 teilweise. Alle287 Bilder zugeordnet. Noch kein Orthofoto/Qualitätsnachweis. Jetzt den gespeicherten Lauf ab Dense fortsetzen.
 
 **10.11.2026 · GPU-Funktionstest bestanden:** Nutzer meldet status passed, MX250/2047 MiB und64 korrekt zugeordnete künstliche Deskriptoren im OpenSfM-eigenen Matcher. NVIDIA582.78 und getrennte Import-/Native-Zeitfenster sind bestätigt. Compiler, Umgebung, Quellbau und GPU-Startprüfung sind abgeschlossen; nichts davon erneut installieren oder prüfen. Dataset und Dense waren ausdrücklich not_tested.
 
@@ -63,41 +61,26 @@ Die Prüfung ruft nur die installierten OpenSfM-DataSet-Lader für gespeicherte 
 
 Der eigene neue **cache-check-…\Kennzahlen.json** bleibt im selben privaten Laufordner gespeichert. **Lauf laden/Kennzahlen kopieren** öffnet die jüngste gespeicherte Prüfung ohne erneuten Engineaufruf. Die ursprünglichen Berichte, Konfigurationen und Tiefenkarten bleiben erhalten. Unlesbare Dateien werden nicht gelöscht oder repariert. Bei Timeout/Prozessfehler gilt ein bereits geschriebenes Worker-Ergebnis ausdrücklich nicht als erfolgreicher Prüfbefund. Rohprotokoll worker.log und worker-result.json bleiben lokal; nur Kennzahlen kopieren.
 
+## Vorhandenen Lauf ab Tiefenkarten fortsetzen
+
+**Lauf laden → denselben Lauf vom12.11.,17:00:18 auswählen → Tiefenkarten fortsetzen.** Die Schaltfläche ist nach einer erfolgreichen gespeicherten Cacheprüfung verfügbar. Projekt-/Datenbankauswahl und neuer Bildimport sind dafür nicht erforderlich. Die bestätigten E:-Werkzeugpfade bleiben vorbelegt.
+
+Der Adapter prüft vor dem Schreiben vorhandene Arbeitskopien gegen ihre gespeicherten SHA256-Werte, Kameraverbund und gespeicherte Metadaten. Er prüft die Caches automatisch nochmals mit den installierten Standard-Ladern; bei unlesbaren/zwischenzeitlich geänderten Daten startet keine Bildstufe. Keine erneute manuelle Prüfserie, keine Original-/EXIF-/Datenbank-Inventur oder Arbeitskopieerstellung. Eine Betriebssystem-Dateisperre verhindert zwei gleichzeitige Fortsetzungen desselben Jobs.
+
+Danach führt die unveränderte externe Engine nur **compute_depthmaps → fuse_depthmaps → dense_merging --georeferenced** aus. Vollständige Cluster werden von OpenSfM übersprungen; teilweise gespeicherte kann es erneut rechnen. Die sieben abgeschlossenen Anfangsstufen werden nicht ausgeführt. Es wird kein eigener Rekonstruktions-/Stitch-/Nahtalgorithmus ergänzt.
+
+**Eigenes Zeitbudget nach dem gemessenen Cachefortschritt:** höchstens zwei Stunden für Tiefenkarten einschließlich Bereinigung, je eine Stunde für Fusion und GeoTIFF; höchstens drei Stunden für die gesamte Fortsetzung einschließlich Vorprüfung. Der ursprüngliche Erstlauf bleibt bei60 Minuten pro Stufe/drei Stunden gesamt. Engineprofil unverändert. Kein automatischer Retry oder unbegrenzter Nachtlauf. Abbrechen/Schließen beendet nur den eigenen Prozessbaum und erhält gespeicherte Zwischenergebnisse.
+
+Ein neuer **dense-resume-…**-Unterordner speichert eigene Logs und Kennzahlen. Die ursprünglichen Jobdateien/Timeoutlogs bleiben erhalten. Nach Ende oder Fehler **Kennzahlen kopieren**; Wiederöffnung über Lauf laden rechnet nichts erneut. Der neue Abschnitt **dense_continuation** enthält Status, Zeit und Stufen dieser Fortsetzung. Das obere status: failed gehört weiterhin zum ursprünglichen begrenzten Bildlauf.
+
+OpenSfM darf rohe Tiefenkarten nach erfolgreicher Bereinigung regulär freigeben und durch clean-Dateien ersetzen. Ein sinkender raw-Zähler ist daher allein kein Datenverlust. Die App repariert/löscht keine Cachedateien. Das RGB-Ergebnis bleibt **undistorted\depthmaps\ortho.tif**; derselbe vorhandene GeoTIFF-Inspektor prüft das technische Raster. Danach lokal Dach-/PV-Ränder, Abdeckung und Nähte ansehen. Georeferenz-/Geometriequalität, Temperaturwerte und passendes Thermal bleiben gesondert offen; später bestehenden Paarimport verwenden.
+
 ## Aktualisierter Startblock
 
-Zuerst den bisherigen Pilotdialog schließen. Diesen Block vollständig in PowerShell ausführen; er öffnet die korrigierte Fassung mit der gespeicherten OpenSfM-Bildzuordnung. Festes Quell-ZIP (ca2,9 MB), SHA256-Prüfung und neuer kurzer E:-Ordner; vorhandenes F:-Python/OpenSfM bleiben erhalten. Keine Installation oder automatische Bildverarbeitung.
-
-```powershell
-$ErrorActionPreference = 'Stop'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$pilotPython = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
-if (-not (Test-Path -LiteralPath $pilotPython -PathType Leaf)) {
-    throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden.'
-}
-$pilotCommit = '5ba14cf18b1ed454c8a13f76eebde4846d945af4'
-$pilotSha256 = '8c79eba7f17e53e236a081978b7223246d629d55d190b4e05c844898b54572ec'
-$pilotDir = Join-Path 'E:\SolarCheck-Pilot' ('rgb-' + [guid]::NewGuid().ToString('N').Substring(0,12))
-New-Item -ItemType Directory -Path $pilotDir -ErrorAction Stop | Out-Null
-$pilotZip = Join-Path $pilotDir 'source.zip'
-$pilotSource = Join-Path $pilotDir 'source'
-Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
-if ((Get-FileHash -LiteralPath $pilotZip -Algorithm SHA256).Hash -ne $pilotSha256) {
-    throw 'Pruefsumme stimmt nicht. Start abgebrochen.'
-}
-Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotSource -ErrorAction Stop
-$pilotRoot = Join-Path $pilotSource ('MCM-SolarCheck-' + $pilotCommit)
-$pilotScript = Join-Path $pilotRoot 'scripts\MCM_SolarCheck_OPENSFM_RGB_PILOT.py'
-if (-not (Test-Path -LiteralPath $pilotScript -PathType Leaf)) {
-    throw 'Startdatei im entpackten Quelltext fehlt.'
-}
-& $pilotPython $pilotScript
-if ($LASTEXITCODE -ne 0) { throw 'Pilotdialog mit Fehler beendet.' }
-```
-
-Danach **Lauf laden → denselben Lauf vom12.11.,17:00:18 auswählen → Tiefenkarten pruefen → Kennzahlen kopieren**. Nur die gezielte Prüfung erneut starten, keinen neuen RGB-Bildlauf. Maximal zehn Minuten; vorhandene Originale, Arbeitskopien, Tiefenkarten und frühere Berichte bleiben erhalten. Die neue Prüfung speichert einen eigenen cache-check-Bericht. Erst dessen Lesbarkeits-/Clusterbefund erlaubt die Planung einer begrenzten Fortsetzung.
+Der feste ZIP-/SHA256-Startblock für die Fortsetzungsfassung folgt nach nativer Windows-Prüfung. Den bisherigen Dialog anschließend schließen und denselben gespeicherten Lauf laden; keinen neuen RGB-Erstlauf starten.
 
 ## Prüfstand
 
-FIX1 lokal48 Tests bestanden, fünf native Tk-Fälle ohne Display übersprungen: echte .JPG→.JPG.jpg-Enginezuordnung und unveränderte IDs, verweigerte fehlende/mehrdeutige/Pfad-Zuordnungen, Standard-Loadergrenze, Clusterabdeckung, beschädigte/parallel geänderte Dateien, unveränderte vorhandene Daten. Isolierte CLI-Prozesse gegen inaktive Engine-API verwenden ebenfalls den Suffixfall. Quelle **5ba14cf18b1ed454c8a13f76eebde4846d945af4**: alle drei regulären CI-Workflows grün. [Windows43286004056](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/43286004056) auf Python3.11 und3.12 einschließlich isolierter CLI mit tatsächlichem Suffixfall, Cache-/Jobtests und nativer Tk-Bedienung bestanden. Quell-ZIP-SHA256 berechnet, sechs ausgelieferte Codeeinträge bytegenau verglichen. Windows Server2022/inaktive Test-Engine sind keine reale Win10-Cache-/Orthofotoabnahme; Wiederprüfung auf dem Auswerterechner offen. Nachfolgender reiner Dokumentations-HEAD separat prüfen. Vorheriger Stand54aa93a8 vollständig CI-grün, aber reale Nutzerprüfung fehlgeschlagen; keine Win10-Cache-/Orthofotoabnahme. Keine Kundenbilder/echten Cachematrizen hier verarbeitet.
+DENSE-RESUME-01: lokal59 Tests inklusive zweier Übergabetests bestanden; sechs native Tk-Fälle ohne Display übersprungen. Windows-CI/Hashstart noch abschließen. Synthetische Fälle prüfen genau drei Standardstufen, wiederholte Cachevorprüfung, sichere Sperre gegen Parallelstart, Timeout/Abbruch, unveränderte geschützte Dateien, Erhaltung alter Berichte/Logs und verweigerte falsche Raster. Native Tk deckt Laden→Prüfen→Fortsetzen→Speichern→Wiederladen→Kopieren sowie Abbruch ab. Vorherige Cachekorrektur real PASS und Quelle44ae2a0e vollständig CI-grün. Keine echten Fotos/Cachematrizen hier verarbeitet; tatsächlicher Win10-Fortsetzungslauf und Orthofotoqualität bleiben offen.
 
 Der gemeinsame Jobkern akzeptiert RGB-Datensätze und einen expliziten Engineaufruf; Datenbankwahl, Windows-Pfade und Tk bleiben im Desktopadapter. Für die spätere Onlinefassung ist derselbe Jobkern verwendbar. Keine neue Engine, keine ODM/WebODM/ODX-Integration und kein Merge nach main. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
