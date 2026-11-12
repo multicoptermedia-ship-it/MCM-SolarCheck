@@ -48,10 +48,21 @@ def inspect_cache(workspace, data):
     for path in (directory, *directory.parents):
         if path.is_symlink():
             raise ValueError('linked_dataset_refused')
-    expected = set(data.images())  # Existing working filenames, no image decode.
-    if not 3 <= len(expected) <= 300 or any(not re.fullmatch(r'[0-9]{6}[.]JPG', s) for s in expected):
+    working = set(data.images())  # Existing working filenames, no image decode.
+    if not 3 <= len(working) <= 300 or any(not re.fullmatch(r'[0-9]{6}[.]JPG', s) for s in working):
         raise ValueError('unexpected_working_names')
     undistorted = data.undistorted_dataset()
+    # Upstream may append its output format, e.g. 000001.JPG -> 000001.JPG.jpg.
+    # Its saved mapping is authoritative; never guess by changing extensions.
+    mapping = undistorted.load_undistorted_shot_ids()
+    if (not isinstance(mapping, dict) or set(mapping) != working
+            or any(not isinstance(ids, list) or len(ids) != 1
+                   or not isinstance(ids[0], str) or ids[0] in ('.', '..')
+                   or not re.fullmatch(r'[A-Za-z0-9_.-]{1,120}', ids[0]) for ids in mapping.values())):
+        raise ValueError('invalid_saved_undistorted_mapping')
+    expected = {ids[0] for ids in mapping.values()}
+    if len(expected) != len(working):
+        raise ValueError('duplicate_saved_undistorted_ids')
     clusters = undistorted.load_clusters()
     if (not isinstance(clusters, list) or not clusters or len(clusters) > 300
             or any(not isinstance(c, list) or not c or len(c) > 300
@@ -60,7 +71,7 @@ def inspect_cache(workspace, data):
     before = snapshot(directory)
     good = {'raw': set(), 'clean': set()}
     report = {'check': 'solarcheck-opensfm-cache-1', 'status': 'completed',
-              'working_images': len(expected), 'clusters': len(clusters),
+              'working_images': len(working), 'clusters': len(clusters),
               'raw_readable': 0, 'raw_unreadable': 0, 'clean_readable': 0, 'clean_unreadable': 0,
               'foreign_cache_files': 0, 'changed_during_check': False,
               'geometric_quality_verified': False, 'resume_implemented': False}

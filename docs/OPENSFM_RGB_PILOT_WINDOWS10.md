@@ -2,6 +2,8 @@
 
 **Aktueller Nutzerbefund 12.11.2026:** 287/287 RGB-Aufnahmen in einem Modell,137425 Punkte. Erste sieben Stufen bestanden. Tiefenkarten nach3600,219 s am Stufenlimit beendet, Gesamt5960,282 s (rund1 h39 min).123 rohe/0 bereinigte Tiefenkartendateien vorhanden; deren Lesbarkeit und vollständige Cluster sind noch nicht geprüft. Noch kein Orthofoto. Den vorhandenen neuen Lauf erhalten, keine Kopien/Sparse-/Entzerrungs-/Cluster-Neuberechnung.
 
+**Cacheprüfung auf Windows10 fehlgeschlagen:** Nutzer-Screenshot zeigt Fehler nach etwa7 Sekunden, kein Zehn-Minuten-Timeout. Im Adapter ist ein Fehler belegt: Arbeitsnamen und entzerrte Bildkennungen können unterschiedlich sein (.JPG→.JPG.jpg, siehe Upstream undistort.py/config.py). FIX1 liest die gespeicherte Enginezuordnung mit load_undistorted_shot_ids, ohne Namen zu erraten oder Dateien zu ändern. Eine kurze lokale Fehlerzeile ist zur Bestätigung des konkreten Abbruchs angefragt. Bis zur korrigierten Fassung keine weitere Prüfung oder Bildberechnung starten.
+
 **10.11.2026 · GPU-Funktionstest bestanden:** Nutzer meldet status passed, MX250/2047 MiB und64 korrekt zugeordnete künstliche Deskriptoren im OpenSfM-eigenen Matcher. NVIDIA582.78 und getrennte Import-/Native-Zeitfenster sind bestätigt. Compiler, Umgebung, Quellbau und GPU-Startprüfung sind abgeschlossen; nichts davon erneut installieren oder prüfen. Dataset und Dense waren ausdrücklich not_tested.
 
 **OPEN-SFM-RGB-01** verbindet nun die vorhandene Projektwahl/den nur lesenden RGB-Projektzugriff und geprüfte Arbeitskopien mit den installierten Standardstufen von OpenSfM. Kein neuer Importer und keine neue Photogrammetrie-Engine. Dies ist ein separater lokaler Pilot; das Hauptprogramm und seine vorhandenen Projekte werden nicht aktualisiert oder umregistriert. Der Windows-10-Nutzerlauf hat den vollständigen Kameraverbund erreicht; Dense-Abschluss und Bildqualität bleiben offen.
@@ -63,39 +65,10 @@ Der eigene neue **cache-check-…\Kennzahlen.json** bleibt im selben privaten La
 
 ## Aktualisierter Startblock
 
-Diesen Block vollständig in PowerShell ausführen. Er lädt die feste SolarCheck-Quellfassung (ca.2,9 MB), prüft SHA256, entpackt sie in einen neuen kurzen E:-Ordner und öffnet den aktualisierten Dialog. Keine Installation oder automatische Bildverarbeitung. Vorhandenes F:-Python und OpenSfM bleiben erhalten.
-
-```powershell
-$ErrorActionPreference = 'Stop'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$pilotPython = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
-if (-not (Test-Path -LiteralPath $pilotPython -PathType Leaf)) {
-    throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden.'
-}
-$pilotCommit = '7e518724c8e00d4a3906b273c761a8c305907eb6'
-$pilotSha256 = '8a5225e475105ef51aa5d8f70b5630c98e1109461066088290a8c94c9a99c6aa'
-$pilotDir = Join-Path 'E:\SolarCheck-Pilot' ('rgb-' + [guid]::NewGuid().ToString('N').Substring(0,12))
-New-Item -ItemType Directory -Path $pilotDir -ErrorAction Stop | Out-Null
-$pilotZip = Join-Path $pilotDir 'source.zip'
-$pilotSource = Join-Path $pilotDir 'source'
-Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
-if ((Get-FileHash -LiteralPath $pilotZip -Algorithm SHA256).Hash -ne $pilotSha256) {
-    throw 'Pruefsumme stimmt nicht. Start abgebrochen.'
-}
-Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotSource -ErrorAction Stop
-$pilotRoot = Join-Path $pilotSource ('MCM-SolarCheck-' + $pilotCommit)
-$pilotScript = Join-Path $pilotRoot 'scripts\MCM_SolarCheck_OPENSFM_RGB_PILOT.py'
-if (-not (Test-Path -LiteralPath $pilotScript -PathType Leaf)) {
-    throw 'Startdatei im entpackten Quelltext fehlt.'
-}
-& $pilotPython $pilotScript
-if ($LASTEXITCODE -ne 0) { throw 'Pilotdialog mit Fehler beendet.' }
-```
-
-Danach ausschließlich **Lauf laden → Lauf vom12.11.,17:00:18 auswählen → Tiefenkarten pruefen → Kennzahlen kopieren**. Der Bildlauf wird damit nicht neu gestartet. Die Prüfung dauert höchstens zehn Minuten und speichert ihren Bericht im gewählten vorhandenen Lauf. Kein neuer Import, Treiber-/Compiler-/Enginebau oder Datenbankupdate.
+Korrigierter fester ZIP-/SHA256-Start für FIX1 folgt nach nativer Windows-Prüfung. Die bisherige Cacheprüfung erwartet unzutreffend ursprüngliche Arbeitskennungen und soll nicht erneut gestartet werden. Vorhandenen Lauf und Cachedateien erhalten.
 
 ## Prüfstand
 
-CACHE-CHECK-01 lokal44 Tests bestanden, fünf native Tk-Fälle ohne Display übersprungen. Nachweise: Standard-Loadergrenze mit undurchsichtigen synthetischen Cachepayloads, Clusterabdeckung, unlesbare/formatfalsche/parallel geänderte Dateien, Erhaltung bestehender Ergebnisse; echte isolierte Workerprozesse gegen inaktive Test-Engine einschließlich Fehler beim Prozessende nach geschriebenem Ergebnis. Quelle **7e518724c8e00d4a3906b273c761a8c305907eb6**: alle drei regulären CI-Workflows grün. [Windows43275242528](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/43275242528), Python3.11 und3.12, einschließlich tatsächlicher isolierter Workerprozesse und nativer Tk-Bedienung Laden→Prüfen→Speichern→Wiederladen→Kopieren bestanden. Festen Quell-ZIP-SHA256 berechnet und sechs ausgelieferte Start-/Helper-/Service-Dateien bytegenau verglichen. Windows Server2022/inaktive Test-Engine belegen keine reale Win10-Cache- oder Orthofotoqualität. Reiner nachfolgender Dokumentations-HEAD separat prüfen. Kein echter OpenSfM-/Flugcache hier gelesen. Quelle d6296bba: bisherige drei CI grün, Win10-Nutzerlaufanzeige/eindeutiger Bericht bestätigt. Quellenprüfung, technische Tests, Cachelesbarkeit und Orthofoto-Fachabnahme bleiben getrennt.
+FIX1 lokal48 Tests bestanden, fünf native Tk-Fälle ohne Display übersprungen: echte .JPG→.JPG.jpg-Enginezuordnung und unveränderte IDs, verweigerte fehlende/mehrdeutige/Pfad-Zuordnungen, Standard-Loadergrenze, Clusterabdeckung, beschädigte/parallel geänderte Dateien, unveränderte vorhandene Daten. Isolierte CLI-Prozesse gegen inaktive Engine-API verwenden ebenfalls den Suffixfall. Neue Windows-Prüfung/Hashstart noch offen. Vorheriger Stand54aa93a8 vollständig CI-grün, aber reale Nutzerprüfung fehlgeschlagen; keine Win10-Cache-/Orthofotoabnahme. Keine Kundenbilder/echten Cachematrizen hier verarbeitet.
 
 Der gemeinsame Jobkern akzeptiert RGB-Datensätze und einen expliziten Engineaufruf; Datenbankwahl, Windows-Pfade und Tk bleiben im Desktopadapter. Für die spätere Onlinefassung ist derselbe Jobkern verwendbar. Keine neue Engine, keine ODM/WebODM/ODX-Integration und kein Merge nach main. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).

@@ -21,10 +21,11 @@ def worker():
     return module
 
 
-def dataset(folder):
+def dataset(folder, converted=True):
     directory = folder / 'undistorted/depthmaps'
     directory.mkdir(parents=True)
-    names = ['000001.JPG', '000002.JPG', '000003.JPG']
+    working = ['000001.JPG', '000002.JPG', '000003.JPG']
+    names = [name + '.jpg' if converted else name for name in working]
     for name in names[:2]:
         (directory / (name + '.raw.npz')).write_bytes(b'opaque-engine-owned-LZ4-payload')
     (directory / (names[0] + '.clean.npz')).write_bytes(b'opaque-clean-payload')
@@ -35,22 +36,38 @@ def dataset(folder):
         normal = np.ones((3, 4, 3), dtype=np.float32)
         return (depth, normal, depth, None) if clean else (depth, normal, None, None, None, None)
     undistorted = SimpleNamespace(load_clusters=lambda: [names[:2], names[2:]],
+        load_undistorted_shot_ids=lambda: dict(zip(working, ([name] for name in names))),
         load_raw_depthmap=lambda s: load(s), load_clean_depthmap=lambda s: load(s, True))
-    data = SimpleNamespace(images=lambda: names, undistorted_dataset=lambda: undistorted)
+    data = SimpleNamespace(images=lambda: working, undistorted_dataset=lambda: undistorted)
     return data, undistorted, directory, calls
 
 
-def test_only_engine_loaders_read_existing_payload_and_clusters(tmp_path):
-    data, _, directory, calls = dataset(tmp_path)
+@pytest.mark.parametrize('converted', [True, False])
+def test_only_engine_loaders_read_existing_payload_and_clusters(tmp_path, converted):
+    data, _, directory, calls = dataset(tmp_path, converted)
     before = {p: p.read_bytes() for p in directory.iterdir()}
     result = worker().inspect_cache(tmp_path, data)
     assert result['status'] == 'completed'
     assert (result['raw_readable'], result['clean_readable']) == (2, 1)
     assert (result['clusters_fully_cached'], result['clusters_partly_cached'], result['clusters_without_cache']) == (1, 0, 1)
     assert len(calls) == 3
+    assert calls[0][0] == ('000001.JPG.jpg' if converted else '000001.JPG')
     assert all(p.read_bytes() == value for p, value in before.items())
     assert not result['geometric_quality_verified'] and not result['resume_implemented']
     assert '000001' not in json.dumps(result)
+
+
+@pytest.mark.parametrize('failure', ['missing', 'path', 'duplicate'])
+def test_inconsistent_mapping_is_rejected_before_any_cache_load(tmp_path, failure):
+    data, undistorted, directory, calls = dataset(tmp_path)
+    mapping = undistorted.load_undistorted_shot_ids()
+    if failure == 'missing': mapping.pop('000003.JPG')
+    if failure == 'path': mapping['000001.JPG'] = ['../outside.jpg']
+    if failure == 'duplicate': mapping['000002.JPG'] = mapping['000001.JPG']
+    undistorted.load_undistorted_shot_ids = lambda: mapping
+    with pytest.raises(ValueError, match='saved_undistorted'):
+        worker().inspect_cache(tmp_path, data)
+    assert not calls and len(list(directory.iterdir())) == 3
 
 
 @pytest.mark.parametrize('failure', ['loader_error', 'shape', 'changing'])

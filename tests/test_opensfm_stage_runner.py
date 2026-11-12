@@ -137,8 +137,10 @@ class Array:
 class DataSet(DataSet):
     def images(self): return ['000001.JPG', '000002.JPG', '000003.JPG']
     def undistorted_dataset(self): return self
-    def load_clusters(self): return [self.images()]
+    def load_undistorted_shot_ids(self): return {s: [s + '.jpg'] for s in self.images()}
+    def load_clusters(self): return [[s + '.jpg' for s in self.images()]]
     def load_raw_depthmap(self, shot):
+        assert shot == '000001.JPG.jpg'
         return Array((2, 3)), Array((2, 3, 3)), None, None, None, None
     def clean_up(self):
         if os.environ.get('SOLARCHECK_SYNTHETIC_EXIT_ERROR') == '1':
@@ -149,7 +151,7 @@ class DataSet(DataSet):
         '8b6b77efddebf4429044d3206c7dc21c4e767e08', 'status': 'failed'}))
     cache = folder / 'undistorted/depthmaps'
     cache.mkdir(parents=True)
-    (cache / '000001.JPG.raw.npz').write_bytes(b'opaque external loader payload')
+    (cache / '000001.JPG.jpg.raw.npz').write_bytes(b'opaque external loader payload')
     inspection = folder / 'cache-check-abc12345'
     inspection.mkdir()
     env = {**os.environ, 'SOLARCHECK_SYNTHETIC_EXIT_ERROR': '1' if shutdown_error else '0'}
@@ -160,6 +162,6 @@ class DataSet(DataSet):
         report = json.loads((inspection / 'worker-result.json').read_text())
         assert report['raw_readable'] == 1 and report['clusters_partly_cached'] == 1
         assert not (folder / 'dispatch.json').exists()
-        assert (cache / '000001.JPG.raw.npz').read_bytes() == b'opaque external loader payload'
+        assert (cache / '000001.JPG.jpg.raw.npz').read_bytes() == b'opaque external loader payload'
     finally:
         dataset_file.write_text(previous)
