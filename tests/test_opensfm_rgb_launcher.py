@@ -204,3 +204,75 @@ def test_native_tk_loads_old_run_and_copies_only_opensfm_metrics_without_recalcu
         monkeypatch.undo()
         roots.clear()
         gc.collect()
+
+
+@pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
+def test_native_tk_checks_saved_depthmaps_and_reopens_copies_report_without_new_job(tmp_path, monkeypatch):
+    import tkinter as tk
+    from tkinter import filedialog, ttk
+    from mcm_solarcheck.services import opensfm_rgb_pilot as pilot
+    module = launcher()
+    folder = tmp_path / 'opensfm-rgb-synthetic'
+    folder.mkdir()
+    report = {'status': 'failed', 'registration_complete': True, 'rgb_images': 3,
+              'steps': [{'stage': s, 'status': 'finished' if i < 7 else 'failed'}
+                        for i, s in enumerate(pilot.STAGES[:8])]}
+    (folder / 'job.json').write_text(json.dumps({'expected_engine_source': pilot.ENGINE_SOURCE}))
+    (folder / 'laufzeiten.json').write_text(json.dumps(report))
+    before = {p: p.read_bytes() for p in folder.iterdir()}
+    calls, roots, errors = [], [], []
+    done = {'value': False}
+    real_tk = tk.Tk
+    def descendants(w):
+        for c in w.winfo_children():
+            yield c
+            yield from descendants(c)
+    def button(root, text):
+        return next(w for w in descendants(root) if isinstance(w, ttk.Button) and w['text'] == text)
+    def inspect(workspace, conda, environment, cancel):
+        assert Path(workspace) == folder and not cancel()
+        calls.append(workspace)
+        detail = dict.fromkeys(pilot.CACHE_COUNTS, 0)
+        detail.update(check='solarcheck-opensfm-cache-1', status='completed', working_images=3,
+                      raw_readable=2, clusters=1, clusters_partly_cached=1, clustered_images=3,
+                      changed_during_check=False, geometric_quality_verified=False, resume_implemented=False)
+        result = {**report, 'depthmap_cache_check': detail}
+        inspection = folder / 'cache-check-abc12345'
+        inspection.mkdir()
+        (inspection / 'Kennzahlen.json').write_text(json.dumps(result))
+        return result
+    def activate(root):
+        button(root, 'Lauf laden').invoke()
+        assert str(button(root, 'Tiefenkarten pruefen')['state']) == 'normal'
+        button(root, 'Tiefenkarten pruefen').invoke()
+        root.after(100, lambda: finish(root))
+    def finish(root):
+        if str(button(root, 'Kennzahlen kopieren')['state']) != 'normal':
+            root.after(100, lambda: finish(root))
+            return
+        button(root, 'Lauf laden').invoke()
+        button(root, 'Kennzahlen kopieren').invoke()
+        result = json.loads(root.clipboard_get())
+        assert result['depthmap_cache_check']['raw_readable'] == 2
+        assert result['status'] == 'failed' and not result['depthmap_cache_check']['resume_implemented']
+        done['value'] = True
+        button(root, 'Schliessen').invoke()
+    def create(*args, **kwargs):
+        root = real_tk(*args, **kwargs)
+        roots.append(root)
+        root.report_callback_exception = lambda *args: errors.append(args)
+        root.after(20, lambda: activate(root))
+        root.after(8000, root.destroy)
+        return root
+    monkeypatch.setattr(tk, 'Tk', create)
+    monkeypatch.setattr(filedialog, 'askdirectory', lambda **kw: str(folder))
+    monkeypatch.setattr(module, 'execute_cache', inspect)
+    monkeypatch.setattr(module, 'execute', lambda *a: pytest.fail('No new photo job'))
+    try:
+        module.window()
+        assert done['value'] and not errors and len(calls) == 1
+        assert all(p.read_bytes() == v for p, v in before.items())
+    finally:
+        monkeypatch.undo()
+        roots.clear()
+        gc.collect()

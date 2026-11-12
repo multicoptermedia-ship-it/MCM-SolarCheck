@@ -1,6 +1,6 @@
 # Erster lokaler RGB-Orthofoto-Pilot mit OpenSfM
 
-**Aktueller Nutzerbefund 10.11.2026:** 287/287 RGB-Aufnahmen in einem Modell, 137082 Punkte. Tiefenkartenstufe nach einer Stunde begrenzt beendet, Gesamt rund1 h45 min; noch kein Orthofoto. Vorhandenen Lauf nachlesen, nicht neu starten. Die zuvor übermittelten COLMAP-Berichte stammen von anderen Jobs.
+**Aktueller Nutzerbefund 12.11.2026:** 287/287 RGB-Aufnahmen in einem Modell,137425 Punkte. Erste sieben Stufen bestanden. Tiefenkarten nach3600,219 s am Stufenlimit beendet, Gesamt5960,282 s (rund1 h39 min).123 rohe/0 bereinigte Tiefenkartendateien vorhanden; deren Lesbarkeit und vollständige Cluster sind noch nicht geprüft. Noch kein Orthofoto. Den vorhandenen neuen Lauf erhalten, keine Kopien/Sparse-/Entzerrungs-/Cluster-Neuberechnung.
 
 **10.11.2026 · GPU-Funktionstest bestanden:** Nutzer meldet status passed, MX250/2047 MiB und64 korrekt zugeordnete künstliche Deskriptoren im OpenSfM-eigenen Matcher. NVIDIA582.78 und getrennte Import-/Native-Zeitfenster sind bestätigt. Compiler, Umgebung, Quellbau und GPU-Startprüfung sind abgeschlossen; nichts davon erneut installieren oder prüfen. Dataset und Dense waren ausdrücklich not_tested.
 
@@ -46,43 +46,27 @@ Für den bereits abgebrochenen Lauf: im bisherigen Dialog **Ausgabeordner öffne
 
 Die Kennzahlen ergänzen stored_depthmaps.raw/clean aus den vorhandenen Engine-Ausgabedateien. Nur Dateianzahlen, kein Bildinhalt und keine Integritäts-/Qualitätsfreigabe. Die Dateiendung .npz bedeutet im geprüften Enginezweig LZ4-verpackte Daten; vorhandene Ladefunktionen sind für eine spätere Prüfung maßgeblich. Noch keine automatische Fortsetzung, Zeitverlängerung oder Cachelöschung.
 
+## Gespeicherte Tiefenkarten gezielt prüfen
+
+Der neue Knopf **Tiefenkarten pruefen** ist für einen geladenen, gestoppten OpenSfM-Dense-Lauf mit vollständigem Kameraverbund vorgesehen. Er benötigt weder Projektdateiauswahl noch einen erneuten Import. Die bereits bestätigten Conda-/Umgebungspfade bleiben vorbelegt.
+
+1. Aktualisierten Dialog mit dem unten vorgesehenen geprüften Startblock öffnen.
+2. **Lauf laden** und den **vorhandenen Lauf vom12.11.2026, Start17:00:18**, unter F:\Auswertung1 auswählen. Der Projektname und diese Zeit müssen in der Laufanzeige stehen.
+3. **Tiefenkarten pruefen** anklicken. Maximal **zehn Minuten insgesamt**, einschließlich Engineimport und sauberem Prozessende. Abbrechen/Schließen beendet nur den eigenen Prüfprozessbaum.
+4. Danach **Kennzahlen kopieren** und den Text im Chat einfügen. Nicht RGB-Pilot starten.
+
+Die Prüfung ruft nur die installierten OpenSfM-DataSet-Lader für gespeicherte raw/clean-Tiefenkarten und Cluster auf. Die .npz-Dateien sind im festgelegten Enginezweig LZ4-verpackt; kein direktes np.load(path). Keine Matching-/Dense-/Filter-/Fusionsstufe wird gestartet. Lokale Arbeitsdateinamen werden gelesen, Bildpixel/Originale/EXIF/SQLite werden nicht geöffnet. Gelesene Matrizen bleiben im lokalen Prüfprozess.
+
+**depthmap_cache_check** enthält ausschließlich Summen: lesbare/unlesbare Roh-/Clean-Dateien, vollständige/teilweise/leere Cluster und Änderungen während der Prüfung. „Lesbar“ bedeutet Engine-Lader plus grundlegendes Arrayformat; kein Nachweis richtiger Geometrie, ausreichender Abdeckung oder radiometrischer Qualität. Upstream überspringt vollständig gespeicherte Cluster, kann unvollständige erneut rechnen. Diese Prüfung implementiert noch keine Fortsetzung und ändert weder Profil noch Bildlauf-Zeitgrenzen.
+
+Der eigene neue **cache-check-…\Kennzahlen.json** bleibt im selben privaten Laufordner gespeichert. **Lauf laden/Kennzahlen kopieren** öffnet die jüngste gespeicherte Prüfung ohne erneuten Engineaufruf. Die ursprünglichen Berichte, Konfigurationen und Tiefenkarten bleiben erhalten. Unlesbare Dateien werden nicht gelöscht oder repariert. Bei Timeout/Prozessfehler gilt ein bereits geschriebenes Worker-Ergebnis ausdrücklich nicht als erfolgreicher Prüfbefund. Rohprotokoll worker.log und worker-result.json bleiben lokal; nur Kennzahlen kopieren.
+
 ## Aktualisierter Startblock
 
-Diesen Block vollständig in PowerShell ausführen. Er lädt die fest geprüfte SolarCheck-Quellfassung (ca. 2,9 MB), prüft SHA256, entpackt sie in einen neuen Ordner auf E: und öffnet den Dialog. Vorhandenes F:-Python und OpenSfM bleiben erhalten; keine Installation oder automatische Bildverarbeitung.
-
-```powershell
-$ErrorActionPreference = 'Stop'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$pilotPython = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
-if (-not (Test-Path -LiteralPath $pilotPython -PathType Leaf)) {
-    throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden.'
-}
-$pilotCommit = '8562af152d872a6b9083b05fc860fa23b6e72836'
-$pilotSha256 = 'e181eb0b457d7d4e3f90cc7e1ac9908c0dc88b9e0ef13a07863613fce558d8f2'
-$pilotDir = Join-Path 'E:\SolarCheck-Pilot' ('rgb-' + [guid]::NewGuid().ToString('N').Substring(0,12))
-New-Item -ItemType Directory -Path $pilotDir -ErrorAction Stop | Out-Null
-$pilotZip = Join-Path $pilotDir 'source.zip'
-$pilotSource = Join-Path $pilotDir 'source'
-Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
-if ((Get-FileHash -LiteralPath $pilotZip -Algorithm SHA256).Hash -ne $pilotSha256) {
-    throw 'Pruefsumme stimmt nicht. Start abgebrochen.'
-}
-Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotSource -ErrorAction Stop
-$pilotRoot = Join-Path $pilotSource ('MCM-SolarCheck-' + $pilotCommit)
-$pilotScript = Join-Path $pilotRoot 'scripts\MCM_SolarCheck_OPENSFM_RGB_PILOT.py'
-if (-not (Test-Path -LiteralPath $pilotScript -PathType Leaf)) {
-    throw 'Startdatei im entpackten Quelltext fehlt.'
-}
-& $pilotPython $pilotScript
-if ($LASTEXITCODE -ne 0) { throw 'Pilotdialog mit Fehler beendet.' }
-```
-
-Danach **Lauf laden** → den bisherigen OpenSfM-Laufordner unter F:\Auswertung1 auswählen → **Kennzahlen kopieren** → Text im Chat einfügen. Der Dialog lädt dabei nur den gespeicherten Bericht und zählt vorhandene Tiefenkartendateien; keine erneute Berechnung. Alte generische Dateinamen bleiben lesbar. Neue Berichte und Ordner erhalten eindeutige Namen wie oben beschrieben.
+Der bisherige Startblock öffnet die Version ohne Cacheprüfknopf. Der neue feste ZIP-/SHA256-Startblock wird nach nativer Windows-Abnahme der Cacheprüfung ergänzt. Kein neuer Bildlauf oder Setup nötig.
 
 ## Prüfstand
 
-Quelle **8562af152d872a6b9083b05fc860fa23b6e72836**: alle drei regulären CI-Workflows erfolgreich. [Windows-CI 42893429947](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/42893429947) auf Python 3.11 und 3.12 vollständig bestanden, einschließlich nativer Tk-Bedienung für Start/Ergebnis/Abbruch sowie Laden alter Läufe und Kopieren in die Zwischenablage ohne Engineaufruf. Synthetische Jobtests und tatsächliche isolierte CLI-Prozesse mit inaktiver Test-Engine bestanden. Lokal 33 Tests bestanden; vier native Tk-Fälle ohne Display übersprungen und anschließend auf Windows ausgeführt. Quell-ZIP-SHA256 berechnet und fünf Start-/Helper-/Service-Dateien bytegenau verglichen.
+CACHE-CHECK-01 lokal44 Tests bestanden, fünf native Tk-Fälle ohne Display übersprungen. Nachweise: Standard-Loadergrenze mit undurchsichtigen synthetischen Cachepayloads, Clusterabdeckung, unlesbare/formatfalsche/parallel geänderte Dateien, Erhaltung bestehender Ergebnisse; echte isolierte Workerprozesse gegen inaktive Test-Engine einschließlich Fehler beim Prozessende nach geschriebenem Ergebnis. Native Tk-Bedienung für Laden→Prüfen→Speichern→Wiederladen→Kopieren ist vorbereitet; neue Windows-CI noch offen. Kein echter OpenSfM-/Flugcache hier gelesen. Quelle d6296bba: bisherige drei CI grün, Win10-Nutzerlaufanzeige/eindeutiger Bericht bestätigt. Quellenprüfung, technische Tests, Cachelesbarkeit und Orthofoto-Fachabnahme bleiben getrennt.
 
-Diese Windows-Server-2022-/Test-Engine-Prüfung belegt keine reale Windows-10-Bildqualität. Der tatsächliche Nutzerbericht belegt bereits 287/287 registrierte RGB-Bilder in einem Modell; Dense wurde am Stundenlimit beendet. Lauf-laden/Kopieren auf dem Auswerterechner und gespeicherte Tiefenkartenanzahlen bleiben als nächster Nutzerbefund offen. Der folgende reine Dokumentations-HEAD ist separat zu prüfen. Keine Kundenbilder wurden hier verarbeitet.
-
-Der gemeinsame Jobkern akzeptiert RGB-Datensätze und einen expliziten Engineaufruf; Datenbankwahl, Windows-Pfade und Tk bleiben im Desktopadapter. Für die spätere Onlinefassung ist derselbe Jobkern verwendbar. Jetzt keine zweite Web-/Cloudkette oder neue Engine, keine ODM/WebODM/ODX-Integration und kein Merge nach main. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+Der gemeinsame Jobkern akzeptiert RGB-Datensätze und einen expliziten Engineaufruf; Datenbankwahl, Windows-Pfade und Tk bleiben im Desktopadapter. Für die spätere Onlinefassung ist derselbe Jobkern verwendbar. Keine neue Engine, keine ODM/WebODM/ODX-Integration und kein Merge nach main. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).

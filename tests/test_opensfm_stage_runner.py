@@ -117,3 +117,49 @@ def test_only_explicit_standard_stages_and_owned_data_are_dispatched(isolated_en
     result = subprocess.run([str(python), '-I', str(runner), *arguments],
                             capture_output=True, timeout=30)
     assert result.returncode != 0
+
+
+@pytest.mark.parametrize('shutdown_error', [False, True])
+def test_actual_isolated_cache_worker_reads_loader_api_and_exits(isolated_engine, tmp_path, shutdown_error):
+    python, stage_runner = isolated_engine
+    cache_runner = stage_runner.with_name('MCM_SolarCheck_OPENSFM_CACHE_WORKER.py')
+    shutil.copyfile(ROOT / 'scripts' / cache_runner.name, cache_runner)
+    result = subprocess.run([str(python), '-I', '-c',
+        'import sysconfig; print(sysconfig.get_path("purelib"))'],
+        capture_output=True, text=True, check=True, timeout=30)
+    dataset_file = Path(result.stdout.strip()) / 'opensfm/dataset.py'
+    previous = dataset_file.read_text()
+    dataset_file.write_text(previous + '''
+import atexit, os
+from types import SimpleNamespace
+class Array:
+    def __init__(self, shape): self.shape, self.dtype = shape, SimpleNamespace(kind='f')
+class DataSet(DataSet):
+    def images(self): return ['000001.JPG', '000002.JPG', '000003.JPG']
+    def undistorted_dataset(self): return self
+    def load_clusters(self): return [self.images()]
+    def load_raw_depthmap(self, shot):
+        return Array((2, 3)), Array((2, 3, 3)), None, None, None, None
+    def clean_up(self):
+        if os.environ.get('SOLARCHECK_SYNTHETIC_EXIT_ERROR') == '1':
+            atexit.register(lambda: os._exit(4))
+''')
+    folder = owned_dataset(tmp_path)
+    (folder / 'job.json').write_text(json.dumps({'expected_engine_source':
+        '8b6b77efddebf4429044d3206c7dc21c4e767e08', 'status': 'failed'}))
+    cache = folder / 'undistorted/depthmaps'
+    cache.mkdir(parents=True)
+    (cache / '000001.JPG.raw.npz').write_bytes(b'opaque external loader payload')
+    inspection = folder / 'cache-check-abc12345'
+    inspection.mkdir()
+    env = {**os.environ, 'SOLARCHECK_SYNTHETIC_EXIT_ERROR': '1' if shutdown_error else '0'}
+    try:
+        result = subprocess.run([str(python), '-I', str(cache_runner), str(folder), str(inspection)],
+                                env=env, capture_output=True, text=True, timeout=30)
+        assert result.returncode == (4 if shutdown_error else 0), result.stderr
+        report = json.loads((inspection / 'worker-result.json').read_text())
+        assert report['raw_readable'] == 1 and report['clusters_partly_cached'] == 1
+        assert not (folder / 'dispatch.json').exists()
+        assert (cache / '000001.JPG.raw.npz').read_bytes() == b'opaque external loader payload'
+    finally:
+        dataset_file.write_text(previous)

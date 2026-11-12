@@ -153,6 +153,102 @@ def local_run_label(workspace):
     return f'OpenSfM RGB · {project} · {stamp}\nOrdner: {workspace.name}'
 
 
+CACHE_COUNTS = ('working_images', 'clusters', 'raw_readable', 'raw_unreadable',
+                'clean_readable', 'clean_unreadable', 'foreign_cache_files',
+                'clusters_fully_cached', 'clusters_partly_cached', 'clusters_without_cache',
+                'clustered_images')
+
+
+def _cache_result(report):
+    if (not isinstance(report, dict) or report.get('check') != 'solarcheck-opensfm-cache-1'
+            or report.get('status') not in ('completed', 'attention_required')
+            or report.get('geometric_quality_verified') is not False
+            or report.get('resume_implemented') is not False
+            or type(report.get('changed_during_check')) is not bool
+            or any(type(report.get(k)) is not int or not 0 <= report[k] <= 10000 for k in CACHE_COUNTS)):
+        raise PilotError('Kein gueltiger OpenSfM-Cachepruefbericht.')
+    safe = {k: report[k] for k in (*CACHE_COUNTS, 'check', 'status', 'changed_during_check',
+                                  'geometric_quality_verified', 'resume_implemented')}
+    if 'seconds' in report:
+        value = report['seconds']
+        if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+            raise PilotError('Ungueltige Cachepruefdauer.')
+        safe['seconds'] = value
+    return safe
+
+
+def read_opensfm_cache_metrics(workspace):
+    """Reopen the newest saved inspection, never an unfinished worker result."""
+    report = read_opensfm_metrics(workspace)
+    candidates = []
+    for directory in Path(workspace).glob('cache-check-*'):
+        if not re.fullmatch(r'cache-check-[a-z0-9_]{8}', directory.name):
+            continue
+        path = directory / 'Kennzahlen.json'
+        if path.is_file():
+            candidates.append(_regular(path))
+    if not candidates:
+        return report
+    saved = _json(max(candidates, key=lambda p: p.stat().st_mtime_ns))
+    detail = saved.get('depthmap_cache_check', {}) if isinstance(saved, dict) else {}
+    if not isinstance(detail, dict) or (isinstance(saved, dict) and saved.get('run_id') != report.get('run_id')):
+        raise PilotError('Cachepruefbericht gehoert nicht zu diesem Lauf oder ist ungueltig.')
+    if detail.get('status') in ('failed', 'timeout', 'cancelled'):
+        report['depthmap_cache_check'] = {'check': 'solarcheck-opensfm-cache-1', 'status': detail['status'],
+                                        'accepted_as_readable': False}
+    else:
+        report['depthmap_cache_check'] = _cache_result(detail)
+    return report
+
+
+def check_opensfm_depthmap_cache(workspace, config, *, should_cancel=None, executor=None):
+    """Explicit bounded read of local engine outputs. No photo stages or repairs."""
+    workspace = Path(workspace)
+    report = read_opensfm_metrics(workspace)
+    manifest = _json(workspace / 'job.json')
+    if (report['status'] not in ('failed', 'cancelled') or not report.get('registration_complete')
+            or len(report['steps']) < 8
+            or any(s['status'] != 'finished' for s in report['steps'][:7])
+            or manifest.get('profile') != PROFILE or _json(workspace / 'config.yaml') != PROFILE):
+        raise PilotError('Cachepruefung benoetigt einen gestoppten OpenSfM-Dense-Lauf mit unveraendertem Profil.')
+    if (not workspace.is_absolute() or any(p.is_symlink() for p in (workspace, *workspace.parents))
+            or any((p / '.git').is_file() or (p / '.git' / 'HEAD').is_file()
+                   for p in (workspace, *workspace.parents))):
+        raise PilotError('Privaten lokalen OpenSfM-Laufordner ausserhalb Git auswaehlen.')
+    if not config.engine_command or any(not isinstance(p, str) or not p or '\0' in p for p in config.engine_command):
+        raise PilotError('Vorhandener OpenSfM-Aufruf fehlt.')
+    executable = Path(config.engine_command[0])
+    _regular(executable.resolve(strict=True))
+    worker = _regular(Path(config.runner).with_name('MCM_SolarCheck_OPENSFM_CACHE_WORKER.py'))
+    cancel = should_cancel or (lambda: False)
+    if cancel():
+        raise PilotCancelled('Cachepruefung abgebrochen.')
+    inspection = Path(tempfile.mkdtemp(prefix='cache-check-', dir=workspace))
+    runtime_env = {'TEMP': str(inspection), 'TMP': str(inspection),
+                   'MPLCONFIGDIR': str(inspection), 'VSCMD_SKIP_SENDTELEMETRY': '1'}
+    detail = {'check': 'solarcheck-opensfm-cache-1', 'status': 'failed', 'accepted_as_readable': False}
+    tick = time.monotonic()
+    try:
+        (executor or _execute)(executable,
+            (*config.engine_command[1:], '-I', str(worker), str(workspace), str(inspection)),
+            workspace, inspection / 'worker.log', cancel, timeout=600, env_overrides=runtime_env)
+        detail = _cache_result(_json(inspection / 'worker-result.json'))
+    except PilotTimeout:
+        detail['status'] = 'timeout'
+        raise PilotTimeout('Cachepruefung nach zehn Minuten beendet; vorhandene Dateien bleiben erhalten.') from None
+    except PilotCancelled:
+        detail['status'] = 'cancelled'
+        raise
+    except (OSError, PilotError):
+        raise PilotError('Cachepruefung fehlgeschlagen; worker.log im neuen cache-check-Unterordner bleibt lokal.') from None
+    finally:
+        detail['seconds'] = round(time.monotonic() - tick, 3)
+        report['depthmap_cache_check'] = detail
+        with (inspection / 'Kennzahlen.json').open('x', encoding='utf-8') as stream:
+            json.dump(report, stream, indent=2)
+    return report
+
+
 def reconstruction_summary(path, expected):
     """Read an existing engine result, never compute/merge camera poses."""
     models = _json(path)
