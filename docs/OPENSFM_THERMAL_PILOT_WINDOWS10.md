@@ -28,4 +28,38 @@ Wenn beide Bilder räumlich passen, folgt der vorhandene PV-/Rohwert-Vorschlags-
 
 ## Aktualisierter Startblock
 
-Der feste Download-/Startblock wird nach erfolgreicher Prüfung dieser Quellfassung ergänzt. Alte RGB-Startblöcke starten weiterhin den RGB-Dialog; damit das RGB-Projekt nicht neu rechnen.
+Bisherigen Pilotdialog schließen. Dieser Block lädt die feste Thermal-Fassung (ca2,9 MB) nach E:, prüft die ZIP-Prüfsumme und öffnet den Dialog. F:-Python und installierte OpenSfM-Umgebung bleiben erhalten. Keine automatische Bildverarbeitung; erst das Projekt auswählen und THERMAL-Pilot starten.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$pilotPython = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
+if (-not (Test-Path -LiteralPath $pilotPython -PathType Leaf)) {
+    throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden.'
+}
+$pilotCommit = 'fdc96f06f89234896713295654453b5bacbef026'
+$pilotSha256 = 'e11c06d657799a92ba7682b93e58708c647d4ff7b1e22bcc32a606621234efa4'
+$pilotDir = Join-Path 'E:\SolarCheck-Pilot' ('thermal-' + [guid]::NewGuid().ToString('N').Substring(0,12))
+New-Item -ItemType Directory -Path $pilotDir -ErrorAction Stop | Out-Null
+$pilotZip = Join-Path $pilotDir 'source.zip'
+$pilotSource = Join-Path $pilotDir 'source'
+Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
+if ((Get-FileHash -LiteralPath $pilotZip -Algorithm SHA256).Hash -ne $pilotSha256) {
+    throw 'Pruefsumme stimmt nicht. Start abgebrochen.'
+}
+Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotSource -ErrorAction Stop
+$pilotRoot = Join-Path $pilotSource ('MCM-SolarCheck-' + $pilotCommit)
+$pilotScript = Join-Path $pilotRoot 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
+if (-not (Test-Path -LiteralPath $pilotScript -PathType Leaf)) {
+    throw 'Startdatei im entpackten Quelltext fehlt.'
+}
+& $pilotPython $pilotScript
+if ($LASTEXITCODE -ne 0) { throw 'Pilotdialog mit Fehler beendet.' }
+```
+
+
+## Prüfstand der ausgelieferten Quelle
+
+**fdc96f06f89234896713295654453b5bacbef026:** alle drei regulären CI-Workflows grün: [Windows43459499633](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/43459499633), Linux43459488979 und43459499634, jeweils Python3.11 und3.12. Zehn tatsächliche native Tk-Fälle schließen Thermal-Start mit Erfolg/Abbruch sowie Laden→Cache→Dense-Fortsetzung→Speichern→Wiederladen→Kopieren ein. Synthetische Fälle prüfen APP3-/Mittelpunkt-Rohwerterhalt, unveränderte Originale, read-only Projektwahl, falsche/gemischte Modalitäten, fehlende/falsche Sensorgeometrie, Teilmodelle, Zeitlimit und sensorgetrennte Fortsetzung. Erste3.11-Syntaxfehler in Status-/Fehleranzeigen wurden vor dieser Auslieferung korrigiert; alle gelieferten Laufzeitdateien werden mit dem jeweiligen Testinterpreter kompiliert.
+
+Lokaler letzter gezielter Lauf27Tests grün; zuvor106Tests/zehn Tk-Skips unter Linux. Die feste Quell-ZIP (2921780Bytes) und neun ausgelieferte Codeeinträge wurden bytegenau gegen diesen Commit geprüft; SHA256 steht im Startblock. Nachfolgenden reinen Dokumentations-HEAD separat prüfen. Windows-Server-CI und synthetische Engine-Ergebnisse sind kein realer Windows10-Thermal-/Geometrie-/Temperaturnachweis; der lokale Thermal-Erstlauf bleibt offen. Keine Originalbilder, produktiven Datenbanken oder Kundendaten hier verarbeitet. Draft PR9 bleibt offen, kein Merge nach main.
