@@ -12,9 +12,10 @@ import time
 
 from .colmap_openmvs_pilot import PilotCancelled, PilotError, PilotProcessExit, PilotTimeout, _execute, _regular
 from .opensfm_rgb_pilot import (
-    ENGINE_SOURCE, LABELS, PROFILE, STAGES, OpenSfMPilotResult, _cache_result,
-    _inspect_rgb_geotiff, _json, _stored_depthmaps, check_opensfm_depthmap_cache,
-    read_opensfm_cache_metrics, reconstruction_summary,
+    LABELS, PROFILE, STAGES, _cache_result,
+    _inspect_visual_geotiff, _json, _stored_depthmaps, check_opensfm_depthmap_cache,
+    read_opensfm_cache_metrics, reconstruction_summary, report_modality, image_count,
+    pilot_result, verify_thermal_working_copies, require_thermal_metadata, require_thermal_geometry,
 )
 
 CHECK = 'solarcheck-opensfm-dense-continuation-1'
@@ -44,7 +45,8 @@ def _public(record, initial):
             or not re.fullmatch(NAME, str(record.get('continuation_id')))
             or record.get('status') not in ('running', 'finished', 'failed', 'cancelled')
             or record.get('georeferencing_verified') is not False
-            or record.get('temperature_verified') is not False or record.get('thermal_created') is not False
+            or record.get('temperature_verified') is not False
+            or record.get('thermal_created') is not (report_modality(initial) == 'thermal' and record.get('status') == 'finished')
             or type(record.get('orthophoto_created')) is not bool
             or record.get('reused_initial_stages') != 7):
         raise PilotError('Ungueltiger OpenSfM-Fortsetzungsbericht.')
@@ -100,7 +102,7 @@ def can_continue_opensfm(report):
         and report.get('dense_continuation', {}).get('status') != 'finished'
         and cache.get('status') == 'completed' and cache.get('changed_during_check') is False
         and cache.get('raw_unreadable') == cache.get('clean_unreadable') == cache.get('foreign_cache_files') == 0
-        and cache.get('working_images') == cache.get('clustered_images') == report.get('rgb_images')
+        and cache.get('working_images') == cache.get('clustered_images') == image_count(report)
         and cache.get('clusters_fully_cached', 0) > 0)
 
 
@@ -159,18 +161,21 @@ def _protected_inputs(workspace, stopped):
     mapping = _json(workspace / 'input-map.json')
     expected = set()
     if not isinstance(mapping, list) or not 3 <= len(mapping) <= 300:
-        raise PilotError('Gespeicherte RGB-Arbeitszuordnung fehlt.')
+        raise PilotError('Gespeicherte Bild-Arbeitszuordnung fehlt.')
+    is_thermal = report_modality(_json(workspace / 'job.json')) == 'thermal'
     for item in mapping:
         name = item.get('working_name') if isinstance(item, dict) else None
         if not isinstance(name, str) or not re.fullmatch(r'[0-9]{6}[.]JPG', name) or name in expected:
-            raise PilotError('Gespeicherte RGB-Arbeitszuordnung ungueltig.')
+            raise PilotError('Gespeicherte Bild-Arbeitszuordnung ungueltig.')
         expected.add(name)
         relative = 'images/' + name
         signatures[relative] = _digest(workspace / relative, stopped)
+        if is_thermal:
+            signatures['exif/' + name + '.exif'] = _digest(workspace / 'exif' / (name + '.exif'), stopped)
         expected_digest = item.get('content_sha256')
         if (not isinstance(expected_digest, str) or not re.fullmatch(r'[a-fA-F0-9]{64}', expected_digest)
                 or signatures[relative][0] != expected_digest.casefold()):
-            raise PilotError('RGB-Arbeitskopie weicht von gespeicherter Import-Pruefsumme ab.')
+            raise PilotError('Bild-Arbeitskopie weicht von gespeicherter Import-Pruefsumme ab.')
     summary = reconstruction_summary(workspace / 'reconstruction.json', expected)
     if not summary['registration_complete']:
         raise PilotError('Gespeicherter Kameraverbund ist nicht mehr vollstaendig.')
@@ -189,6 +194,8 @@ def _protected_inputs(workspace, stopped):
 def run_opensfm_dense_continuation(workspace, config, *, should_cancel=None, on_progress=None, executor=None):
     workspace = Path(workspace)
     report = read_opensfm_run_metrics(workspace)
+    if config.modality != report_modality(report):
+        raise PilotError('RGB- und Thermal-Lauf getrennt waehlen.')
     if not can_continue_opensfm(report):
         raise PilotError('Vorher erfolgreiche Tiefenkartenpruefung dieses gestoppten Laufs laden.')
     if (not workspace.is_absolute() or any(p.is_symlink() for p in (workspace, *workspace.parents))
@@ -228,6 +235,10 @@ def run_opensfm_dense_continuation(workspace, config, *, should_cancel=None, on_
         try:
             progress('Fortsetzung: gespeicherte Arbeitsdateien pruefen; keine Original-/Projektdateien.')
             signatures = _protected_inputs(workspace, stopped)
+            if report_modality(report) == 'thermal':
+                names = {item['working_name'] for item in _json(workspace / 'input-map.json')}
+                require_thermal_metadata(workspace, names)
+                require_thermal_geometry(workspace, names)
             digests = {k: v[0] for k, v in signatures.items()}
             if prior_digests is not None and prior_digests != digests:
                 raise PilotError('Geschuetzte Eingaben seit vorheriger Fortsetzung veraendert.')
@@ -250,7 +261,7 @@ def run_opensfm_dense_continuation(workspace, config, *, should_cancel=None, on_
                 unchanged()
                 stage = STAGES[index]
                 limit = min(STAGE_LIMITS[stage], deadline - time.monotonic())
-                progress(f'{index + 1}/10 OpenSfM-Fortsetzung: {LABELS[index]} (max. {limit / 60:.0f} min)')
+                progress(f'{index + 1}/10 OpenSfM-Fortsetzung: {LABELS[index].replace('RGB', report_modality(report).upper())} (max. {limit / 60:.0f} min)')
                 step = dict(stage=stage, status='running', seconds=None, timeout_seconds=round(limit, 3))
                 record['steps'].append(step)
                 save()
@@ -266,10 +277,10 @@ def run_opensfm_dense_continuation(workspace, config, *, should_cancel=None, on_
                     step['status'] = 'finished'
                 except PilotProcessExit as error:
                     step.update(status='failed', failure_kind='process_exit', exit_code=error.returncode)
-                    raise PilotError(f'OpenSfM-Fortsetzung {LABELS[index]}: Code {error.returncode}; {attempt.name}/{log.name} lokal pruefen.') from None
+                    raise PilotError(f'OpenSfM-Fortsetzung {LABELS[index].replace('RGB', report_modality(report).upper())}: Code {error.returncode}; {attempt.name}/{log.name} lokal pruefen.') from None
                 except PilotTimeout:
                     step.update(status='failed', failure_kind='timeout')
-                    raise PilotTimeout(f'OpenSfM-Fortsetzung {LABELS[index]}: Zeitlimit erreicht; Arbeitsstand gespeichert.') from None
+                    raise PilotTimeout(f'OpenSfM-Fortsetzung {LABELS[index].replace('RGB', report_modality(report).upper())}: Zeitlimit erreicht; Arbeitsstand gespeichert.') from None
                 except PilotCancelled:
                     step['status'] = 'cancelled'
                     raise
@@ -277,10 +288,12 @@ def run_opensfm_dense_continuation(workspace, config, *, should_cancel=None, on_
                     step['seconds'] = round(time.monotonic() - tick, 3)
                     save()
             unchanged()
-            ortho, record['raster'] = _inspect_rgb_geotiff(workspace, stopped)
-            record.update(status='finished', orthophoto_created=True)
+            ortho, record['raster'] = _inspect_visual_geotiff(workspace, stopped, modality=report_modality(report))
+            if report_modality(report) == 'thermal':
+                verify_thermal_working_copies(workspace, stopped)
+            record.update(status='finished', orthophoto_created=True, thermal_created=report_modality(report) == 'thermal')
             save()
-            return OpenSfMPilotResult(workspace, ortho, report['rgb_images'], report['registered_images'])
+            return pilot_result(workspace, ortho, image_count(report), report['registered_images'], report_modality(report))
         except BaseException as error:
             record['status'] = 'cancelled' if isinstance(error, (PilotCancelled, KeyboardInterrupt)) else 'failed'
             if record['steps'] and record['steps'][-1]['status'] == 'running':

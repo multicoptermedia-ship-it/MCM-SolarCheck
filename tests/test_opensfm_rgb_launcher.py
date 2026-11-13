@@ -66,10 +66,12 @@ def test_existing_readonly_database_bridge_binds_all_inputs_and_detects_change(t
 
 @pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
 @pytest.mark.parametrize('cancel_run', [False, True])
-def test_native_tk_explicit_project_start_workspace_and_result_or_cancel(tmp_path, monkeypatch, cancel_run):
+@pytest.mark.parametrize('modality', ['rgb', 'thermal'])
+def test_native_tk_explicit_project_start_workspace_and_result_or_cancel(tmp_path, monkeypatch, cancel_run, modality):
     import tkinter as tk
     from tkinter import filedialog, ttk
     module = launcher()
+    kind = modality.upper()
     db = tmp_path / 'existing.sqlite3'
     database(db)
     before = db.read_bytes()
@@ -90,14 +92,20 @@ def test_native_tk_explicit_project_start_workspace_and_result_or_cancel(tmp_pat
         root.after(20, lambda: activate(root))
         root.after(8000, root.destroy)
         return root
-    def execute(*args):
+    def execute(*args, **kwargs):
+        assert kwargs == ({'modality': 'thermal'} if modality == 'thermal' else {})
         seen.append(args[:5])
         cancel, progress, workspace = args[5:]
         (output / 'job.json').write_text(json.dumps({
             'expected_engine_source': '8b6b77efddebf4429044d3206c7dc21c4e767e08',
-            'project_label': 'Synthetic project', 'started_at': '2026-11-10T20:43:00+01:00'}))
+            'project_label': 'Synthetic project', 'started_at': '2026-11-10T20:43:00+01:00',
+            'pipeline': 'opensfm_' + modality}))
         (output / 'laufzeiten.json').write_text(json.dumps({
-            'status': 'cancelled' if cancel_run else 'finished', 'rgb_images': 3, 'steps': []}))
+            'status': 'cancelled' if cancel_run else 'finished', 'rgb_images': 3 if modality == 'rgb' else 0,
+            'pipeline': 'opensfm_' + modality, 'thermal_images': 3 if modality == 'thermal' else 0,
+            'radiometric_sources_preserved': 3, 'thermal_value_kind': 'visual',
+            'temperature_matrix_created': False, 'georeferencing_verified': False,
+            'temperature_verified': False, 'steps': []}))
         workspace(output)
         progress('synthetic stage')
         started.set()
@@ -107,7 +115,7 @@ def test_native_tk_explicit_project_start_workspace_and_result_or_cancel(tmp_pat
                 time.sleep(.02)
             assert cancel()
             raise module.PilotCancelled('synthetic')
-        return SimpleNamespace(rgb_geotiff=output / 'ortho.tif')
+        return SimpleNamespace(**{modality + '_geotiff': output / 'ortho.tif'})
     monkeypatch.setattr(tk, 'Tk', create_root)
     monkeypatch.setattr(filedialog, 'askopenfilename', lambda **kwargs: str(db))
     monkeypatch.setattr(filedialog, 'askdirectory', lambda **kwargs: str(output))
@@ -123,7 +131,7 @@ def test_native_tk_explicit_project_start_workspace_and_result_or_cancel(tmp_pat
         combo = next(widget for widget in descendants(root) if isinstance(widget, ttk.Combobox))
         assert combo.current() == -1
         combo.current(0)
-        button(root, 'RGB-Pilot starten').invoke()
+        button(root, kind + '-Pilot starten').invoke()
         root.after(50, lambda: finish(root))
     def finish(root):
         if not started.is_set():
@@ -132,16 +140,16 @@ def test_native_tk_explicit_project_start_workspace_and_result_or_cancel(tmp_pat
         if cancel_run and 'cancelled' not in outcome:
             outcome['cancelled'] = True
             button(root, 'Abbrechen').invoke()
-        if str(button(root, 'RGB-Pilot starten')['state']) != 'normal':
+        if str(button(root, kind + '-Pilot starten')['state']) != 'normal':
             root.after(50, lambda: finish(root))
             return
         assert str(button(root, 'Ausgabeordner oeffnen')['state']) == 'normal'
         button(root, 'Kennzahlen kopieren').invoke()
-        assert json.loads(root.clipboard_get())['pipeline'] == 'opensfm_rgb'
+        assert json.loads(root.clipboard_get())['pipeline'] == 'opensfm_' + modality
         outcome['finished'] = True
         button(root, 'Schliessen').invoke()
     try:
-        module.window()
+        module.window(modality=modality)
         assert not errors and outcome['finished']
         assert seen[0][:2] == (str(db), 'P')
         assert db.read_bytes() == before
@@ -208,7 +216,8 @@ def test_native_tk_loads_old_run_and_copies_only_opensfm_metrics_without_recalcu
 
 @pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
 @pytest.mark.parametrize('continue_cancel', [False, True])
-def test_native_tk_checks_saved_depthmaps_continues_and_reopens_report_without_new_job(tmp_path, monkeypatch, continue_cancel):
+@pytest.mark.parametrize('modality', ['rgb', 'thermal'])
+def test_native_tk_checks_saved_depthmaps_continues_and_reopens_report_without_new_job(tmp_path, monkeypatch, continue_cancel, modality):
     import tkinter as tk
     from tkinter import filedialog, ttk
     from mcm_solarcheck.services import opensfm_rgb_pilot as pilot
@@ -219,7 +228,12 @@ def test_native_tk_checks_saved_depthmaps_continues_and_reopens_report_without_n
     report = {'status': 'failed', 'registration_complete': True, 'rgb_images': 3,
               'steps': [{'stage': s, 'status': 'finished' if i < 7 else 'failed'}
                         for i, s in enumerate(pilot.STAGES[:8])]}
-    (folder / 'job.json').write_text(json.dumps({'expected_engine_source': pilot.ENGINE_SOURCE}))
+    report.update(pipeline='opensfm_' + modality, rgb_images=3 if modality == 'rgb' else 0,
+        thermal_images=3 if modality == 'thermal' else 0, radiometric_sources_preserved=3,
+        thermal_value_kind='visual', temperature_matrix_created=False,
+        georeferencing_verified=False, temperature_verified=False)
+    (folder / 'job.json').write_text(json.dumps({'expected_engine_source': pilot.ENGINE_SOURCE,
+                                              'pipeline': report['pipeline']}))
     (folder / 'laufzeiten.json').write_text(json.dumps(report))
     before = {p: p.read_bytes() for p in folder.iterdir()}
     calls, roots, errors = [], [], []
@@ -261,11 +275,11 @@ def test_native_tk_checks_saved_depthmaps_continues_and_reopens_report_without_n
             steps=[dict(stage=s, status='finished') for s in pilot.STAGES[7:]] if not continue_cancel else [],
             stored_depthmaps={'raw': 0, 'clean': 3}, reused_initial_stages=7,
             orthophoto_created=not continue_cancel, georeferencing_verified=False, temperature_verified=False,
-            thermal_created=False, protected_digests={'PRIVATE PATH': 'not shareable'})
+            thermal_created=modality == 'thermal' and not continue_cancel, protected_digests={'PRIVATE PATH': 'not shareable'})
         (attempt / 'continuation.json').write_text(json.dumps(record))
         if continue_cancel:
             raise module.PilotCancelled('synthetic cancellation')
-        return SimpleNamespace(rgb_geotiff=folder / 'synthetic-ortho.tif')
+        return SimpleNamespace(**{modality + '_geotiff': folder / 'synthetic-ortho.tif'})
     def activate(root):
         button(root, 'Lauf laden').invoke()
         assert str(button(root, 'Tiefenkarten pruefen')['state']) == 'normal'
@@ -314,7 +328,7 @@ def test_native_tk_checks_saved_depthmaps_continues_and_reopens_report_without_n
     monkeypatch.setattr(module, 'execute_continue', continue_saved)
     monkeypatch.setattr(module, 'execute', lambda *a: pytest.fail('No new photo job'))
     try:
-        module.window()
+        module.window(modality=modality)
         assert done['value'] and not errors and len(calls) == 1
         assert all(p.read_bytes() == v for p, v in before.items())
     finally:

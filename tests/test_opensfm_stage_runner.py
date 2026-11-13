@@ -90,10 +90,11 @@ def test_actual_dispatch_error_still_runs_upstream_dataset_cleanup(isolated_engi
     assert (folder / 'cleanup.txt').read_text() == 'done'
 
 
-def test_time_first_project_folder_is_accepted_by_isolated_stage_adapter(isolated_engine, tmp_path):
+@pytest.mark.parametrize('kind', ['RGB', 'THERMAL'])
+def test_time_first_project_folder_is_accepted_by_isolated_stage_adapter(isolated_engine, tmp_path, kind):
     python, runner = isolated_engine
     folder = owned_dataset(tmp_path)
-    renamed = folder.with_name('20261110_204300_OpenSfM_RGB_Demo-Projekt_abc12345')
+    renamed = folder.with_name(f'20261110_204300_OpenSfM_{kind}_Demo-Projekt_abc12345')
     folder.rename(renamed)
     result = subprocess.run([str(python), '-I', str(runner), 'extract_metadata', str(renamed)],
                             capture_output=True, text=True, timeout=30)

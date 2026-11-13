@@ -53,6 +53,11 @@ class RgbPilotFrame:
 
 
 @dataclass(frozen=True)
+class ThermalPilotFrame(RgbPilotFrame):
+    """Explicit imported Thermal record; never inferred from a filename."""
+
+
+@dataclass(frozen=True)
 class RgbPilotConfig:
     colmap: Path
     openmvs: Path
@@ -82,6 +87,17 @@ def project_choices(database):
 
 def read_rgb_project(database, project_id):
     """Read the already imported RGB records; no schema migration or EXIF scan."""
+    return _read_project_frames(database, project_id, 'rgb')
+
+
+def read_thermal_project(database, project_id):
+    """Same read-only import bridge, explicitly restricted to thermal_frames."""
+    return _read_project_frames(database, project_id, 'thermal')
+
+
+def _read_project_frames(database, project_id, modality):
+    table, frame_type = (('thermal_frames', ThermalPilotFrame) if modality == 'thermal'
+                         else ('image_frames', RgbPilotFrame))
     database = Path(database).resolve(strict=True)
     with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)) as db:
         db.row_factory = sqlite3.Row
@@ -90,16 +106,16 @@ def read_rgb_project(database, project_id):
             raise PilotError('Ausgewaehltes Projekt fehlt.')
         rows = db.execute(
             'SELECT f.frame_id,f.source_file,f.latitude,f.longitude,f.altitude_m,t.content_sha256 '
-            'FROM image_frames f LEFT JOIN training_samples t '
-            "ON t.project_id=f.project_id AND t.source_frame_id=f.frame_id AND t.modality='rgb' "
-            'WHERE f.project_id=? ORDER BY f.frame_id', (project_id,),
+            f'FROM {table} f LEFT JOIN training_samples t '
+            'ON t.project_id=f.project_id AND t.source_frame_id=f.frame_id AND t.modality=? '
+            'WHERE f.project_id=? ORDER BY f.frame_id', (modality, project_id),
         ).fetchall()
     result = []
     for row in rows:
         values = dict(row)
         source = Path(values['source_file'])
         values['source_file'] = str(source if source.is_absolute() else database.parent / source)
-        result.append(RgbPilotFrame(**values))
+        result.append(frame_type(**values))
     return tuple(result)
 
 

@@ -12,11 +12,11 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from mcm_solarcheck.services.colmap_openmvs_pilot import (  # noqa: E402
-    PilotCancelled, PilotError, input_signature, project_choices, read_rgb_project,
+    PilotCancelled, PilotError, input_signature, project_choices, read_rgb_project, read_thermal_project,
 )
 from mcm_solarcheck.services.opensfm_rgb_pilot import (  # noqa: E402
     LABELS, STAGES, OpenSfMPilotConfig, check_opensfm_depthmap_cache, local_run_label,
-    run_opensfm_rgb_pilot,
+    run_opensfm_rgb_pilot, run_opensfm_thermal_pilot, report_modality,
 )
 from mcm_solarcheck.services.opensfm_dense_continuation import (  # noqa: E402
     can_continue_opensfm, read_opensfm_run_metrics, run_opensfm_dense_continuation,
@@ -26,20 +26,22 @@ CONDA = r'E:\Tools\Miniforge3\Scripts\conda.exe'
 ENVIRONMENT = r'E:\SolarCheck-OpenSfM\env'
 
 
-def execute(database, project, conda, environment, output, cancel, progress, workspace):
+def execute(database, project, conda, environment, output, cancel, progress, workspace, *, modality='rgb'):
     prefix = Path(environment)
     python = prefix / ('python.exe' if os.name == 'nt' else 'bin/python')
     if not python.is_file():
         raise PilotError('Vorhandene OpenSfM-Umgebung nicht gefunden; keine Neuinstallation starten.')
-    frames = read_rgb_project(database, project)
+    reader = read_thermal_project if modality == 'thermal' else read_rgb_project
+    frames = reader(database, project)
     signature = input_signature(frames)
     config = OpenSfMPilotConfig(
         (str(conda), 'run', '--no-capture-output', '--prefix', str(prefix), 'python'),
         Path(__file__).with_name('MCM_SolarCheck_OPENSFM_STAGE.py'), Path(output),
-        project_label=dict(project_choices(database)).get(project, 'Projekt'))
-    return run_opensfm_rgb_pilot(frames, config, should_cancel=cancel, on_progress=progress,
+        project_label=dict(project_choices(database)).get(project, 'Projekt'), modality=modality)
+    run = run_opensfm_thermal_pilot if modality == 'thermal' else run_opensfm_rgb_pilot
+    return run(frames, config, should_cancel=cancel, on_progress=progress,
         on_workspace=workspace,
-        inputs_unchanged=lambda: input_signature(read_rgb_project(database, project)) == signature)
+        inputs_unchanged=lambda: input_signature(reader(database, project)) == signature)
 
 
 def saved_config(workspace, conda, environment):
@@ -48,7 +50,8 @@ def saved_config(workspace, conda, environment):
         raise PilotError('Vorhandene OpenSfM-Umgebung nicht gefunden.')
     config = OpenSfMPilotConfig(
         (str(conda), 'run', '--no-capture-output', '--prefix', str(prefix), 'python'),
-        Path(__file__).with_name('MCM_SolarCheck_OPENSFM_STAGE.py'), Path(workspace).parent)
+        Path(__file__).with_name('MCM_SolarCheck_OPENSFM_STAGE.py'), Path(workspace).parent,
+        modality=report_modality(read_opensfm_run_metrics(workspace)))
     return config
 
 
@@ -61,11 +64,14 @@ def execute_continue(workspace, conda, environment, cancel, progress):
                                           should_cancel=cancel, on_progress=progress)
 
 
-def window(*, conda=CONDA, environment=ENVIRONMENT):
+def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
+    if modality not in ('rgb', 'thermal'):
+        raise PilotError('Unbekannte Bildart.')
+    kind = 'THERMAL' if modality == 'thermal' else 'RGB'
     import tkinter as tk
     from tkinter import filedialog, ttk
     root = tk.Tk()
-    root.title('SolarCheck – RGB-Orthofoto mit OpenSfM testen')
+    root.title(f'SolarCheck – {kind}-Orthofoto mit OpenSfM testen')
     root.geometry('1100x730')
     values = {key: tk.StringVar(value=value) for key, value in (
         ('database', ''), ('conda', str(conda)), ('environment', str(environment)), ('output', ''))}
@@ -76,13 +82,17 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
     run_info = tk.StringVar(value='Noch kein OpenSfM-Lauf ausgewaehlt.')
     copy_note = tk.StringVar(value='')
     controls = []
-    ttk.Label(root, text='Erster Bildlauf: ein kleines, vollstaendiges RGB-Projekt mit 3 bis 300 Bildern.\n'
+    intro = ('Thermal-Pilot: alle importierten M3T-Thermal-JPGs des gewaehlten Projekts (3 bis 300).\n'
+        'RGB wird nicht erneut gerechnet. Eigene Thermal-Kameramodelle; private Arbeitskopien mit erhaltenem 16-Bit-Raster.\n'
+        'Ausgabe: Thermal-Darstellung als GeoTIFF, keine Celsiusmatrix. Max. 60 Minuten je Stufe/drei Stunden insgesamt.\n'
+        'Bei Zeitlimit: Lauf laden → Tiefenkarten pruefen → Tiefenkarten fortsetzen; keine Neuerzeugung erforderlich.'
+        if modality == 'thermal' else 'Erster Bildlauf: ein kleines, vollstaendiges RGB-Projekt mit 3 bis 300 Bildern.\n'
         'Alle importierten RGB-JPGs werden als private Arbeitskopien verarbeitet. '
         'Maximal 60 Minuten je Stufe, drei Stunden insgesamt.\n'
         'RGB-Ergebnis zur Sichtpruefung; Thermal und fachliche Abnahme folgen danach.\n'
         'Gespeicherten Dense-Lauf laden → Tiefenkarten pruefen: maximal zehn Minuten.\n'
-        'Nach erfolgreicher Pruefung: Tiefenkarten fortsetzen (max. zwei Stunden Tiefenkarten, drei Stunden insgesamt).',
-        wraplength=950).pack(anchor='w', padx=16, pady=12)
+        'Nach erfolgreicher Pruefung: Tiefenkarten fortsetzen (max. zwei Stunden Tiefenkarten, drei Stunden insgesamt).')
+    ttk.Label(root, text=intro, wraplength=950).pack(anchor='w', padx=16, pady=12)
 
     def choose(key):
         if key == 'database':
@@ -130,8 +140,10 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
 
     def work(args):
         try:
-            result = execute(*args, cancel.is_set,
-                lambda text: events.put(('progress', text)), lambda path: events.put(('workspace', path)))
+            callbacks = (cancel.is_set, lambda text: events.put(('progress', text)),
+                         lambda path: events.put(('workspace', path)))
+            result = (execute(*args, *callbacks, modality='thermal') if modality == 'thermal'
+                      else execute(*args, *callbacks))
             events.put(('success', result))
         except PilotCancelled:
             events.put(('error', 'Abgebrochen; private Arbeitsdateien und Laufzeiten bleiben erhalten.'))
@@ -181,7 +193,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
                     try:
                         run_info.set(local_run_label(payload))
                     except (OSError, PilotError):
-                        run_info.set('OpenSfM RGB · Ordner: ' + payload.name)
+                        run_info.set(f'OpenSfM {kind} · Ordner: ' + payload.name)
                     open_button['state'] = 'normal'
                     continue
                 if kind == 'progress':
@@ -203,7 +215,8 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
                     eligible = False
                 continue_button['state'] = 'normal' if eligible else 'disabled'
                 if kind == 'success':
-                    status.set('RGB-Ergebnis zur Sichtpruefung erstellt: ' + str(payload.rgb_geotiff))
+                    path = payload.thermal_geotiff if modality == 'thermal' else payload.rgb_geotiff
+                    status.set(f'{kind}-Ergebnis zur Sichtpruefung erstellt: ' + str(path))
                 elif kind == 'cache':
                     detail = payload['depthmap_cache_check']
                     status.set('Cachepruefung: ' + detail['status'] + '. Bildlauf bleibt unveraendert am bisherigen Stand.')
@@ -240,9 +253,11 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
             return
         try:
             report = read_opensfm_run_metrics(chosen)
+            if report_modality(report) != modality:
+                raise PilotError('Anderer Sensortyp.')
             label = local_run_label(chosen)
         except (OSError, PilotError):
-            copy_note.set('Kein gueltiger OpenSfM-Lauf. COLMAP-Ordner werden nicht uebernommen.')
+            copy_note.set('Kein passender OpenSfM-Lauf dieser Bildart; RGB/Thermal/COLMAP getrennt halten.')
             return
         state['workspace'] = Path(chosen)
         run_info.set(label)
@@ -290,7 +305,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
                 events.put(('error', 'Fortsetzung/Cachepruefung fehlgeschlagen; gespeicherten Bericht kopieren.'))
         threading.Thread(target=work_cache, daemon=False).start()
 
-    start_button = ttk.Button(buttons, text='RGB-Pilot starten', command=start)
+    start_button = ttk.Button(buttons, text=f'{kind}-Pilot starten', command=start)
     start_button.pack(side='left')
     cancel_button = ttk.Button(buttons, text='Abbrechen', state='disabled', command=abort)
     cancel_button.pack(side='left', padx=6)
@@ -311,7 +326,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT):
     root.mainloop()
 
 
-def main(argv=None):
+def main(argv=None, *, modality='rgb'):
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ('database', 'project', 'output'):
         parser.add_argument('--' + key)
@@ -319,14 +334,18 @@ def main(argv=None):
     parser.add_argument('--environment', default=ENVIRONMENT)
     args = parser.parse_args(argv)
     if not any((args.database, args.project, args.output)):
-        window(conda=args.conda, environment=args.environment)
+        if modality == 'thermal':
+            window(conda=args.conda, environment=args.environment, modality=modality)
+        else:
+            window(conda=args.conda, environment=args.environment)
         return 0
     if not all((args.database, args.project, args.output)):
         parser.error('Projektdatei, Projekt und Ausgabe zusammen angeben oder ohne Argumente starten.')
     try:
         result = execute(args.database, args.project, args.conda, args.environment, args.output,
-                         lambda: False, print, lambda path: None)
-        print('RGB-Ergebnis zur Sichtpruefung:', result.rgb_geotiff)
+                         lambda: False, print, lambda path: None, modality=modality)
+        path = result.thermal_geotiff if modality == 'thermal' else result.rgb_geotiff
+        print(modality.upper() + '-Ergebnis zur Sichtpruefung:', path)
         return 0
     except (PilotCancelled, KeyboardInterrupt):
         print('OpenSfM-Pilot abgebrochen.')

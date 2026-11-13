@@ -1,6 +1,6 @@
 """Local job adapter for the qualified OpenSfM engine; no photogrammetry here.
 
-The shared API accepts authorized RGB records. SQLite selection and desktop UI
+The shared API accepts explicitly selected RGB or Thermal records. SQLite selection and desktop UI
 stay in the launcher; a later server worker can use the same job API.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ import unicodedata
 
 from mcm_solarcheck.services.colmap_openmvs_pilot import (
     PilotCancelled, PilotError, PilotProcessExit, PilotTimeout,
-    _execute, _regular, input_signature,
+    _execute, _regular, input_signature, ThermalPilotFrame,
 )
 from mcm_solarcheck.services.micmac_orthophotos import MicMacCancelled, MicMacError, _copy_source
 from mcm_solarcheck.services.orthomosaic_geotiff_contract import inspect_existing_geotiff
@@ -56,6 +56,7 @@ class OpenSfMPilotConfig:
     stage_timeout_seconds: float = 3600
     total_timeout_seconds: float = 10800
     project_label: str = 'Projekt'
+    modality: str = 'rgb'
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,69 @@ class OpenSfMPilotResult:
     rgb_geotiff: Path
     rgb_images: int
     registered_images: int
+
+
+@dataclass(frozen=True)
+class OpenSfMThermalPilotResult:
+    workspace: Path
+    thermal_geotiff: Path
+    thermal_images: int
+    registered_images: int
+
+
+def report_modality(report):
+    return 'thermal' if report.get('pipeline') == 'opensfm_thermal' else 'rgb'
+
+
+def image_count(report):
+    return report.get(report_modality(report) + '_images')
+
+
+def pilot_result(workspace, ortho, count, registered, modality):
+    result_type = OpenSfMThermalPilotResult if modality == 'thermal' else OpenSfMPilotResult
+    return result_type(workspace, ortho, count, registered)
+
+
+def _require_thermal_copy(path):
+    # Reuse the validated parser on the byte-identical private copy. The rendered
+    # JPEG is geometry/display input; APP3 samples are NOT passed through blending.
+    from PIL import Image
+    from mcm_solarcheck.thermal.m3t_radiometric import M3TRadiometricParser, M3TFormatError
+    try:
+        raw = M3TRadiometricParser().parse_file(path)
+        with Image.open(path) as picture:
+            if picture.format != 'JPEG' or picture.size != (raw.width, raw.height):
+                raise ValueError
+            picture.verify()
+    except (OSError, ValueError, M3TFormatError):
+        raise PilotError('Thermal-Arbeitskopie ohne passendes M3T-16-Bit-Raster/JPEG; '
+                         'keine RGB-Bilder oder erfundenen Temperaturwerte verwenden.') from None
+
+
+def require_thermal_metadata(workspace, expected):
+    for name in expected:
+        meta = _json(workspace / 'exif' / (name + '.exif'))
+        focal = meta.get('focal_ratio')
+        if (meta.get('width') != 640 or meta.get('height') != 512
+                or type(focal) not in (int, float) or not math.isfinite(focal) or focal <= 0
+                or not isinstance(meta.get('camera'), str) or not meta['camera']):
+            raise PilotError('Thermal-Sensorgeometrie in OpenSfM-Metadaten fehlt; '
+                             'keine RGB-Kalibrierung oder geratene Brennweite einsetzen.')
+
+
+def require_thermal_geometry(workspace, expected):
+    models = _json(workspace / 'reconstruction.json')
+    if not reconstruction_summary(workspace / 'reconstruction.json', expected)['registration_complete']:
+        raise PilotError('Kein vollstaendiger Thermal-Kameraverbund.')
+    for name, shot in models[0]['shots'].items():
+        meta = _json(workspace / 'exif' / (name + '.exif'))
+        cam = models[0]['cameras'][shot['camera']]
+        focal = cam.get('focal') if isinstance(cam, dict) else None
+        if (shot['camera'] != meta['camera'] or cam.get('width') != 640 or cam.get('height') != 512
+                or cam.get('projection_type') != 'perspective'
+                or type(focal) not in (int, float) or not math.isfinite(focal) or focal <= 0):
+            raise PilotError('Thermal-Kameramodell passt nicht zu den eigenen Sensordaten; '
+                             'keine RGB-Kalibrierung uebernehmen.')
 
 
 def _json(path):
@@ -79,7 +143,9 @@ def _json(path):
 METRIC_KEYS = ('pipeline', 'run_id', 'started_at', 'status', 'rgb_images', 'registered_images',
                'registration_complete', 'models', 'missing_images', 'foreign_images', 'points',
                'orthophoto_created', 'georeferencing_verified', 'temperature_verified',
-               'thermal_created', 'elapsed_seconds', 'steps', 'stored_depthmaps')
+               'thermal_created', 'elapsed_seconds', 'steps', 'stored_depthmaps',
+               'thermal_images', 'thermal_value_kind', 'radiometric_sources_preserved',
+               'temperature_matrix_created')
 
 
 def _stored_depthmaps(workspace):
@@ -95,12 +161,17 @@ def read_opensfm_metrics(workspace):
     manifest = _json(workspace / 'job.json')
     if (not isinstance(manifest, dict) or manifest.get('expected_engine_source') != ENGINE_SOURCE):
         raise PilotError('Kein OpenSfM-Laufordner. Bitte den Ordner des OpenSfM-Piloten waehlen.')
+    if manifest.get('pipeline', 'opensfm_rgb') not in ('opensfm_rgb', 'opensfm_thermal'):
+        raise PilotError('Unbekannte OpenSfM-Bildart.')
+    modality = report_modality(manifest)
+    kind = 'THERMAL' if modality == 'thermal' else 'RGB'
+    pipeline = 'opensfm_' + modality
     filename = manifest.get('metrics_filename', 'laufzeiten.json')
     if (not isinstance(filename, str) or (filename != 'laufzeiten.json' and not re.fullmatch(
-            r'OpenSfM_RGB_[0-9]{8}_[0-9]{6}_[a-z0-9_]{8}_Kennzahlen[.]json', filename))):
+            rf'OpenSfM_{kind}_[0-9]{{8}}_[0-9]{{6}}_[a-z0-9_]{{8}}_Kennzahlen[.]json', filename))):
         raise PilotError('OpenSfM-Kennzahlendatei hat einen ungueltigen Namen.')
     report = _json(workspace / filename)
-    if (not isinstance(report, dict) or report.get('pipeline', 'opensfm_rgb') != 'opensfm_rgb'
+    if (not isinstance(report, dict) or report.get('pipeline', 'opensfm_rgb') != pipeline
             or report.get('status') not in ('running', 'finished', 'failed', 'cancelled')):
         raise PilotError('Kein gueltiger OpenSfM-Kennzahlenbericht.')
     steps = report.get('steps')
@@ -120,20 +191,29 @@ def read_opensfm_metrics(workspace):
         safe_steps.append({k: item[k] for k in ('stage', 'status', 'seconds', 'timeout_seconds',
                                                'failure_kind', 'exit_code') if k in item})
     safe = {key: report[key] for key in METRIC_KEYS if key in report and key != 'steps'}
-    for key in ('rgb_images', 'registered_images', 'models', 'missing_images', 'foreign_images', 'points', 'elapsed_seconds'):
+    for key in ('thermal_images', 'radiometric_sources_preserved', 'rgb_images', 'registered_images', 'models', 'missing_images', 'foreign_images', 'points', 'elapsed_seconds'):
         if key in safe and (type(safe[key]) not in (int, float) or not math.isfinite(safe[key]) or safe[key] < 0):
             raise PilotError('OpenSfM-Kennzahlen enthalten ungueltige Zahlen.')
-    for key in ('registration_complete', 'orthophoto_created', 'georeferencing_verified', 'temperature_verified', 'thermal_created'):
+    for key in ('registration_complete', 'orthophoto_created', 'georeferencing_verified', 'temperature_verified', 'thermal_created', 'temperature_matrix_created'):
         if key in safe and type(safe[key]) is not bool:
             raise PilotError('OpenSfM-Kennzahlen enthalten einen ungueltigen Status.')
-    if 'run_id' in safe and not re.fullmatch(r'opensfm-rgb-[0-9]{8}-[0-9]{6}-[a-z0-9_]{8}', str(safe['run_id'])):
+    if 'run_id' in safe and not re.fullmatch(rf'opensfm-{modality}-[0-9]{{8}}-[0-9]{{6}}-[a-z0-9_]{{8}}', str(safe['run_id'])):
         raise PilotError('OpenSfM-Laufkennung ungueltig.')
     if 'started_at' in safe:
         try:
             datetime.fromisoformat(safe['started_at'])
         except (TypeError, ValueError):
             raise PilotError('OpenSfM-Laufdatum ungueltig.') from None
-    safe.update(pipeline='opensfm_rgb', steps=safe_steps, stored_depthmaps=_stored_depthmaps(workspace))
+    if modality == 'thermal':
+        if (report.get('thermal_value_kind') != 'visual' or report.get('temperature_matrix_created') is not False
+                or report.get('temperature_verified') is not False or report.get('georeferencing_verified') is not False
+                or report.get('rgb_images') != 0 or type(report.get('thermal_images')) is not int
+                or not 3 <= report['thermal_images'] <= 300
+                or type(report.get('radiometric_sources_preserved')) is not int
+                or not 0 <= report['radiometric_sources_preserved'] <= report['thermal_images']):
+            raise PilotError('Ungueltiger Thermal-Darstellungsbericht; keine Celsiusfreigabe.')
+        safe['thermal_value_kind'] = 'visual'
+    safe.update(pipeline=pipeline, steps=safe_steps, stored_depthmaps=_stored_depthmaps(workspace))
     return safe
 
 
@@ -150,7 +230,8 @@ def local_run_label(workspace):
             raise PilotError('OpenSfM-Laufdatum ungueltig.') from None
     else:
         stamp = 'Berichtsstand ' + datetime.fromtimestamp((workspace / 'laufzeiten.json').stat().st_mtime).astimezone().strftime('%d.%m.%Y %H:%M:%S')
-    return f'OpenSfM RGB · {project} · {stamp}\nOrdner: {workspace.name}'
+    kind = 'THERMAL' if report_modality(manifest) == 'thermal' else 'RGB'
+    return f'OpenSfM {kind} · {project} · {stamp}\nOrdner: {workspace.name}'
 
 
 CACHE_COUNTS = ('working_images', 'clusters', 'raw_readable', 'raw_unreadable',
@@ -206,6 +287,8 @@ def check_opensfm_depthmap_cache(workspace, config, *, should_cancel=None, execu
     workspace = Path(workspace)
     report = read_opensfm_metrics(workspace)
     manifest = _json(workspace / 'job.json')
+    if config.modality != report_modality(report):
+        raise PilotError('RGB- und Thermal-Lauf getrennt waehlen.')
     if (report['status'] not in ('failed', 'cancelled') or not report.get('registration_complete')
             or len(report['steps']) < 8
             or any(s['status'] != 'finished' for s in report['steps'][:7])
@@ -307,7 +390,7 @@ def _require_engine_gps(workspace, expected):
                              'keine geratenen GPS-/CRS-Werte einsetzen.')
 
 
-def _inspect_rgb_geotiff(workspace, stopped):
+def _inspect_visual_geotiff(workspace, stopped, *, modality='rgb'):
     """The same existing raster gate for an initial run and a continuation."""
     ortho = _regular(workspace / 'undistorted' / 'depthmaps' / 'ortho.tif')
     try:
@@ -331,12 +414,16 @@ def _inspect_rgb_geotiff(workspace, stopped):
     except (PilotCancelled, PilotTimeout):
         raise
     except Exception:
-        raise PilotError('OpenSfM-Ausgabe ohne verwendbares projiziertes RGB-GeoTIFF; keine CRS-Ergaenzung.') from None
+        raise PilotError(f'OpenSfM-Ausgabe ohne verwendbares projiziertes {modality.upper()}-Darstellungs-GeoTIFF; keine CRS-Ergaenzung.') from None
 
 
 def _validate_inputs(frames, config):
+    if config.modality not in ('rgb', 'thermal'):
+        raise PilotError('Unbekannte Bildart.')
+    if any(isinstance(f, ThermalPilotFrame) != (config.modality == 'thermal') for f in frames):
+        raise PilotError('RGB- und Thermal-Eingaben duerfen nicht gemischt werden.')
     if not 3 <= len(frames) <= 300 or len({f.frame_id for f in frames}) != len(frames):
-        raise PilotError('Erster Pilot: vollstaendiges zusammengehoeriges Projekt mit 3 bis 300 RGB-JPGs waehlen.')
+        raise PilotError('Erster Pilot: vollstaendiges zusammengehoeriges Projekt mit 3 bis 300 JPGs der gewaehlten Bildart waehlen.')
     if (not math.isfinite(config.stage_timeout_seconds) or not 0 < config.stage_timeout_seconds <= 3600
             or not math.isfinite(config.total_timeout_seconds) or not 0 < config.total_timeout_seconds <= 10800):
         raise PilotError('Pilot ist auf maximal 60 Minuten je Stufe und drei Stunden insgesamt begrenzt.')
@@ -356,11 +443,11 @@ def _validate_inputs(frames, config):
     for frame in frames:
         source = Path(frame.source_file)
         if not source.is_absolute():
-            raise PilotError('Importierte RGB-Quellen muessen absolute lokale Pfade haben.')
+            raise PilotError('Importierte Bildquellen muessen absolute lokale Pfade haben.')
         source = _regular(source)
         if (source.suffix.lower() not in ('.jpg', '.jpeg') or source in paths
                 or source.parent == parent or source.parent in parent.parents or parent in source.parents):
-            raise PilotError('RGB-JPGs und davon getrennten Ausgabeordner waehlen; keine doppelten Quellen.')
+            raise PilotError('JPGs und davon getrennten Ausgabeordner waehlen; keine doppelten Quellen.')
         paths.add(source)
         try:
             coords = (float(frame.latitude), float(frame.longitude), float(frame.altitude_m))
@@ -375,7 +462,7 @@ def _validate_inputs(frames, config):
     return parent
 
 
-def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=None,
+def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
                           inputs_unchanged=None, executor=None, on_workspace=None):
     """Qualified standard stages -> checked existing GeoTIFF, no project writes."""
     frames = tuple(frames)
@@ -385,17 +472,22 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
     if cancel():
         raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
     parent = _validate_inputs(frames, config)
+    modality = config.modality
+    kind = 'THERMAL' if modality == 'thermal' else 'RGB'
     began = datetime.now().astimezone()
     stamp = began.strftime('%Y%m%d_%H%M%S')
     label = unicodedata.normalize('NFKD', str(config.project_label)).encode('ascii', 'ignore').decode()
     slug = re.sub('[^A-Za-z0-9]+', '-', label).strip('-')[:32] or 'Projekt'
-    workspace = Path(tempfile.mkdtemp(prefix=f'{stamp}_OpenSfM_RGB_{slug}_', dir=parent))
-    run_id = f'opensfm-rgb-{stamp.replace("_", "-")}-{workspace.name[-8:]}'
-    metrics_filename = f'OpenSfM_RGB_{stamp}_{workspace.name[-8:]}_Kennzahlen.json'
+    workspace = Path(tempfile.mkdtemp(prefix=f'{stamp}_OpenSfM_{kind}_{slug}_', dir=parent))
+    run_id = f'opensfm-{modality}-{stamp.replace("_", "-")}-{workspace.name[-8:]}'
+    metrics_filename = f'OpenSfM_{kind}_{stamp}_{workspace.name[-8:]}_Kennzahlen.json'
     started = time.monotonic()
     deadline = started + config.total_timeout_seconds
-    record = {'status': 'running', 'rgb_images': len(frames), 'registered_images': 0,
-              'pipeline': 'opensfm_rgb', 'run_id': run_id, 'started_at': began.isoformat(timespec='seconds'),
+    record = {'status': 'running', 'rgb_images': len(frames) if modality == 'rgb' else 0,
+              'thermal_images': len(frames) if modality == 'thermal' else 0,
+              'thermal_value_kind': 'visual' if modality == 'thermal' else None,
+              'radiometric_sources_preserved': 0, 'temperature_matrix_created': False, 'registered_images': 0,
+              'pipeline': 'opensfm_' + modality, 'run_id': run_id, 'started_at': began.isoformat(timespec='seconds'),
               'project_label': str(config.project_label), 'metrics_filename': metrics_filename,
               'models': 0, 'missing_images': len(frames), 'foreign_images': 0, 'points': 0,
               'registration_complete': False, 'orthophoto_created': False,
@@ -435,7 +527,7 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
         for index, frame in enumerate(frames, 1):
             if stopped():
                 raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
-            progress(f'RGB-Arbeitskopien {index}/{len(frames)}')
+            progress(f'{kind}-Arbeitskopien {index}/{len(frames)}')
             name = f'{index:06d}.JPG'
             try:
                 sources.append(_copy_source(asdict(frame), images / name, None, stopped))
@@ -443,6 +535,9 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
                 raise PilotCancelled('OpenSfM-Pilot abgebrochen.') from None
             except MicMacError:
                 raise PilotError('RGB-Arbeitskopie fehlgeschlagen oder Quelle veraendert; Originale bleiben erhalten.') from None
+            if modality == 'thermal':
+                _require_thermal_copy(images / name)
+                record['radiometric_sources_preserved'] += 1
             digest = frame.content_sha256
             if not digest:
                 with (images / name).open('rb') as stream:
@@ -453,7 +548,7 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
         # JSON is a YAML subset; no added app dependency or camera override.
         (workspace / 'config.yaml').write_text(json.dumps(PROFILE, indent=2), encoding='utf-8')
         expected = {item['working_name'] for item in mapping}
-        for index, (stage, label) in enumerate(zip(STAGES, LABELS), 1):
+        for index, (stage, label) in enumerate(zip(STAGES, (s.replace('RGB', kind) for s in LABELS)), 1):
             if stopped():
                 raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
             limit = min(config.stage_timeout_seconds, deadline - time.monotonic())
@@ -488,13 +583,17 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
                 save()
             if stage == 'extract_metadata':
                 _require_engine_gps(workspace, expected)
+                if modality == 'thermal':
+                    require_thermal_metadata(workspace, expected)
             if stage == 'reconstruct':
                 summary = reconstruction_summary(workspace / 'reconstruction.json', expected)
                 record.update(summary)
                 save()
                 if not summary['registration_complete']:
-                    raise PilotError('OpenSfM: kein einzelner vollstaendiger RGB-Kameraverbund; '
+                    raise PilotError('OpenSfM: kein einzelner vollstaendiger Kameraverbund; '
                                      'vor der dichteren Rechnung gestoppt. Kennzahlen dieses Laufs kopieren.')
+                if modality == 'thermal':
+                    require_thermal_geometry(workspace, expected)
         for source, signature in sources:
             stat = source.stat()
             if (stat.st_size, stat.st_mtime_ns, stat.st_ino) != signature:
@@ -503,11 +602,41 @@ def run_opensfm_rgb_pilot(frames, config, *, should_cancel=None, on_progress=Non
             raise PilotError('Projekteingaben waehrend des Piloten veraendert; kein Ergebnis uebernehmen.')
         if stopped():
             raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
-        ortho, record['raster'] = _inspect_rgb_geotiff(workspace, stopped)
-        record.update(status='finished', orthophoto_created=True)
+        ortho, record['raster'] = _inspect_visual_geotiff(workspace, stopped, modality=modality)
+        if modality == 'thermal':
+            verify_thermal_working_copies(workspace, stopped)
+        record.update(status='finished', orthophoto_created=True, thermal_created=modality == 'thermal')
         save()
-        return OpenSfMPilotResult(workspace, ortho, len(frames), record['registered_images'])
+        return pilot_result(workspace, ortho, len(frames), record['registered_images'], modality)
     except BaseException as error:
         record['status'] = 'cancelled' if isinstance(error, (PilotCancelled, KeyboardInterrupt)) else 'failed'
         save()
         raise
+
+
+def verify_thermal_working_copies(workspace, stopped):
+    mapping = _json(workspace / 'input-map.json')
+    if not isinstance(mapping, list) or not 3 <= len(mapping) <= 300 or any(not isinstance(item, dict) for item in mapping):
+        raise PilotError('Thermal-Arbeitszuordnung fehlt oder ist ungueltig.')
+    for item in mapping:
+        if stopped():
+            raise PilotCancelled('Thermal-Pilot abgebrochen.')
+        name = item.get('working_name')
+        if not isinstance(name, str) or not re.fullmatch(r'[0-9]{6}[.]JPG', name):
+            raise PilotError('Thermal-Arbeitszuordnung ungueltig.')
+        with _regular(workspace / 'images' / name).open('rb') as stream:
+            actual = file_digest(stream, 'sha256').hexdigest()
+        if actual != str(item.get('content_sha256')).casefold():
+            raise PilotError('Thermal-Arbeitskopie veraendert; Rohwerterhalt nicht bestaetigt.')
+
+
+def run_opensfm_rgb_pilot(frames, config, **kwargs):
+    if config.modality != 'rgb':
+        raise PilotError('Thermal ueber den getrennten Thermal-Start aufrufen.')
+    return _run_opensfm_pilot(frames, config, **kwargs)
+
+
+def run_opensfm_thermal_pilot(frames, config, **kwargs):
+    if config.modality != 'thermal':
+        raise PilotError('Thermal-Konfiguration erforderlich.')
+    return _run_opensfm_pilot(frames, config, **kwargs)
