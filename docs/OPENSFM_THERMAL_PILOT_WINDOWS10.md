@@ -6,7 +6,22 @@
 
 Nach Aktualisierung denselben bereits importierten Projektbestand bewusst mit **THERMAL-Pilot starten** aufrufen. Der alte nach1s gestoppte Versuch enthält keine fortsetzbare Engineberechnung. Kein Neuimport und kein RGB-Neulauf. Der Startblock unten verweist auf die Korrekturquelle; ihr Prüfstand steht im letzten Abschnitt.
 
-## Thermal starten
+## Aktueller Schritt: gespeicherte Thermal-Teilmodelle lesen
+
+Der Lauf vom **13.11.2026,18:58:37**, Endung **oh9ptgy5**, hat alle287 Eingaben akzeptiert. Er endete nach595,094s mit285 eindeutigen Bildern in drei Modellen; zwei fehlen. Alle fünf Engine-Stufen waren beendet, aber ein einzelner vollständiger Verbund fehlt. Darum keine Tiefenkarten/Orthofoto. Das Eingabeproblem ist geschlossen; jetzt keine unveränderte Wiederholung oder Dense-Fortsetzung starten.
+
+1. Aktualisierten Startblock unten in PowerShell ausführen; er öffnet nur den Dialog.
+2. **Lauf laden** wählen und genau den vorhandenen THERMAL-Ordner mit Start18:58:37/Endungoh9ptgy5 unter `F:\Auswertung1` auswählen. Keine Projektdateiauswahl/kein Neuimport nötig.
+3. **Kennzahlen kopieren** und den Text zurückmelden. **THERMAL-Pilot starten** ist für diesen Prüfschritt nicht erforderlich.
+
+Die neue Fassung liest nur gespeicherte `reconstruction.json` und `input-map.json`, prüft unveränderte Dateistände und passende Summen. Kein Engineaufruf, kein Matching, keine Fotos/EXIF/SQLite, keine Dateiänderung. `reconstruction_details.components` enthält Bilder/Punktdatensätze/Kameras je Modell; `pairs` enthält ausschließlich Anzahlen gemeinsamer Bild- und Punktkennungen. Namen, Pfade, Koordinaten und Kennungen werden nicht ausgegeben. Unlesbare/geänderte/widersprüchliche Dateien erhalten einen entsprechenden Status; ursprüngliche Laufkennzahlen bleiben erhalten.
+
+**Punktzahlkorrektur:** Die erste Berichtsfassung beließ points bei mehreren Modellen auf0. Das war kein verlässlicher Nachweis leerer Teilmodelle. Die neue Ausgabe zählt `points` als Summe der Punktdatensätze je Modell (`points_scope: sum_per_model`); gemeinsame Tracks können mehrfach gezählt sein. Es ist keine Anzahl unabhängig bestätigter physischer Punkte. Die Detailzählung erteilt keine Geometrie-/Temperaturfreigabe und macht aus drei Modellen keinen vollständigen Kameraverbund.
+
+**Geprüfte Standardwege:** OpenSfM8b6b77ef bietet merge_reconstructions für gemeinsame Track-IDs mit geometrischer Prüfung/mindestenszehn Inliern. Bloße ID-Schnittmengen reichen nicht; fehlende Bilder bleiben auch nach einem Merge offen. `reconstruct_from_prior` kopiert die Kameramodelle und Posen des Prior-Modells – das RGB-Ergebnis deshalb nicht direkt als Thermal-Kamera ausgeben. Der vorhandene Rig-Weg benötigt eigene belegte Sensorparameter, relative Sensorgeometrie und synchronisierte Zuordnung. Diese Verfahren werden hier nicht automatisch gestartet. Erst die vorhandenen Komponentenzahlen für einen gezielten nächsten Schritt verwenden, keine eigenen Pose-/Stitch-/Merge-Algorithmen oder blind erweiterten Nachtläufe.
+
+
+## Thermal-Erstlauf für ein anderes Projekt starten
 
 1. Den unten stehenden Startblock vollständig in **PowerShell** einfügen. Er lädt ausschließlich SolarCheck-Quellcode, prüft dessen SHA256 und öffnet den neuen **THERMAL-Dialog** mit dem bisherigen F:-Python. Fotos werden erst nach dem Startklick lokal verarbeitet.
 2. Die bisherige **Projektdatei** und dasselbe Projekt wie beim erfolgreichen RGB-Lauf wählen. Die installierte Conda-Datei und `E:\SolarCheck-OpenSfM\env` bleiben vorbelegt. Als privaten Ausgabeordner wieder beispielsweise `F:\Auswertung1` wählen.
@@ -41,8 +56,8 @@ $pilotPython = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pilotPython -PathType Leaf)) {
     throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden.'
 }
-$pilotCommit = '8b6165b4670b157fd5189f05b1743727ff8a07c7'
-$pilotSha256 = 'a039d3037419423a8da52b4013127f21f3d27d5a13c3b96871870f0534801df9'
+$pilotCommit = 'e7b215e0b41cb6f3282bc60cd1f5e8373a1344d5'
+$pilotSha256 = 'edae7f32a97b85637595c5a5e8e6db501e19bccfb3f2ae32d279d82c7f956139'
 $pilotDir = Join-Path 'E:\SolarCheck-Pilot' ('thermal-' + [guid]::NewGuid().ToString('N').Substring(0,12))
 New-Item -ItemType Directory -Path $pilotDir -ErrorAction Stop | Out-Null
 $pilotZip = Join-Path $pilotDir 'source.zip'
@@ -74,3 +89,8 @@ Lokaler letzter gezielter Lauf27Tests grün; zuvor106Tests/zehn Tk-Skips unter L
 Quelle **8b6165b4670b157fd5189f05b1743727ff8a07c7**: JPEG/MPO-Freigabe mit unverändertem Rohdatenparser, primärem640×512-Bild und getrennten Fehlergründen. Lokal67 gezielte Tests grün/zehn Tk-Skips, zwei Übergabeprüfungen grün. Synthetischer MPO-Vollpfad einschließlich OpenCV-Primärbildvergleich und unveränderter Quell-/Arbeitskopien; Negativfälle Rohdaten/Lesbarkeit/Format/primäre Dimension. Keine private Originaldatei hier geöffnet. Alle drei regulären CI grün: [Windows43471400588](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/43471400588) auf Python3.11/3.12 einschließlich MPO-Fall und nativer Tk-Bedienung, Linux43471400580 und43471391534 auf3.11/3.12. Nachfolgenden reinen Dokumentations-HEAD separat prüfen.
 
 Feste Quell-ZIP2924724Bytes, neun Codeeinträge bytegenau gegen diese Quelle geprüft; SHA256 im Startblock. Die konkrete Teilursache des ursprünglichen Nutzerbildes war im alten Sammelfehler nicht erkennbar. Die MPO-Fehlablehnung ist reproduziert/korrigiert, realer Wiederholungsbefund noch offen. Bei fortbestehendem Abbruch nur **Kennzahlen kopieren**; `thermal_input_failure` benennt den Teilcheck ohne private Pfade oder Rohwerte. Keine automatische Aufweichung des Rohdaten-/Geometrienachweises, keine neue Installation.
+
+
+## Prüfstand COMPONENT-READ-01
+
+Lokal74 gezielte Tests bestanden/elf native Tk-Fälle ohne Display übersprungen. Neue Fälle: Mehrmodell-Punktsumme, Legacy0-Korrektur nur in der Anzeige, überlappende Modelle ohne doppelte Bildzählung, ausschließlich numerische Schnittmengen, keine Berechnung/Schreibzugriffe, unlesbare/veränderte/falsche Zuordnung/Verknüpfung abweisen. Zusätzlicher nativer Tk-Fall lädt einen gescheiterten Thermal-Verbund, kopiert korrekte Summen und lässt Cache-/Dense-Knöpfe gesperrt. Quelle **e7b215e0b41cb6f3282bc60cd1f5e8373a1344d5**: alle drei regulären CI grün, [Windows43482072665](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/43482072665) auf Python3.11/3.12 einschließlich tatsächlicher Thermal-Lade-/Kopierbedienung, Linux43482071961/43482062215. Feste Quell-ZIP2930907Bytes/SHA256 im Startblock; neun Codeeinträge bytegenau geprüft. Nachfolgenden reinen Dokumentations-HEAD separat prüfen. Keine Originalbilder oder produktiven Daten hier verarbeitet.
