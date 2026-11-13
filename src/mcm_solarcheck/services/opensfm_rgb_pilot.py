@@ -88,20 +88,41 @@ def pilot_result(workspace, ortho, count, registered, modality):
     return result_type(workspace, ortho, count, registered)
 
 
+THERMAL_INPUT_FAILURES = ('raw_raster', 'preview_unreadable', 'preview_format', 'preview_dimensions')
+
+
+class ThermalInputError(PilotError):
+    """A fixed, shareable reason; never paths, image names or raw measurements."""
+    def __init__(self, kind, message):
+        self.kind = kind
+        super().__init__(message)
+
+
 def _require_thermal_copy(path):
-    # Reuse the validated parser on the byte-identical private copy. The rendered
-    # JPEG is geometry/display input; APP3 samples are NOT passed through blending.
+    # Both JPEG and MPO are supported by the existing M3T importer. Inspect only
+    # the primary rendered component used by OpenSfM/OpenCV; never silently select
+    # a different component, resize it or strip the radiometric APP3/4/5 payload.
     from PIL import Image
     from mcm_solarcheck.thermal.m3t_radiometric import M3TRadiometricParser, M3TFormatError
     try:
         raw = M3TRadiometricParser().parse_file(path)
+    except (OSError, M3TFormatError):
+        raise ThermalInputError('raw_raster',
+            'Thermaldateien gefunden; das eingebettete M3T-16-Bit-Raster einer Arbeitskopie '
+            'ist nicht mit dem vorhandenen Parser lesbar. Kennzahlen kopieren; kein Neuimport.') from None
+    try:
         with Image.open(path) as picture:
-            if picture.format != 'JPEG' or picture.size != (raw.width, raw.height):
-                raise ValueError
+            if picture.format not in ('JPEG', 'MPO'):
+                raise ThermalInputError('preview_format',
+                    'Thermal-Rohdaten lesbar; die Darstellung ist kein JPEG/MPO. Kennzahlen kopieren.')
+            if picture.size != (raw.width, raw.height):
+                raise ThermalInputError('preview_dimensions',
+                    'Thermal-Rohdaten lesbar; das erste JPEG/MPO-Bild passt nicht zum 640x512-Raster. '
+                    'Keine automatische Bildteilwahl oder Skalierung. Kennzahlen kopieren.')
             picture.verify()
-    except (OSError, ValueError, M3TFormatError):
-        raise PilotError('Thermal-Arbeitskopie ohne passendes M3T-16-Bit-Raster/JPEG; '
-                         'keine RGB-Bilder oder erfundenen Temperaturwerte verwenden.') from None
+    except (OSError, ValueError, SyntaxError):
+        raise ThermalInputError('preview_unreadable',
+            'Thermal-Rohdaten lesbar; die JPEG/MPO-Darstellung ist nicht lesbar. Kennzahlen kopieren.') from None
 
 
 def require_thermal_metadata(workspace, expected):
@@ -145,7 +166,7 @@ METRIC_KEYS = ('pipeline', 'run_id', 'started_at', 'status', 'rgb_images', 'regi
                'orthophoto_created', 'georeferencing_verified', 'temperature_verified',
                'thermal_created', 'elapsed_seconds', 'steps', 'stored_depthmaps',
                'thermal_images', 'thermal_value_kind', 'radiometric_sources_preserved',
-               'temperature_matrix_created')
+               'temperature_matrix_created', 'thermal_input_failure')
 
 
 def _stored_depthmaps(workspace):
@@ -204,6 +225,8 @@ def read_opensfm_metrics(workspace):
             datetime.fromisoformat(safe['started_at'])
         except (TypeError, ValueError):
             raise PilotError('OpenSfM-Laufdatum ungueltig.') from None
+    if safe.get('thermal_input_failure') not in (None, *THERMAL_INPUT_FAILURES):
+        raise PilotError('Unbekannter Thermal-Eingabepruefstatus.')
     if modality == 'thermal':
         if (report.get('thermal_value_kind') != 'visual' or report.get('temperature_matrix_created') is not False
                 or report.get('temperature_verified') is not False or report.get('georeferencing_verified') is not False
@@ -486,7 +509,8 @@ def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
     record = {'status': 'running', 'rgb_images': len(frames) if modality == 'rgb' else 0,
               'thermal_images': len(frames) if modality == 'thermal' else 0,
               'thermal_value_kind': 'visual' if modality == 'thermal' else None,
-              'radiometric_sources_preserved': 0, 'temperature_matrix_created': False, 'registered_images': 0,
+              'radiometric_sources_preserved': 0, 'temperature_matrix_created': False,
+              'thermal_input_failure': None, 'registered_images': 0,
               'pipeline': 'opensfm_' + modality, 'run_id': run_id, 'started_at': began.isoformat(timespec='seconds'),
               'project_label': str(config.project_label), 'metrics_filename': metrics_filename,
               'models': 0, 'missing_images': len(frames), 'foreign_images': 0, 'points': 0,
@@ -536,7 +560,11 @@ def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
             except MicMacError:
                 raise PilotError('RGB-Arbeitskopie fehlgeschlagen oder Quelle veraendert; Originale bleiben erhalten.') from None
             if modality == 'thermal':
-                _require_thermal_copy(images / name)
+                try:
+                    _require_thermal_copy(images / name)
+                except ThermalInputError as error:
+                    record['thermal_input_failure'] = error.kind
+                    raise
                 record['radiometric_sources_preserved'] += 1
             digest = frame.content_sha256
             if not digest:

@@ -222,3 +222,61 @@ def test_delivered_runtime_files_compile_with_the_tested_interpreter(name):
     # Each native CI interpreter must compile the actual delivered scripts.
     # ast feature_version on 3.12 does not reject every PEP701-only expression.
     compile(path.read_text(encoding='utf-8'), name, 'exec')
+
+
+
+def test_mpo_working_copies_reach_the_full_pipeline_and_opencv_reads_the_same_primary_image(tmp_path):
+    import cv2
+    frames, config = thermal_inputs(tmp_path)
+    for i, frame in enumerate(frames):
+        path = Path(frame.source_file)
+        Image.new('RGB', (640, 512), (20, 80, 140)).save(path, format='MPO', save_all=True,
+            append_images=[Image.new('RGB', (640, 512), (200, 60, 20))])
+        path.write_bytes(path.read_bytes() + radiometric_stream(b'\x34\x12' * (640 * 512)))
+        frames[i] = replace(frame, content_sha256=sha256(path.read_bytes()).hexdigest())
+        with Image.open(path) as picture:
+            assert picture.format == 'MPO' and picture.n_frames == 2
+            expected = picture.convert('RGB').getpixel((320, 256))
+        decoded = cv2.imread(str(path))
+        assert decoded.shape == (512, 640, 3)
+        assert max(abs(int(a) - int(b)) for a, b in zip(decoded[256, 320, ::-1], expected)) <= 2
+    before = {frame.source_file: Path(frame.source_file).read_bytes() for frame in frames}
+    calls = []
+    result = pilot.run_opensfm_thermal_pilot(frames, config, executor=thermal_engine(calls))
+    assert calls == list(pilot.STAGES)
+    assert result.thermal_geotiff.is_file()
+    report = resume.read_opensfm_run_metrics(result.workspace)
+    assert report['thermal_images'] == report['radiometric_sources_preserved'] == 3
+    assert report['thermal_input_failure'] is None
+    assert not report['temperature_verified'] and not report['temperature_matrix_created']
+    assert all(Path(name).read_bytes() == content for name, content in before.items())
+    assert all(path.read_bytes() in before.values() for path in (result.workspace / 'images').iterdir())
+
+
+@pytest.mark.parametrize('kind', ['raw_raster', 'preview_unreadable', 'preview_format', 'preview_dimensions'])
+def test_failed_copy_check_reports_a_fixed_reason_without_starting_engine_or_exposing_sources(tmp_path, kind):
+    frames, config = thermal_inputs(tmp_path)
+    path = Path(frames[0].source_file)
+    if kind == 'preview_unreadable':
+        path.write_bytes(b'not an image')
+    elif kind == 'preview_format':
+        Image.new('RGB', (640, 512)).save(path, format='PNG')
+    elif kind == 'preview_dimensions':
+        # Primary RGB-sized component must not silently switch to secondary thermal.
+        Image.new('RGB', (1200, 900)).save(path, format='MPO', save_all=True,
+            append_images=[Image.new('RGB', (640, 512))])
+    else:
+        Image.new('RGB', (640, 512)).save(path, format='JPEG')
+    if kind != 'raw_raster':
+        path.write_bytes(path.read_bytes() + radiometric_stream(b'\x34\x12' * (640 * 512)))
+    frames[0] = replace(frames[0], content_sha256=sha256(path.read_bytes()).hexdigest())
+    calls, folders = [], []
+    with pytest.raises(pilot.ThermalInputError) as caught:
+        pilot.run_opensfm_thermal_pilot(frames, config, executor=thermal_engine(calls), on_workspace=folders.append)
+    assert caught.value.kind == kind
+    assert str(tmp_path) not in str(caught.value) and not calls
+    report = resume.read_opensfm_run_metrics(folders[0])
+    assert report['thermal_images'] == 3 and report['thermal_input_failure'] == kind
+    assert report['status'] == 'failed' and not report['orthophoto_created']
+    assert not report['thermal_created'] and report['steps'] == []
+    assert 'source_file' not in json.dumps(report) and str(tmp_path) not in json.dumps(report)
