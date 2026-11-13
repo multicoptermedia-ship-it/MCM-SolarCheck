@@ -217,7 +217,8 @@ def test_rgb_camera_geometry_cannot_be_accepted_as_thermal(tmp_path):
 @pytest.mark.parametrize('name', ['src/mcm_solarcheck/services/opensfm_rgb_pilot.py',
     'src/mcm_solarcheck/services/opensfm_dense_continuation.py',
     'scripts/MCM_SolarCheck_OPENSFM_RGB_PILOT.py', 'scripts/MCM_SolarCheck_OPENSFM_STAGE.py'])
-def test_delivered_python_syntax_remains_compatible_with_existing_python310_311(name):
-    import ast
+def test_delivered_runtime_files_compile_with_the_tested_interpreter(name):
     path = Path(__file__).resolve().parents[1] / name
-    ast.parse(path.read_text(encoding='utf-8'), filename=name, feature_version=(3, 10))
+    # Each native CI interpreter must compile the actual delivered scripts.
+    # ast feature_version on 3.12 does not reject every PEP701-only expression.
+    compile(path.read_text(encoding='utf-8'), name, 'exec')

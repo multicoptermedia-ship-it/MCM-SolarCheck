@@ -278,10 +278,10 @@ def run_opensfm_dense_continuation(workspace, config, *, should_cancel=None, on_
                     step['status'] = 'finished'
                 except PilotProcessExit as error:
                     step.update(status='failed', failure_kind='process_exit', exit_code=error.returncode)
-                    raise PilotError(f'OpenSfM-Fortsetzung {LABELS[index].replace('RGB', report_modality(report).upper())}: Code {error.returncode}; {attempt.name}/{log.name} lokal pruefen.') from None
+                    raise PilotError(f'OpenSfM-Fortsetzung {label}: Code {error.returncode}; {attempt.name}/{log.name} lokal pruefen.') from None
                 except PilotTimeout:
                     step.update(status='failed', failure_kind='timeout')
-                    raise PilotTimeout(f'OpenSfM-Fortsetzung {LABELS[index].replace('RGB', report_modality(report).upper())}: Zeitlimit erreicht; Arbeitsstand gespeichert.') from None
+                    raise PilotTimeout(f'OpenSfM-Fortsetzung {label}: Zeitlimit erreicht; Arbeitsstand gespeichert.') from None
                 except PilotCancelled:
                     step['status'] = 'cancelled'
                     raise
