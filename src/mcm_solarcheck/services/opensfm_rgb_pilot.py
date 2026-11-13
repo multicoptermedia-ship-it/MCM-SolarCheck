@@ -166,7 +166,7 @@ METRIC_KEYS = ('pipeline', 'run_id', 'started_at', 'status', 'rgb_images', 'regi
                'orthophoto_created', 'georeferencing_verified', 'temperature_verified',
                'thermal_created', 'elapsed_seconds', 'steps', 'stored_depthmaps',
                'thermal_images', 'thermal_value_kind', 'radiometric_sources_preserved',
-               'temperature_matrix_created', 'thermal_input_failure')
+               'temperature_matrix_created', 'thermal_input_failure', 'points_scope')
 
 
 def _stored_depthmaps(workspace):
@@ -225,6 +225,8 @@ def read_opensfm_metrics(workspace):
             datetime.fromisoformat(safe['started_at'])
         except (TypeError, ValueError):
             raise PilotError('OpenSfM-Laufdatum ungueltig.') from None
+    if safe.get('points_scope') not in (None, 'sum_per_model'):
+        raise PilotError('Ungueltige Punktzaehlweise.')
     if safe.get('thermal_input_failure') not in (None, *THERMAL_INPUT_FAILURES):
         raise PilotError('Unbekannter Thermal-Eingabepruefstatus.')
     if modality == 'thermal':
@@ -237,6 +239,13 @@ def read_opensfm_metrics(workspace):
             raise PilotError('Ungueltiger Thermal-Darstellungsbericht; keine Celsiusfreigabe.')
         safe['thermal_value_kind'] = 'visual'
     safe.update(pipeline=pipeline, steps=safe_steps, stored_depthmaps=_stored_depthmaps(workspace))
+    if (report.get('registration_complete') is False and steps
+            and steps[-1].get('stage') == 'reconstruct' and steps[-1].get('status') == 'finished'
+            and report['status'] in ('failed', 'cancelled')):
+        detail, total = saved_component_details(workspace, safe)
+        safe['reconstruction_details'] = detail
+        if total is not None:
+            safe.update(points=total, points_scope='sum_per_model')
     return safe
 
 
@@ -365,7 +374,8 @@ def reconstruction_summary(path, expected):
         if not isinstance(model, dict) or not isinstance(model.get('shots'), dict):
             raise PilotError('OpenSfM-Kameraverbund hat ein ungueltiges Format.')
         names.update(model['shots'])
-    result = {'models': len(models), 'registered_images': len(names),
+    result = {'points': sum(len(m.get('points', {})) if isinstance(m.get('points'), dict) else 0 for m in models),
+              'points_scope': 'sum_per_model', 'models': len(models), 'registered_images': len(names),
               'missing_images': len(expected - names), 'foreign_images': len(names - expected)}
     complete = len(models) == 1 and names == expected
     if complete:
@@ -394,6 +404,56 @@ def reconstruction_summary(path, expected):
                     break
     result['registration_complete'] = bool(complete)
     return result
+
+
+def saved_component_details(workspace, report):
+    """Count stored model records/ID overlaps; no images, EXIF, engine or writes.
+
+    Shared track IDs are merely candidates for an upstream geometric check.
+    They do not establish transform, inliers, complete registration or quality.
+    """
+    paths = [Path(workspace) / name for name in ('reconstruction.json', 'input-map.json')]
+    fallback = {'status': 'unreadable', 'geometric_quality_verified': False}
+    try:
+        before = [(p.stat().st_size, p.stat().st_mtime_ns, p.stat().st_ino) for p in paths]
+        models, mapping = (_json(p) for p in paths)
+        if (not isinstance(models, list) or not 1 <= len(models) <= 300
+                or not isinstance(mapping, list) or len(mapping) != image_count(report)):
+            raise PilotError('invalid_saved_components')
+        expected = []
+        for item in mapping:
+            name = item.get('working_name') if isinstance(item, dict) else None
+            if not isinstance(name, str) or not re.fullmatch(r'[0-9]{6}[.]JPG', name):
+                raise PilotError('invalid_saved_components')
+            expected.append(name)
+        if len(set(expected)) != len(expected):
+            raise PilotError('invalid_saved_components')
+        shot_sets, point_sets, components = [], [], []
+        for index, model in enumerate(models):
+            if (not isinstance(model, dict) or any(not isinstance(model.get(k), dict)
+                    for k in ('shots', 'points', 'cameras'))):
+                raise PilotError('invalid_saved_components')
+            shot_sets.append(set(model['shots']))
+            point_sets.append(set(model['points']))
+            components.append(dict(model_index=index, images=len(shot_sets[-1]),
+                point_records=len(point_sets[-1]), cameras=len(model['cameras'])))
+        names = set().union(*shot_sets)
+        if (len(models) != report.get('models') or len(names) != report.get('registered_images')
+                or len(set(expected) - names) != report.get('missing_images')
+                or len(names - set(expected)) != report.get('foreign_images')):
+            return {'status': 'counts_mismatch', 'geometric_quality_verified': False}, None
+        pairs = [dict(model_a=i, model_b=j, shared_images=len(shot_sets[i] & shot_sets[j]),
+                      shared_point_ids=len(point_sets[i] & point_sets[j]))
+                 for i in range(len(models)) for j in range(i + 1, len(models))]
+        after = [(p.stat().st_size, p.stat().st_mtime_ns, p.stat().st_ino) for p in paths]
+        if before != after:
+            return {'status': 'changed_during_read', 'geometric_quality_verified': False}, None
+        total = sum(item['point_records'] for item in components)
+        return dict(status='completed', components=components, pairs=pairs,
+            unique_registered_images=len(names), point_records=total,
+            point_count_scope='sum_per_model', geometric_quality_verified=False), total
+    except (OSError, PilotError, ValueError, TypeError):
+        return fallback, None
 
 
 def _require_engine_gps(workspace, expected):
@@ -513,7 +573,7 @@ def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
               'thermal_input_failure': None, 'registered_images': 0,
               'pipeline': 'opensfm_' + modality, 'run_id': run_id, 'started_at': began.isoformat(timespec='seconds'),
               'project_label': str(config.project_label), 'metrics_filename': metrics_filename,
-              'models': 0, 'missing_images': len(frames), 'foreign_images': 0, 'points': 0,
+              'models': 0, 'missing_images': len(frames), 'foreign_images': 0, 'points': 0, 'points_scope': None,
               'registration_complete': False, 'orthophoto_created': False,
               'georeferencing_verified': False, 'temperature_verified': False,
               'thermal_created': False, 'steps': [], 'expected_engine_source': ENGINE_SOURCE,

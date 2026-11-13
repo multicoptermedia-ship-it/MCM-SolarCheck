@@ -335,3 +335,66 @@ def test_native_tk_checks_saved_depthmaps_continues_and_reopens_report_without_n
         monkeypatch.undo()
         roots.clear()
         gc.collect()
+
+
+@pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
+def test_native_thermal_load_and_copy_component_counts_never_starts_a_job(tmp_path, monkeypatch):
+    import tkinter as tk
+    from tkinter import filedialog, ttk
+    from mcm_solarcheck.services import opensfm_rgb_pilot as pilot
+    from test_opensfm_rgb_pilot import reconstruction
+    module = launcher()
+    folder = tmp_path / '20261113_185837_OpenSfM_THERMAL_Demo_abc12345'
+    folder.mkdir()
+    names = ['000001.JPG', '000002.JPG', '000003.JPG']
+    report = dict(pipeline='opensfm_thermal', status='failed', models=2, rgb_images=0, thermal_images=3,
+        registered_images=3, missing_images=0, foreign_images=0, registration_complete=False,
+        points=0, radiometric_sources_preserved=3, thermal_value_kind='visual',
+        temperature_matrix_created=False, temperature_verified=False, georeferencing_verified=False,
+        orthophoto_created=False, thermal_created=False,
+        steps=[dict(stage=s, status='finished') for s in pilot.STAGES[:5]])
+    (folder / 'job.json').write_text(json.dumps(dict(expected_engine_source=pilot.ENGINE_SOURCE,
+        pipeline='opensfm_thermal')))
+    (folder / 'laufzeiten.json').write_text(json.dumps(report))
+    (folder / 'input-map.json').write_text(json.dumps([dict(working_name=n) for n in names]))
+    (folder / 'reconstruction.json').write_text(json.dumps(reconstruction(names[:2]) + reconstruction(names[1:])))
+    before = {p: p.read_bytes() for p in folder.iterdir()}
+    roots, errors, done = [], [], []
+    real_tk = tk.Tk
+    def descendants(w):
+        for c in w.winfo_children():
+            yield c
+            yield from descendants(c)
+    def activate(root):
+        def button(text):
+            return next(w for w in descendants(root) if isinstance(w, ttk.Button) and w['text'] == text)
+        button('Lauf laden').invoke()
+        assert str(button('Tiefenkarten fortsetzen')['state']) == 'disabled'
+        assert str(button('Tiefenkarten pruefen')['state']) == 'disabled'
+        button('Kennzahlen kopieren').invoke()
+        result = json.loads(root.clipboard_get())
+        assert result['points'] == 2 and result['points_scope'] == 'sum_per_model'
+        assert result['reconstruction_details']['pairs'][0]['shared_images'] == 1
+        assert not result['registration_complete'] and not result['orthophoto_created']
+        assert '000001.JPG' not in json.dumps(result)
+        done.append(True)
+        button('Schliessen').invoke()
+    def create(*args, **kwargs):
+        root = real_tk(*args, **kwargs)
+        roots.append(root)
+        root.report_callback_exception = lambda *args: errors.append(args)
+        root.after(20, lambda: activate(root))
+        root.after(8000, root.destroy)
+        return root
+    monkeypatch.setattr(tk, 'Tk', create)
+    monkeypatch.setattr(filedialog, 'askdirectory', lambda **kwargs: str(folder))
+    for method in ('execute', 'execute_cache', 'execute_continue'):
+        monkeypatch.setattr(module, method, lambda *a, **k: pytest.fail('Read stored counts only'))
+    try:
+        module.window(modality='thermal')
+        assert done and not errors
+        assert all(p.read_bytes() == data for p, data in before.items())
+    finally:
+        monkeypatch.undo()
+        roots.clear()
+        gc.collect()
