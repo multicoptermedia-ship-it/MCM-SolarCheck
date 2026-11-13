@@ -2,6 +2,10 @@
 
 **THERMAL-PILOT-01 · 13.11.2026.** Ein getrenntes Thermal-GeoTIFF für das bereits erfolgreich gerechnete RGB-Projekt. Derselbe freie OpenSfM-Stand v1.1/8b6b77ef und gemeinsame Python-Kern; keine neue Installation. Der reale Thermal-Erstlauf und sein Vergleich mit RGB stehen noch aus.
 
+**Korrektur THERMAL-MPO-FIX1:** Ein Abbruch direkt nach der Arbeitskopie bedeutet nicht, dass keine Thermaldateien importiert sind. Die ursprüngliche Prüfung akzeptierte nur den Bibliotheksnamen JPEG; gültige JPEG-Mehrbildcontainer (MPO), wie sie bei M3T vorkommen können, wurden dadurch abgewiesen. Diese Unverträglichkeit wurde mit synthetischem MPO/APP3 reproduziert. Korrigierte Prüfung akzeptiert JPEG und MPO, prüft weiterhin das vorhandene Rohdatenraster und das primäre640×512-Darstellungsbild. Kein Bildteilwechsel, keine Skalierung oder Veränderung der Quelldatei. Der ursprüngliche Screenshot allein unterscheidet die Teilursachen nicht. Bei erneutem Abbruch unterscheiden Meldung und `thermal_input_failure` jetzt Rohdaten, Bildlesbarkeit, Format und Größe.
+
+Nach Aktualisierung denselben bereits importierten Projektbestand bewusst mit **THERMAL-Pilot starten** aufrufen. Der alte nach1s gestoppte Versuch enthält keine fortsetzbare Engineberechnung. Kein Neuimport und kein RGB-Neulauf. Der Startblock unten verweist auf die Korrekturquelle; ihr Prüfstand steht im letzten Abschnitt.
+
 ## Thermal starten
 
 1. Den unten stehenden Startblock vollständig in **PowerShell** einfügen. Er lädt ausschließlich SolarCheck-Quellcode, prüft dessen SHA256 und öffnet den neuen **THERMAL-Dialog** mit dem bisherigen F:-Python. Fotos werden erst nach dem Startklick lokal verarbeitet.
@@ -37,8 +41,8 @@ $pilotPython = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pilotPython -PathType Leaf)) {
     throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden.'
 }
-$pilotCommit = 'fdc96f06f89234896713295654453b5bacbef026'
-$pilotSha256 = 'e11c06d657799a92ba7682b93e58708c647d4ff7b1e22bcc32a606621234efa4'
+$pilotCommit = '8b6165b4670b157fd5189f05b1743727ff8a07c7'
+$pilotSha256 = 'a039d3037419423a8da52b4013127f21f3d27d5a13c3b96871870f0534801df9'
 $pilotDir = Join-Path 'E:\SolarCheck-Pilot' ('thermal-' + [guid]::NewGuid().ToString('N').Substring(0,12))
 New-Item -ItemType Directory -Path $pilotDir -ErrorAction Stop | Out-Null
 $pilotZip = Join-Path $pilotDir 'source.zip'
@@ -58,8 +62,15 @@ if ($LASTEXITCODE -ne 0) { throw 'Pilotdialog mit Fehler beendet.' }
 ```
 
 
-## Prüfstand der ausgelieferten Quelle
+## Prüfstand der ersten Auslieferung vor MPO-Korrektur
 
 **fdc96f06f89234896713295654453b5bacbef026:** alle drei regulären CI-Workflows grün: [Windows43459499633](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/43459499633), Linux43459488979 und43459499634, jeweils Python3.11 und3.12. Zehn tatsächliche native Tk-Fälle schließen Thermal-Start mit Erfolg/Abbruch sowie Laden→Cache→Dense-Fortsetzung→Speichern→Wiederladen→Kopieren ein. Synthetische Fälle prüfen APP3-/Mittelpunkt-Rohwerterhalt, unveränderte Originale, read-only Projektwahl, falsche/gemischte Modalitäten, fehlende/falsche Sensorgeometrie, Teilmodelle, Zeitlimit und sensorgetrennte Fortsetzung. Erste3.11-Syntaxfehler in Status-/Fehleranzeigen wurden vor dieser Auslieferung korrigiert; alle gelieferten Laufzeitdateien werden mit dem jeweiligen Testinterpreter kompiliert.
 
 Lokaler letzter gezielter Lauf27Tests grün; zuvor106Tests/zehn Tk-Skips unter Linux. Die feste Quell-ZIP (2921780Bytes) und neun ausgelieferte Codeeinträge wurden bytegenau gegen diesen Commit geprüft; SHA256 steht im Startblock. Nachfolgenden reinen Dokumentations-HEAD separat prüfen. Windows-Server-CI und synthetische Engine-Ergebnisse sind kein realer Windows10-Thermal-/Geometrie-/Temperaturnachweis; der lokale Thermal-Erstlauf bleibt offen. Keine Originalbilder, produktiven Datenbanken oder Kundendaten hier verarbeitet. Draft PR9 bleibt offen, kein Merge nach main.
+
+
+## Prüfstand der MPO-Korrektur
+
+Quelle **8b6165b4670b157fd5189f05b1743727ff8a07c7**: JPEG/MPO-Freigabe mit unverändertem Rohdatenparser, primärem640×512-Bild und getrennten Fehlergründen. Lokal67 gezielte Tests grün/zehn Tk-Skips, zwei Übergabeprüfungen grün. Synthetischer MPO-Vollpfad einschließlich OpenCV-Primärbildvergleich und unveränderter Quell-/Arbeitskopien; Negativfälle Rohdaten/Lesbarkeit/Format/primäre Dimension. Keine private Originaldatei hier geöffnet. Alle drei regulären CI grün: [Windows43471400588](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/43471400588) auf Python3.11/3.12 einschließlich MPO-Fall und nativer Tk-Bedienung, Linux43471400580 und43471391534 auf3.11/3.12. Nachfolgenden reinen Dokumentations-HEAD separat prüfen.
+
+Feste Quell-ZIP2924724Bytes, neun Codeeinträge bytegenau gegen diese Quelle geprüft; SHA256 im Startblock. Die konkrete Teilursache des ursprünglichen Nutzerbildes war im alten Sammelfehler nicht erkennbar. Die MPO-Fehlablehnung ist reproduziert/korrigiert, realer Wiederholungsbefund noch offen. Bei fortbestehendem Abbruch nur **Kennzahlen kopieren**; `thermal_input_failure` benennt den Teilcheck ohne private Pfade oder Rohwerte. Keine automatische Aufweichung des Rohdaten-/Geometrienachweises, keine neue Installation.
