@@ -1,11 +1,13 @@
 """Import workspace presentation for SolarCheck."""
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QCheckBox, QFileDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QCheckBox, QFileDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 
-def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, on_import_flight_folder=None, choose_flight_folder=None, on_import_additional_original_files=None, choose_additional_original_files=None, project_label=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_generate_orthophotos=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None, on_reconcile_pairs=None, pair_audit=None):
+def make_import_page(parent=None, *, current_project_id=None, on_import_images=None, choose_directory=None, on_import_flight_folder=None, choose_flight_folder=None, on_import_additional_original_files=None, choose_additional_original_files=None, project_label=None, import_summary=None, import_attempt=None, import_verification=None, on_inspect_geotiff=None, choose_geotiff=None, geotiff_result=None, on_register_geotiff=None, choose_register_geotiff=None, geotiff_artifacts=(), on_compare_orthophotos=None, choose_orthophoto_pair=None, orthophoto_comparison=None, orthophoto_comparison_error=None, on_preview_rgb_files=None, choose_rgb_files=None, rgb_preview_status=None, rgb_preview_path=None, on_preview_rgb_folder=None, choose_rgb_folder=None, on_run_rgb_links=None, choose_rgb_link_folder=None, on_export_rgb_segments=None, choose_rgb_registration=None, choose_rgb_segment_folder=None, on_inspect_rgb_integrity=None, choose_rgb_integrity_folder=None, choose_rgb_integrity_output=None, rgb_integrity_status=None, on_cancel_rgb_integrity=None, on_start_flight_preflight=None, choose_preflight_folder=None, on_cancel_flight_preflight=None, flight_preflight_status=None, on_cancel_image_import=None, image_import_status=None, import_metrics_text=None, on_save_import_metrics=None, choose_import_metrics_destination=None, on_compare_benchmark_reports=None, choose_benchmark_reports=None, benchmark_comparison_text=None, on_save_benchmark_comparison=None, choose_benchmark_comparison_destination=None, on_import_original_zips=None, choose_thermal_zip=None, choose_rgb_zip=None, on_import_original_files=None, choose_original_files=None, on_reconcile_pairs=None, pair_audit=None, on_register_orthophoto_pair=None, choose_register_orthophoto_pair=None, orthophoto_pairs=(), on_inspect_orthophoto_modules=None):
     page = QWidget(parent)
     page.setObjectName("import_page")
     root_layout = QVBoxLayout(page)
@@ -30,6 +32,111 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     )
     project.setObjectName("import_project_context")
     layout.addWidget(project)
+
+    ortho_heading = QLabel("RGB- und Thermalbilder importieren", page)
+    ortho_heading.setObjectName("orthophoto_pair_heading")
+    layout.addWidget(ortho_heading)
+    ortho_help = QLabel(
+        "JPG: RGB- und Thermal-Originalaufnahmen gemeinsam auswählen; "
+        "die Orthofotos danach unter Verarbeitung mit MicMac erstellen. "
+        "GeoTIFF: je ein bereits fertiges RGB- und Thermal-Orthofoto übernehmen. "
+        "Originalaufnahmen und fertige Orthofotos getrennt importieren. "
+        "Die Dateien bleiben lokal; die Orthofotoausgabe ist GeoTIFF.", page,
+    )
+    ortho_help.setWordWrap(True)
+    layout.addWidget(ortho_help)
+    thermal_kind = QComboBox(page)
+    thermal_kind.setObjectName("orthophoto_thermal_value_kind")
+    thermal_kind.addItem("Thermal-Darstellung (Falschfarben / Intensität)", "visual")
+    thermal_kind.addItem("Thermal-Rohwerte (ein Messwertkanal)", "sensor_values")
+    thermal_kind.setToolTip("Gilt nur für fertige Thermal-GeoTIFFs, nicht für JPG-Originalaufnahmen. Keine Celsius-Kalibrierung.")
+    layout.addWidget(thermal_kind)
+    register_pair = QPushButton("RGB- und Thermalbilder gemeinsam importieren (JPG / GeoTIFF)", page)
+    register_pair.setObjectName("register_orthophoto_pair_button")
+    register_pair.setEnabled(current_project_id is not None and (
+        on_import_original_files is not None or on_register_orthophoto_pair is not None
+    ))
+    selection_status = QLabel(page)
+    selection_status.setObjectName("joint_image_import_status")
+    selection_status.setWordWrap(True)
+    selection_status.setTextFormat(Qt.TextFormat.PlainText)
+    if register_pair.isEnabled():
+        def request_orthophoto_pair_registration():
+            selection_status.clear()
+            if choose_register_orthophoto_pair is not None:
+                selections = choose_register_orthophoto_pair()
+                if not selections or len(selections) != 2:
+                    return
+                rgb, thermal = (
+                    (value,) if isinstance(value, (str, Path)) else tuple(value)
+                    for value in selections
+                )
+            else:
+                image_filter = (
+                    "JPG und GeoTIFF (*.JPG *.jpg *.TIF *.tif *.TIFF *.tiff);;"
+                    "JPG-Originalaufnahmen (*.JPG *.jpg);;GeoTIFF-Orthofotos (*.TIF *.tif *.TIFF *.tiff)"
+                )
+                rgb = QFileDialog.getOpenFileNames(
+                    page, "RGB-Aufnahmen (JPG) oder ein RGB-Orthofoto (GeoTIFF) auswählen", "", image_filter
+                )[0]
+                thermal = QFileDialog.getOpenFileNames(
+                    page, "Thermal-Aufnahmen (JPG) oder ein Thermal-Orthofoto (GeoTIFF) auswählen", "", image_filter
+                )[0] if rgb else ()
+            if not rgb or not thermal or not all((*rgb, *thermal)):
+                return
+            paths = tuple(str(path) for path in (*rgb, *thermal))
+            suffixes = {Path(path).suffix.lower() for path in paths}
+            if suffixes == {".jpg"}:
+                if on_import_original_files is None:
+                    selection_status.setText("JPG-Import derzeit nicht verfügbar. Ein Offline-Projekt öffnen und laufenden Import abwarten.")
+                else:
+                    on_import_original_files(paths)
+            elif suffixes <= {".tif", ".tiff"} and len(rgb) == len(thermal) == 1:
+                if on_register_orthophoto_pair is None:
+                    selection_status.setText("GeoTIFF-Paarimport ist für dieses Projekt nicht verfügbar.")
+                else:
+                    on_register_orthophoto_pair(*paths, thermal_kind.currentData())
+            else:
+                selection_status.setText(
+                    "Bitte entweder JPG-Originalaufnahmen für beide Sensoren oder genau ein fertiges "
+                    "GeoTIFF je Sensor auswählen. JPG und GeoTIFF getrennt importieren."
+                )
+        register_pair.clicked.connect(request_orthophoto_pair_registration)
+    layout.addWidget(register_pair)
+    layout.addWidget(selection_status)
+    if orthophoto_pairs:
+        saved_pairs = QComboBox(page)
+        saved_pairs.setObjectName("registered_orthophoto_pairs")
+        for pair in orthophoto_pairs:
+            saved_pairs.addItem(
+                f"RGB: {Path(pair['rgb_source_path']).name} · "
+                f"Thermal: {Path(pair['thermal_source_path']).name}", pair,
+            )
+        layout.addWidget(saved_pairs)
+        show_pair = QPushButton("Gespeichertes Orthofoto-Paar anzeigen", page)
+        show_pair.setObjectName("show_registered_orthophoto_pair_button")
+        show_pair.setEnabled(on_compare_orthophotos is not None)
+        if on_compare_orthophotos is not None:
+            def compare_saved_pair():
+                pair = saved_pairs.currentData()
+                if pair:
+                    on_compare_orthophotos(pair['rgb_source_path'], pair['thermal_source_path'])
+            show_pair.clicked.connect(compare_saved_pair)
+        layout.addWidget(show_pair)
+        find_modules = QPushButton("PV-Modulvorschläge im RGB-Orthofoto prüfen", page)
+        find_modules.setObjectName("inspect_orthophoto_modules_button")
+        find_modules.setEnabled(on_inspect_orthophoto_modules is not None)
+        if on_inspect_orthophoto_modules is not None:
+            def inspect_saved_orthophoto_modules():
+                pair = saved_pairs.currentData()
+                if pair:
+                    on_inspect_orthophoto_modules(pair['rgb_source_path'], pair['thermal_source_path'])
+            find_modules.clicked.connect(inspect_saved_orthophoto_modules)
+        layout.addWidget(find_modules)
+        pair_note = QLabel("Zuordnung gespeichert; noch keine fachliche oder thermische Freigabe.", page)
+        pair_note.setObjectName("registered_orthophoto_pair_note")
+        pair_note.setWordWrap(True)
+        layout.addWidget(pair_note)
 
     if import_summary is not None:
         summary_heading = QLabel("Persistierter Importstand", page)
@@ -575,20 +682,6 @@ def make_import_page(parent=None, *, current_project_id=None, on_import_images=N
     artifacts.setObjectName("registered_geotiff_artifacts")
     artifacts.setWordWrap(True)
     layout.addWidget(artifacts)
-    generate_button = QPushButton('RGB- und Thermal-Orthofotos erzeugen (vermessene Fläche)', page)
-    generate_button.setObjectName('generate_orthophotos_button')
-    if current_project_id is not None and on_generate_orthophotos is not None:
-        def request_native_generation():
-            job_path = QFileDialog.getOpenFileName(
-                page, "Vermessungsauftrag auswählen", "", "JSON (*.json)"
-            )[0]
-            if job_path:
-                on_generate_orthophotos(job_path)
-        generate_button.clicked.connect(request_native_generation)
-    else:
-        generate_button.setEnabled(False)
-        generate_button.setToolTip('Benötigt geprüfte Vermessung, importierte Originalbilder und einen angebundenen Erzeugungsablauf.')
-    layout.addWidget(generate_button)
     compare_button = QPushButton("RGB- und Thermal-Orthofotos vergleichen", page)
     compare_button.setObjectName("compare_orthophotos_button")
     if current_project_id is not None and on_compare_orthophotos is not None:

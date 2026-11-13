@@ -1,5 +1,10 @@
 # START HERE – SolarCheck Folgechat und Entwicklungsübernahme
 
+## AKTUELLER, VORRANGIGER EINSTIEG – 31.10.2026
+**[AKTUELLER_ENTWICKLUNGSSTAND.md](AKTUELLER_ENTWICKLUNGSSTAND.md) ZUERST LESEN.** Aktiver Auftrag: zwei externe lokale Orthofotos (RGB und Thermal) aus etablierter freier Software, keine neue Photogrammetrie-Engine. Vorhandenen GeoTIFF-Import, PV-Detektoren und GIS-Zuordnung nutzen. MicMac-Komponentenbedingungen siehe [Werkzeugprüfung](FREIE_ORTHOFOTO_WERKZEUGE.md). Aktives Repository `MCM-SolarCheck`, bestehender Feature-Branch, kein Main-Merge; keine Kundenfotos/GPS/RTK in GitHub oder Cloud. Sie enthält genau einen bindenden nächsten RGB-Orthofoto-Arbeitsweg, aktuellen PR-/CI-/Windows-Stand sowie das Verbot von ODM/WebODM/ODX und Wiederholungsarbeit. Alle folgenden 26.10.-Abschnitte sind **historischer Kontext** und ihre damaligen „nächsten Schritte“ gelten nicht mehr. Bei Wiederaufnahme strikt den aktuellen GitHub-Branch dieses Checkpoints lesen; der Default `main` enthält die neuen PRs noch nicht. Keine neue Chat-Zusammenfassung durch erneutes Umsortieren alter Chroniken.
+
+---
+
 **Stand 26.10.2026. Ein neuer Chat muss zuerst die tatsächlichen Repository-Dateien lesen, nicht aus einer alten Chat-Zusammenfassung programmieren.** **Neuer gemeinsamer Entwicklungsstand:** `main` nach dem nicht erzwungenen CI-geprüften Fast-forward; Quelle des Ausgangsstands: `feature/offline-human-report-approval`. **Nur Integrationsbasis – kein lokal abgenommenes Release.** Die Branch-Bestandsaufnahme beschreibt ausdrücklich den **früheren Stichtag** vor dem Fast-forward.
 
 1. [MAIN_INTEGRATION_BASELINE_2026-10-26.md](MAIN_INTEGRATION_BASELINE_2026-10-26.md) – **Main-Übernahme, integrierte Softwarebereiche und offene Windows-/RGB-/Thermal-Gates**.
@@ -18,3 +23,7 @@
 **Bei jedem Abschluss:** diesen Startpunkt prüfen, Register + Entwicklungsvereinbarung + Chat-Handoff und thematische Roadmap aktualisieren, danach CI des finalen Commits prüfen. Benutzer erhält eine kurze, nachvollziehbare Ergebnisübergabe.
 
 **CI-Integration:** `main` wurde nach GitHub-CI-Grün per Fast-forward an den bisherigen Entwicklungsstand angeglichen. [DEV-INT-002](DEVELOPMENT_STEP_REGISTER.md) dokumentiert den neuen Windows-Pushtrigger für `main`. Ziel weiterhin **Entwicklung**, kein freigegebener Offline-Release.
+
+
+## 28.10.2026 – Verbindliche Lizenz- und Orthofoto-Priorität
+**Neuer Primärplan:** [ORTHOFOTO_LICENSE_NEUTRAL_ARCHITECTURE_2026-10-28.md](ORTHOFOTO_LICENSE_NEUTRAL_ARCHITECTURE_2026-10-28.md). **Kein** ODM/WebODM/ODX als Code, Bibliothek, Dienst, Container, Prozess oder Produktbestandteil; nur allgemeine methodische Orientierung. Vollständige verfügbare RGB-Flugbildserie -> eigene lizenzneutral entwickelte Mehrbild-Photogrammetrie -> geprüfte RGB-Orthofotos und geneigte PV-Flächenansichten -> erst dann Modul-Erkennung, -ID, Thermalzuordnung. Der historische nächste Schritt „RGB-Paarvorschau“ ist inzwischen real getestet, mit mangelhafter Naht, und **nicht** erneut als Hauptaufgabe zu entwickeln. PR #7 und #8 sind separate Vorarbeiten. `main` bleibt bis zum expliziten Integrationsauftrag unberührt.

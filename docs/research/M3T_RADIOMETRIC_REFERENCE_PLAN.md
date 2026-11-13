@@ -1,5 +1,7 @@
 # M3T radiometric reference validation plan
 
+> **Bestandsprüfung13.11.2026:** Parser, Rohwertanalyse, Tests und Temperaturprovider-Schnittstelle sind bereits implementiert. Frühere „Next implementation“-Abschnitte unten sind in diesen Teilen Historie. Der Temperaturprovider ist weiterhin ein Stub; kein abgeschlossener Vollmatrix-°C-Nachweis gefunden. Mittigen Messpunkt laut Nutzer als vorhandene Kontrollreferenz erhalten. Keine neue Originalinventur/Decoderentwicklung. [Aktueller Prüfstand](../THERMAL_PRUEFSTAND_2026-11-13.md).
+
 Status: active research
 
 ## Confirmed local dataset facts

@@ -112,6 +112,36 @@ def test_append_only_and_stale_evidence_invalidates_current_release(tmp_path):
         assert sql.execute("SELECT COUNT(*) FROM report_release_decisions").fetchone()[0] == 2
 
 
+def test_sensor_pair_roles_and_value_interpretation_invalidate_signoff(tmp_path):
+    db = storage(tmp_path)
+    with db.connect() as sql:
+        for name in ("rgb.tif", "thermal.tif"):
+            sql.execute(
+                """INSERT INTO project_geotiffs
+                (project_id,source_path,source_kind,content_sha256,crs,
+                 transform_json,width,height,nodata)
+                VALUES (?,?,?,?,?,?,?,?,?)""",
+                ("P1", name, "external_gis", "a"*64, "EPSG:25832",
+                 "[1,0,0,0,-1,100]", 100, 100, None),
+            )
+        before = record_release_decision(sql, draft(), progress(), approved_by="Prueferin")
+    with db.connect() as sql:
+        assert latest_release_decision(sql, draft()) == before
+        sql.execute(
+            """INSERT INTO project_orthophoto_pairs
+            (project_id,pair_id,rgb_source_path,thermal_source_path,source_kind,
+             thermal_value_kind,thermal_nodata_kind,common_pixel_fraction)
+            VALUES ('P1','ortho-pair','rgb.tif','thermal.tif','external_gis',
+                    'visual','none',1.0)"""
+        )
+        assert latest_release_decision(sql, draft()) is None
+        record_release_decision(sql, draft(), progress(), approved_by="Prueferin")
+    with db.connect() as sql:
+        assert latest_release_decision(sql, draft()) is not None
+        sql.execute("UPDATE project_orthophoto_pairs SET thermal_value_kind='sensor_values'")
+        assert latest_release_decision(sql, draft()) is None
+
+
 @pytest.mark.parametrize("expert", ("", " ", "\n", "x" * 121))
 def test_invalid_expert_never_creates_decision(tmp_path, expert):
     db = storage(tmp_path)

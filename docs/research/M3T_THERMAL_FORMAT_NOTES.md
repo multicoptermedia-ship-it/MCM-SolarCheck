@@ -1,5 +1,7 @@
 # DJI Mavic 3 Thermal (M3T) – radiometric format notes
 
+> **Bestandsprüfung13.11.2026:** Parser, Rohwertanalyse, Tests und Temperaturprovider-Schnittstelle sind bereits implementiert. Frühere „Next implementation“-Abschnitte unten sind in diesen Teilen Historie. Der Temperaturprovider ist weiterhin ein Stub; kein abgeschlossener Vollmatrix-°C-Nachweis gefunden. Mittigen Messpunkt laut Nutzer als vorhandene Kontrollreferenz erhalten. Keine neue Originalinventur/Decoderentwicklung. [Aktueller Prüfstand](../THERMAL_PRUEFSTAND_2026-11-13.md).
+
 Status: research / provisional
 
 This document records intermediate findings from analysis of an original MCM Mavic 3 Thermal dataset. The findings are intentionally kept separate from production code until the binary format and temperature conversion are validated.

@@ -25,15 +25,20 @@ class OrthophotoPairAudit:
     comparison_ready: bool
     georeferencing_verified: bool = False
     thermal_calibration_verified: bool = False
+    thermal_kind: str = "sensor_values"
 
 
 def audit_orthophoto_pair(rgb_path: str | Path, thermal_path: str | Path) -> OrthophotoPairAudit:
     """Require a finite overlapping preview, without asserting true ground accuracy."""
     pair = inspect_orthophoto_layer_pair(rgb_path, thermal_path)
     rgb, thermal = aligned_preview_arrays(pair)
-    fraction = float(np.count_nonzero(np.isfinite(thermal))) / thermal.size
+    valid = np.isfinite(thermal)
+    if valid.ndim == 3:
+        valid = np.all(valid, axis=2)
+    fraction = float(np.count_nonzero(valid)) / valid.size
     return OrthophotoPairAudit(
         pair.rgb_path, pair.thermal_path,
         pair.rgb_reference.crs, pair.thermal_reference.crs,
-        fraction, bool(fraction > 0 and rgb.shape[:2] == thermal.shape),
+        fraction, bool(fraction > 0 and rgb.shape[:2] == thermal.shape[:2]),
+        thermal_kind=pair.thermal_kind,
     )

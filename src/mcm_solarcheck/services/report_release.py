@@ -20,6 +20,7 @@ _EVIDENCE_TABLES = (
     "projects", "project_profiles", "image_frames", "thermal_frames",
     "image_pairs", "pv_modules", "module_identity_links", "findings",
     "finding_sensor_links", "finding_reviews", "project_geotiffs",
+    "project_orthophoto_pairs",
 )
 
 
@@ -51,11 +52,18 @@ def report_release_digest(sql: sqlite3.Connection, report: InspectionReport) -> 
     digest = hashlib.sha256()
     digest.update(repr(report).encode("utf-8"))
     for table in _EVIDENCE_TABLES:
-        digest.update(table.encode("ascii"))
-        for row in sql.execute(
+        rows = sql.execute(
             f"SELECT * FROM {table} WHERE project_id=? ORDER BY rowid",
             (report.project_id,),
-        ):
+        )
+        if table == "project_orthophoto_pairs":
+            # Empty schema-22 metadata must not invalidate a legacy sign-off.
+            # A recorded sensor pairing or changed interpretation must do so.
+            rows = tuple(rows)
+            if not rows:
+                continue
+        digest.update(table.encode("ascii"))
+        for row in rows:
             data = json.dumps(tuple(row), ensure_ascii=False, separators=(",", ":"),
                               default=str)
             digest.update(data.encode("utf-8"))

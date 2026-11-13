@@ -1,0 +1,498 @@
+"""Read-only project bridge and actual Tk flow; synthetic local records only."""
+import gc
+import importlib.util
+import json
+import os
+from pathlib import Path
+import sqlite3
+import threading
+import time
+from types import SimpleNamespace
+
+import pytest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def launcher():
+    spec = importlib.util.spec_from_file_location('opensfm_rgb_launcher',
+        ROOT / 'scripts' / 'MCM_SolarCheck_OPENSFM_RGB_PILOT.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def database(path):
+    with sqlite3.connect(path) as db:
+        db.executescript('CREATE TABLE projects(project_id TEXT,name TEXT);'
+            'CREATE TABLE image_frames(project_id TEXT,frame_id TEXT,source_file TEXT,latitude REAL,longitude REAL,altitude_m REAL);'
+            'CREATE TABLE training_samples(project_id TEXT,source_frame_id TEXT,modality TEXT,content_sha256 TEXT);'
+            "INSERT INTO projects VALUES('P','Synthetic project');"
+            "INSERT INTO image_frames VALUES('P','F','photo.JPG',50,8,100);")
+
+
+def test_opening_launcher_never_starts_engine_or_installs(monkeypatch):
+    module = launcher()
+    calls = []
+    monkeypatch.setattr(module, 'window', lambda **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(module, 'execute', lambda *args: pytest.fail('Explicit start required'))
+    assert module.main([]) == 0
+    assert calls == [{'conda': module.CONDA, 'environment': module.ENVIRONMENT}]
+
+
+def test_existing_readonly_database_bridge_binds_all_inputs_and_detects_change(tmp_path, monkeypatch):
+    module = launcher()
+    db = tmp_path / 'existing.sqlite3'
+    database(db)
+    before = db.read_bytes()
+    prefix = tmp_path / 'existing-env'
+    (prefix if os.name == 'nt' else prefix / 'bin').mkdir(parents=True)
+    (prefix / ('python.exe' if os.name == 'nt' else 'bin/python')).write_bytes(b'synthetic')
+    def job(frames, config, **kwargs):
+        assert len(frames) == 1 and frames[0].source_file == str(tmp_path / 'photo.JPG')
+        assert config.engine_command == ('conda.exe', 'run', '--no-capture-output', '--prefix', str(prefix), 'python')
+        assert kwargs['inputs_unchanged']()
+        with sqlite3.connect(db) as connection:
+            connection.execute("UPDATE image_frames SET altitude_m=101 WHERE frame_id='F'")
+        assert not kwargs['inputs_unchanged']()
+        return 'synthetic_result'
+    monkeypatch.setattr(module, 'run_opensfm_rgb_pilot', job)
+    assert module.execute(db, 'P', 'conda.exe', prefix, tmp_path,
+                          lambda: False, lambda text: None, lambda path: None) == 'synthetic_result'
+    # Only this test deliberately wrote the change; the read-only path did not.
+    assert before != db.read_bytes()
+
+
+@pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
+@pytest.mark.parametrize('cancel_run', [False, True])
+@pytest.mark.parametrize('modality', ['rgb', 'thermal'])
+def test_native_tk_explicit_project_start_workspace_and_result_or_cancel(tmp_path, monkeypatch, cancel_run, modality):
+    import tkinter as tk
+    from tkinter import filedialog, ttk
+    module = launcher()
+    kind = modality.upper()
+    db = tmp_path / 'existing.sqlite3'
+    database(db)
+    before = db.read_bytes()
+    output = tmp_path / 'private'
+    output.mkdir()
+    seen, errors, roots = [], [], []
+    real_tk = tk.Tk
+    started = threading.Event()
+    outcome = {'finished': False}
+    def descendants(widget):
+        for child in widget.winfo_children():
+            yield child
+            yield from descendants(child)
+    def create_root(*args, **kwargs):
+        root = real_tk(*args, **kwargs)
+        roots.append(root)
+        root.report_callback_exception = lambda *args: errors.append(args)
+        root.after(20, lambda: activate(root))
+        root.after(8000, root.destroy)
+        return root
+    def execute(*args, **kwargs):
+        assert kwargs == ({'modality': 'thermal'} if modality == 'thermal' else {})
+        seen.append(args[:5])
+        cancel, progress, workspace = args[5:]
+        (output / 'job.json').write_text(json.dumps({
+            'expected_engine_source': '8b6b77efddebf4429044d3206c7dc21c4e767e08',
+            'project_label': 'Synthetic project', 'started_at': '2026-11-10T20:43:00+01:00',
+            'pipeline': 'opensfm_' + modality}))
+        (output / 'laufzeiten.json').write_text(json.dumps({
+            'status': 'cancelled' if cancel_run else 'finished', 'rgb_images': 3 if modality == 'rgb' else 0,
+            'pipeline': 'opensfm_' + modality, 'thermal_images': 3 if modality == 'thermal' else 0,
+            'radiometric_sources_preserved': 3, 'thermal_value_kind': 'visual',
+            'temperature_matrix_created': False, 'georeferencing_verified': False,
+            'temperature_verified': False, 'steps': []}))
+        workspace(output)
+        progress('synthetic stage')
+        started.set()
+        if cancel_run:
+            deadline = time.monotonic() + 5
+            while not cancel() and time.monotonic() < deadline:
+                time.sleep(.02)
+            assert cancel()
+            raise module.PilotCancelled('synthetic')
+        return SimpleNamespace(**{modality + '_geotiff': output / 'ortho.tif'})
+    monkeypatch.setattr(tk, 'Tk', create_root)
+    monkeypatch.setattr(filedialog, 'askopenfilename', lambda **kwargs: str(db))
+    monkeypatch.setattr(filedialog, 'askdirectory', lambda **kwargs: str(output))
+    monkeypatch.setattr(module, 'execute', execute)
+    def button(root, text):
+        return next(widget for widget in descendants(root)
+                    if isinstance(widget, ttk.Button) and widget['text'] == text)
+    def activate(root):
+        picks = [widget for widget in descendants(root)
+                 if isinstance(widget, ttk.Button) and widget['text'] == 'Auswaehlen']
+        picks[0].invoke()
+        picks[3].invoke()
+        combo = next(widget for widget in descendants(root) if isinstance(widget, ttk.Combobox))
+        assert combo.current() == -1
+        combo.current(0)
+        button(root, kind + '-Pilot starten').invoke()
+        root.after(50, lambda: finish(root))
+    def finish(root):
+        if not started.is_set():
+            root.after(50, lambda: finish(root))
+            return
+        if cancel_run and 'cancelled' not in outcome:
+            outcome['cancelled'] = True
+            button(root, 'Abbrechen').invoke()
+        if str(button(root, kind + '-Pilot starten')['state']) != 'normal':
+            root.after(50, lambda: finish(root))
+            return
+        assert str(button(root, 'Ausgabeordner oeffnen')['state']) == 'normal'
+        button(root, 'Kennzahlen kopieren').invoke()
+        assert json.loads(root.clipboard_get())['pipeline'] == 'opensfm_' + modality
+        outcome['finished'] = True
+        button(root, 'Schliessen').invoke()
+    try:
+        module.window(modality=modality)
+        assert not errors and outcome['finished']
+        assert seen[0][:2] == (str(db), 'P')
+        assert db.read_bytes() == before
+    finally:
+        monkeypatch.undo()
+        roots.clear()
+        gc.collect()
+
+
+@pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
+@pytest.mark.parametrize('wrong_engine', [False, True])
+def test_native_tk_loads_old_run_and_copies_only_opensfm_metrics_without_recalculation(tmp_path, monkeypatch, wrong_engine):
+    import tkinter as tk
+    from tkinter import filedialog, ttk
+    from mcm_solarcheck.services.opensfm_rgb_pilot import ENGINE_SOURCE, STAGES
+    module = launcher()
+    folder = tmp_path / ('rgb-pilot-old' if wrong_engine else 'opensfm-rgb-old')
+    folder.mkdir()
+    (folder / 'job.json').write_text(json.dumps({} if wrong_engine else {'expected_engine_source': ENGINE_SOURCE}))
+    (folder / 'laufzeiten.json').write_text(json.dumps({'status': 'failed', 'rgb_images': 3,
+        'elapsed_seconds': 60, 'steps': [{'stage': 'COLMAP-Bildabgleich' if wrong_engine else STAGES[0],
+                                        'status': 'failed', 'seconds': 60}]}))
+    before = {path.name: path.read_bytes() for path in folder.iterdir()}
+    errors, outcome, roots = [], {'checked': False}, []
+    real_tk = tk.Tk
+    def descendants(widget):
+        for child in widget.winfo_children():
+            yield child
+            yield from descendants(child)
+    def activate(root):
+        widgets = list(descendants(root))
+        button = lambda text: next(widget for widget in widgets
+                                  if isinstance(widget, ttk.Button) and widget['text'] == text)
+        button('Lauf laden').invoke()
+        if wrong_engine:
+            assert str(button('Kennzahlen kopieren')['state']) == 'disabled'
+        else:
+            assert str(button('Kennzahlen kopieren')['state']) == 'normal'
+            button('Kennzahlen kopieren').invoke()
+            result = json.loads(root.clipboard_get())
+            assert result['pipeline'] == 'opensfm_rgb' and result['status'] == 'failed'
+            assert 'stored_depthmaps' in result
+        outcome['checked'] = True
+        button('Schliessen').invoke()
+    def create(*args, **kwargs):
+        root = real_tk(*args, **kwargs)
+        roots.append(root)
+        root.report_callback_exception = lambda *args: errors.append(args)
+        root.after(20, lambda: activate(root))
+        root.after(8000, root.destroy)
+        return root
+    monkeypatch.setattr(tk, 'Tk', create)
+    monkeypatch.setattr(filedialog, 'askdirectory', lambda **kwargs: str(folder))
+    monkeypatch.setattr(module, 'execute', lambda *args: pytest.fail('Loading metrics must not start an engine'))
+    try:
+        module.window()
+        assert not errors and outcome['checked']
+        assert {path.name: path.read_bytes() for path in folder.iterdir()} == before
+    finally:
+        monkeypatch.undo()
+        roots.clear()
+        gc.collect()
+
+
+@pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
+@pytest.mark.parametrize('continue_cancel', [False, True])
+@pytest.mark.parametrize('modality', ['rgb', 'thermal'])
+def test_native_tk_checks_saved_depthmaps_continues_and_reopens_report_without_new_job(tmp_path, monkeypatch, continue_cancel, modality):
+    import tkinter as tk
+    from tkinter import filedialog, ttk
+    from mcm_solarcheck.services import opensfm_rgb_pilot as pilot
+    from mcm_solarcheck.services import opensfm_dense_continuation as resume
+    module = launcher()
+    folder = tmp_path / 'opensfm-rgb-synthetic'
+    folder.mkdir()
+    report = {'status': 'failed', 'registration_complete': True, 'rgb_images': 3,
+              'steps': [{'stage': s, 'status': 'finished' if i < 7 else 'failed'}
+                        for i, s in enumerate(pilot.STAGES[:8])]}
+    report.update(pipeline='opensfm_' + modality, rgb_images=3 if modality == 'rgb' else 0,
+        thermal_images=3 if modality == 'thermal' else 0, radiometric_sources_preserved=3,
+        thermal_value_kind='visual', temperature_matrix_created=False,
+        georeferencing_verified=False, temperature_verified=False)
+    (folder / 'job.json').write_text(json.dumps({'expected_engine_source': pilot.ENGINE_SOURCE,
+                                              'pipeline': report['pipeline']}))
+    (folder / 'laufzeiten.json').write_text(json.dumps(report))
+    before = {p: p.read_bytes() for p in folder.iterdir()}
+    calls, roots, errors = [], [], []
+    done = {'value': False}
+    continuing = threading.Event()
+    real_tk = tk.Tk
+    def descendants(w):
+        for c in w.winfo_children():
+            yield c
+            yield from descendants(c)
+    def button(root, text):
+        return next(w for w in descendants(root) if isinstance(w, ttk.Button) and w['text'] == text)
+    def inspect(workspace, conda, environment, cancel):
+        assert Path(workspace) == folder and not cancel()
+        calls.append(workspace)
+        detail = dict.fromkeys(pilot.CACHE_COUNTS, 0)
+        detail.update(check='solarcheck-opensfm-cache-1', status='completed', working_images=3,
+                      raw_readable=2, clusters=2, clusters_fully_cached=1, clusters_without_cache=1, clustered_images=3,
+                      changed_during_check=False, geometric_quality_verified=False, resume_implemented=False)
+        result = {**report, 'depthmap_cache_check': detail}
+        inspection = folder / 'cache-check-abc12345'
+        inspection.mkdir()
+        (inspection / 'Kennzahlen.json').write_text(json.dumps(result))
+        return result
+    def continue_saved(workspace, conda, environment, cancel, progress):
+        assert Path(workspace) == folder
+        continuing.set()
+        progress('synthetic dense continuation')
+        if continue_cancel:
+            deadline = time.monotonic() + 5
+            while not cancel() and time.monotonic() < deadline:
+                time.sleep(.02)
+            assert cancel()
+        attempt = folder / 'dense-resume-20261112_203000-abc12345'
+        attempt.mkdir()
+        record = dict(check=resume.CHECK, run_id=None, continuation_id=attempt.name,
+            started_at='2026-11-12T20:30:00+01:00', status='cancelled' if continue_cancel else 'finished',
+            elapsed_seconds=1,
+            steps=[dict(stage=s, status='finished') for s in pilot.STAGES[7:]] if not continue_cancel else [],
+            stored_depthmaps={'raw': 0, 'clean': 3}, reused_initial_stages=7,
+            orthophoto_created=not continue_cancel, georeferencing_verified=False, temperature_verified=False,
+            thermal_created=modality == 'thermal' and not continue_cancel, protected_digests={'PRIVATE PATH': 'not shareable'})
+        (attempt / 'continuation.json').write_text(json.dumps(record))
+        if continue_cancel:
+            raise module.PilotCancelled('synthetic cancellation')
+        return SimpleNamespace(**{modality + '_geotiff': folder / 'synthetic-ortho.tif'})
+    def activate(root):
+        button(root, 'Lauf laden').invoke()
+        assert str(button(root, 'Tiefenkarten pruefen')['state']) == 'normal'
+        button(root, 'Tiefenkarten pruefen').invoke()
+        root.after(100, lambda: finish(root))
+    def finish(root):
+        if str(button(root, 'Kennzahlen kopieren')['state']) != 'normal':
+            root.after(100, lambda: finish(root))
+            return
+        button(root, 'Lauf laden').invoke()
+        button(root, 'Kennzahlen kopieren').invoke()
+        result = json.loads(root.clipboard_get())
+        assert result['depthmap_cache_check']['raw_readable'] == 2
+        assert result['status'] == 'failed' and not result['depthmap_cache_check']['resume_implemented']
+        assert str(button(root, 'Tiefenkarten fortsetzen')['state']) == 'normal'
+        button(root, 'Tiefenkarten fortsetzen').invoke()
+        root.after(50, lambda: finish_continuation(root))
+    def finish_continuation(root):
+        if not continuing.is_set():
+            root.after(50, lambda: finish_continuation(root))
+            return
+        if continue_cancel and not done.get('cancelled'):
+            done['cancelled'] = True
+            button(root, 'Abbrechen').invoke()
+        if str(button(root, 'Kennzahlen kopieren')['state']) != 'normal':
+            root.after(50, lambda: finish_continuation(root))
+            return
+        button(root, 'Lauf laden').invoke()
+        button(root, 'Kennzahlen kopieren').invoke()
+        result = json.loads(root.clipboard_get())
+        assert result['dense_continuation']['status'] == ('cancelled' if continue_cancel else 'finished')
+        assert result['dense_continuation']['orthophoto_created'] is (not continue_cancel)
+        assert 'PRIVATE PATH' not in json.dumps(result)
+        done['value'] = True
+        button(root, 'Schliessen').invoke()
+    def create(*args, **kwargs):
+        root = real_tk(*args, **kwargs)
+        roots.append(root)
+        root.report_callback_exception = lambda *args: errors.append(args)
+        root.after(20, lambda: activate(root))
+        root.after(8000, root.destroy)
+        return root
+    monkeypatch.setattr(tk, 'Tk', create)
+    monkeypatch.setattr(filedialog, 'askdirectory', lambda **kw: str(folder))
+    monkeypatch.setattr(module, 'execute_cache', inspect)
+    monkeypatch.setattr(module, 'execute_continue', continue_saved)
+    monkeypatch.setattr(module, 'execute', lambda *a: pytest.fail('No new photo job'))
+    try:
+        module.window(modality=modality)
+        assert done['value'] and not errors and len(calls) == 1
+        assert all(p.read_bytes() == v for p, v in before.items())
+    finally:
+        monkeypatch.undo()
+        roots.clear()
+        gc.collect()
+
+
+@pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
+def test_native_thermal_load_and_copy_component_counts_never_starts_a_job(tmp_path, monkeypatch):
+    import tkinter as tk
+    from tkinter import filedialog, ttk
+    from mcm_solarcheck.services import opensfm_rgb_pilot as pilot
+    from test_opensfm_rgb_pilot import reconstruction
+    module = launcher()
+    folder = tmp_path / '20261113_185837_OpenSfM_THERMAL_Demo_abc12345'
+    folder.mkdir()
+    names = ['000001.JPG', '000002.JPG', '000003.JPG']
+    report = dict(pipeline='opensfm_thermal', status='failed', models=2, rgb_images=0, thermal_images=3,
+        registered_images=3, missing_images=0, foreign_images=0, registration_complete=False,
+        points=0, radiometric_sources_preserved=3, thermal_value_kind='visual',
+        temperature_matrix_created=False, temperature_verified=False, georeferencing_verified=False,
+        orthophoto_created=False, thermal_created=False,
+        steps=[dict(stage=s, status='finished') for s in pilot.STAGES[:5]])
+    (folder / 'job.json').write_text(json.dumps(dict(expected_engine_source=pilot.ENGINE_SOURCE,
+        pipeline='opensfm_thermal')))
+    (folder / 'laufzeiten.json').write_text(json.dumps(report))
+    (folder / 'input-map.json').write_text(json.dumps([dict(working_name=n) for n in names]))
+    (folder / 'reconstruction.json').write_text(json.dumps(reconstruction(names[:2]) + reconstruction(names[1:])))
+    before = {p: p.read_bytes() for p in folder.iterdir()}
+    roots, errors, done = [], [], []
+    real_tk = tk.Tk
+    def descendants(w):
+        for c in w.winfo_children():
+            yield c
+            yield from descendants(c)
+    def activate(root):
+        def button(text):
+            return next(w for w in descendants(root) if isinstance(w, ttk.Button) and w['text'] == text)
+        button('Lauf laden').invoke()
+        assert str(button('Tiefenkarten fortsetzen')['state']) == 'disabled'
+        assert str(button('Tiefenkarten pruefen')['state']) == 'disabled'
+        button('Kennzahlen kopieren').invoke()
+        result = json.loads(root.clipboard_get())
+        assert result['points'] == 2 and result['points_scope'] == 'sum_per_model'
+        assert result['reconstruction_details']['pairs'][0]['shared_images'] == 1
+        assert not result['registration_complete'] and not result['orthophoto_created']
+        assert '000001.JPG' not in json.dumps(result)
+        done.append(True)
+        button('Schliessen').invoke()
+    def create(*args, **kwargs):
+        root = real_tk(*args, **kwargs)
+        roots.append(root)
+        root.report_callback_exception = lambda *args: errors.append(args)
+        root.after(20, lambda: activate(root))
+        root.after(8000, root.destroy)
+        return root
+    monkeypatch.setattr(tk, 'Tk', create)
+    monkeypatch.setattr(filedialog, 'askdirectory', lambda **kwargs: str(folder))
+    for method in ('execute', 'execute_cache', 'execute_continue'):
+        monkeypatch.setattr(module, method, lambda *a, **k: pytest.fail('Read stored counts only'))
+    try:
+        module.window(modality='thermal')
+        assert done and not errors
+        assert all(p.read_bytes() == data for p, data in before.items())
+    finally:
+        monkeypatch.undo()
+        roots.clear()
+        gc.collect()
+
+
+@pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
+@pytest.mark.parametrize('abort_bridge', [False, True])
+def test_native_thermal_supplement_button_switches_to_new_job_and_copies_result_or_cancel(tmp_path, monkeypatch, abort_bridge):
+    import tkinter as tk
+    from tkinter import filedialog, ttk
+    from mcm_solarcheck.services import opensfm_rgb_pilot as pilot
+    from test_opensfm_rgb_pilot import reconstruction
+    module = launcher()
+    source, target = tmp_path / 'source', tmp_path / 'new-workspace'
+    source.mkdir()
+    names = [f'{i:06d}.JPG' for i in range(1, 11)]
+    base = dict(pipeline='opensfm_thermal', status='failed', models=2, rgb_images=0, thermal_images=10,
+        registered_images=10, missing_images=0, foreign_images=0, registration_complete=False,
+        points=2, radiometric_sources_preserved=10, thermal_value_kind='visual',
+        temperature_matrix_created=False, temperature_verified=False, georeferencing_verified=False,
+        orthophoto_created=False, thermal_created=False,
+        steps=[dict(stage=s, status='finished') for s in pilot.STAGES[:5]])
+    def store(folder, report):
+        (folder / 'job.json').write_text(json.dumps(dict(expected_engine_source=pilot.ENGINE_SOURCE, pipeline='opensfm_thermal')))
+        (folder / 'laufzeiten.json').write_text(json.dumps(report))
+    store(source, base)
+    (source / 'input-map.json').write_text(json.dumps([dict(working_name=n) for n in names]))
+    (source / 'reconstruction.json').write_text(json.dumps(reconstruction(names[:8]) + reconstruction(names[8:])))
+    before = {p: p.read_bytes() for p in source.iterdir()}
+    errors, roots, done, calls = [], [], [], []
+    working = threading.Event()
+    real_tk = tk.Tk
+    def execute_bridge(workspace, conda, environment, cancel, progress, callback):
+        assert Path(workspace) == source
+        calls.append('supplement')
+        target.mkdir()
+        report = {**base, 'status': 'cancelled' if abort_bridge else 'finished',
+            'models': 1, 'registration_complete': not abort_bridge,
+            'orthophoto_created': not abort_bridge, 'thermal_created': not abort_bridge,
+            'steps': [dict(stage=s, status='finished') for s in pilot.STAGES[:(2 if abort_bridge else 10)]],
+            'matching_supplement': dict(status='pending' if abort_bridge else 'finished', target_images=2,
+                candidate_pairs=0 if abort_bridge else 17, previous_pairs_skipped=0 if abort_bridge else 4,
+                new_pairs=0 if abort_bridge else 13, matched_pairs=0 if abort_bridge else 3)}
+        store(target, report)
+        callback(target)
+        progress('synthetic targeted native matching')
+        working.set()
+        if abort_bridge:
+            deadline = time.monotonic() + 5
+            while not cancel() and time.monotonic() < deadline:
+                time.sleep(.02)
+            assert cancel()
+            raise module.PilotCancelled('synthetic')
+        return SimpleNamespace(thermal_geotiff=target / 'ortho.tif')
+    def descendants(w):
+        for c in w.winfo_children():
+            yield c
+            yield from descendants(c)
+    def button(root, text):
+        return next(w for w in descendants(root) if isinstance(w, ttk.Button) and w['text'] == text)
+    def activate(root):
+        button(root, 'Lauf laden').invoke()
+        assert str(button(root, 'Zusatzabgleich starten')['state']) == 'normal'
+        button(root, 'Zusatzabgleich starten').invoke()
+        root.after(50, lambda: finish(root))
+    def finish(root):
+        if not working.is_set():
+            root.after(50, lambda: finish(root))
+            return
+        if abort_bridge and not done:
+            done.append('aborted')
+            button(root, 'Abbrechen').invoke()
+        if str(button(root, 'Kennzahlen kopieren')['state']) != 'normal':
+            root.after(50, lambda: finish(root))
+            return
+        button(root, 'Kennzahlen kopieren').invoke()
+        report = json.loads(root.clipboard_get())
+        assert report['status'] == ('cancelled' if abort_bridge else 'finished')
+        assert report['matching_supplement']['target_images'] == 2
+        assert str(button(root, 'Zusatzabgleich starten')['state']) == 'disabled'
+        done.append('finished')
+        button(root, 'Schliessen').invoke()
+    def create(*args, **kwargs):
+        root = real_tk(*args, **kwargs)
+        roots.append(root)
+        root.report_callback_exception = lambda *args: errors.append(args)
+        root.after(20, lambda: activate(root))
+        root.after(8000, root.destroy)
+        return root
+    monkeypatch.setattr(tk, 'Tk', create)
+    monkeypatch.setattr(filedialog, 'askdirectory', lambda **kwargs: str(source))
+    monkeypatch.setattr(module, 'execute_bridge', execute_bridge)
+    monkeypatch.setattr(module, 'execute', lambda *a, **k: pytest.fail('No full restart'))
+    try:
+        module.window(modality='thermal')
+        assert done[-1] == 'finished' and not errors and calls == ['supplement']
+        assert all(p.read_bytes() == value for p, value in before.items())
+    finally:
+        monkeypatch.undo()
+        roots.clear()
+        gc.collect()
