@@ -212,3 +212,12 @@ def test_rgb_camera_geometry_cannot_be_accepted_as_thermal(tmp_path):
     with pytest.raises(PilotError, match='Thermal-Kameramodell'):
         pilot.run_opensfm_thermal_pilot(frames, config, executor=execute)
     assert calls[-1] == 'reconstruct'
+
+
+@pytest.mark.parametrize('name', ['src/mcm_solarcheck/services/opensfm_rgb_pilot.py',
+    'src/mcm_solarcheck/services/opensfm_dense_continuation.py',
+    'scripts/MCM_SolarCheck_OPENSFM_RGB_PILOT.py', 'scripts/MCM_SolarCheck_OPENSFM_STAGE.py'])
+def test_delivered_python_syntax_remains_compatible_with_existing_python310_311(name):
+    import ast
+    path = Path(__file__).resolve().parents[1] / name
+    ast.parse(path.read_text(encoding='utf-8'), filename=name, feature_version=(3, 10))

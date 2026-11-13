@@ -261,7 +261,8 @@ def run_opensfm_dense_continuation(workspace, config, *, should_cancel=None, on_
                 unchanged()
                 stage = STAGES[index]
                 limit = min(STAGE_LIMITS[stage], deadline - time.monotonic())
-                progress(f'{index + 1}/10 OpenSfM-Fortsetzung: {LABELS[index].replace('RGB', report_modality(report).upper())} (max. {limit / 60:.0f} min)')
+                label = LABELS[index].replace('RGB', report_modality(report).upper())
+                progress(f'{index + 1}/10 OpenSfM-Fortsetzung: {label} (max. {limit / 60:.0f} min)')
                 step = dict(stage=stage, status='running', seconds=None, timeout_seconds=round(limit, 3))
                 record['steps'].append(step)
                 save()
