@@ -29,6 +29,8 @@ Der konkrete, manuell anzupassende MicMac-Weg steht in [MICMAC_LOKALER_RGB_THERM
 
 ## Thermal: Darstellung und Temperaturwerte unterscheiden
 
+**Stand13.11.2026:** Die M3T-Dateien enthalten nach bereits dokumentierter Untersuchung ein volles radiometrisches16-Bit-Raster; Parser/Rohwertanalyse/Tests sind vorhanden und werden wiederverwendet. Die nachfolgende Unterscheidung bedeutet nicht, dass die eingebetteten Rohdaten fehlen. Mittigen Messpunkt erhalten; vollständige °C-Konvertierung im aktuellen Code weiterhin unimplementiert. [Konkrete Nachweise und offene Lücke](THERMAL_PRUEFSTAND_2026-11-13.md).
+
 Ein farbiges Thermal-JPEG/GeoTIFF dient zunächst der Darstellung. Numerische Modulbefunde brauchen ein nachweislich radiometrisches Raster mit bekannten Einheiten, Skalierung/Offset und NoData. Den bereits untersuchten mittigen Temperaturpunkt und vorhandene Erkenntnisse wiederverwenden; daraus keine vollständige Celsiusmatrix ableiten.
 
 RGB- und Thermalkamera haben eigene Intrinsics, Verzeichnung und Auflösung. Wiederverwendung einer RGB-Oberfläche durch ein externes Werkzeug setzt eine passende Sensorregistrierung voraus; RGB-Kameraparameter nicht ungeprüft auf Thermal kopieren.
