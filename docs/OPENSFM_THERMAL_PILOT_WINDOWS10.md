@@ -6,7 +6,24 @@
 
 Nach Aktualisierung denselben bereits importierten Projektbestand bewusst mit **THERMAL-Pilot starten** aufrufen. Der alte nach1s gestoppte Versuch enthält keine fortsetzbare Engineberechnung. Kein Neuimport und kein RGB-Neulauf. Der Startblock unten verweist auf die Korrekturquelle; ihr Prüfstand steht im letzten Abschnitt.
 
-## Aktueller Schritt: gespeicherte Thermal-Teilmodelle lesen
+## Aktueller Schritt: sieben Außenbilder gezielt abgleichen
+
+Die gespeicherte Prüfung ist abgeschlossen:280Bilder bilden das Hauptmodell,3 und2 liegen in kleinen Modellen, zwei fehlen. Die5 gemeinsamen Punktkennungen0↔1 reichen nicht für den Standardmerge; zu Modell2 fehlen gemeinsame Punkte vollständig. Kein erneuter unveränderter Komplettlauf.
+
+1. Alten Dialog schließen und den aktualisierten Startblock unten in PowerShell ausführen.
+2. **Lauf laden** → den vorhandenen Thermal-Lauf vom **13.11.2026,18:58:37**, Endung **oh9ptgy5**, auswählen.
+3. **Zusatzabgleich starten** anklicken. Projekt-/Datenbankwahl und Neuimport sind dafür nicht nötig.
+4. Der Dialog wechselt auf einen neuen Lauf unter einem eigenen **sparse-bridge-…**-Ordner neben dem alten Lauf. Dessen neue Kennzahlen anschließend kopieren; bei Erfolg `undistorted\depthmaps\ortho.tif` lokal sichten.
+
+Der einmalige Versuch übernimmt die vorhandenen privaten Arbeitskopien, gespeicherte Metadaten, Merkmale und Matches bytegeprüft in einen separaten Ordner. Die Originale und bisherigen Ergebnisse bleiben erhalten. Neue Lock-/Versuchsmarker liegen im Quellordner; sie verhindern Parallelstart und wiederholte Versuche. Ein abgebrochener/fruchtloser Versuch wird nicht automatisch wiederholt. Bei Fehler neue Kennzahlen kopieren, keine Marker/Caches löschen.
+
+Nur die sieben Bilder außerhalb des Hauptmodells werden OpenSfM als Referenzmenge übergeben. Die native Paarauswahl betrachtet deren Kombinationen mit allen Bildern: maximal1981 eindeutige Paare, inklusive Außenbilder untereinander. Bereits gespeicherte Paarergebnisse beider Richtungen, auch erfolglose/leere, werden übersprungen und nicht überschrieben. Descriptoren, Kameramodelle und Matching-Schwellen bleiben unverändert. Native DataSet-Lader lesen die gespeicherten Feature-/Matchformate; kein eigener Deskriptorvergleich/RANSAC/SfM oder direkter unsicherer Pickle-Lader.
+
+Metadaten und Merkmale werden nicht neu berechnet. Nach dem Zusatzabgleich erzeugt OpenSfM neue Tracks und eine neue Kamerarekonstruktion. Ohne neue robuste Paarverbindungen stoppt der Versuch sofort. Nur bei genau einem vollständigen endlichen287er Kameraverbund mit eigener Thermalgeometrie läuft die bisherige Standard-Dense-/GeoTIFF-Kette weiter. Eine280er Teilgruppe gilt nicht als fertiges Gesamtergebnis. Es werden keine RGB-Posen/-Intrinsics übertragen und keine Bilder nach GPS zwangsplatziert.
+
+Zeitgrenzen bleiben maximal60Minuten pro Stufe und drei Stunden insgesamt, einschließlich Kopien und weiterer Standardstufen. **Abbrechen/Schließen** beendet den eigenen Prozessbaum; Dateien bleiben zur Prüfung erhalten. Das neue GeoTIFF ist weiterhin eine Darstellung, keine Celsiusmatrix/Geometriefreigabe. Bei einem späteren Dense-Zeitlimit kann der **neue vollständige** Lauf über den vorhandenen Cache-/Fortsetzungsweg weiterverwendet werden; der alte Teilmodell-Lauf bleibt dafür ungeeignet.
+
+## Abgeschlossene Vorprüfung: gespeicherte Teilmodelle lesen
 
 Der Lauf vom **13.11.2026,18:58:37**, Endung **oh9ptgy5**, hat alle287 Eingaben akzeptiert. Er endete nach595,094s mit285 eindeutigen Bildern in drei Modellen; zwei fehlen. Alle fünf Engine-Stufen waren beendet, aber ein einzelner vollständiger Verbund fehlt. Darum keine Tiefenkarten/Orthofoto. Das Eingabeproblem ist geschlossen; jetzt keine unveränderte Wiederholung oder Dense-Fortsetzung starten.
 
@@ -56,8 +73,8 @@ $pilotPython = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pilotPython -PathType Leaf)) {
     throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden.'
 }
-$pilotCommit = 'e7b215e0b41cb6f3282bc60cd1f5e8373a1344d5'
-$pilotSha256 = 'edae7f32a97b85637595c5a5e8e6db501e19bccfb3f2ae32d279d82c7f956139'
+$pilotCommit = '29eb9c99f07657a2e0b29d2cb729e7e419004d71'
+$pilotSha256 = '928d7d4a9392f7b7d713d828e06452e006cc9207ace221026b3b63f66b08527d'
 $pilotDir = Join-Path 'E:\SolarCheck-Pilot' ('thermal-' + [guid]::NewGuid().ToString('N').Substring(0,12))
 New-Item -ItemType Directory -Path $pilotDir -ErrorAction Stop | Out-Null
 $pilotZip = Join-Path $pilotDir 'source.zip'
@@ -94,3 +111,8 @@ Feste Quell-ZIP2924724Bytes, neun Codeeinträge bytegenau gegen diese Quelle gep
 ## Prüfstand COMPONENT-READ-01
 
 Lokal74 gezielte Tests bestanden/elf native Tk-Fälle ohne Display übersprungen. Neue Fälle: Mehrmodell-Punktsumme, Legacy0-Korrektur nur in der Anzeige, überlappende Modelle ohne doppelte Bildzählung, ausschließlich numerische Schnittmengen, keine Berechnung/Schreibzugriffe, unlesbare/veränderte/falsche Zuordnung/Verknüpfung abweisen. Zusätzlicher nativer Tk-Fall lädt einen gescheiterten Thermal-Verbund, kopiert korrekte Summen und lässt Cache-/Dense-Knöpfe gesperrt. Quelle **e7b215e0b41cb6f3282bc60cd1f5e8373a1344d5**: alle drei regulären CI grün, [Windows43482072665](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/43482072665) auf Python3.11/3.12 einschließlich tatsächlicher Thermal-Lade-/Kopierbedienung, Linux43482071961/43482062215. Feste Quell-ZIP2930907Bytes/SHA256 im Startblock; neun Codeeinträge bytegenau geprüft. Nachfolgenden reinen Dokumentations-HEAD separat prüfen. Keine Originalbilder oder produktiven Daten hier verarbeitet.
+
+
+## Prüfstand des gezielten Zusatzabgleichs
+
+Lokal81Tests grün/13native Tk-Fälle ohne Display übersprungen. Neue Fälle prüfen Cache-/Rohdatenbyteerhalt ohne erneuten Decoder, nur Zusatzmatching/Tracks/Reconstruct statt erster zwei Stufen, volle Geometrieprüfung vor Dense, Timeout/fehlende neue Links/Teilmodelle/Quelländerung/Prüfsummenfehler, Einmalmarker und negative Voraussetzungen. Isolierter 64-Bit-Prozess prüft Übergabe an native API mit nur Außenbildern, Erhaltung alter Matches beider Richtungen/auch leerer und korrekten Counts. Native Tk-Fälle für Start/Wechsel zum neuen Job/Kennzahlen/Erfolg und Abbruch bestanden. Quelle **29eb9c99f07657a2e0b29d2cb729e7e419004d71**: alle drei regulären CI grün, [Windows43486193637](https://github.com/multicoptermedia-ship-it/MCM-SolarCheck/actions/runs/43486193637) auf Python3.11/3.12 inklusive tatsächlicher Bedienung und isolierter nativer API-Grenze, Linux43486193621/43486185568. Feste Quell-ZIP2943112Bytes/SHA256 im Startblock, zehn Codeeinträge bytegenau geprüft. Nachfolgenden reinen Dokumentations-HEAD separat prüfen; keine privaten Bilder hier verarbeitet.
