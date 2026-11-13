@@ -398,3 +398,101 @@ def test_native_thermal_load_and_copy_component_counts_never_starts_a_job(tmp_pa
         monkeypatch.undo()
         roots.clear()
         gc.collect()
+
+
+@pytest.mark.skipif(os.name != 'nt' and not os.environ.get('DISPLAY'), reason='Native Tk needs display')
+@pytest.mark.parametrize('abort_bridge', [False, True])
+def test_native_thermal_supplement_button_switches_to_new_job_and_copies_result_or_cancel(tmp_path, monkeypatch, abort_bridge):
+    import tkinter as tk
+    from tkinter import filedialog, ttk
+    from mcm_solarcheck.services import opensfm_rgb_pilot as pilot
+    from test_opensfm_rgb_pilot import reconstruction
+    module = launcher()
+    source, target = tmp_path / 'source', tmp_path / 'new-workspace'
+    source.mkdir()
+    names = [f'{i:06d}.JPG' for i in range(1, 11)]
+    base = dict(pipeline='opensfm_thermal', status='failed', models=2, rgb_images=0, thermal_images=10,
+        registered_images=10, missing_images=0, foreign_images=0, registration_complete=False,
+        points=2, radiometric_sources_preserved=10, thermal_value_kind='visual',
+        temperature_matrix_created=False, temperature_verified=False, georeferencing_verified=False,
+        orthophoto_created=False, thermal_created=False,
+        steps=[dict(stage=s, status='finished') for s in pilot.STAGES[:5]])
+    def store(folder, report):
+        (folder / 'job.json').write_text(json.dumps(dict(expected_engine_source=pilot.ENGINE_SOURCE, pipeline='opensfm_thermal')))
+        (folder / 'laufzeiten.json').write_text(json.dumps(report))
+    store(source, base)
+    (source / 'input-map.json').write_text(json.dumps([dict(working_name=n) for n in names]))
+    (source / 'reconstruction.json').write_text(json.dumps(reconstruction(names[:8]) + reconstruction(names[8:])))
+    before = {p: p.read_bytes() for p in source.iterdir()}
+    errors, roots, done, calls = [], [], [], []
+    working = threading.Event()
+    real_tk = tk.Tk
+    def execute_bridge(workspace, conda, environment, cancel, progress, callback):
+        assert Path(workspace) == source
+        calls.append('supplement')
+        target.mkdir()
+        report = {**base, 'status': 'cancelled' if abort_bridge else 'finished',
+            'models': 1, 'registration_complete': not abort_bridge,
+            'orthophoto_created': not abort_bridge, 'thermal_created': not abort_bridge,
+            'steps': [dict(stage=s, status='finished') for s in pilot.STAGES[:(2 if abort_bridge else 10)]],
+            'matching_supplement': dict(status='pending' if abort_bridge else 'finished', target_images=2,
+                candidate_pairs=0 if abort_bridge else 17, previous_pairs_skipped=0 if abort_bridge else 4,
+                new_pairs=0 if abort_bridge else 13, matched_pairs=0 if abort_bridge else 3)}
+        store(target, report)
+        callback(target)
+        progress('synthetic targeted native matching')
+        working.set()
+        if abort_bridge:
+            deadline = time.monotonic() + 5
+            while not cancel() and time.monotonic() < deadline:
+                time.sleep(.02)
+            assert cancel()
+            raise module.PilotCancelled('synthetic')
+        return SimpleNamespace(thermal_geotiff=target / 'ortho.tif')
+    def descendants(w):
+        for c in w.winfo_children():
+            yield c
+            yield from descendants(c)
+    def button(root, text):
+        return next(w for w in descendants(root) if isinstance(w, ttk.Button) and w['text'] == text)
+    def activate(root):
+        button(root, 'Lauf laden').invoke()
+        assert str(button(root, 'Zusatzabgleich starten')['state']) == 'normal'
+        button(root, 'Zusatzabgleich starten').invoke()
+        root.after(50, lambda: finish(root))
+    def finish(root):
+        if not working.is_set():
+            root.after(50, lambda: finish(root))
+            return
+        if abort_bridge and not done:
+            done.append('aborted')
+            button(root, 'Abbrechen').invoke()
+        if str(button(root, 'Kennzahlen kopieren')['state']) != 'normal':
+            root.after(50, lambda: finish(root))
+            return
+        button(root, 'Kennzahlen kopieren').invoke()
+        report = json.loads(root.clipboard_get())
+        assert report['status'] == ('cancelled' if abort_bridge else 'finished')
+        assert report['matching_supplement']['target_images'] == 2
+        assert str(button(root, 'Zusatzabgleich starten')['state']) == 'disabled'
+        done.append('finished')
+        button(root, 'Schliessen').invoke()
+    def create(*args, **kwargs):
+        root = real_tk(*args, **kwargs)
+        roots.append(root)
+        root.report_callback_exception = lambda *args: errors.append(args)
+        root.after(20, lambda: activate(root))
+        root.after(8000, root.destroy)
+        return root
+    monkeypatch.setattr(tk, 'Tk', create)
+    monkeypatch.setattr(filedialog, 'askdirectory', lambda **kwargs: str(source))
+    monkeypatch.setattr(module, 'execute_bridge', execute_bridge)
+    monkeypatch.setattr(module, 'execute', lambda *a, **k: pytest.fail('No full restart'))
+    try:
+        module.window(modality='thermal')
+        assert done[-1] == 'finished' and not errors and calls == ['supplement']
+        assert all(p.read_bytes() == value for p, value in before.items())
+    finally:
+        monkeypatch.undo()
+        roots.clear()
+        gc.collect()

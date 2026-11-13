@@ -22,6 +22,10 @@ from mcm_solarcheck.services.opensfm_dense_continuation import (  # noqa: E402
     can_continue_opensfm, read_opensfm_run_metrics, run_opensfm_dense_continuation,
 )
 
+from mcm_solarcheck.services.opensfm_sparse_bridge import (  # noqa: E402
+    can_bridge, run_sparse_bridge, MARKER,
+)
+
 CONDA = r'E:\Tools\Miniforge3\Scripts\conda.exe'
 ENVIRONMENT = r'E:\SolarCheck-OpenSfM\env'
 
@@ -64,6 +68,15 @@ def execute_continue(workspace, conda, environment, cancel, progress):
                                           should_cancel=cancel, on_progress=progress)
 
 
+def execute_bridge(workspace, conda, environment, cancel, progress, on_workspace):
+    return run_sparse_bridge(workspace, saved_config(workspace, conda, environment),
+        should_cancel=cancel, on_progress=progress, on_workspace=on_workspace)
+
+
+def bridge_eligible(workspace, report):
+    return can_bridge(report) and not (Path(workspace) / MARKER).exists()
+
+
 def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
     if modality not in ('rgb', 'thermal'):
         raise PilotError('Unbekannte Bildart.')
@@ -85,7 +98,8 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
     intro = ('Thermal-Pilot: alle importierten M3T-Thermal-JPGs des gewaehlten Projekts (3 bis 300).\n'
         'RGB wird nicht erneut gerechnet. Eigene Thermal-Kameramodelle; private Arbeitskopien mit erhaltenem 16-Bit-Raster.\n'
         'Ausgabe: Thermal-Darstellung als GeoTIFF, keine Celsiusmatrix. Max. 60 Minuten je Stufe/drei Stunden insgesamt.\n'
-        'Bei Zeitlimit: Lauf laden → Tiefenkarten pruefen → Tiefenkarten fortsetzen; keine Neuerzeugung erforderlich.'
+        'Bei Zeitlimit: Lauf laden → Tiefenkarten pruefen → Tiefenkarten fortsetzen.\n'
+        'Gescheiterter Kameraverbund mit grossem Hauptmodell: einmaliger Zusatzabgleich im neuen Ordner (max. drei Stunden).'
         if modality == 'thermal' else 'Erster Bildlauf: ein kleines, vollstaendiges RGB-Projekt mit 3 bis 300 Bildern.\n'
         'Alle importierten RGB-JPGs werden als private Arbeitskopien verarbeitet. '
         'Maximal 60 Minuten je Stufe, drei Stunden insgesamt.\n'
@@ -169,6 +183,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         copy_button['state'] = 'disabled'
         cache_button['state'] = 'disabled'
         continue_button['state'] = 'disabled'
+        bridge_button['state'] = 'disabled'
         args = (values['database'].get(), state['projects'][index][0], values['conda'].get(),
                 values['environment'].get(), values['output'].get())
         threading.Thread(target=work, args=(args,), daemon=False).start()
@@ -187,8 +202,8 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
     def poll():
         try:
             while True:
-                kind, payload = events.get_nowait()
-                if kind == 'workspace':
+                event_kind, payload = events.get_nowait()
+                if event_kind == 'workspace':
                     state['workspace'] = payload
                     try:
                         run_info.set(local_run_label(payload))
@@ -196,7 +211,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
                         run_info.set(f'OpenSfM {kind} · Ordner: ' + payload.name)
                     open_button['state'] = 'normal'
                     continue
-                if kind == 'progress':
+                if event_kind == 'progress':
                     if not state['closing']:
                         status.set(payload)
                     continue
@@ -210,14 +225,17 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
                 copy_button['state'] = 'normal' if state['workspace'] is not None else 'disabled'
                 cache_button['state'] = copy_button['state']
                 try:
-                    eligible = state['workspace'] is not None and can_continue_opensfm(read_opensfm_run_metrics(state['workspace']))
+                    report = read_opensfm_run_metrics(state['workspace']) if state['workspace'] is not None else None
+                    bridge_ok = report is not None and bridge_eligible(state['workspace'], report)
+                    eligible = report is not None and can_continue_opensfm(report)
                 except (OSError, PilotError):
-                    eligible = False
+                    eligible, bridge_ok = False, False
                 continue_button['state'] = 'normal' if eligible else 'disabled'
-                if kind == 'success':
+                bridge_button['state'] = 'normal' if bridge_ok and modality == 'thermal' else 'disabled'
+                if event_kind == 'success':
                     path = payload.thermal_geotiff if modality == 'thermal' else payload.rgb_geotiff
                     status.set(f'{kind}-Ergebnis zur Sichtpruefung erstellt: ' + str(path))
-                elif kind == 'cache':
+                elif event_kind == 'cache':
                     detail = payload['depthmap_cache_check']
                     status.set('Cachepruefung: ' + detail['status'] + '. Bildlauf bleibt unveraendert am bisherigen Stand.')
                     copy_note.set('Pruefbericht gespeichert. Kennzahlen kopieren und als Text einfuegen.')
@@ -277,8 +295,9 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         cache_button['state'] = ('normal' if report['status'] in ('failed', 'cancelled')
                                  and report.get('registration_complete') else 'disabled')
         continue_button['state'] = 'normal' if can_continue_opensfm(report) else 'disabled'
+        bridge_button['state'] = 'normal' if modality == 'thermal' and bridge_eligible(chosen, report) else 'disabled'
 
-    def check_cache(continue_run=False):
+    def check_cache(continue_run=False, bridge=False):
         if state['running'] or state['workspace'] is None:
             return
         args = (state['workspace'], values['conda'].get(), values['environment'].get())
@@ -288,13 +307,19 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
             control['state'] = 'disabled'
         start_button['state'], copy_button['state'], cache_button['state'] = 'disabled', 'disabled', 'disabled'
         continue_button['state'] = 'disabled'
+        bridge_button['state'] = 'disabled'
         cancel_button['state'] = 'normal'
-        status.set('Fortsetzung wird vorbereitet; max. zwei Stunden Tiefenkarten/drei Stunden insgesamt.' if continue_run
+        status.set('Einmaliger Zusatzabgleich wird in neuem Ordner vorbereitet; max. drei Stunden.' if bridge else
+                   'Fortsetzung wird vorbereitet; max. zwei Stunden Tiefenkarten/drei Stunden insgesamt.' if continue_run
                    else 'Gespeicherte Tiefenkarten und Cluster pruefen; keine neue Bildverarbeitung. Maximal zehn Minuten.')
         copy_note.set('')
         def work_cache():
             try:
-                if continue_run:
+                if bridge:
+                    result = execute_bridge(*args, cancel.is_set, lambda text: events.put(('progress', text)),
+                        lambda path: events.put(('workspace', path)))
+                    events.put(('success', result))
+                elif continue_run:
                     result = execute_continue(*args, cancel.is_set, lambda text: events.put(('progress', text)))
                     events.put(('success', result))
                 else:
@@ -318,6 +343,10 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
     cache_button.pack(side='left', padx=6)
     continue_button = ttk.Button(saved_buttons, text='Tiefenkarten fortsetzen', state='disabled', command=lambda: check_cache(True))
     continue_button.pack(side='left', padx=6)
+    bridge_button = ttk.Button(saved_buttons, text='Zusatzabgleich starten', state='disabled',
+        command=lambda: check_cache(bridge=True))
+    if modality == 'thermal':
+        bridge_button.pack(side='left', padx=6)
     copy_button = ttk.Button(saved_buttons, text='Kennzahlen kopieren', state='disabled', command=copy_metrics)
     copy_button.pack(side='left', padx=6)
     ttk.Button(buttons, text='Schliessen', command=close).pack(side='right')

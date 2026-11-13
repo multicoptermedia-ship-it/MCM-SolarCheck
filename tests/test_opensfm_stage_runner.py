@@ -166,3 +166,55 @@ class DataSet(DataSet):
         assert (cache / '000001.JPG.jpg.raw.npz').read_bytes() == b'opaque external loader payload'
     finally:
         dataset_file.write_text(previous)
+
+
+def test_isolated_native_pair_api_targets_only_outside_images_and_preserves_both_old_orientations(isolated_engine, tmp_path):
+    python, runner = isolated_engine
+    probe = subprocess.run([str(python), '-I', '-c', 'import sysconfig; print(sysconfig.get_path("purelib"))'],
+        capture_output=True, text=True, check=True, timeout=30)
+    package = Path(probe.stdout.strip()) / 'opensfm'
+    dataset = package / 'dataset.py'
+    original = dataset.read_bytes()
+    extra = '''
+import json
+class DataSet(DataSet):
+    def images(self): return ['000001.JPG','000002.JPG','000003.JPG','000004.JPG']
+    def features_exist(self, name): return True
+    def load_exif(self, name): return {'synthetic': True}
+    def matches_exists(self, name): return (self.path / (name + '.json')).exists()
+    def load_matches(self, name): return json.loads((self.path / (name + '.json')).read_text())
+    def save_matches(self, name, matches): (self.path / (name + '.json')).write_text(json.dumps(matches))
+'''
+    selection = package / 'pairs_selection.py'
+    matching = package / 'matching.py'
+    folder = owned_dataset(tmp_path)
+    (folder / 'job.json').write_text(json.dumps(dict(pipeline='opensfm_thermal',
+        bridge_plan=dict(target_names=['000003.JPG']))))
+    (folder / '000001.JPG.json').write_text(json.dumps({'000003.JPG': [[1, 2]], '000004.JPG': [[4, 5]]}))
+    (folder / '000003.JPG.json').write_text(json.dumps({'000002.JPG': []}))
+    before = (folder / '000001.JPG.json').read_bytes()
+    try:
+        dataset.write_bytes(original + extra.encode())
+        selection.write_text('''def match_candidates_from_metadata(refs, candidates, exifs, data, override):
+    assert refs == ['000003.JPG'] and len(candidates) == 4
+    assert len(override) == 7 and all(value == 0 for value in override.values())
+    return [('000003.JPG', '000001.JPG'), ('000003.JPG', '000002.JPG'), ('000003.JPG', '000004.JPG')], {}
+''')
+        matching.write_text('''def match_images_with_pairs(data, override, exifs, pairs):
+    assert override == {} and pairs == [('000003.JPG', '000004.JPG')]
+    return {pairs[0]: [[7, 8]]}
+def clear_cache(): pass
+''')
+        result = subprocess.run([str(python), '-I', str(runner), 'match_missing', str(folder)],
+            capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        assert (folder / '000001.JPG.json').read_bytes() == before
+        assert json.loads((folder / '000003.JPG.json').read_text()) == {'000002.JPG': [], '000004.JPG': [[7, 8]]}
+        counts = json.loads((folder / 'matching-supplement.json').read_text())
+        assert counts == dict(status='finished', target_images=1, candidate_pairs=3,
+                              previous_pairs_skipped=2, new_pairs=1, matched_pairs=1)
+        assert (folder / 'cleanup.txt').is_file()
+    finally:
+        dataset.write_bytes(original)
+        selection.unlink(missing_ok=True)
+        matching.unlink(missing_ok=True)

@@ -166,7 +166,7 @@ METRIC_KEYS = ('pipeline', 'run_id', 'started_at', 'status', 'rgb_images', 'regi
                'orthophoto_created', 'georeferencing_verified', 'temperature_verified',
                'thermal_created', 'elapsed_seconds', 'steps', 'stored_depthmaps',
                'thermal_images', 'thermal_value_kind', 'radiometric_sources_preserved',
-               'temperature_matrix_created', 'thermal_input_failure', 'points_scope')
+               'temperature_matrix_created', 'thermal_input_failure', 'points_scope', 'matching_supplement')
 
 
 def _stored_depthmaps(workspace):
@@ -203,6 +203,8 @@ def read_opensfm_metrics(workspace):
         if (not isinstance(item, dict) or item.get('stage') != STAGES[index]
                 or item.get('status') not in ('running', 'finished', 'failed', 'cancelled')):
             raise PilotError('Dieser Bericht gehoert nicht zum OpenSfM-Piloten.')
+        if 'reused' in item and type(item['reused']) is not bool:
+            raise PilotError('Ungueltige Wiederverwendungskennzahl.')
         for key in ('seconds', 'timeout_seconds', 'exit_code'):
             value = item.get(key)
             if value is not None and (type(value) not in (int, float) or not math.isfinite(value)):
@@ -210,7 +212,7 @@ def read_opensfm_metrics(workspace):
         if item.get('failure_kind') not in (None, 'timeout', 'process_exit'):
             raise PilotError('OpenSfM-Kennzahlen enthalten einen unbekannten Fehlerstatus.')
         safe_steps.append({k: item[k] for k in ('stage', 'status', 'seconds', 'timeout_seconds',
-                                               'failure_kind', 'exit_code') if k in item})
+                                               'failure_kind', 'exit_code', 'reused') if k in item})
     safe = {key: report[key] for key in METRIC_KEYS if key in report and key != 'steps'}
     for key in ('thermal_images', 'radiometric_sources_preserved', 'rgb_images', 'registered_images', 'models', 'missing_images', 'foreign_images', 'points', 'elapsed_seconds'):
         if key in safe and (type(safe[key]) not in (int, float) or not math.isfinite(safe[key]) or safe[key] < 0):
@@ -225,6 +227,9 @@ def read_opensfm_metrics(workspace):
             datetime.fromisoformat(safe['started_at'])
         except (TypeError, ValueError):
             raise PilotError('OpenSfM-Laufdatum ungueltig.') from None
+    if safe.get('matching_supplement') is not None:
+        from .opensfm_sparse_bridge import supplement_metrics
+        safe['matching_supplement'] = supplement_metrics(safe['matching_supplement'])
     if safe.get('points_scope') not in (None, 'sum_per_model'):
         raise PilotError('Ungueltige Punktzaehlweise.')
     if safe.get('thermal_input_failure') not in (None, *THERMAL_INPUT_FAILURES):
@@ -546,7 +551,7 @@ def _validate_inputs(frames, config):
 
 
 def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
-                          inputs_unchanged=None, executor=None, on_workspace=None):
+                          inputs_unchanged=None, executor=None, on_workspace=None, _reuse=None):
     """Qualified standard stages -> checked existing GeoTIFF, no project writes."""
     frames = tuple(frames)
     cancel = should_cancel or (lambda: False)
@@ -570,7 +575,7 @@ def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
               'thermal_images': len(frames) if modality == 'thermal' else 0,
               'thermal_value_kind': 'visual' if modality == 'thermal' else None,
               'radiometric_sources_preserved': 0, 'temperature_matrix_created': False,
-              'thermal_input_failure': None, 'registered_images': 0,
+              'thermal_input_failure': None, 'registered_images': 0, 'matching_supplement': None,
               'pipeline': 'opensfm_' + modality, 'run_id': run_id, 'started_at': began.isoformat(timespec='seconds'),
               'project_label': str(config.project_label), 'metrics_filename': metrics_filename,
               'models': 0, 'missing_images': len(frames), 'foreign_images': 0, 'points': 0, 'points_scope': None,
@@ -580,6 +585,13 @@ def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
               'input_signature': input_signature(frames), 'profile': PROFILE,
               'stage_timeout_seconds': config.stage_timeout_seconds,
               'total_timeout_seconds': config.total_timeout_seconds}
+
+    if _reuse is not None:
+        if modality != 'thermal':
+            raise PilotError('Zusatzabgleich nur fuer Thermal.')
+        record['bridge_plan'] = {'target_names': _reuse.targets, 'source_workspace': str(_reuse.source)}
+        record['matching_supplement'] = dict(status='pending', target_images=len(_reuse.targets),
+            candidate_pairs=0, previous_pairs_skipped=0, new_pairs=0, matched_pairs=0)
 
     def stopped():
         if time.monotonic() >= deadline:
@@ -619,12 +631,13 @@ def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
                 raise PilotCancelled('OpenSfM-Pilot abgebrochen.') from None
             except MicMacError:
                 raise PilotError('RGB-Arbeitskopie fehlgeschlagen oder Quelle veraendert; Originale bleiben erhalten.') from None
-            if modality == 'thermal':
+            if modality == 'thermal' and _reuse is None:
                 try:
                     _require_thermal_copy(images / name)
                 except ThermalInputError as error:
                     record['thermal_input_failure'] = error.kind
                     raise
+            if modality == 'thermal':
                 record['radiometric_sources_preserved'] += 1
             digest = frame.content_sha256
             if not digest:
@@ -636,7 +649,12 @@ def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
         # JSON is a YAML subset; no added app dependency or camera override.
         (workspace / 'config.yaml').write_text(json.dumps(PROFILE, indent=2), encoding='utf-8')
         expected = {item['working_name'] for item in mapping}
+        if _reuse is not None:
+            progress('Gespeicherte Thermal-Metadaten, Merkmale und Matches bytegleich uebernehmen.')
+            _reuse.prepare(workspace, stopped)
         for index, (stage, label) in enumerate(zip(STAGES, (s.replace('RGB', kind) for s in LABELS)), 1):
+            if _reuse is not None:
+                _reuse.unchanged(force=True)
             if stopped():
                 raise PilotCancelled('OpenSfM-Pilot abgebrochen.')
             limit = min(config.stage_timeout_seconds, deadline - time.monotonic())
@@ -647,12 +665,22 @@ def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
             save()
             tick = time.monotonic()
             log = workspace / f'step-{index:02d}.log'
-            arguments = (*config.engine_command[1:], '-I', str(config.runner), stage, str(workspace))
+            reused = _reuse is not None and index <= 2
+            call_stage = 'match_missing' if _reuse is not None and stage == 'match_features' else stage
+            arguments = (*config.engine_command[1:], '-I', str(config.runner), call_stage, str(workspace))
             if stage == 'dense_merging':
                 arguments += ('--georeferenced',)
             try:
-                execute(Path(config.engine_command[0]), arguments, workspace, log, stopped,
-                        timeout=limit, env_overrides=runtime_env)
+                if reused:
+                    item['reused'] = True
+                else:
+                    execute(Path(config.engine_command[0]), arguments, workspace, log, stopped,
+                            timeout=limit, env_overrides=runtime_env)
+                if call_stage == 'match_missing':
+                    from .opensfm_sparse_bridge import supplement_metrics
+                    record['matching_supplement'] = supplement_metrics(_json(workspace / 'matching-supplement.json'))
+                    if record['matching_supplement']['status'] != 'finished':
+                        raise PilotError('Zusatzabgleich nicht vollstaendig beendet.')
                 item['status'] = 'finished'
             except PilotProcessExit as error:
                 item.update(status='failed', failure_kind='process_exit', exit_code=error.returncode)
@@ -669,6 +697,8 @@ def _run_opensfm_pilot(frames, config, *, should_cancel=None, on_progress=None,
             finally:
                 item['seconds'] = round(time.monotonic() - tick, 3)
                 save()
+            if call_stage == 'match_missing' and record['matching_supplement']['matched_pairs'] == 0:
+                raise PilotError('Zusatzabgleich ohne neue robuste Bildverbindungen; vor weiterer Rekonstruktion gestoppt. Kennzahlen kopieren.')
             if stage == 'extract_metadata':
                 _require_engine_gps(workspace, expected)
                 if modality == 'thermal':
