@@ -218,3 +218,20 @@ def clear_cache(): pass
         dataset.write_bytes(original)
         selection.unlink(missing_ok=True)
         matching.unlink(missing_ok=True)
+
+
+@pytest.mark.parametrize('stage', ['undistort', 'dense_merging', 'extract_metadata', 'detect_features',
+                                  'match_features', 'match_missing', 'create_tracks', 'reconstruct'])
+def test_isolated_partial_adapter_only_accepts_five_post_reconstruction_stages(isolated_engine, tmp_path, stage):
+    python, runner = isolated_engine
+    folder = tmp_path / 'thermal-partial-abc12345'
+    folder.mkdir()
+    (folder / 'config.yaml').write_text('{}')
+    (folder / 'partial-preview.json').write_text(json.dumps(dict(status='running', incomplete=True,
+        thermal_created=False, orthophoto_created=False, temperature_verified=False, georeferencing_verified=False)))
+    extra = ['--georeferenced'] if stage == 'dense_merging' else []
+    result = subprocess.run([str(python), '-I', str(runner), stage, str(folder), *extra],
+                            capture_output=True, text=True, timeout=30)
+    allowed = stage in ('undistort', 'dense_merging')
+    assert (result.returncode == 0) == allowed, result.stderr
+    assert (folder / 'dispatch.json').exists() == allowed

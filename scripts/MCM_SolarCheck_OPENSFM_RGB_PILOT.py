@@ -26,6 +26,10 @@ from mcm_solarcheck.services.opensfm_sparse_bridge import (  # noqa: E402
     can_bridge, run_sparse_bridge, MARKER,
 )
 
+from mcm_solarcheck.services.opensfm_thermal_partial import (  # noqa: E402
+    can_preview, run_partial_preview, read_partial_preview, NOTICE,
+)
+
 CONDA = r'E:\Tools\Miniforge3\Scripts\conda.exe'
 ENVIRONMENT = r'E:\SolarCheck-OpenSfM\env'
 
@@ -99,7 +103,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         'RGB wird nicht erneut gerechnet. Eigene Thermal-Kameramodelle; private Arbeitskopien mit erhaltenem 16-Bit-Raster.\n'
         'Ausgabe: Thermal-Darstellung als GeoTIFF, keine Celsiusmatrix. Max. 60 Minuten je Stufe/drei Stunden insgesamt.\n'
         'Bei Zeitlimit: Lauf laden → Tiefenkarten pruefen → Tiefenkarten fortsetzen.\n'
-        'Gescheiterter Kameraverbund mit grossem Hauptmodell: einmaliger Zusatzabgleich im neuen Ordner (max. drei Stunden).'
+        'Hauptmodell: ausdruecklich unvollstaendige Thermal-Teilvorschau im separaten Ordner; kein neuer Bildabgleich.'
         if modality == 'thermal' else 'Erster Bildlauf: ein kleines, vollstaendiges RGB-Projekt mit 3 bis 300 Bildern.\n'
         'Alle importierten RGB-JPGs werden als private Arbeitskopien verarbeitet. '
         'Maximal 60 Minuten je Stufe, drei Stunden insgesamt.\n'
@@ -184,6 +188,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         cache_button['state'] = 'disabled'
         continue_button['state'] = 'disabled'
         bridge_button['state'] = 'disabled'
+        partial_button['state'] = 'disabled'
         args = (values['database'].get(), state['projects'][index][0], values['conda'].get(),
                 values['environment'].get(), values['output'].get())
         threading.Thread(target=work, args=(args,), daemon=False).start()
@@ -229,10 +234,16 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
                     bridge_ok = report is not None and bridge_eligible(state['workspace'], report)
                     eligible = report is not None and can_continue_opensfm(report)
                 except (OSError, PilotError):
-                    eligible, bridge_ok = False, False
+                    eligible, bridge_ok, report = False, False, None
                 continue_button['state'] = 'normal' if eligible else 'disabled'
                 bridge_button['state'] = 'normal' if bridge_ok and modality == 'thermal' else 'disabled'
-                if event_kind == 'success':
+                partial_button['state'] = ('normal' if modality == 'thermal' and report is not None
+                    and can_preview(report) else 'disabled')
+                if event_kind == 'partial':
+                    folder, detail = payload
+                    status.set(NOTICE + ' Status: ' + detail['status'] + f' {detail["included_images"]}/{detail["source_images"]} Bilder; '
+                        f'{detail["excluded_images"]} ausgeschlossen. Ausgabe: ' + str(folder))
+                elif event_kind == 'success':
                     path = payload.thermal_geotiff if modality == 'thermal' else payload.rgb_geotiff
                     status.set(f'{kind}-Ergebnis zur Sichtpruefung erstellt: ' + str(path))
                 elif event_kind == 'cache':
@@ -249,13 +260,18 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
 
     def show_output():
         if state['workspace'] is not None:
-            os.startfile(state['workspace'])
+            preview = read_partial_preview(state['workspace']) if modality == 'thermal' else None
+            os.startfile(preview[0] if preview else state['workspace'])
 
     def copy_metrics():
         if state['workspace'] is None:
             return
         try:
-            text = json.dumps(read_opensfm_run_metrics(state['workspace']), indent=2, ensure_ascii=False)
+            report = read_opensfm_run_metrics(state['workspace'])
+            preview = read_partial_preview(state['workspace']) if modality == 'thermal' else None
+            if preview:
+                report['incomplete_thermal_preview'] = preview[1]
+            text = json.dumps(report, indent=2, ensure_ascii=False)
             root.clipboard_clear()
             root.clipboard_append(text)
             copy_note.set('Kennzahlen dieses OpenSfM-Laufs kopiert; hier als Text einfuegen.')
@@ -297,7 +313,14 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         continue_button['state'] = 'normal' if can_continue_opensfm(report) else 'disabled'
         bridge_button['state'] = 'normal' if modality == 'thermal' and bridge_eligible(chosen, report) else 'disabled'
 
-    def check_cache(continue_run=False, bridge=False):
+        partial_button['state'] = 'normal' if modality == 'thermal' and can_preview(report) else 'disabled'
+        if modality == 'thermal':
+            preview = read_partial_preview(chosen)
+            if preview:
+                detail = preview[1]
+                status.set(NOTICE + f' {detail["included_images"]}/{detail["source_images"]} Bilder; Status: ' + detail['status'])
+
+    def check_cache(continue_run=False, bridge=False, partial=False):
         if state['running'] or state['workspace'] is None:
             return
         args = (state['workspace'], values['conda'].get(), values['environment'].get())
@@ -308,14 +331,20 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         start_button['state'], copy_button['state'], cache_button['state'] = 'disabled', 'disabled', 'disabled'
         continue_button['state'] = 'disabled'
         bridge_button['state'] = 'disabled'
+        partial_button['state'] = 'disabled'
         cancel_button['state'] = 'normal'
-        status.set('Einmaliger Zusatzabgleich wird in neuem Ordner vorbereitet; max. drei Stunden.' if bridge else
+        status.set(NOTICE if partial else 'Einmaliger Zusatzabgleich wird in neuem Ordner vorbereitet; max. drei Stunden.' if bridge else
                    'Fortsetzung wird vorbereitet; max. zwei Stunden Tiefenkarten/drei Stunden insgesamt.' if continue_run
                    else 'Gespeicherte Tiefenkarten und Cluster pruefen; keine neue Bildverarbeitung. Maximal zehn Minuten.')
         copy_note.set('')
         def work_cache():
             try:
-                if bridge:
+                if partial:
+                    existing = read_partial_preview(args[0])
+                    result = existing or run_partial_preview(args[0], saved_config(*args),
+                        should_cancel=cancel.is_set, on_progress=lambda text: events.put(('progress', text)))
+                    events.put(('partial', result))
+                elif bridge:
                     result = execute_bridge(*args, cancel.is_set, lambda text: events.put(('progress', text)),
                         lambda path: events.put(('workspace', path)))
                     events.put(('success', result))
@@ -345,8 +374,10 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
     continue_button.pack(side='left', padx=6)
     bridge_button = ttk.Button(saved_buttons, text='Zusatzabgleich starten', state='disabled',
         command=lambda: check_cache(bridge=True))
+    partial_button = ttk.Button(saved_buttons, text='Unvollstaendige Thermal-Teilvorschau', state='disabled',
+        command=lambda: check_cache(partial=True))
     if modality == 'thermal':
-        bridge_button.pack(side='left', padx=6)
+        partial_button.pack(side='left', padx=6)
     copy_button = ttk.Button(saved_buttons, text='Kennzahlen kopieren', state='disabled', command=copy_metrics)
     copy_button.pack(side='left', padx=6)
     ttk.Button(buttons, text='Schliessen', command=close).pack(side='right')

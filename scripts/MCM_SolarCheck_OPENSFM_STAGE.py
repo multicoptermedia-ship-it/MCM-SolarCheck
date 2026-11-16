@@ -67,8 +67,18 @@ def main():
     dataset = Path(sys.argv[2])
     owned_name = (dataset.name.startswith('opensfm-rgb-') or re.fullmatch(
         r'[0-9]{8}_[0-9]{6}_OpenSfM_(?:RGB|THERMAL)_[A-Za-z0-9-]{1,32}_[a-z0-9_]{8}', dataset.name))
-    if (not dataset.is_absolute() or not owned_name
-            or not (dataset / 'job.json').is_file() or not (dataset / 'config.yaml').is_file()):
+    partial_name = re.fullmatch(r'thermal-partial-[a-z0-9_]{8}', dataset.name)
+    partial = False
+    if partial_name and (dataset / 'partial-preview.json').is_file():
+        preview = json.loads((dataset / 'partial-preview.json').read_text(encoding='utf-8'))
+        partial = (sys.argv[1] in STAGES[5:] and preview.get('incomplete') is True
+                   and preview.get('status') == 'running'
+                   and preview.get('thermal_created') is False
+                   and preview.get('orthophoto_created') is False
+                   and preview.get('temperature_verified') is False
+                   and preview.get('georeferencing_verified') is False)
+    if (not dataset.is_absolute() or not ((owned_name and (dataset / 'job.json').is_file()) or partial)
+            or not (dataset / 'config.yaml').is_file()):
         raise RuntimeError('owned_dataset_required')
     for name in ('tmp', 'matplotlib'):
         (dataset / name).mkdir(exist_ok=True)

@@ -1,5 +1,16 @@
 # Thermal-Orthofoto mit der vorhandenen OpenSfM-Umgebung
 
+## Aktuell16.11.2026: ausdrücklich unvollständige Thermal-Teilvorschau
+
+RGB ist lokal erfolgreich geprüft; nicht neu rechnen. Thermal: Hauptmodell280 von287 Bildern, Zusatzabgleich ausgeschöpft. **Keine neuen Matchingläufe.** Frühere Startblöcke unten verwenden den alten Stand und sind für diesen nächsten Schritt überholt.
+
+Aktuelle Branchfassung verwenden (bestehender ZIP-/F:-Python-Start bleibt erhalten). Im Thermal-Dialog **Lauf laden** und den vorhandenen gescheiterten Thermal-Lauf mit dem280er Hauptmodell auswählen. Keine Projektdatei/Originalbilder neu importieren. **Unvollstaendige Thermal-Teilvorschau** anklicken; bewusst gestartete lokale Verarbeitung, maximal60Minuten je Stufe/drei Stunden insgesamt. Es laufen nur native Entzerrung, Cluster, Tiefenkarten, Fusion und GeoTIFF aus den bestehenden eigenen Thermalposen. Kein Matching, keine Kamerarekonstruktion, kein RGB-Neulauf.
+
+**Ausgabeordner oeffnen** führt zum getrennten `thermal-partial-*`-Ordner. Dort liegen `partial-preview.json` und nach Erfolg `undistorted/depthmaps/UNVOLLSTAENDIG_THERMAL_TEILVORSCHAU.tif` samt Warntext. Bericht und Dialog nennen einbezogene/ausgeschlossene Bilder.280/287 Bilder sind keine gemessene Flächenabdeckung. Ausgangslauf erneut laden zeigt gespeicherten Vorschauzustand, der Vorschauknopf öffnet den vorhandenen Stand ohne Neuberechnung. Abbrechen beendet den eigenen Prozessbaum; Fehler/Timeout bleiben gespeichert. Kein automatischer Wiederholungsversuch.
+
+Nur Darstellung zur lokalen Sichtprüfung. Fehlende Bereiche, Nähte, Doppelkonturen, Modulränder und Lage zum fertigen RGB prüfen. **Keine vollständige Qualitäts-, Geometrie-, Temperatur- oder Celsiusfreigabe, kein fertiges vollständiges Thermal-Orthofoto.** Vorschau wird nicht automatisch als fertiges Rasterpaar registriert. Kundenbilder und Raster bleiben lokal, nur Quellcode und synthetische Tests in Git/CI.
+
+
 **THERMAL-PILOT-01 · 13.11.2026.** Ein getrenntes Thermal-GeoTIFF für das bereits erfolgreich gerechnete RGB-Projekt. Derselbe freie OpenSfM-Stand v1.1/8b6b77ef und gemeinsame Python-Kern; keine neue Installation. Der reale Thermal-Erstlauf und sein Vergleich mit RGB stehen noch aus.
 
 **Korrektur THERMAL-MPO-FIX1:** Ein Abbruch direkt nach der Arbeitskopie bedeutet nicht, dass keine Thermaldateien importiert sind. Die ursprüngliche Prüfung akzeptierte nur den Bibliotheksnamen JPEG; gültige JPEG-Mehrbildcontainer (MPO), wie sie bei M3T vorkommen können, wurden dadurch abgewiesen. Diese Unverträglichkeit wurde mit synthetischem MPO/APP3 reproduziert. Korrigierte Prüfung akzeptiert JPEG und MPO, prüft weiterhin das vorhandene Rohdatenraster und das primäre640×512-Darstellungsbild. Kein Bildteilwechsel, keine Skalierung oder Veränderung der Quelldatei. Der ursprüngliche Screenshot allein unterscheidet die Teilursachen nicht. Bei erneutem Abbruch unterscheiden Meldung und `thermal_input_failure` jetzt Rohdaten, Bildlesbarkeit, Format und Größe.
