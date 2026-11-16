@@ -79,7 +79,7 @@ def inspect_orthophoto_layer_pair(rgb_path: str | Path, thermal_path: str | Path
 
 
 def aligned_preview_arrays(
-    pair: OrthophotoLayerPair, *, max_dimension: int = 1024
+    pair: OrthophotoLayerPair, *, max_dimension: int = 1024, rgb_window=None
 ):
     """Return bounded RGB and uncalibrated thermal arrays on the RGB grid.
 
@@ -98,27 +98,37 @@ def aligned_preview_arrays(
 
     if not isinstance(max_dimension, int) or isinstance(max_dimension, bool) or max_dimension < 1 or max_dimension > 4096:
         raise ValueError("Preview dimension must be between 1 and 4096")
+    if rgb_window is not None and (type(rgb_window) is not tuple or len(rgb_window) != 4
+            or any(type(v) is not int for v in rgb_window) or min(rgb_window[:2]) < 0
+            or min(rgb_window[2:]) < 1 or max(rgb_window[2:]) > 2048):
+        raise ValueError("Bounded native RGB window required")
     with rasterio.open(pair.rgb_path) as rgb, rasterio.open(pair.thermal_path) as thermal:
         rgb_bands = _rgb_band_indices(rgb)
         thermal_kind, thermal_bands = _thermal_bands(thermal)
         if (pair.thermal_kind != thermal_kind or pair.rgb_bands != rgb_bands
                 or pair.thermal_bands != thermal_bands):
             raise ValueError("Orthophoto band layout changed since inspection")
-        scale = min(1.0, max_dimension / max(rgb.width, rgb.height))
-        width = max(1, round(rgb.width * scale))
-        height = max(1, round(rgb.height * scale))
+        from rasterio.windows import Window
+        region = Window(*rgb_window) if rgb_window else None
+        native_width, native_height = (rgb_window[2:] if rgb_window else (rgb.width, rgb.height))
+        if region and (region.col_off + native_width > rgb.width or region.row_off + native_height > rgb.height):
+            raise ValueError("RGB window outside raster")
+        options = dict(window=region) if region else {}
+        scale = min(1.0, max_dimension / max(native_width, native_height))
+        width = max(1, round(native_width * scale))
+        height = max(1, round(native_height * scale))
         rgb_pixels = rgb.read(rgb_bands, out_shape=(3, height, width),
-                              resampling=Resampling.bilinear)
+                              resampling=Resampling.bilinear, **options)
         rgb_image = np.moveaxis(rgb_pixels, 0, -1)
         rgb_valid = np.all(rgb.read_masks(
             rgb_bands, out_shape=(3, height, width),
-            resampling=Resampling.nearest) > 0, axis=0)
+            resampling=Resampling.nearest, **options) > 0, axis=0)
         for index, color in enumerate(rgb.colorinterp, 1):
             if color == ColorInterp.alpha:
                 rgb_valid &= rgb.read(index, out_shape=(height, width),
-                                      resampling=Resampling.nearest) > 0
+                                      resampling=Resampling.nearest, **options) > 0
         rgb_image[~rgb_valid] = 0
-        transform = rgb.transform * Affine.scale(rgb.width / width, rgb.height / height)
+        transform = (rgb.window_transform(region) if region else rgb.transform) * Affine.scale(native_width / width, native_height / height)
         def warp_band(index, *, nodata, destination_nodata):
             values = np.full((height, width), destination_nodata, dtype=np.float32)
             reproject(

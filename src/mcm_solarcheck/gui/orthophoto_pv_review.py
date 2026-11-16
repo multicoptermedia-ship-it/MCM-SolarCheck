@@ -38,6 +38,15 @@ class OrthophotoROIImage(QLabel):
         return QPoint(max(0, min(self.width()-1, position.x())),
                       max(0, min(self.height()-1, position.y())))
 
+    def show_native_window(self, window):
+        left, top, width, height = window
+        self.selected_window = window
+        self._rubber.setGeometry(QRect(round(left*self.width()/self._native_width),
+            round(top*self.height()/self._native_height),
+            max(1, round(width*self.width()/self._native_width)),
+            max(1, round(height*self.height()/self._native_height))))
+        self._rubber.show()
+
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self._origin = self._inside(event.position().toPoint())
@@ -107,7 +116,7 @@ class OrthophotoPVReviewDialog(QDialog):
         self.setWindowTitle("PV-Modulvorschläge aus Orthofotos")
         self.setObjectName("orthophoto_pv_review_dialog")
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self._pair = inspect_orthophoto_layer_pair(rgb_path, thermal_path)
+        self._pair = self._inspect_pair(rgb_path, thermal_path)
         self.proposal_result = None
         self._window = None
         with rasterio.open(self._pair.rgb_path) as dataset:
@@ -120,6 +129,7 @@ class OrthophotoPVReviewDialog(QDialog):
             "Einen Bereich im RGB-Orthofoto mit der Maus markieren. "
             "Die Vorschläge werden in Originalauflösung geprüft und dem "
             "Thermal-Orthofoto zugeordnet. Große Bereiche bitte kleiner wählen.", self)
+        help_text.setObjectName("orthophoto_pv_help")
         help_text.setWordWrap(True)
         layout.addWidget(help_text)
         self._selection_image = OrthophotoROIImage(overview, native_size, self)
@@ -156,6 +166,15 @@ class OrthophotoPVReviewDialog(QDialog):
         layout.addWidget(close)
         self.resize(min(1080, width+40), min(850, height+300))
 
+    def _inspect_pair(self, rgb_path, thermal_path):
+        return inspect_orthophoto_layer_pair(rgb_path, thermal_path)
+
+    def _detect(self, window):
+        return detect_orthophoto_pv_window(self._pair.rgb_path, self._pair.thermal_path, window=window)
+
+    def _after_result(self, result):
+        pass
+
     def _select_window(self, window):
         self.proposal_result = None
         self._output.clear()
@@ -172,40 +191,42 @@ class OrthophotoPVReviewDialog(QDialog):
             return
         self._run.setEnabled(False)
         try:
-            result = detect_orthophoto_pv_window(
-                self._pair.rgb_path, self._pair.thermal_path, window=self._window,
-            )
-            col, row, width, height = self._window
-            with rasterio.open(self._pair.rgb_path) as dataset:
-                image = _rgb_pixels(dataset, self._pair.rgb_bands,
-                                    window=Window(col, row, width, height))
-            factor = min(1., 1024/max(width, height))
-            pixmap = _pixmap_from_rgb(image)
-            if factor < 1:
-                pixmap = pixmap.scaled(max(1, round(width*factor)), max(1, round(height*factor)),
-                                       Qt.AspectRatioMode.IgnoreAspectRatio,
-                                       Qt.TransformationMode.SmoothTransformation)
-            painter = QPainter(pixmap)
-            painter.setPen(QPen(QColor(0, 220, 160), 2))
-            for proposal in result.proposals:
-                painter.drawPolygon(QPolygonF([
-                    QPointF((x-col)*factor, (y-row)*factor)
-                    for x, y in proposal.rgb_polygon_px
-                ]))
-            painter.end()
-            self._output.setPixmap(pixmap)
-            self._output.resize(pixmap.size())
-            self.proposal_result = result
-            summary = result.summary()
-            self._status.setText(
-                f"{summary['module_proposal_count']} Modulvorschläge; "
-                f"{summary['proposals_with_thermal_coverage']} mit Thermalabdeckung. "
-                "Zuordnung anhand der GeoTIFF-Georeferenzierung; keine Temperaturauswertung.")
+            result = self._detect(self._window)
+            self._render_result(result)
         except (ValueError, TypeError, OSError, RuntimeError) as error:
             self.proposal_result = None
             self._status.setText(f"Modulprüfung nicht möglich: {error}")
         finally:
             self._run.setEnabled(True)
+
+    def _render_result(self, result):
+        col, row, width, height = self._window
+        with rasterio.open(self._pair.rgb_path) as dataset:
+            image = _rgb_pixels(dataset, self._pair.rgb_bands,
+                                window=Window(col, row, width, height))
+        factor = min(1., 1024/max(width, height))
+        pixmap = _pixmap_from_rgb(image)
+        if factor < 1:
+            pixmap = pixmap.scaled(max(1, round(width*factor)), max(1, round(height*factor)),
+                                   Qt.AspectRatioMode.IgnoreAspectRatio,
+                                   Qt.TransformationMode.SmoothTransformation)
+        painter = QPainter(pixmap)
+        painter.setPen(QPen(QColor(0, 220, 160), 2))
+        for proposal in result.proposals:
+            painter.drawPolygon(QPolygonF([
+                QPointF((x-col)*factor, (y-row)*factor)
+                for x, y in proposal.rgb_polygon_px
+            ]))
+        painter.end()
+        self._output.setPixmap(pixmap)
+        self._output.resize(pixmap.size())
+        self.proposal_result = result
+        summary = result.summary()
+        self._status.setText(
+            f"{summary['module_proposal_count']} Modulvorschläge; "
+            f"{summary['proposals_with_thermal_coverage']} mit Thermalabdeckung. "
+            "Zuordnung anhand der GeoTIFF-Georeferenzierung; keine Temperaturauswertung.")
+        self._after_result(result)
 
 
 def show_orthophoto_pv_review(rgb_path, thermal_path, parent=None):

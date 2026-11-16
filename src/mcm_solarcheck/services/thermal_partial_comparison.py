@@ -1,5 +1,5 @@
 """Local visual comparison only; never register an incomplete orthophoto pair."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 import json
 from pathlib import Path
@@ -48,6 +48,7 @@ class PartialThermalComparison:
     rgb: np.ndarray
     thermal: np.ndarray
     view: dict
+    _pair: OrthophotoLayerPair = field(repr=False)
 
 
 def open_partial_comparison(source, rgb_path=None):
@@ -109,7 +110,7 @@ def open_partial_comparison(source, rgb_path=None):
         if signatures[name][1] != (stat.st_size, stat.st_mtime_ns, stat.st_ino):
             raise ValueError('Vergleichsdatei beim Lesen veraendert; erneut bewusst waehlen.')
     return PartialThermalComparison(folder, rgb, thermal, report['label'], fingerprints,
-                                    pixels, heat, _view(record or {}))
+                                    pixels, heat, _view(record or {}), pair)
 
 
 def save_partial_comparison(comparison, *, opacity, zoom, verdict, note):
@@ -127,4 +128,15 @@ def save_partial_comparison(comparison, *, opacity, zoom, verdict, note):
         raise ValueError('Vergleichsbericht darf keine Verknuepfung sein.')
     temporary.write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding='utf-8')
     temporary.replace(target)
+    comparison.view = view
     return record
+
+
+def verify_partial_comparison(comparison):
+    """Recheck explicitly selected rasters before local module work; no intake exception."""
+    if not isinstance(comparison, PartialThermalComparison):
+        raise ValueError('Geoeffneten lokalen Teilvorschau-Vergleich verwenden.')
+    for name, path in (('rgb', comparison.rgb_path), ('thermal', comparison.thermal_path)):
+        if _digest(_local(path), lambda: False)[0] != comparison.fingerprints[name]:
+            raise ValueError('Vergleichsdateien veraendert; Modulpruefung gestoppt.')
+    return comparison._pair

@@ -38,6 +38,11 @@ class PartialThermalComparisonWindow(QWidget):
         self.status.setObjectName('partial_comparison_status')
         layout.addWidget(self.status)
         row = QHBoxLayout()
+        self._pv_dialog = None
+        self.pv = QPushButton('PV-Modulgrenzen und Entwurfs-IDs prüfen')
+        self.pv.setObjectName('partial_comparison_pv_review')
+        self.pv.clicked.connect(self._open_pv)
+        row.addWidget(self.pv)
         save = QPushButton('Sichtvergleich lokal speichern')
         save.setObjectName('partial_comparison_save')
         save.clicked.connect(self.save)
@@ -46,11 +51,32 @@ class PartialThermalComparisonWindow(QWidget):
         close.clicked.connect(self.close)
         row.addWidget(close)
         layout.addLayout(row)
+        self.verdict.currentIndexChanged.connect(self._update_pv)
+        self._update_pv()
+
+    def _update_pv(self, *_):
+        self.pv.setEnabled(self.verdict.currentData() == 'looks_aligned'
+                          and self.comparison.view['verdict'] == 'looks_aligned')
+
+    def _open_pv(self):
+        try:
+            from .thermal_partial_pv import PartialThermalPVReviewDialog
+            if self._pv_dialog:
+                if self._pv_dialog.isVisible():
+                    self._pv_dialog.raise_()
+                    self._pv_dialog.activateWindow()
+                    return
+                self._pv_dialog.deleteLater()
+            self._pv_dialog = PartialThermalPVReviewDialog(self.comparison, self)
+            self._pv_dialog.show()
+        except (ValueError, TypeError, OSError, RuntimeError, KeyError):
+            self.status.setText('Modulprüfung nicht geöffnet: passenden Sichtvergleich lokal speichern und Raster unverändert lassen.')
 
     def save(self):
         try:
             save_partial_comparison(self.comparison, **self.viewer.view_state(),
                 verdict=self.verdict.currentData(), note=self.note.toPlainText())
             self.status.setText('Sichtvergleich lokal gespeichert. Beim nächsten Öffnen wird er wiederhergestellt.')
+            self._update_pv()
         except (ValueError, OSError):
             self.status.setText('Speichern fehlgeschlagen: Dateien unverändert lassen; Notiz auf maximal 2000 Zeichen begrenzen.')

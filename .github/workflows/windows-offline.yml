@@ -62,7 +62,7 @@ jobs:
         env:
           PYTHONPATH: src
           QT_QPA_PLATFORM: offscreen
-        run: python -m pytest -q tests/test_thermal_partial_comparison.py tests/test_gui_thermal_partial_comparison.py
+        run: python -m pytest -q tests/test_thermal_partial_comparison.py tests/test_gui_thermal_partial_comparison.py tests/test_thermal_partial_pv.py tests/test_gui_thermal_partial_pv.py
       - name: Test OpenSfM RGB job with synthetic engine results
         shell: pwsh
         env:

@@ -168,11 +168,22 @@ def detect_orthophoto_pv_window(
     Proposals overlapping RGB NoData are rejected; thermal gaps lower coverage.
     """
     _cancel(should_cancel)
+    _validate_window(window)
+    pair = inspect_orthophoto_layer_pair(rgb_path, thermal_path)
+    return _detect_orthophoto_pv_pair(pair, window=window, detector=detector, should_cancel=should_cancel)
+
+
+def _validate_window(window):
     if (type(window) is not tuple or len(window) != 4
             or any(type(value) is not int for value in window)
             or min(window[:2]) < 0 or not all(1 <= value <= 2048 for value in window[2:])):
         raise ValueError("bounded integer RGB window (column, row, width, height) required")
-    pair = inspect_orthophoto_layer_pair(rgb_path, thermal_path)
+
+
+def _detect_orthophoto_pv_pair(pair, *, window, detector=None, should_cancel=None):
+    """Shared detector/GIS implementation; callers retain their own intake gates."""
+    _cancel(should_cancel)
+    _validate_window(window)
     col, row, width, height = window
     with rasterio.open(pair.rgb_path) as rgb, rasterio.open(pair.thermal_path) as thermal:
         if (rgb.count < 3 or any(rgb.dtypes[i-1] != "uint8" for i in pair.rgb_bands)

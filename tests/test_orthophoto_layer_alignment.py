@@ -193,3 +193,20 @@ def test_ambiguous_multiband_sensor_data_is_not_a_thermal_rgb_display(tmp_path, 
     thermal = _raster(tmp_path / "sensor.tif", np.ones((bands, 2, 2), dtype), transform=transform)
     with pytest.raises(ValueError, match="Thermal|RGB"):
         inspect_orthophoto_layer_pair(rgb, thermal)
+
+
+def test_native_rgb_window_preserves_rotated_grid_and_mask_without_referencing_whole_image(tmp_path):
+    from rasterio.transform import Affine
+    transform = Affine(.1, .02, 350000, .01, -.1, 5650000)
+    rgb = _raster(tmp_path / 'crop-rgb.tif', np.full((3, 12, 16), 70, np.uint8), transform=transform)
+    values = np.arange(12 * 16, dtype=np.float32).reshape((1, 12, 16))
+    values[0, 4, 5] = np.nan
+    thermal = _raster(tmp_path / 'crop-thermal.tif', values, transform=transform, nodata=np.nan)
+    pair = inspect_orthophoto_layer_pair(rgb, thermal)
+    full_rgb, full_thermal = aligned_preview_arrays(pair)
+    crop_rgb, crop_thermal = aligned_preview_arrays(pair, rgb_window=(3, 2, 8, 7))
+    np.testing.assert_array_equal(crop_rgb, full_rgb[2:9, 3:11])
+    np.testing.assert_array_equal(crop_thermal, full_thermal[2:9, 3:11])
+    for invalid in ((0, 0, 2049, 1), (False, 0, 1, 1), (15, 0, 2, 2)):
+        with pytest.raises(ValueError, match='window'):
+            aligned_preview_arrays(pair, rgb_window=invalid)

@@ -1,5 +1,19 @@
 # Thermal-Orthofoto mit der vorhandenen OpenSfM-Umgebung
 
+## PV-Modul-Entwürfe im gespeicherten Vergleich16.11.2026
+
+Der lokale visuelle RGB-/Thermal-Vergleich, Speicherung und Wiederöffnung sind laut Nutzer bestätigt. Mit der **aktualisierten festen Startfassung** den bisherigen fertigen Thermal-Lauf laden → **RGB vergleichen**. Der gespeicherte Vergleich wird wieder geöffnet; keine Neuberechnung/kein neuer Bildabgleich. **PV-Modulgrenzen und Entwurfs-IDs prüfen** öffnet die bestehende Ausschnitt-/Detektorprüfung. Der Knopf wird erst nach lokal als passend gespeichertem Sichtvergleich aktiv.
+
+1. Im RGB mit der Maus einen begrenzten Bereich mit mehreren erkennbaren Modulen markieren(maximal2048×2048Originalpixel). **PV-Modulvorschläge suchen** nutzt den vorhandenen konservativen OpenCV-Detektor ohne neue Modelle/Downloads oder Schwellenschleifen.0Treffer sind möglich; eine vollständige Anlage wird nicht automatisch erkannt/freigegeben.
+2. Umrisse und Entwurfs-IDs(z.B. **A1:M-0001**) in Bild und Tabelle vergleichen. IDs gelten nur in diesem gespeicherten RGB-Ausschnitt; keine bestätigten physischen Modul-IDs oder automatische Zusammenführung überlappender Ausschnitte. Pro Zeile **offen / Umriss passt / verwerfen** wählen und optional lokale Notiz(max1000Zeichen) eintragen. Die Umrisse werden dadurch nicht automatisch korrigiert; falsche Vorschläge verwerfen.
+3. Zeile auswählen → **Ausgewähltes Modul in RGB / Thermal vergleichen**. Das Modulfenster benutzt dieselben gespeicherten GeoTIFF-Koordinaten und die vorhandene Überblendung; keine geschätzte Lagekorrektur oder Temperaturauswertung. Der Anteil gültiger Thermalpixel bezieht sich nur auf das Modulpolygon und ist keine Bestätigung vollständiger Anlagenabdeckung. Fehlende Thermalbereiche bleiben fehlend und lassen RGB sichtbar.
+4. **Modul-Entwürfe und Prüfung lokal speichern**, schließen und über denselben Knopf erneut öffnen. Gespeicherte Ausschnitte, IDs, Umrissstatus und Notizen werden ohne erneute Detektion geladen. Oben zwischen gespeicherten Ausschnitten wechseln oder neuen RGB-Bereich markieren. Maximal20Ausschnitte/2000Entwürfe; gespeicherte IDs nicht durch automatische Neusuche umnummerieren. Schließen ohne Speichern übernimmt keine Änderungen.
+
+`pv-modules.LOCAL.json` bleibt im privaten Vorschauordner. Enthält Dateiprüfsummen, native Polygonkoordinaten, lokale Entwurfs-IDs und Notizen; **nicht hochladen/ins Repository kopieren**. Diese Angaben erscheinen nicht in teilbaren Kennzahlen. Geänderte Quelldateien oder beschädigte IDs/Polygone/Freigaben stoppen die Wiederöffnung/Speicherung.
+
+Dauerlabel **unvollständig: 280 von 287 Bildern**, reguläre Paarimport-Sperre und alle Freigabeflags bleiben erhalten. Weder „Umriss passt“ noch der gespeicherte Lage-Sichtbefund bestätigt physische Modulidentität, geometrische Genauigkeit, vollständige Flächenabdeckung oder Celsiuswerte. Keine produktive DB-/Berichtsfreigabe; zuerst diesen lokalen Nutzerweg qualifizieren.
+
+
 ## RGB-Sichtvergleich16.11.2026: unvollständige Vorschau erhalten
 
 Nutzer bestätigt die erste Thermal-Übersicht als gut. Im **aktualisierten Thermal-Dialog** den vorhandenen fertigen Lauf laden → **RGB vergleichen** → fertiges RGB-GeoTIFF desselben Projekts bewusst auswählen. Keine Originalbilder/Projektdatei neu importieren. Der Vergleich öffnet sich mit vorhandenem SolarCheck-Python in eigenem Fenster, ohne OpenSfM-Start oder Paarregistrierung.
