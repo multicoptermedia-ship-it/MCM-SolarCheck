@@ -1,5 +1,12 @@
 # Thermal-Orthofoto mit der vorhandenen OpenSfM-Umgebung
 
+## Lokaler Abschluss16.11.2026: Teilvorschau fertig, Sichtprüfung offen
+
+Der Nutzerbericht bestätigt `incomplete_thermal_preview.status: finished`: **unvollständig: 280 von 287 Bildern**, sieben ausgeschlossen, alle fünf Vorschau-Stufen fertig. Das obere `failed`,595,094s sowie0raw/0clean gehören zur ursprünglichen Kameralaufhistorie; sie beschreiben weder Erfolg noch Laufzeit der Teilvorschau. `thermal_created: false` und `orthophoto_created: false` bleiben beabsichtigt, weil kein vollständiges freigegebenes Ergebnis vorliegt.
+
+Jetzt **Ausgabeordner oeffnen** und die bereits erzeugte `undistorted/depthmaps/UNVOLLSTAENDIG_THERMAL_TEILVORSCHAU.tif` ausschließlich lokal betrachten, gegebenenfalls im vorhandenen QGIS neben dem fertigen RGB. Modulränder, Doppelkonturen, Nähte, Löcher und Lage zum RGB prüfen und den Befund nur als Text mitteilen. Die Bilddatei und `excluded-images.LOCAL.json` bleiben lokal. Keine Neuberechnung, keine Fortsetzung eines bereits fertigen Vorschauversuchs, kein weiterer Matchinglauf/Neuimport. Der reguläre Paarimport bleibt gesperrt. Bildqualität, Flächenabdeckung, unabhängige Geometrie und Celsiuswerte sind noch nicht bestätigt.
+
+
 ## Aktuell16.11.2026: ausdrücklich unvollständige Thermal-Teilvorschau
 
 RGB ist lokal erfolgreich geprüft; nicht neu rechnen. Thermal: Hauptmodell280 von287 Bildern, Zusatzabgleich ausgeschöpft. **Keine neuen Matchingläufe.** Ältere Zusatzabgleich-/Erstlaufanweisungen unten sind Historie; der aktualisierte Startblock öffnet die neue Teilvorschaufassung.
@@ -17,7 +24,7 @@ Nur Darstellung zur lokalen Sichtprüfung. Fehlende Bereiche, Nähte, Doppelkont
 
 Nach Aktualisierung denselben bereits importierten Projektbestand bewusst mit **THERMAL-Pilot starten** aufrufen. Der alte nach1s gestoppte Versuch enthält keine fortsetzbare Engineberechnung. Kein Neuimport und kein RGB-Neulauf. Der Startblock unten verweist auf die Korrekturquelle; ihr Prüfstand steht im letzten Abschnitt.
 
-## Aktueller Schritt: sieben Außenbilder gezielt abgleichen
+## Historie13.11.2026: sieben Außenbilder gezielt abgleichen (ausgeschöpft)
 
 Die gespeicherte Prüfung ist abgeschlossen:280Bilder bilden das Hauptmodell,3 und2 liegen in kleinen Modellen, zwei fehlen. Die5 gemeinsamen Punktkennungen0↔1 reichen nicht für den Standardmerge; zu Modell2 fehlen gemeinsame Punkte vollständig. Kein erneuter unveränderter Komplettlauf.
 

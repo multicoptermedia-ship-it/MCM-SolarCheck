@@ -1,5 +1,8 @@
 # Verbindliches Entwicklungsregister – MCM-SolarCheck
 
+> **16.11.2026 · THERMAL-PARTIAL-PREVIEW-01 real technisch PASS:** Nutzerbericht: incomplete_thermal_preview.status finished,280/287 Bilder/sieben ausgeschlossen, alle fünf nativen Folgestufen finished. Oberes failed/595,094s/0raw/0clean sind ursprüngliche Kameralaufhistorie, keine Vorschaukennzahlen; Laufzeit der Teilvorschau nicht angegeben. false bei thermal_created/orthophoto_created ist beabsichtigt. Keine vollständige Thermal-/Abdeckungs-/Geometrie-/Celsiusfreigabe. Regulärer Paarimport bleibt gesperrt. Nächster Schritt vorhandene UNVOLLSTAENDIG_THERMAL_TEILVORSCHAU.tif ausschließlich lokal sichten und Befund als Text berichten; keine Neuberechnung/Matching/Inventur. Keine Kundendaten hier gelesen; nur mitgeteilter Kennzahlenbericht. Quelle a65d5285:170 lokale Tests/alle drei CI grün (Windows43916086360/3.11+3.12, Linux43916086391/43916074831); neue Änderung nur Dokumentation, exakten HEAD separat prüfen. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **Technikprüfung16.11.2026:** Lokal170Tests bestanden, einschließlich tatsächlicher Tk-Bedienung mit Abbruch→Fortsetzung→Wiederöffnung, Import-Sperre nach Umbenennen/Kopieren und Schutz der gespeicherten/entzerrten Thermal-Kameralösung. Nur Quellcode/synthetische Daten. Erster neuer Windowslauf fand einen falschen Callback-Index im Test-Dummy; korrigiert und lokal mit echtem Tk erneut bestanden. Exakte neue HEAD-CI noch offen; keine reale Bild-/Abdeckungs-/Geometrie-/Celsiusfreigabe. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 
