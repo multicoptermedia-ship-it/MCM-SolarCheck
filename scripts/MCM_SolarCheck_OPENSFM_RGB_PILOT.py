@@ -255,7 +255,8 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
                     status.set('Cachepruefung: ' + detail['status'] + '. Bildlauf bleibt unveraendert am bisherigen Stand.')
                     copy_note.set('Pruefbericht gespeichert. Kennzahlen kopieren und als Text einfuegen.')
                 else:
-                    status.set(payload)
+                    prefix = loaded_preview[1]['label'] + ' · ' if loaded_preview else ''
+                    status.set(prefix + payload)
         except queue.Empty:
             pass
         if state['running']:

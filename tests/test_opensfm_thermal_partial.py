@@ -110,9 +110,9 @@ def test_native_partial_button_reopens_and_preserves_incomplete_source(sparse_so
             interrupted_once.append(True)
             working.set()
             deadline = time.monotonic() + 5
-            while not args[5]() and time.monotonic() < deadline:
+            while not args[4]() and time.monotonic() < deadline:
                 time.sleep(.02)
-            assert args[5]()
+            assert args[4]()
             raise PilotCancelled('synthetic')
         return delegate(*args, **kwargs)
     monkeypatch.setattr(module, 'saved_config', lambda *a: config)
@@ -142,7 +142,7 @@ def test_native_partial_button_reopens_and_preserves_incomplete_source(sparse_so
             return
         folder, report = partial.read_partial_preview(source)
         if abort and not continued:
-            assert report['status'] == 'cancelled'
+            assert report['status'] == 'cancelled', (report, [str(w.cget('text')) for w in descendants(root) if isinstance(w, ttk.Label)])
             button(root, 'Lauf laden').invoke()
             continued.append(True)
             button(root, 'Teilvorschau fortsetzen').invoke()
@@ -213,4 +213,23 @@ def test_resume_refuses_changed_saved_geometry_and_working_copies(sparse_source,
             folder / ('reconstruction.json' if mutate == 'preview_pose' else 'images/000001.JPG'))
     path.write_bytes(path.read_bytes() + b' ')
     with pytest.raises(PilotError, match='veraendert'):
+        partial.continue_partial_preview(source, config, executor=lambda *a, **k: pytest.fail('No engine'))
+
+
+def test_resume_refuses_replaced_undistorted_camera_solution(sparse_source):
+    source, config = sparse_source
+    prepare(source)
+    delegate = thermal_engine([])
+    def interrupt(executable, args, folder, log, cancel, **kwargs):
+        if 'compute_depthmaps' in args:
+            raise PilotCancelled('synthetic')
+        delegate(executable, args, folder, log, cancel, **kwargs)
+        if 'undistort' in args:
+            (folder / 'undistorted').mkdir()
+            (folder / 'undistorted/reconstruction.json').write_bytes((folder / 'reconstruction.json').read_bytes())
+    with pytest.raises(PilotCancelled):
+        partial.run_partial_preview(source, config, executor=interrupt)
+    folder, _ = partial.read_partial_preview(source)
+    (folder / 'undistorted/reconstruction.json').write_text('replaced saved geometry')
+    with pytest.raises(PilotError, match='entzerrte Thermalgeometrie'):
         partial.continue_partial_preview(source, config, executor=lambda *a, **k: pytest.fail('No engine'))

@@ -20,6 +20,10 @@ from .opensfm_rgb_pilot import (
 NOTICE = ('UNVOLLSTAENDIGE Thermal-Teilvorschau; nur Darstellung, keine Celsiusmatrix. '
           'Keine vollstaendige Abdeckung, Qualitaets- oder Geometriefreigabe.')
 MARKER = '.solarcheck-thermal-partial-'
+DERIVED_GEOMETRY = ('undistorted/reconstruction.json', 'undistorted/tracks.csv',
+    'undistorted/undistorted_shot_ids.json', 'undistorted/clusters.json',
+    'undistorted/clusters_points.json', 'undistorted/neighbors_best.json',
+    'undistorted/neighbors_all.json', 'undistorted/depth_ranges.json')
 
 
 def _pointer(source):
@@ -141,7 +145,7 @@ def run_partial_preview(source, config, *, should_cancel=None, on_progress=None,
         with _pointer(source).open('x', encoding='utf-8') as stream:
             json.dump({'workspace': str(folder)}, stream)
         try:
-            progress(NOTICE)
+            progress(record['label'] + ' · ' + NOTICE)
             signatures = dict(initial_signatures)
 
             def copy(relative, expected_digest=None):
@@ -226,8 +230,18 @@ def _run_stages(source, folder, record, config, stopped, progress, execute):
                 if _digest(root / relative, stopped)[0] != digest:
                     raise PilotError('Gespeicherte Eingaben veraendert; Teilvorschau gestoppt.')
 
+    derived_path = folder / 'partial-derived.LOCAL.json'
+
+    def derived_unchanged():
+        if not derived_path.exists():
+            return
+        for name, digest in _json(derived_path).items():
+            if name not in DERIVED_GEOMETRY or _digest(folder / name, stopped)[0] != digest:
+                raise PilotError('Gespeicherte entzerrte Thermalgeometrie veraendert.')
+
     try:
         unchanged()
+        derived_unchanged()
         selected = set(_json(folder / 'reconstruction.json')[0]['shots'])
         require_thermal_geometry(folder, selected)
         done = 0
@@ -242,6 +256,7 @@ def _run_stages(source, folder, record, config, stopped, progress, execute):
         _save(folder, record)
         for stage in STAGES[5 + done:]:
             unchanged()
+            derived_unchanged()
             step = dict(stage=stage, status='running')
             record['steps'].append(step)
             _save(folder, record)
@@ -254,8 +269,13 @@ def _run_stages(source, folder, record, config, stopped, progress, execute):
                 env_overrides={'TEMP': str(folder / 'tmp'), 'TMP': str(folder / 'tmp'),
                     'MPLCONFIGDIR': str(folder / 'matplotlib'), 'VSCMD_SKIP_SENDTELEMETRY': '1'})
             step['status'] = 'finished'
+            if stage in ('undistort', 'dense_clustering'):
+                derived = {name: _digest(folder / name, stopped)[0] for name in DERIVED_GEOMETRY
+                           if (folder / name).is_file()}
+                derived_path.write_text(json.dumps(derived), encoding='utf-8')
             _save(folder, record)
         unchanged()
+        derived_unchanged()
         ortho, _ = _inspect_visual_geotiff(folder, stopped, modality='thermal', allow_incomplete_preview=True)
         import rasterio
         with rasterio.open(ortho, 'r+') as raster:
