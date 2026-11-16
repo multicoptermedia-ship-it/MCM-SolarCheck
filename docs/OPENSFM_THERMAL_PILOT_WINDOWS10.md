@@ -2,9 +2,9 @@
 
 ## Aktuell16.11.2026: ausdrücklich unvollständige Thermal-Teilvorschau
 
-RGB ist lokal erfolgreich geprüft; nicht neu rechnen. Thermal: Hauptmodell280 von287 Bildern, Zusatzabgleich ausgeschöpft. **Keine neuen Matchingläufe.** Frühere Startblöcke unten verwenden den alten Stand und sind für diesen nächsten Schritt überholt.
+RGB ist lokal erfolgreich geprüft; nicht neu rechnen. Thermal: Hauptmodell280 von287 Bildern, Zusatzabgleich ausgeschöpft. **Keine neuen Matchingläufe.** Ältere Zusatzabgleich-/Erstlaufanweisungen unten sind Historie; der aktualisierte Startblock öffnet die neue Teilvorschaufassung.
 
-Aktuelle Branchfassung verwenden (bestehender ZIP-/F:-Python-Start bleibt erhalten). Im Thermal-Dialog **Lauf laden** und den vorhandenen gescheiterten Thermal-Lauf mit dem280er Hauptmodell auswählen. Keine Projektdatei/Originalbilder neu importieren. **Unvollstaendige Thermal-Teilvorschau** anklicken; bewusst gestartete lokale Verarbeitung, maximal60Minuten je Stufe/drei Stunden insgesamt. Es laufen nur native Entzerrung, Cluster, Tiefenkarten, Fusion und GeoTIFF aus den bestehenden eigenen Thermalposen. Kein Matching, keine Kamerarekonstruktion, kein RGB-Neulauf.
+Den aktualisierten Startblock unten verwenden (feste Quellfassung d4511f10, ZIP-SHA256 und elf Laufzeitdateien bytegenau geprüft; bestehender ZIP-/F:-Python-Start bleibt erhalten). Im Thermal-Dialog **Lauf laden** und den vorhandenen gescheiterten Thermal-Lauf mit dem280er Hauptmodell auswählen. Keine Projektdatei/Originalbilder neu importieren. **Unvollstaendige Thermal-Teilvorschau** anklicken; bewusst gestartete lokale Verarbeitung, maximal60Minuten je Stufe/drei Stunden insgesamt. Es laufen nur native Entzerrung, Cluster, Tiefenkarten, Fusion und GeoTIFF aus den bestehenden eigenen Thermalposen. Kein Matching, keine Kamerarekonstruktion, kein RGB-Neulauf.
 
 **Ausgabeordner oeffnen** führt zum getrennten `thermal-partial-*`-Ordner. Dort liegen `partial-preview.json` und nach Erfolg `undistorted/depthmaps/UNVOLLSTAENDIG_THERMAL_TEILVORSCHAU.tif` samt Warntext. GeoTIFF-Tags und Dialog tragen dauerhaft „unvollständig: 280 von 287 Bildern“ (tatsächliche Zahlen aus gespeichertem Hauptmodell). `excluded-images.LOCAL.json` ordnet die sieben ausgeschlossenen Bilder ihren gespeicherten Arbeits-/Quellkennungen zu; ausschließlich lokal öffnen, nicht kopieren/hochladen. Quellen und gespeicherte Thermalposen bleiben unverändert; Sperre/Verweis liegen neben dem Quelllauf. Bericht und Dialog nennen einbezogene/ausgeschlossene Bilder.280/287 Bilder sind keine gemessene Flächenabdeckung. Ausgangslauf erneut laden zeigt gespeicherten Vorschauzustand, der Vorschauknopf öffnet den vorhandenen Stand ohne Neuberechnung. Abbrechen beendet den eigenen Prozessbaum; Fehler/Timeout bleiben gespeichert. Nach Abbruch/Timeout den Ausgangslauf laden → **Teilvorschau fortsetzen**: Quell-/Arbeitskopieprüfsummen und eigene Thermalgeometrie prüfen, dann ab der ersten nicht abgeschlossenen Stufe fortsetzen; bereits abgeschlossene Stufen erhalten. Unvollständige Vorbereitung kann nicht fortgesetzt werden. Kein automatischer Wiederholungsversuch.
 
@@ -75,7 +75,7 @@ Wenn beide Bilder räumlich passen, folgt der vorhandene PV-/Rohwert-Vorschlags-
 
 ## Aktualisierter Startblock
 
-Bisherigen Pilotdialog schließen. Dieser Block lädt die feste Thermal-Fassung (ca2,9 MB) nach E:, prüft die ZIP-Prüfsumme und öffnet den Dialog. F:-Python und installierte OpenSfM-Umgebung bleiben erhalten. Keine automatische Bildverarbeitung; erst das Projekt auswählen und THERMAL-Pilot starten.
+Bisherigen Pilotdialog schließen. Dieser Block lädt ausschließlich die feste SolarCheck-Quellfassung d4511f10 (2960571Bytes) nach E:, prüft die ZIP-Prüfsumme und öffnet den Thermal-Dialog mit vorhandenem F:-Python. Danach **Lauf laden → Unvollstaendige Thermal-Teilvorschau**, keinen neuen THERMAL-Piloten oder Zusatzabgleich starten. Bestehende OpenSfM-Umgebung bleibt erhalten. QuellZIP/elf Laufzeitdateien bytegenau geprüft; exakte CI dieses Codes noch separat prüfen.
 
 ```powershell
 $ErrorActionPreference = 'Stop'
@@ -84,8 +84,8 @@ $pilotPython = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pilotPython -PathType Leaf)) {
     throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden.'
 }
-$pilotCommit = '29eb9c99f07657a2e0b29d2cb729e7e419004d71'
-$pilotSha256 = '928d7d4a9392f7b7d713d828e06452e006cc9207ace221026b3b63f66b08527d'
+$pilotCommit = 'd4511f100f91700b30b0c5226b0b0273dd7ca4b5'
+$pilotSha256 = 'f50ab5fb95d5e5680f6682380806b7acb8e2fa0204cee46ccea0cc4da409fa18'
 $pilotDir = Join-Path 'E:\SolarCheck-Pilot' ('thermal-' + [guid]::NewGuid().ToString('N').Substring(0,12))
 New-Item -ItemType Directory -Path $pilotDir -ErrorAction Stop | Out-Null
 $pilotZip = Join-Path $pilotDir 'source.zip'
