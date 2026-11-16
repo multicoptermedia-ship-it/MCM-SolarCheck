@@ -166,9 +166,10 @@ def test_cancellation_and_timeout_keep_distinct_status(tmp_path):
     assert json.loads(metric_path(folder).read_text())['status'] == 'cancelled'
     def timed_out(*args, **kwargs):
         raise PilotTimeout('synthetic')
+    timed_out_workspaces = []
     with pytest.raises(PilotTimeout):
-        pilot.run_opensfm_rgb_pilot(frames, config, executor=timed_out)
-    folder = max(config.output_parent.iterdir(), key=lambda path: path.stat().st_mtime_ns)
+        pilot.run_opensfm_rgb_pilot(frames, config, executor=timed_out, on_workspace=timed_out_workspaces.append)
+    folder, = timed_out_workspaces
     summary = json.loads(metric_path(folder).read_text())
     assert summary['status'] == 'failed' and summary['steps'][-1]['failure_kind'] == 'timeout'
 
