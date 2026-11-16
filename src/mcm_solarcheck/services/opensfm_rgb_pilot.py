@@ -478,11 +478,11 @@ def _require_engine_gps(workspace, expected):
                              'keine geratenen GPS-/CRS-Werte einsetzen.')
 
 
-def _inspect_visual_geotiff(workspace, stopped, *, modality='rgb'):
+def _inspect_visual_geotiff(workspace, stopped, *, modality='rgb', allow_incomplete_preview=False):
     """The same existing raster gate for an initial run and a continuation."""
     ortho = _regular(workspace / 'undistorted' / 'depthmaps' / 'ortho.tif')
     try:
-        reference = inspect_existing_geotiff(ortho)
+        reference = inspect_existing_geotiff(ortho, allow_incomplete_preview=allow_incomplete_preview)
         import rasterio
         from rasterio.transform import Affine
         with rasterio.open(ortho) as raster:

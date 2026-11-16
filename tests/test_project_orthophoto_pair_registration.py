@@ -211,3 +211,34 @@ def test_v21_migration_adds_pair_table_and_keeps_existing_gis_provenance(tmp_pat
         fields = {row["name"] for row in connection.execute("PRAGMA table_info(project_orthophoto_pairs)")}
         assert {"rgb_source_path", "thermal_source_path", "thermal_value_kind", "thermal_nodata_kind"} <= fields
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+@pytest.mark.parametrize('role', ['rgb', 'thermal'])
+def test_incomplete_preview_is_blocked_atomically_even_after_rename(tmp_path, role):
+    import shutil
+    service, rgb, thermal = _scene(tmp_path, thermal_rgb=True)
+    selected = rgb if role == 'rgb' else thermal
+    with rasterio.open(selected, 'r+') as raster:
+        raster.update_tags(SOLARCHECK_INCOMPLETE='true', SOLARCHECK_PREVIEW_KIND='thermal_partial',
+            SOLARCHECK_LABEL='unvollständig: 280 von 287 Bildern', SOLARCHECK_PAIR_IMPORT_ALLOWED='false')
+    renamed = tmp_path / 'renamed-copy.tif'
+    shutil.copyfile(selected, renamed)
+    paths = (renamed, thermal) if role == 'rgb' else (rgb, renamed)
+    with pytest.raises(ValueError, match='Paarimport gesperrt'):
+        service.register_project_orthophoto_pair('P1', *paths)
+    assert service.project_orthophoto_pairs('P1') == ()
+    assert service.project_geotiff_inspections('P1') == ()
+
+
+def test_unpublished_native_preview_output_cannot_enter_pair_import(tmp_path):
+    service, rgb, thermal = _scene(tmp_path, thermal_rgb=True)
+    folder = tmp_path / 'thermal-partial-abc12345'
+    output = folder / 'undistorted/depthmaps/ortho.tif'
+    output.parent.mkdir(parents=True)
+    (folder / 'partial-preview.json').write_text('{"incomplete":true,"status":"running"}')
+    import shutil
+    shutil.copyfile(thermal, output)
+    with pytest.raises(ValueError, match='Paarimport gesperrt'):
+        service.register_project_orthophoto_pair('P1', rgb, output)
+    assert service.project_orthophoto_pairs('P1') == ()
+    assert service.project_geotiff_inspections('P1') == ()

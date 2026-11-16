@@ -123,7 +123,7 @@ def write_georeferenced_rgb_geotiff(
     return target
 
 
-def inspect_existing_geotiff(path: str | Path) -> GeoTIFFSpatialReference:
+def inspect_existing_geotiff(path: str | Path, *, allow_incomplete_preview: bool = False) -> GeoTIFFSpatialReference:
     """Read spatial metadata from an existing local GeoTIFF; never infer missing CRS."""
     import rasterio
 
@@ -139,6 +139,12 @@ def inspect_existing_geotiff(path: str | Path) -> GeoTIFFSpatialReference:
     except rasterio.errors.RasterioIOError as error:
         raise ValueError("GeoTIFF could not be opened as a GIS raster") from error
     with dataset_context as dataset:
+        tags = dataset.tags()
+        partial_workspace = any((parent / 'partial-preview.json').is_file() for parent in source.parents)
+        if not allow_incomplete_preview and (partial_workspace or tags.get('SOLARCHECK_INCOMPLETE', '').casefold() == 'true'
+                or tags.get('SOLARCHECK_PREVIEW_KIND') == 'thermal_partial'
+                or tags.get('SOLARCHECK_PAIR_IMPORT_ALLOWED', '').casefold() == 'false'):
+            raise ValueError("Unvollständige Thermal-Teilvorschau: regulärer RGB-/Thermal-Paarimport gesperrt")
         if dataset.driver != "GTiff" or dataset.crs is None:
             raise ValueError("GeoTIFF must contain a valid CRS")
         reference = GeoTIFFSpatialReference(

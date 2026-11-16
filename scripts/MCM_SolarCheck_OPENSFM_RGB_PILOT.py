@@ -27,7 +27,7 @@ from mcm_solarcheck.services.opensfm_sparse_bridge import (  # noqa: E402
 )
 
 from mcm_solarcheck.services.opensfm_thermal_partial import (  # noqa: E402
-    can_preview, run_partial_preview, read_partial_preview, NOTICE,
+    can_preview, run_partial_preview, continue_partial_preview, read_partial_preview, NOTICE,
 )
 
 CONDA = r'E:\Tools\Miniforge3\Scripts\conda.exe'
@@ -189,6 +189,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         continue_button['state'] = 'disabled'
         bridge_button['state'] = 'disabled'
         partial_button['state'] = 'disabled'
+        partial_continue_button['state'] = 'disabled'
         args = (values['database'].get(), state['projects'][index][0], values['conda'].get(),
                 values['environment'].get(), values['output'].get())
         threading.Thread(target=work, args=(args,), daemon=False).start()
@@ -239,9 +240,12 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
                 bridge_button['state'] = 'normal' if bridge_ok and modality == 'thermal' else 'disabled'
                 partial_button['state'] = ('normal' if modality == 'thermal' and report is not None
                     and can_preview(report) else 'disabled')
+                loaded_preview = read_partial_preview(state['workspace']) if modality == 'thermal' and state['workspace'] else None
+                partial_continue_button['state'] = ('normal' if loaded_preview and
+                    loaded_preview[1]['status'] in ('failed', 'cancelled') else 'disabled')
                 if event_kind == 'partial':
                     folder, detail = payload
-                    status.set(NOTICE + ' Status: ' + detail['status'] + f' {detail["included_images"]}/{detail["source_images"]} Bilder; '
+                    status.set(detail['label'] + ' · ' + NOTICE + ' Status: ' + detail['status'] + '; '
                         f'{detail["excluded_images"]} ausgeschlossen. Ausgabe: ' + str(folder))
                 elif event_kind == 'success':
                     path = payload.thermal_geotiff if modality == 'thermal' else payload.rgb_geotiff
@@ -314,13 +318,15 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         bridge_button['state'] = 'normal' if modality == 'thermal' and bridge_eligible(chosen, report) else 'disabled'
 
         partial_button['state'] = 'normal' if modality == 'thermal' and can_preview(report) else 'disabled'
+        partial_continue_button['state'] = 'disabled'
         if modality == 'thermal':
             preview = read_partial_preview(chosen)
             if preview:
                 detail = preview[1]
-                status.set(NOTICE + f' {detail["included_images"]}/{detail["source_images"]} Bilder; Status: ' + detail['status'])
+                status.set(detail['label'] + ' · ' + NOTICE + ' Status: ' + detail['status'])
+                partial_continue_button['state'] = 'normal' if detail['status'] in ('failed', 'cancelled') else 'disabled'
 
-    def check_cache(continue_run=False, bridge=False, partial=False):
+    def check_cache(continue_run=False, bridge=False, partial=False, partial_resume=False):
         if state['running'] or state['workspace'] is None:
             return
         args = (state['workspace'], values['conda'].get(), values['environment'].get())
@@ -332,14 +338,19 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         continue_button['state'] = 'disabled'
         bridge_button['state'] = 'disabled'
         partial_button['state'] = 'disabled'
+        partial_continue_button['state'] = 'disabled'
         cancel_button['state'] = 'normal'
-        status.set(NOTICE if partial else 'Einmaliger Zusatzabgleich wird in neuem Ordner vorbereitet; max. drei Stunden.' if bridge else
+        status.set(NOTICE if partial or partial_resume else 'Einmaliger Zusatzabgleich wird in neuem Ordner vorbereitet; max. drei Stunden.' if bridge else
                    'Fortsetzung wird vorbereitet; max. zwei Stunden Tiefenkarten/drei Stunden insgesamt.' if continue_run
                    else 'Gespeicherte Tiefenkarten und Cluster pruefen; keine neue Bildverarbeitung. Maximal zehn Minuten.')
         copy_note.set('')
         def work_cache():
             try:
-                if partial:
+                if partial_resume:
+                    result = continue_partial_preview(args[0], saved_config(*args), should_cancel=cancel.is_set,
+                        on_progress=lambda text: events.put(('progress', text)))
+                    events.put(('partial', result))
+                elif partial:
                     existing = read_partial_preview(args[0])
                     result = existing or run_partial_preview(args[0], saved_config(*args),
                         should_cancel=cancel.is_set, on_progress=lambda text: events.put(('progress', text)))
@@ -378,6 +389,10 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         command=lambda: check_cache(partial=True))
     if modality == 'thermal':
         partial_button.pack(side='left', padx=6)
+    partial_continue_button = ttk.Button(buttons, text='Teilvorschau fortsetzen', state='disabled',
+        command=lambda: check_cache(partial_resume=True))
+    if modality == 'thermal':
+        partial_continue_button.pack(side='left', padx=6)
     copy_button = ttk.Button(saved_buttons, text='Kennzahlen kopieren', state='disabled', command=copy_metrics)
     copy_button.pack(side='left', padx=6)
     ttk.Button(buttons, text='Schliessen', command=close).pack(side='right')

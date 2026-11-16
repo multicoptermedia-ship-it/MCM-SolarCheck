@@ -1,5 +1,8 @@
 # MCM-SolarCheck – Übergabe für einen neuen Chat
 
+> **Ergänzung16.11.2026:** Dauerlabel „unvollständig: 280 von 287 Bildern“ auch in GeoTIFF-Metadaten. Regulärer RGB-/Thermal-Paarimport für Teilvorschau gesperrt, auch nach Umbenennen/Kopieren. Quellen unverändert (Lock/Verweis neben Ausgangslauf), nur gespeicherte eigene Thermal-Kameralösung. Sieben ausgeschlossene Bilder in `excluded-images.LOCAL.json` lokal nachvollziehbar, keine Kennungen/Pfade im teilbaren Bericht. Explizite Fortsetzung ab unterbrochener Stufe mit gespeicherten Quell-/Arbeitskopieprüfsummen, kein Matching/SfM. Abbruch→Fortsetzung→Wiederöffnung synthetisch testen; keine Bestätigung von Abdeckung/Geometriequalität/Celsius. Neuer exakter HEAD-CI noch offen. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+
+
 > **16.11.2026 · THERMAL-PARTIAL-PREVIEW-01:** Nutzer bestätigt280/287 Thermal im Hauptmodell und ausgeschöpften Zusatzabgleich. Keine weiteren Matchingläufe. Separater ausdrücklich unvollständiger Darstellungsweg aus gespeichertem Hauptmodell implementiert; bytegeprüfte Arbeitskopien, eigene Thermalgeometrie, ausschließlich native fünf Stufen ab Entzerrung. Keine vollständige Thermal-/Qualitäts-/Celsiusfreigabe oder automatische Projektregistrierung. Ausgabe klar benannt, Bericht mit einbezogenen/ausgeschlossenen Bildern, erneutes Laden/Öffnen über Ausgangslauf. RGB und alte Läufe erhalten. Lokal98Tests bestanden/15native Tk-Skips; reale Teilvorschau noch lokal zu sichten, CI des neuen HEAD separat prüfen. Ältere Zusatzabgleich-Startaufträge unten sind Historie. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md) · [Bedienung](OPENSFM_THERMAL_PILOT_WINDOWS10.md).
 
 

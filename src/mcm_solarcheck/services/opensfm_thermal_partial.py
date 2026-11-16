@@ -3,6 +3,7 @@
 No matching, reconstruction, pose transfer, project registration or temperature conversion.
 The full-result gates deliberately remain unchanged.
 """
+from hashlib import sha256
 import json
 from pathlib import Path
 import re
@@ -18,7 +19,17 @@ from .opensfm_rgb_pilot import (
 
 NOTICE = ('UNVOLLSTAENDIGE Thermal-Teilvorschau; nur Darstellung, keine Celsiusmatrix. '
           'Keine vollstaendige Abdeckung, Qualitaets- oder Geometriefreigabe.')
-MARKER = '.solarcheck-thermal-partial.json'
+MARKER = '.solarcheck-thermal-partial-'
+
+
+def _pointer(source):
+    source = Path(source)
+    return source.parent / (MARKER + sha256(str(source).encode('utf-8')).hexdigest()[:16] + '.json')
+
+
+def preview_label(included, total):
+    return f'unvollständig: {included} von {total} Bildern'
+
 
 
 def can_preview(report):
@@ -35,7 +46,7 @@ def can_preview(report):
 
 def read_partial_preview(source):
     """Local reopening only; do not include private output paths in shared metrics."""
-    marker = Path(source) / MARKER
+    marker = _pointer(source)
     if not marker.exists():
         return None
     record = _json(marker)
@@ -57,6 +68,7 @@ def read_partial_preview(source):
     safe = {k: result[k] for k in ('status', 'incomplete', 'source_images', 'included_images',
         'excluded_images', 'temperature_verified', 'georeferencing_verified', 'thermal_created', 'orthophoto_created')}
     safe['notice'] = NOTICE
+    safe['label'] = preview_label(result['included_images'], result['source_images'])
     steps = result.get('steps')
     if (not isinstance(steps, list) or len(steps) > 5
             or any(not isinstance(s, dict) or s.get('stage') != STAGES[i + 5]
@@ -87,14 +99,14 @@ def run_partial_preview(source, config, *, should_cancel=None, on_progress=None,
         if stopped():
             raise PilotCancelled('Teilvorschau abgebrochen.')
 
-    with _exclusive_job(source):
+    with _exclusive_job(source.parent):
         check_cancel()
         initial_signatures = {name: _digest(source / name, stopped) for name in
             ('reconstruction.json', 'input-map.json', 'job.json', 'config.yaml')}
         report = read_opensfm_metrics(source)
         if not can_preview(report) or _json(source / 'config.yaml') != PROFILE:
             raise PilotError('Gespeicherten unvollstaendigen Thermal-Kameraverbund laden.')
-        if (source / MARKER).exists():
+        if _pointer(source).exists():
             raise PilotError('Teilvorschau bereits angelegt; vorhandenen Ausgabeordner oeffnen.')
         mapping = _json(source / 'input-map.json')
         if (not isinstance(mapping, list) or len(mapping) != report['thermal_images']
@@ -118,13 +130,15 @@ def run_partial_preview(source, config, *, should_cancel=None, on_progress=None,
             temperature_verified=False, georeferencing_verified=False, thermal_created=False,
             orthophoto_created=False, steps=[])
 
+        record['label'] = preview_label(len(selected), len(expected))
+
         def save():
             temporary = folder / 'partial-preview.next.json'
             temporary.write_text(json.dumps(record, indent=2), encoding='utf-8')
             temporary.replace(folder / 'partial-preview.json')
 
         save()
-        with (source / MARKER).open('x', encoding='utf-8') as stream:
+        with _pointer(source).open('x', encoding='utf-8') as stream:
             json.dump({'workspace': str(folder)}, stream)
         try:
             progress(NOTICE)
@@ -169,43 +183,124 @@ def run_partial_preview(source, config, *, should_cancel=None, on_progress=None,
             for name in ('tmp', 'matplotlib'):
                 (folder / name).mkdir()
 
-            def unchanged():
-                check_cancel()
-                for name, (digest, stamp) in signatures.items():
-                    if _digest(source / name, stopped) != (digest, stamp):
-                        raise PilotError('Ausgangslauf veraendert; Teilvorschau gestoppt.')
-
-            for stage in STAGES[5:]:
-                unchanged()
-                step = dict(stage=stage, status='running')
-                record['steps'].append(step)
-                save()
-                progress('UNVOLLSTAENDIGE Thermal-Teilvorschau: ' + stage)
-                args = (*config.engine_command[1:], '-I', str(config.runner), stage, str(folder))
-                if stage == 'dense_merging':
-                    args += ('--georeferenced',)
-                execute(Path(config.engine_command[0]), args, folder, folder / (stage + '.log'), stopped,
-                    timeout=min(config.stage_timeout_seconds, 3600, deadline - time.monotonic()),
-                    env_overrides={'TEMP': str(folder / 'tmp'), 'TMP': str(folder / 'tmp'),
-                        'MPLCONFIGDIR': str(folder / 'matplotlib'), 'VSCMD_SKIP_SENDTELEMETRY': '1'})
-                step['status'] = 'finished'
-                save()
-            unchanged()
-            ortho, _ = _inspect_visual_geotiff(folder, stopped, modality='thermal')
-            for item in mapping:
-                if item['working_name'] in selected:
-                    if _digest(folder / 'images' / item['working_name'], stopped)[0] != item['content_sha256']:
-                        raise PilotError('Thermal-Arbeitskopie waehrend Teilvorschau veraendert.')
-            # The persistent name itself carries the limitation, even outside the dialog.
-            output = ortho.with_name('UNVOLLSTAENDIG_THERMAL_TEILVORSCHAU.tif')
-            ortho.replace(output)
-            output.with_suffix('.txt').write_text(NOTICE, encoding='utf-8')
-            record['status'] = 'finished'
-            save()
-            return folder, record
+            # Private provenance stays outside metrics/clipboard and outside the source.
+            excluded = [dict(working_name=item['working_name'], frame_id=item.get('frame_id'),
+                source_file=item.get('source_file'), reason='not_in_saved_main_component')
+                for item in mapping if item['working_name'] not in selected]
+            (folder / 'excluded-images.LOCAL.json').write_text(json.dumps(excluded, indent=2), encoding='utf-8')
+            local_names = [name for name in signatures if (folder / name).is_file()]
+            local_names.append('reconstruction.json')
+            manifest = dict(source={name: value[0] for name, value in signatures.items()},
+                working={name: _digest(folder / name, stopped)[0] for name in local_names})
+            (folder / 'partial-inputs.LOCAL.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+            return _run_stages(source, folder, record, config, stopped, progress, execute)
         except BaseException as error:
             record['status'] = 'cancelled' if isinstance(error, (PilotCancelled, KeyboardInterrupt)) else 'failed'
             if record['steps'] and record['steps'][-1]['status'] == 'running':
                 record['steps'][-1]['status'] = record['status']
             save()
             raise
+
+
+
+def _save(folder, record):
+    temporary = folder / 'partial-preview.next.json'
+    temporary.write_text(json.dumps(record, indent=2), encoding='utf-8')
+    temporary.replace(folder / 'partial-preview.json')
+
+
+def _run_stages(source, folder, record, config, stopped, progress, execute):
+    manifest = _json(folder / 'partial-inputs.LOCAL.json')
+
+    def unchanged():
+        if stopped():
+            raise PilotCancelled('Teilvorschau abgebrochen.')
+        for root, key in ((source, 'source'), (folder, 'working')):
+            values = manifest.get(key)
+            if not isinstance(values, dict) or not values:
+                raise PilotError('Teilvorschau ohne gespeicherte Eingabepruefsummen.')
+            for name, digest in values.items():
+                relative = Path(name)
+                if relative.is_absolute() or '..' in relative.parts or any(p.is_symlink() for p in (root / relative).parents):
+                    raise PilotError('Ungueltige Teilvorschau-Eingabe.')
+                if _digest(root / relative, stopped)[0] != digest:
+                    raise PilotError('Gespeicherte Eingaben veraendert; Teilvorschau gestoppt.')
+
+    try:
+        unchanged()
+        selected = set(_json(folder / 'reconstruction.json')[0]['shots'])
+        require_thermal_geometry(folder, selected)
+        done = 0
+        for step in record['steps']:
+            if step['status'] != 'finished':
+                break
+            done += 1
+        # If validation/publication failed after merging, regenerate that output only.
+        done = min(done, 4)
+        record['steps'] = record['steps'][:done]
+        record['status'] = 'running'
+        _save(folder, record)
+        for stage in STAGES[5 + done:]:
+            unchanged()
+            step = dict(stage=stage, status='running')
+            record['steps'].append(step)
+            _save(folder, record)
+            progress(record['label'] + ' · ' + NOTICE + ' ' + stage)
+            args = (*config.engine_command[1:], '-I', str(config.runner), stage, str(folder))
+            if stage == 'dense_merging':
+                args += ('--georeferenced',)
+            execute(Path(config.engine_command[0]), args, folder, folder / (stage + '.log'), stopped,
+                timeout=min(config.stage_timeout_seconds, 3600, config.total_timeout_seconds),
+                env_overrides={'TEMP': str(folder / 'tmp'), 'TMP': str(folder / 'tmp'),
+                    'MPLCONFIGDIR': str(folder / 'matplotlib'), 'VSCMD_SKIP_SENDTELEMETRY': '1'})
+            step['status'] = 'finished'
+            _save(folder, record)
+        unchanged()
+        ortho, _ = _inspect_visual_geotiff(folder, stopped, modality='thermal', allow_incomplete_preview=True)
+        import rasterio
+        with rasterio.open(ortho, 'r+') as raster:
+            raster.update_tags(SOLARCHECK_INCOMPLETE='true', SOLARCHECK_PREVIEW_KIND='thermal_partial',
+                SOLARCHECK_LABEL=record['label'],
+                SOLARCHECK_INCLUDED_IMAGES=str(record['included_images']),
+                SOLARCHECK_SOURCE_IMAGES=str(record['source_images']),
+                SOLARCHECK_EXCLUDED_IMAGES=str(record['excluded_images']),
+                SOLARCHECK_COVERAGE_VERIFIED='false', SOLARCHECK_GEOMETRY_VERIFIED='false',
+                SOLARCHECK_TEMPERATURE_VERIFIED='false', SOLARCHECK_PAIR_IMPORT_ALLOWED='false',
+                TIFFTAG_IMAGEDESCRIPTION=record['label'] + ' · ' + NOTICE)
+        output = ortho.with_name('UNVOLLSTAENDIG_THERMAL_TEILVORSCHAU.tif')
+        ortho.replace(output)
+        output.with_suffix('.txt').write_text(record['label'] + '\n' + NOTICE, encoding='utf-8')
+        unchanged()
+        record['status'] = 'finished'
+        _save(folder, record)
+        return folder, record
+    except BaseException as error:
+        record['status'] = 'cancelled' if isinstance(error, (PilotCancelled, KeyboardInterrupt)) else 'failed'
+        if record['steps'] and record['steps'][-1]['status'] == 'running':
+            record['steps'][-1]['status'] = record['status']
+        _save(folder, record)
+        raise
+
+
+def continue_partial_preview(source, config, *, should_cancel=None, on_progress=None, executor=None):
+    """Resume this preview only, from its first unfinished native dense stage."""
+    source = Path(source)
+    if (not source.is_absolute() or config.modality != 'thermal'
+            or any(p.is_symlink() for p in (source, *source.parents))
+            or any((p / '.git').is_file() or (p / '.git/HEAD').is_file() for p in (source, *source.parents))):
+        raise PilotError('Privaten Thermal-Lauf ausserhalb Git waehlen.')
+    deadline = time.monotonic() + min(config.total_timeout_seconds, 10800)
+    cancel = should_cancel or (lambda: False)
+    def stopped():
+        if time.monotonic() >= deadline:
+            raise PilotTimeout('Teilvorschau: Gesamtzeitlimit erreicht.')
+        return cancel()
+    with _exclusive_job(source.parent):
+        loaded = read_partial_preview(source)
+        if not loaded or loaded[1]['status'] not in ('failed', 'cancelled'):
+            raise PilotError('Nur eine gestoppte Thermal-Teilvorschau fortsetzen.')
+        folder, record = loaded
+        if not (folder / 'partial-inputs.LOCAL.json').is_file():
+            raise PilotError('Vorbereitung unvollstaendig; keine Bildstufe fortsetzen.')
+        return _run_stages(source, folder, record, config, stopped,
+            on_progress or (lambda text: None), executor or _execute)
