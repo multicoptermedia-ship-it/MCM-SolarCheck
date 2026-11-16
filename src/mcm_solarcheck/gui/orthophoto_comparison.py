@@ -22,7 +22,7 @@ def _pixmap_from_rgb(rgb: np.ndarray) -> QPixmap:
 class OrthophotoComparisonWidget(QWidget):
     """Overlay geographically aligned arrays using an interactive opacity slider."""
 
-    def __init__(self, rgb: np.ndarray, thermal: np.ndarray, parent=None):
+    def __init__(self, rgb: np.ndarray, thermal: np.ndarray, parent=None, *, incomplete_label=None):
         super().__init__(parent)
         if rgb.dtype != np.uint8 or rgb.ndim != 3 or rgb.shape[2] != 3:
             raise ValueError("RGB layer must be uint8 HxWx3")
@@ -50,6 +50,11 @@ class OrthophotoComparisonWidget(QWidget):
         self._slider.setValue(50)
         self._slider.valueChanged.connect(self._update_image)
         layout = QVBoxLayout(self)
+        if incomplete_label:
+            warning = QLabel(incomplete_label + ' · Sichtvergleich, keine Freigabe von Abdeckung, Geometrie oder Celsius.', self)
+            warning.setObjectName('orthophoto_comparison_incomplete_notice')
+            warning.setWordWrap(True)
+            layout.addWidget(warning)
         self._scroll = QScrollArea(self)
         self._scroll.setObjectName('orthophoto_comparison_scroll_area')
         self._scroll.setWidgetResizable(False)
@@ -71,6 +76,16 @@ class OrthophotoComparisonWidget(QWidget):
         layout.addWidget(QLabel("RGB ← Ebenenüberblendung → " + description, self))
         layout.addWidget(self._slider)
         self._update_image()
+
+    def view_state(self):
+        return dict(opacity=self._slider.value(), zoom=self._zoom)
+
+    def restore_view_state(self, *, opacity, zoom):
+        if (type(opacity) is not int or not 0 <= opacity <= 100
+                or type(zoom) not in (int, float) or not .25 <= zoom <= 4):
+            raise ValueError('Invalid comparison view state')
+        self._slider.setValue(opacity)
+        self._set_zoom(zoom)
 
     def _set_zoom(self, value: float):
         self._zoom = max(0.25, min(4.0, value))

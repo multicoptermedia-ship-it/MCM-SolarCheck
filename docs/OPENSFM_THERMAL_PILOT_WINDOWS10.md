@@ -1,5 +1,16 @@
 # Thermal-Orthofoto mit der vorhandenen OpenSfM-Umgebung
 
+## RGB-Sichtvergleich16.11.2026: unvollständige Vorschau erhalten
+
+Nutzer bestätigt die erste Thermal-Übersicht als gut. Im **aktualisierten Thermal-Dialog** den vorhandenen fertigen Lauf laden → **RGB vergleichen** → fertiges RGB-GeoTIFF desselben Projekts bewusst auswählen. Keine Originalbilder/Projektdatei neu importieren. Der Vergleich öffnet sich mit vorhandenem SolarCheck-Python in eigenem Fenster, ohne OpenSfM-Start oder Paarregistrierung.
+
+Das bestehende Überblendungswidget startet mit50%Thermal; per Schieber zwischen RGB/Thermal wechseln und gemeinsam zoomen/scrollen. Grundlage sind die gespeicherten GeoTIFF-Koordinaten, keine automatische Verschiebungs-/Kamerakorrektur. Fehlende Thermalpixel zeigen RGB. Begrenzte Übersicht(max2048Kantenpixel); „100%“ bedeutet Vorschaugröße, Details in Original-TIFFs prüfen. Dauerlabel **unvollständig: 280 von 287 Bildern** bleibt sichtbar; keine Bestätigung von Abdeckung, Geometriequalität oder Celsius.
+
+Modul-/Dachkanten und Aufbauten in Mitte/Randbereichen vergleichen. „In dieser Ansicht passend“ oder „Versatz sichtbar“ als lokalen Sichtbefund wählen, optional Notiz(max2000Zeichen). **Sichtvergleich lokal speichern** speichert Auswahl/Notiz, Deckkraft/Zoom und Prüfsummen in `rgb-comparison.LOCAL.json` im privaten Vorschauordner. Beim nächsten **RGB vergleichen** werden die Angaben geladen. **Anderes RGB wählen** erlaubt eine bewusste neue Auswahl. Schließen ohne Speichern oder Dateidialog-Abbruch übernehmen nichts; geänderte Dateien müssen erneut bewusst gewählt werden. Raster/Geotags bleiben unverändert. Private Dateien/Notizen nicht hochladen; sie erscheinen nicht in „Kennzahlen kopieren“.
+
+Regulärer RGB-/Thermal-Paarimport bleibt gesperrt. Keine neue Matching-/SfM-/Dense-Rechnung oder vollständige Fachfreigabe. Reale Überdeckung und geometrische Genauigkeit bleiben noch nachzuweisen.
+
+
 ## Lokaler Abschluss16.11.2026: Teilvorschau fertig, Sichtprüfung offen
 
 Der Nutzerbericht bestätigt `incomplete_thermal_preview.status: finished`: **unvollständig: 280 von 287 Bildern**, sieben ausgeschlossen, alle fünf Vorschau-Stufen fertig. Das obere `failed`,595,094s sowie0raw/0clean gehören zur ursprünglichen Kameralaufhistorie; sie beschreiben weder Erfolg noch Laufzeit der Teilvorschau. `thermal_created: false` und `orthophoto_created: false` bleiben beabsichtigt, weil kein vollständiges freigegebenes Ergebnis vorliegt.

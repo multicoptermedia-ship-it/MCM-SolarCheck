@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import queue
+import subprocess
 import sys
 import threading
 import time
@@ -79,6 +80,20 @@ def execute_bridge(workspace, conda, environment, cancel, progress, on_workspace
 
 def bridge_eligible(workspace, report):
     return can_bridge(report) and not (Path(workspace) / MARKER).exists()
+
+
+def launch_partial_comparison(workspace, *, choose_rgb=False, popen=None):
+    preview = read_partial_preview(workspace)
+    if not preview or preview[1]['status'] != 'finished':
+        raise PilotError('Fertige Thermal-Teilvorschau laden.')
+    script = Path(__file__).with_name('MCM_SolarCheck_THERMAL_RGB_VERGLEICH.py')
+    if not script.is_file():
+        raise PilotError('Aktuelle vollstaendige SolarCheck-Quellfassung laden.')
+    arguments = [sys.executable, str(script),
+                 '--source', str(workspace)]
+    if choose_rgb:
+        arguments.append('--choose-rgb')
+    return (popen or subprocess.Popen)(arguments, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
@@ -190,6 +205,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         bridge_button['state'] = 'disabled'
         partial_button['state'] = 'disabled'
         partial_continue_button['state'] = 'disabled'
+        compare_button['state'] = new_rgb_button['state'] = 'disabled'
         args = (values['database'].get(), state['projects'][index][0], values['conda'].get(),
                 values['environment'].get(), values['output'].get())
         threading.Thread(target=work, args=(args,), daemon=False).start()
@@ -243,6 +259,8 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
                 loaded_preview = read_partial_preview(state['workspace']) if modality == 'thermal' and state['workspace'] else None
                 partial_continue_button['state'] = ('normal' if loaded_preview and
                     loaded_preview[1]['status'] in ('failed', 'cancelled') else 'disabled')
+                comparison_ready = loaded_preview is not None and loaded_preview[1]['status'] == 'finished'
+                compare_button['state'] = new_rgb_button['state'] = 'normal' if comparison_ready else 'disabled'
                 if event_kind == 'partial':
                     folder, detail = payload
                     status.set(detail['label'] + ' · ' + NOTICE + ' Status: ' + detail['status'] + '; '
@@ -320,12 +338,14 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
 
         partial_button['state'] = 'normal' if modality == 'thermal' and can_preview(report) else 'disabled'
         partial_continue_button['state'] = 'disabled'
+        compare_button['state'] = new_rgb_button['state'] = 'disabled'
         if modality == 'thermal':
             preview = read_partial_preview(chosen)
             if preview:
                 detail = preview[1]
                 status.set(detail['label'] + ' · ' + NOTICE + ' Status: ' + detail['status'])
                 partial_continue_button['state'] = 'normal' if detail['status'] in ('failed', 'cancelled') else 'disabled'
+                compare_button['state'] = new_rgb_button['state'] = 'normal' if detail['status'] == 'finished' else 'disabled'
 
     def check_cache(continue_run=False, bridge=False, partial=False, partial_resume=False):
         if state['running'] or state['workspace'] is None:
@@ -340,6 +360,7 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         bridge_button['state'] = 'disabled'
         partial_button['state'] = 'disabled'
         partial_continue_button['state'] = 'disabled'
+        compare_button['state'] = new_rgb_button['state'] = 'disabled'
         cancel_button['state'] = 'normal'
         status.set(NOTICE if partial or partial_resume else 'Einmaliger Zusatzabgleich wird in neuem Ordner vorbereitet; max. drei Stunden.' if bridge else
                    'Fortsetzung wird vorbereitet; max. zwei Stunden Tiefenkarten/drei Stunden insgesamt.' if continue_run
@@ -371,6 +392,20 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
                 events.put(('error', 'Fortsetzung/Cachepruefung fehlgeschlagen; gespeicherten Bericht kopieren.'))
         threading.Thread(target=work_cache, daemon=False).start()
 
+    comparison_process = None
+    def compare_rgb(choose_rgb=False):
+        nonlocal comparison_process
+        if state['running'] or state['workspace'] is None:
+            return
+        if comparison_process is not None and comparison_process.poll() is None:
+            status.set('Der lokale Sichtvergleich ist bereits geöffnet.')
+            return
+        try:
+            comparison_process = launch_partial_comparison(state['workspace'], choose_rgb=choose_rgb)
+            status.set('RGB-Sichtvergleich geöffnet: unvollständige Thermal-Teilvorschau; keine Paarregistrierung.')
+        except (OSError, PilotError, ValueError):
+            status.set('Vergleich nicht geöffnet; vorhandene fertige Thermal-Teilvorschau laden.')
+
     start_button = ttk.Button(buttons, text=f'{kind}-Pilot starten', command=start)
     start_button.pack(side='left')
     cancel_button = ttk.Button(buttons, text='Abbrechen', state='disabled', command=abort)
@@ -394,6 +429,14 @@ def window(*, conda=CONDA, environment=ENVIRONMENT, modality='rgb'):
         command=lambda: check_cache(partial_resume=True))
     if modality == 'thermal':
         partial_continue_button.pack(side='left', padx=6)
+    comparison_buttons = ttk.Frame(root)
+    if modality == 'thermal':
+        comparison_buttons.pack(fill='x', padx=16, pady=6)
+    compare_button = ttk.Button(comparison_buttons, text='RGB vergleichen', state='disabled', command=compare_rgb)
+    compare_button.pack(side='left', padx=6)
+    new_rgb_button = ttk.Button(comparison_buttons, text='Anderes RGB wählen', state='disabled',
+        command=lambda: compare_rgb(True))
+    new_rgb_button.pack(side='left', padx=6)
     copy_button = ttk.Button(saved_buttons, text='Kennzahlen kopieren', state='disabled', command=copy_metrics)
     copy_button.pack(side='left', padx=6)
     ttk.Button(buttons, text='Schliessen', command=close).pack(side='right')

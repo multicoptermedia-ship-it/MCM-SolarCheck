@@ -56,7 +56,13 @@ jobs:
         shell: pwsh
         env:
           PYTHONPATH: src
-        run: python -m pytest -q tests/test_opensfm_thermal_partial.py
+        run: python -m pytest -q tests/test_opensfm_thermal_partial.py tests/test_thermal_partial_comparison_launcher.py
+      - name: Test local incomplete Thermal RGB comparison and saved note
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q tests/test_thermal_partial_comparison.py tests/test_gui_thermal_partial_comparison.py
       - name: Test OpenSfM RGB job with synthetic engine results
         shell: pwsh
         env:
