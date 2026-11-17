@@ -1,5 +1,7 @@
 # Thermal-Orthofoto mit der vorhandenen OpenSfM-Umgebung
 
+> **Neuer zusätzlicher KI-Pilot17.11.:** Der Nutzer hat die getrennte PV-Hawk-CPU-Einrichtung bestätigt. [Eigene Installation und begrenzter Modellvergleich](PV_HAWK_CPU_PILOT_WINDOWS10.md). Dieser Thermal-Starter bleibt für vorhandene Läufe/Überlagerung; keine neue Bildrekonstruktion nötig.
+
 ## KI-Modellvergleich17.11.2026: technischer Vergleichsweg, PV-Modell noch offen
 
 Nutzer bestätigt den bisherigen Lösch-/Wiederöffnungsweg. Nächster Auftrag automatische Modulerkennung mit manueller Ausnahmenprüfung bei großen Anlagen. Der neue **KI-Modellvergleich starten(lokal)**-Knopf vergleicht einen bewusst gewählten, separat geprüften lokalen ONNX-PV-Modellkandidaten gegen gespeicherte passende Umrisse im selben RGB-Ausschnitt. Bestehende Entwürfe bleiben erhalten. Separater CPU-Prozess/max5min/Abbruch, Ergebnis grün gegen gelbe Referenz, getrennt lokal speichern und über **Gespeicherten KI-Vergleich öffnen** ohne Neuinferenz wiederladen.

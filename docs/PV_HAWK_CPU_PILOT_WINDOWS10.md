@@ -1,0 +1,39 @@
+# PV-Hawk RGB-Modulerkennung: getrennter Windows-10-CPU-Pilot
+
+Stand17.11.2026 · PV-HAWK-CPU-PILOT-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md)
+
+Der Nutzer hat die zusätzliche isolierte Einrichtung ausdrücklich freigegeben und führt sie auf seinem Rechner selbst aus. Ziel dieses Schritts ist ein begrenzter Vergleich eines **tatsächlich vortrainierten RGB-Modulmodells** mit bereits gespeicherten passenden Umrissen. Noch keine automatische Gesamtparkverarbeitung oder Qualitätsfreigabe.
+
+## Was eingerichtet wird
+
+Ein eigener Ordner **`E:\SolarCheck-PV-KI-Pilot`** mit eigenem Python3.10-Environment, TensorFlow-CPU2.10.1/Keras2.10.0 und festgelegten Paketen aus [requirements-pv-hawk-cpu.txt](../requirements-pv-hawk-cpu.txt). Das vorhandene `E:\SolarCheck-OpenSfM\env\python.exe` dient nur zum Erstellen des eigenen Environments. Das bisherige F:-SolarCheck-Python, OpenSfM-Environment, Datenbank und sämtliche Bilder bleiben erhalten. Keine Administratorrechte, CUDA-, Compiler-, SDK- oder Docker-Installation nötig. Mindestens2GiB freier Platz auf E:; während der Einrichtung dort auch Paketcache/Temp. Internet nur für Einrichtung/öffentliche Downloads; Modellvergleich danach lokal.
+
+Nur sechs festgelegte PV-Hawk-Quelldateien/Lizenz und die veröffentlichte **RGB-Gewichtsdatei mit244MiB** werden geladen. Keine Beispiele, Bilddatensätze oder Trainingsläufe. Alle Artefakte gegen festgelegte Größe/SHA-256 prüfen; beim erneuten Start geprüfte Dateien wiederverwenden. Abbruch mit Strg+C, danach denselben Start wiederholen. Bestehende fremde Zielordner ablehnen.
+
+## Einmalige Einrichtung und Start
+
+Der geprüfte, feste PowerShell-Startblock wird nach erfolgreicher nativer Windows-Prüfung hier ergänzt. Bisherigen Thermal-Start nicht für eine neue Rekonstruktion verwenden.
+
+Der Einrichtungsstart meldet vier Phasen: eigenes Environment, CPU-Pakete, Originalcode/RGB-Gewichte, echte Modellprobe auf einem synthetischen schwarzen RGB-Bild. Erst nach `status: passed` zum Bildvergleich wechseln. Ein schwarzes Bild ohne Treffer ist **kein Erkennungsqualitätsnachweis**. Bei Installations-/Downloadfehler Einrichtung erneut starten; bei wiederholtem Fehler nur die Fehlermeldung als Text mitteilen, keine privaten Bildpfade/Notizen. Paketliste und `cpu-probe.LOCAL.json` bleiben im Pilotordner.
+
+## Erster lokaler Bildvergleich
+
+1. Aktualisierten Thermal-Dialog öffnen und den vorhandenen Lauf **13.11.2026,18:58:37 / oh9ptgy5** laden. Keine neue Berechnung starten.
+2. Gespeicherten RGB-/Thermal-Vergleich öffnen, danach gespeicherte **PV-Modul-Entwürfe**. Einen überschaubaren Ausschnitt mit einigen ganzen Modulen verwenden. Vorhandene passende Umrisse/Notizen lokal speichern; mindestens ein Umriss muss als **Umriss passt** gespeichert sein.
+3. **KI-Modellvergleich starten(lokal)** → **`E:\SolarCheck-PV-KI-Pilot\pv-hawk-rgb.LOCAL.json`** wählen. SolarCheck startet ausschließlich das getrennte Pilot-Python. CPU-Vergleich maximal fünf Minuten; gleicher Knopf bricht ab. Das Ergebnis ersetzt keine vorhandenen Entwürfe.
+4. Im Ergebnis **gelbe geprüfte Umrisse** mit **grünen KI-Kandidaten** vergleichen. Zähler sind nur für gespeicherte Teilreferenzen. Zusätzliche Kandidaten können echte bisher ungeprüfte Module oder Fehlvorschläge sein. Keine Genauigkeits-/Vollständigkeitsquote daraus ableiten. Zu klein/angeschnitten dargestellte Module im späteren Gesamtflächenweg gesondert behandeln; jetzt erst begrenzten Ausschnitt prüfen.
+5. Ergebnis schließen und über **Gespeicherten KI-Vergleich öffnen** wiederöffnen. Keine erneute Inferenz nötig. Für einen Abbruchtest erneut starten/abbrechen; das letzte erfolgreiche Ergebnis und alle Entwürfe bleiben erhalten.
+
+Nur als Text berichten: ganze Module im Ausschnitt, passende KI-Umrisse, fehlende Module, falsche/zu kleine/mehrfache Umrisse, angeschnittene Randmodule und ungefähre Dauer. Bilder, Koordinaten und private Berichte bleiben lokal. Noch keine tausend Einzelprüfungen durchführen: Diese kleine Stichprobe entscheidet über den nächsten Automatisierungsschritt.
+
+## Herkunft, Anpassungen und Grenzen
+
+- Original [PV-Hawk v1.0.0](https://github.com/LukasBommes/PV-Hawk/releases/tag/v1.0.0), Commit **af07a5e5690326837d1e9b26bdbb32f5582e89fd**; Code [MIT](https://github.com/LukasBommes/PV-Hawk/blob/af07a5e5690326837d1e9b26bdbb32f5582e89fd/LICENSE). Darin verwendeter Matterport-Code behält seine Copyright-/MIT-Hinweise. Keine gesamte PV-Hawk-Video-/SfM-Pipeline starten.
+- Original RGB-Datei **mask_rcnn_pv_modules_rgb_0059.h5**,255858144Bytes, SHA-256 **8b862618a58dbd8b8f961d31c7d5dd0230293a013559182c4512780f7166c7d3**. Hashbestätigung belegt Identität, keine Feldqualität und keine zusätzliche Lizenz.
+- Gewichte werden in die bekannte, hashgeprüfte ursprüngliche Modellarchitektur geladen; alle Inferenzschichten auf vollständige Gewichte/Form prüfen. Keine H5-Architektur-/Lambda-Deserialisierung. Originaldateien unverändert; Adapter verwendet TensorFlow-v1-Kompatibilitäts-API, Keras-Layeralias und zwei dynamische Shape-Korrekturen im Speicher. Original-PVConfig, RGB-Reihenfolge,512/640-Skalierung und Mittelwert129.4 erhalten. Instanzmasken zu gedrehten Rechtecken über vorhandene OpenCV-Geometrie, danach bestehende ROI-/NoData-/GIS-/Thermalmaskenprüfung. Scores≥0.7 sind Vorschläge, keine Freigabe.
+- Eigenständige Gewichts-/Trainingsdatenrechte sind für Produktion/Weiterverteilung nicht abschließend geklärt. Dies ist der ausdrücklich freigegebene technische Versuch; keine kommerzielle/distributive Gesamtfreigabe behaupten. Gewichte nicht in QuellZIP/Git übernehmen.
+- Dauerlabel **unvollständig:280 von287Bildern** und reguläre RGB-/Thermal-Paarimport-Sperre bleiben erhalten. Keine vollständige Abdeckung, unabhängige Geometriequalität, bestätigten physischen Modul-IDs oder Celsiuswerte. Fehlende Erkennung bedeutet nicht gesund.
+
+## Prüfbelege
+
+Linux/Python3.10: tatsächliche veröffentlichte RGB-Gewichte vollständig geladen, synthetische CPU-Inferenz bestanden(14,948s einschließlich Laden, schwarzes512×640RGB). Zusätzlich13Tests im getrennten Environment: echter Modellworker auf synthetischen georeferenzierten Bildern, Speicherung/Wiederöffnung, Fehlererhalt, Quellschutz, Artefakt-/Manifestgrenzen.146gezielte bestehende/erweiterte Tests grün, ein bewusst optionaler Modelltest außerhalb der isolierten Umgebung übersprungen. Frische Einrichtung unter Linux mit tatsächlichen Paket-/Code-/Gewichtsdownloads und Modellprobe bestanden(15,188s Modellprobe); native Windows-Prüfung noch offen. Windows Server2022-CI ersetzt keine Abnahme auf dem Windows10-Auswerterechner; reale Erkennungsqualität und Laufzeit erst dort prüfen.

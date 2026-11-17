@@ -86,3 +86,32 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           python -m mcm_solarcheck.offline.windows_smoke --headless
+
+  pv-hawk-cpu:
+    # Actual published RGB weights, synthetic images only. Server 2022 is not
+    # Windows 10 field acceptance. Dedicated old TF runtime, never app Python.
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Explicit isolated setup, pinned source/weights and actual CPU probe
+        shell: pwsh
+        run: |
+          $pilotPrefix = Join-Path $env:RUNNER_TEMP 'SolarCheck-PV-KI-Pilot'
+          $basePython = (Get-Command python).Source
+          python scripts/MCM_SolarCheck_PV_HAWK_SETUP.py --prefix $pilotPrefix --base-python $basePython
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Real pretrained worker on synthetic GeoTIFFs, source protection and reopen
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+        run: |
+          $env:SOLARCHECK_PV_HAWK_PREFIX = Join-Path $env:RUNNER_TEMP 'SolarCheck-PV-KI-Pilot'
+          $pilotPython = Join-Path $env:SOLARCHECK_PV_HAWK_PREFIX 'env\Scripts\python.exe'
+          & $pilotPython -m pip install pytest==8.3.5
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $pilotPython -m pytest -q tests/test_pv_hawk_pilot.py tests/test_pv_hawk_pretrained_smoke.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

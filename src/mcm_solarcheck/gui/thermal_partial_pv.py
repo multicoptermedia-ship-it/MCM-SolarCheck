@@ -453,9 +453,17 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
             if not any(e['status'] == 'outline_ok' for e in active_entries(current)):
                 raise ValueError('Mindestens einen Umriss passend beurteilen und lokal speichern.')
             manifest, _ = QFileDialog.getOpenFileName(self, 'Geprüfte lokale KI-Modellbeschreibung wählen',
-                '', 'ONNX-Modellbeschreibung (*.json)')
+                '', 'Lokale KI-Modellbeschreibung (*.json)')
             if not manifest:
                 return
+            import json
+            from ..vision.pv_hawk_module_detector import PROFILE, evaluation_python
+            from ..services.thermal_partial_comparison import _local
+            path = _local(manifest)
+            if path.stat().st_size > 32768:
+                raise ValueError('Modellbeschreibung zu groß.')
+            profile = json.loads(path.read_text(encoding='utf-8')).get('profile')
+            executable = evaluation_python(manifest) if profile == PROFILE else sys.executable
             token = uuid4().hex
             self._model_pending = self.comparison.folder / f'pv-model-comparison-{token}.LOCAL.json'
             process = QProcess(self)
@@ -466,7 +474,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
             self._model_process = process
             self._model_cancelled = False
             script = Path(__file__).resolve().parents[3] / 'scripts/MCM_SolarCheck_PV_MODELLVERGLEICH.py'
-            process.start(sys.executable, [str(script), '--source', str(self.comparison.source_path),
+            process.start(executable, [str(script), '--source', str(self.comparison.source_path),
                 '--manifest', manifest, '--region', self.current_region, '--run-token', token])
             self._model_timer.start(5*60*1000)
             self.model_start.setText('KI-Vergleich abbrechen')

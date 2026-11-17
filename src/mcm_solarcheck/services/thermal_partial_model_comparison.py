@@ -48,7 +48,9 @@ def compare_saved_region(source, manifest_path, key, *, run_token=None):
     if not references:
         raise ValueError('Mindestens einen gespeicherten Umriss als passend beurteilen.')
     review_sha = _digest(comparison.folder / MODULE_STATE)
-    model = OnnxModuleDetector(manifest_path)
+    profile = json.loads(_local(manifest_path).read_text(encoding='utf-8')).get('profile')
+    from ..vision.pv_hawk_module_detector import PROFILE, PVHawkModuleDetector
+    model = PVHawkModuleDetector(manifest_path) if profile == PROFILE else OnnxModuleDetector(manifest_path)
     candidate = detect_partial_pv_window(comparison, window=tuple(regions[key]['window']), detector=model)
     matches = _associate(references, candidate.proposals)
     if review_sha != _digest(comparison.folder / MODULE_STATE):

@@ -4,6 +4,9 @@ Stand17.11.2026 · PV-AI-MODEL-COMPARE-01 · [verbindlicher Checkpoint](AKTUELLE
 
 Der Nutzer verlangt automatische Verarbeitung großer Anlagen und manuelle Handlung nur bei unklarer Analyse. Der jetzige OpenCV-Farb-/Formdetektor ist eine Heuristik. Dieser Block verbindet die vorhandene Detektorschnittstelle mit einem **lokalen CPU-ONNX-Instanzmodellvergleich**. Er liefert **noch kein trainiertes/qualifiziertes PV-Modell**, keine Gesamtparkautomatik und keine automatische Qualitätsfreigabe.
 
+
+**Aktualisierung17.11.:** Zusätzlicher isolierter PV-Hawk-CPU-Pilot vom Nutzer ausdrücklich freigegeben und implementiert. Tatsächliche veröffentlichte RGB-Gewichte/Linux-CPU-Inferenz und gespeicherter Ausschnittvergleich auf synthetischen GeoTIFFs bestanden; eigener expliziter Windows-Einrichtungsstart, keine Installation in SolarCheck/OpenSfM. [Aktueller Start/Prüfstand](PV_HAWK_CPU_PILOT_WINDOWS10.md). Unten beschriebene frühere Freigabenachfrage ist beantwortet; keine erneute Nachfrage. ONNX bleibt optionaler anderer Backendweg; H5 wird direkt in der getrennten TF-Laufzeit geladen. Feldqualität/Produktion/Weitergaberechte weiterhin offen.
+
 ## Tatsächlich implementiert
 
 Gespeicherten RGB-/Thermal-Vergleich → gespeicherten PV-Ausschnitt → mindestens einen Umriss als passend beurteilen/lokal speichern → **KI-Modellvergleich starten(lokal)** → bewusst ausgewählte, bereits auf Auswertungsrechte und Herkunft geprüfte Modellbeschreibung. Der eigene App-Python-Worker lädt nur diese lokalen Gewichte. Keine Internet-/Hub-Anfrage, Installation, Modell-/Datensatzdownload oder Trainingsaktion. OpenCV-DNN auf CPU bleibt die Inferenzlaufzeit; die optionale ONNX-Bibliothek validiert den Graph. `requirements-ai-evaluation.txt` ist eine getrennte optionale Anforderung, nicht Bestandteil des normalen App-Starts. CI/Entwicklung installieren sie für synthetische Vertragstests; beim Nutzer wird nichts automatisch installiert.
@@ -79,7 +82,7 @@ Am17.11.2026 nur öffentliche Dokumentation/Code-/Release-Metadaten gelesen. Kei
 
 134gezielte synthetische Tests grün. Neue Fälle führen **tatsächliche OpenCV-CPU-Neuralinferenz mit einem synthetischen NN-Vertragsgraph** aus, prüfen RGB/Letterbox, Format/Hashes/Rechte/externe Tensoren, CLI und Qt→Worker→Vergleich→Speichern→Wiederöffnung, Fehler/Abbruch/Timeout/Schließen und unveränderte Quellen/Entwürfe/Paarimport-Sperre. Der Graph hat künstlich gesetzte Testgewichte und ist ausdrücklich **kein trainiertes PV-Erkennungsmodell**. Neue CI am exakten HEAD prüfen; synthetische Erfolge belegen keine reale Feldleistung oder1000-Modul-Tauglichkeit.
 
-## Konkreter Vorschlag für den noch zu bestätigenden PV-Hawk-Versuch
+## Historischer Vorschlag für den inzwischen bestätigten PV-Hawk-Versuch
 
 Für das ausgewählte RGB-Artefakt ist ein separater technischer CPU-Versuch sinnvoll, bevor Gewichtsrechte, korrekte Vorverarbeitung, Export und Feldqualität als abgeschlossen gelten können. Das ist eine zusätzliche Laufzeit gegenüber der bisherigen SolarCheck-/OpenSfM-Einrichtung und noch **nicht** eingerichtet/gestartet.
 
