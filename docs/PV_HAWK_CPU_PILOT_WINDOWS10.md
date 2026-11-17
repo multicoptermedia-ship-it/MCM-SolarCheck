@@ -6,7 +6,7 @@ Der Nutzer hat die zusätzliche isolierte Einrichtung ausdrücklich freigegeben 
 
 ## Ergebnisanzeige aktualisieren ohne Neuinstallation
 
-Bei „KI ist gelaufen, aber kein Ergebnis sichtbar“ liegt ein bestätigter Anzeigefehler vor: Die bisherige Ergebnisansicht las die flachen PV-Hawk-Modellangaben wie eine verschachtelte ONNX-Beschreibung. Ein bereits erfolgreich berechneter Bericht kann trotzdem lokal gespeichert sein. Die korrigierte Oberfläche öffnet beide Berichtsformate, zeigt auch null KI-Kandidaten ausdrücklich an und bringt das Fenster nach vorn. Keine Änderung der gespeicherten Resultate oder Bilder.
+Der Nutzer bestätigt17.11., dass der KI-Modellvergleich im PV-Ausschnitt bereits ausgeführt wurde. Ein bestätigter Anzeigefehler kann das Ergebnis verbergen: Die bisherige Ergebnisansicht las die flachen PV-Hawk-Modellangaben wie eine verschachtelte ONNX-Beschreibung. Ein bereits erfolgreich berechneter Bericht kann trotzdem lokal gespeichert sein. Die korrigierte Oberfläche öffnet beide Berichtsformate, zeigt auch null KI-Kandidaten ausdrücklich an und bringt das Fenster nach vorn. Keine Änderung der gespeicherten Resultate oder Bilder.
 
 In PowerShell diesen Block ausführen. Er lädt ausschließlich die korrigierte Quellfassung und öffnet die Oberfläche mit deinem vorhandenen F:-Python. **Keine Pakete/Gewichte neu installieren und keinen KI-Lauf starten.**
 
