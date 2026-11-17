@@ -261,3 +261,109 @@ def test_legacy_saved_review_upgrades_without_losing_ids_or_notes(module_scene):
     updated['entries'][0]['module_id'] = updated['entries'][1]['module_id']
     with pytest.raises(ValueError):
         pv.parse_region(value, updated)
+
+
+def nested_result(value):
+    """One synthetic full module containing two false small detections."""
+    from mcm_solarcheck.vision.detection import ModuleDetection
+    class SyntheticNestedDetector:
+        name = 'synthetic_nested'
+        def detect_array(self, pixels):
+            return tuple(ModuleDetection(tuple((x, y) for x, y in polygon), confidence)
+                for polygon, confidence in (
+                    (((200, 200), (300, 200), (300, 300), (200, 300)), .9),
+                    (((220, 220), (230, 220), (230, 230), (220, 230)), .8),
+                    (((250, 250), (260, 250), (260, 260), (250, 260)), .7)))
+    return pv.detect_partial_pv_window(value, window=(20, 20, 760, 560), detector=SyntheticNestedDetector())
+
+
+def test_delete_nested_false_outlines_keep_outer_and_reserved_ids_save_reopen_restore(module_scene, monkeypatch):
+    source, value = module_scene
+    originals = {p: p.read_bytes() for p in (value.rgb_path, value.thermal_path, source/'job.json')}
+    result = nested_result(value)
+    assert len(result.proposals) == 3
+    region = pv.make_region(value, result)
+    ids = [e['module_id'] for e in region['entries']]
+    region['entries'][0].update(status='outline_ok', note='Synthetic full module kept')
+    region['entries'][1].update(status='rejected', note='Synthetic nested false outline')
+    initial = json.dumps(region, sort_keys=True)
+    monkeypatch.setattr(pv, '_detect_orthophoto_pv_pair', lambda *a, **k: pytest.fail('No re-detection'))
+    revised = pv.set_module_deleted(value, region, ids[1])
+    assert json.dumps(region, sort_keys=True) == initial
+    revised = pv.set_module_deleted(value, revised, ids[2])
+    visible, revised = pv.parse_region(value, revised)
+    assert visible.proposals == result.proposals[:1]
+    assert [e['module_id'] for e in pv.active_entries(revised)] == ids[:1]
+    assert revised['entries'][0]['status'] == 'outline_ok'
+    assert revised['entries'][0]['note'] == 'Synthetic full module kept'
+    assert visible.summary()['module_proposal_count'] == 1
+    key = pv.region_key(result.rgb_window)
+    record = pv.save_module_review(value, {key: revised}, key)
+    assert record['check'] == pv.CHECK and all(record[k] is False for k in comparison.FLAGS)
+    reopened = comparison.open_partial_comparison(source)
+    restored, selected = pv.load_module_review(reopened)
+    assert selected == key and restored[key] == revised
+    assert all(p.read_bytes() == data for p, data in originals.items())
+    metrics = json.dumps(read_opensfm_metrics(source))
+    assert ids[1] not in metrics and 'Synthetic nested false outline' not in metrics
+    with pytest.raises(ValueError, match='Paarimport gesperrt'):
+        detect_orthophoto_pv_window(value.rgb_path, value.thermal_path, window=result.rgb_window)
+    # Deleted geometry no longer blocks an addition, but its ID stays reserved.
+    revised = pv.manual_module_outline(value, restored[key], result.proposals[1].rgb_polygon_px)
+    assert revised['entries'][-1]['module_id'].endswith(':M-0004')
+    assert [e['module_id'] for e in pv.active_entries(revised)] == [ids[0], revised['entries'][-1]['module_id']]
+    revised = pv.set_module_deleted(value, revised, ids[1], deleted=False)
+    assert revised['entries'][1]['status'] == 'rejected'
+    assert revised['entries'][1]['note'] == 'Synthetic nested false outline'
+    assert [e['module_id'] for e in pv.active_entries(revised)][:2] == ids[:2]
+
+
+def test_delete_all_restore_and_invalid_deletion_or_changed_source_do_not_write(module_scene):
+    _, value = module_scene
+    result = nested_result(value)
+    region = pv.make_region(value, result)
+    ids = [e['module_id'] for e in region['entries']]
+    key = pv.region_key(result.rgb_window)
+    pv.save_module_review(value, {key: region}, key)
+    saved = (value.folder/pv.STATE).read_bytes()
+    for module_id in ids:
+        region = pv.set_module_deleted(value, region, module_id)
+    assert not pv.parse_region(value, region)[0].proposals
+    assert not pv.active_entries(region)
+    assert (value.folder/pv.STATE).read_bytes() == saved
+    for bad_id in ('M-9999', None):
+        with pytest.raises(ValueError):
+            pv.set_module_deleted(value, region, bad_id)
+    with pytest.raises(ValueError):
+        pv.set_module_deleted(value, region, ids[0], deleted='true')
+    bad = json.loads(json.dumps(region))
+    bad['entries'][0]['deleted'] = 1
+    with pytest.raises(ValueError):
+        pv.parse_region(value, bad)
+    with pytest.raises(ValueError):
+        pv.manual_module_outline(value, region, MANUAL, module_id=ids[0])
+    pv.save_module_review(value, {key: region}, key)
+    regions, _ = pv.load_module_review(value)
+    assert not pv.parse_region(value, regions[key])[0].proposals
+    region = pv.set_module_deleted(value, regions[key], ids[0], deleted=False)
+    assert len(pv.parse_region(value, region)[0].proposals) == 1
+    saved = (value.folder/pv.STATE).read_bytes()
+    with rasterio.open(value.rgb_path, 'r+') as raster:
+        raster.update_tags(SYNTHETIC_CHANGED='true')
+    with pytest.raises(ValueError):
+        pv.set_module_deleted(value, region, ids[1])
+    assert (value.folder/pv.STATE).read_bytes() == saved
+
+
+def test_schema2_review_loads_with_all_entries_active(module_scene):
+    _, value = module_scene
+    result = nested_result(value)
+    key = pv.region_key(result.rgb_window)
+    record = pv.save_module_review(value, {key: pv.make_region(value, result)}, key)
+    record['check'] = pv.PREVIOUS_CHECK
+    for entry in record['regions'][key]['entries']:
+        del entry['deleted']
+    (value.folder/pv.STATE).write_text(json.dumps(record))
+    restored, _ = pv.load_module_review(value)
+    assert len(pv.active_entries(restored[key])) == 3
+    assert all(not e['deleted'] for e in restored[key]['entries'])

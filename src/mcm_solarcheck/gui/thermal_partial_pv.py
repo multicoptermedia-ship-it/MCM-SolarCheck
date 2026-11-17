@@ -14,6 +14,7 @@ from .orthophoto_comparison import OrthophotoComparisonWidget, _pixmap_from_rgb
 from ..services.thermal_partial_pv import (
     REVIEWS, load_module_review, save_module_review, detect_partial_pv_window,
     region_key, make_region, parse_region, partial_module_detail, manual_module_outline,
+    active_entries, set_module_deleted,
 )
 from ..services.thermal_partial_comparison import verify_partial_comparison
 from ..services.orthophoto_pv_modules import OrthophotoPVWindowResult
@@ -316,6 +317,22 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         edits.addWidget(self.correct)
         edits.addWidget(self.add)
         layout.insertLayout(layout.count()-1, edits)
+        removal = QHBoxLayout()
+        self.delete = QPushButton('Ausgewählten Umriss löschen')
+        self.delete.setObjectName('partial_pv_delete_outline')
+        self.delete.clicked.connect(self._delete_outline)
+        removal.addWidget(self.delete)
+        self.deleted = QComboBox()
+        self.deleted.setObjectName('partial_pv_deleted_outlines')
+        self.deleted.addItem('Gelöschte Umrisse (0)', None)
+        removal.addWidget(self.deleted, 1)
+        self.restore = QPushButton('Wiederherstellen')
+        self.restore.setObjectName('partial_pv_restore_outline')
+        self.restore.setEnabled(False)
+        self.restore.clicked.connect(self._restore_outline)
+        self.deleted.currentIndexChanged.connect(self._edit_buttons)
+        removal.addWidget(self.restore)
+        layout.insertLayout(layout.count()-1, removal)
         self.table.itemSelectionChanged.connect(self._edit_buttons)
         self.table.itemSelectionChanged.connect(self._highlight_selected)
         self._labelled_result = None
@@ -367,15 +384,25 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
 
     def _collect(self):
         if self.current_region and self.proposal_result is not None:
-            for index, entry in enumerate(self.regions[self.current_region]['entries']):
+            for index, entry in enumerate(active_entries(self.regions[self.current_region])):
                 entry['status'] = self.table.cellWidget(index, 2).currentData()
                 entry['note'] = self.table.item(index, 3).text()
+
+    def _clear_table(self):
+        # Qt defers destruction of cell widgets; hide removed review controls
+        # immediately so a deleted row cannot leave a visible dropdown behind.
+        for index in range(self.table.rowCount()):
+            review = self.table.cellWidget(index, 2)
+            if review:
+                review.hide()
+        self.table.setRowCount(0)
 
     def _select_window(self, window):
         self._collect()
         super()._select_window(window)
         self.current_region = None
-        self.table.setRowCount(0)
+        self._clear_table()
+        self._refresh_deleted()
         self._refresh_regions(None)
         if self._detail_dialog:
             self._detail_dialog.close()
@@ -387,7 +414,47 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
 
     def _edit_buttons(self):
         self.correct.setEnabled(self.proposal_result is not None and self.table.currentRow() >= 0)
+        self.delete.setEnabled(self.correct.isEnabled())
+        self.restore.setEnabled(self.current_region is not None and self.deleted.currentData() is not None)
         self.add.setEnabled(self._window is not None and all(1 <= v <= 2048 for v in self._window[2:]))
+
+    def _refresh_deleted(self):
+        region = self.regions.get(self.current_region)
+        deleted = [e for e in region['entries'] if e.get('deleted', False)] if region else []
+        self.deleted.blockSignals(True)
+        self.deleted.clear()
+        self.deleted.addItem(f'Gelöschte Umrisse ({len(deleted)})', None)
+        for entry in deleted:
+            self.deleted.addItem(entry['module_id'].split(':')[-1], entry['module_id'])
+        self.deleted.blockSignals(False)
+
+    def _delete_outline(self):
+        index = self.table.currentRow()
+        if not self.current_region or index < 0:
+            return
+        module_id = active_entries(self.regions[self.current_region])[index]['module_id']
+        self._change_deleted(module_id, True)
+
+    def _restore_outline(self):
+        module_id = self.deleted.currentData()
+        if self.current_region and module_id:
+            self._change_deleted(module_id, False)
+
+    def _change_deleted(self, module_id, deleted):
+        try:
+            self._collect()
+            region = set_module_deleted(self.comparison, self.regions[self.current_region], module_id, deleted=deleted)
+            self.regions[self.current_region] = region
+            if self._detail_dialog:
+                self._detail_dialog.close()
+            self._restore_region(self.current_region)
+            entries = active_entries(region)
+            if not deleted:
+                self.table.selectRow(next(i for i, e in enumerate(entries) if e['module_id'] == module_id))
+            action = 'aus der Ansicht gelöscht' if deleted else 'wiederhergestellt'
+            self._status.setText(f"{module_id.split(':')[-1]} {action}. Bitte Modul-Entwürfe lokal speichern.")
+        except (ValueError, TypeError, KeyError, OSError, RuntimeError):
+            self._status.setText('Umriss nicht geändert; Quellen und lokale Notizen prüfen.')
 
     def _open_outline(self, *, correct):
         try:
@@ -397,7 +464,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
                 if not self.current_region or index < 0:
                     return
                 region = self.regions[self.current_region]
-                module_id = region['entries'][index]['module_id']
+                module_id = active_entries(region)[index]['module_id']
             else:
                 if not self.add.isEnabled():
                     return
@@ -425,8 +492,9 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         key = region_key(result.rgb_window)
         self.regions[key] = region
         self._restore_region(key)
-        index = (next(i for i, e in enumerate(region['entries']) if e['module_id'] == module_id)
-            if module_id else len(region['entries'])-1)
+        entries = active_entries(region)
+        index = (next(i for i, e in enumerate(entries) if e['module_id'] == module_id)
+            if module_id else len(entries)-1)
         self.table.selectRow(index)
         self._status.setText('Umriss als offener Entwurf übernommen. Bitte prüfen und Modul-Entwürfe lokal speichern.')
 
@@ -449,7 +517,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         self.saved_regions.clear()
         self.saved_regions.addItem('Gespeicherten Ausschnitt wählen oder neuen Bereich markieren', None)
         for index, (key, region) in enumerate(self.regions.items(), 1):
-            self.saved_regions.addItem(f'Ausschnitt {index} · {len(region["entries"])} Entwürfe', key)
+            self.saved_regions.addItem(f'Ausschnitt {index} · {len(active_entries(region))} Entwürfe', key)
         self.saved_regions.setCurrentIndex(max(0, self.saved_regions.findData(selected)))
         self.saved_regions.blockSignals(False)
 
@@ -459,7 +527,8 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         if key not in self.regions:
             self.regions[key] = make_region(self.comparison, result)
         self.current_region = key
-        entries = self.regions[key]['entries']
+        entries = active_entries(self.regions[key])
+        self._clear_table()
         self.table.setRowCount(len(entries))
         pixmap = self._output.pixmap().copy()
         painter = QPainter(pixmap)
@@ -497,6 +566,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
             self.table.selectRow(0)
         self._highlight_selected()
         self._refresh_regions(key)
+        self._refresh_deleted()
         self._edit_buttons()
         self._status.setText(f'{len(entries)} lokale Modul-Entwürfe. IDs gelten nur in diesem RGB-Ausschnitt. '
             'Gültige Thermalpixel sind kein Nachweis vollständiger Anlagenabdeckung. '
@@ -543,7 +613,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
             dialog.setObjectName('partial_pv_detail_dialog')
             _resizable_dialog(dialog)
             layout = QVBoxLayout(dialog)
-            module_id = self.regions[self.current_region]['entries'][index]['module_id']
+            module_id = active_entries(self.regions[self.current_region])[index]['module_id']
             text = QLabel(module_id + f' · gültige Thermalpixel: {proposal.thermal_valid_pixel_count}/'
                           f'{proposal.thermal_polygon_sample_count}; keine Temperaturwerte.')
             text.setWordWrap(True)

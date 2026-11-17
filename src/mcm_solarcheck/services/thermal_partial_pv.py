@@ -24,7 +24,8 @@ from ..vision.module_quality import filter_module_detections, assess_module_dete
 from ..vision.polygon_geometry import convex_polygon_iou
 
 STATE = 'pv-modules.LOCAL.json'
-CHECK = 'solarcheck-incomplete-thermal-pv-drafts-2'
+CHECK = 'solarcheck-incomplete-thermal-pv-drafts-3'
+PREVIOUS_CHECK = 'solarcheck-incomplete-thermal-pv-drafts-2'
 LEGACY_CHECK = 'solarcheck-incomplete-thermal-pv-drafts-1'
 REVIEWS = ('pending', 'outline_ok', 'rejected')
 
@@ -116,6 +117,11 @@ def _snapshot(value, window, *, manual=False):
     return proposal, dict(proposal=asdict(proposal), status=status, note=note)
 
 
+def active_entries(region):
+    """Visible drafts; deleted records reserve IDs in the local review only."""
+    return [entry for entry in region['entries'] if not entry.get('deleted', False)]
+
+
 def parse_region(comparison, data):
     window = tuple(data['window'])
     _validate_window(window)
@@ -128,6 +134,9 @@ def parse_region(comparison, data):
         raise ValueError('Zu viele Modulvorschlaege.')
     proposals, canonical, roots, detected_ids, manual_ids = [], [], [], [], []
     for entry in entries:
+        deleted = entry.get('deleted', False)
+        if type(deleted) is not bool:
+            raise ValueError('Ungueltiger lokaler Loeschstatus.')
         origin, history = entry.get('origin', 'detected'), entry.get('history', [])
         if origin not in ('detected', 'manual') or not isinstance(history, list) or len(history) > 20:
             raise ValueError('Ungueltige lokale Umrisshistorie (maximal 20 Korrekturen).')
@@ -147,8 +156,9 @@ def parse_region(comparison, data):
             detected_ids.append(module_id)
         else:
             manual_ids.append(module_id)
-        proposals.append(proposal)
-        canonical.append(dict(module_id=module_id, **current, origin=origin, history=snapshots))
+        if not deleted:
+            proposals.append(proposal)
+        canonical.append(dict(module_id=module_id, **current, origin=origin, history=snapshots, deleted=deleted))
     baseline = OrthophotoPVWindowResult(tuple(roots), window, data['detector'])
     if draft_module_ids(comparison, baseline) != tuple(detected_ids):
         raise ValueError('Gespeicherte Entwurfs-IDs passen nicht zum RGB-Ausschnitt.')
@@ -158,6 +168,24 @@ def parse_region(comparison, data):
         raise ValueError('Ungueltige oder doppelte manuelle Entwurfs-ID.')
     result = OrthophotoPVWindowResult(tuple(proposals), window, data['detector'])
     return result, dict(window=list(window), detector=data['detector'], entries=canonical)
+
+
+def set_module_deleted(comparison, region, module_id, *, deleted=True):
+    """Hide/restore exactly one local draft, retaining geometry and reserved ID.
+
+    No detector, raster changes or file writes. Saving the resulting region is
+    explicit, like outline correction. A later addition never reuses the ID.
+    """
+    _ready(comparison)
+    if type(deleted) is not bool:
+        raise ValueError('Ungueltiger lokaler Loeschstatus.')
+    _, updated = parse_region(comparison, region)
+    entry = next((e for e in updated['entries'] if e['module_id'] == module_id), None)
+    if entry is None:
+        raise ValueError('Entwurfs-ID nicht in diesem Ausschnitt.')
+    entry['deleted'] = deleted
+    verify_partial_comparison(comparison)
+    return updated
 
 
 def manual_module_outline(comparison, region, polygon, *, module_id=None, should_cancel=None):
@@ -180,12 +208,12 @@ def manual_module_outline(comparison, region, polygon, *, module_id=None, should
         raise ValueError('Vier konvexe Modulecken innerhalb des RGB-Ausschnitts markieren.')
     entries = updated['entries']
     old = next((e for e in entries if e['module_id'] == module_id), None)
-    if module_id is not None and old is None:
+    if module_id is not None and (old is None or old['deleted']):
         raise ValueError('Entwurfs-ID nicht in diesem Ausschnitt.')
     if (old is None and len(entries) >= 2000) or (old is not None and len(old['history']) >= 20):
         raise ValueError('Grenze fuer lokale Entwuerfe oder Korrekturen erreicht.')
     for entry in entries:
-        if entry is not old and entry['status'] != 'rejected' and convex_polygon_iou(
+        if entry is not old and not entry['deleted'] and entry['status'] != 'rejected' and convex_polygon_iou(
                 polygon, entry['proposal']['rgb_polygon_px']) >= .75:
             raise ValueError('Umriss ueberlappt einen vorhandenen Entwurf; diesen korrigieren oder verwerfen.')
     with rasterio.open(pair.rgb_path) as rgb, rasterio.open(pair.thermal_path) as thermal:
@@ -216,7 +244,7 @@ def load_module_review(comparison):
         return {}, None
     with _local(path).open(encoding='utf-8') as stream:
         data = json.load(stream)
-    if (not isinstance(data, dict) or data.get('check') not in (CHECK, LEGACY_CHECK) or data.get('fingerprints') != comparison.fingerprints
+    if (not isinstance(data, dict) or data.get('check') not in (CHECK, PREVIOUS_CHECK, LEGACY_CHECK) or data.get('fingerprints') != comparison.fingerprints
             or data.get('label') != comparison.label or not isinstance(data.get('regions'), dict)
             or len(data['regions']) > 20 or any(data.get(k) is not False for k in FLAGS)
             or data.get('physical_module_ids_confirmed') is not False):

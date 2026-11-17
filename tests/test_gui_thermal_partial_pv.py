@@ -297,3 +297,116 @@ def test_corner_clicks_map_to_same_native_pixels_at_different_zoom(qapp, zoom):
         QTest.mouseClick(image, Qt.MouseButton.LeftButton, pos=image.display_point(point).toPoint())
     assert image.corners == list(polygon)
     image.close()
+
+
+def _select_id(dialog, module_id):
+    row = next(i for i in range(dialog.table.rowCount())
+        if dialog.table.item(i, 0).data(Qt.ItemDataRole.UserRole) == module_id)
+    dialog.table.selectRow(row)
+
+
+def test_delete_two_nested_outlines_save_reopen_restore_and_keep_remaining_row_mapping(module_scene, qapp, monkeypatch):
+    import rasterio
+    from test_thermal_partial_pv import nested_result, ADDED
+    _, value = module_scene
+    originals = {p: p.read_bytes() for p in (value.rgb_path, value.thermal_path)}
+    result = nested_result(value)
+    region = pv.make_region(value, result)
+    ids = [e['module_id'] for e in region['entries']]
+    region['entries'][0].update(status='outline_ok', note='Synthetic full module stays')
+    key = pv.region_key(result.rgb_window)
+    pv.save_module_review(value, {key: region}, key)
+    monkeypatch.setattr(PartialThermalPVReviewDialog, '_detect', lambda *a: pytest.fail('No detection on deletion or reopen'))
+    dialog = PartialThermalPVReviewDialog(value)
+    dialog.show()
+    assert dialog.table.rowCount() == 3
+    _select_id(dialog, ids[1])
+    removed_review = dialog.table.cellWidget(1, 2)
+    dialog.delete.click()
+    assert dialog.table.rowCount() == 2
+    assert not removed_review.isVisible()
+    assert [e['module_id'] for e in pv.active_entries(dialog.regions[key])] == [ids[0], ids[2]]
+    # Green/orange outline removed from its former RGB location.
+    with rasterio.open(value.rgb_path) as rgb:
+        color = tuple(int(v) for v in rgb.read()[:3, 240, 240])
+    assert dialog._output.pixmap().toImage().pixelColor(220, 220).getRgb()[:3] == color
+    _select_id(dialog, ids[2])
+    dialog.table.item(1, 3).setText('Synthetic remaining nested outline')
+    dialog.findChild(QPushButton, 'partial_pv_module_detail').click()
+    assert any(ids[2] in label.text() for label in dialog._detail_dialog.findChildren(QLabel))
+    dialog._detail_dialog.close()
+    dialog.correct.click()
+    assert dialog._editor_dialog.module_id == ids[2]
+    dialog._editor_dialog.reject()
+    dialog.delete.click()
+    assert dialog.table.rowCount() == 1
+    assert dialog.table.item(0, 0).data(Qt.ItemDataRole.UserRole) == ids[0]
+    assert dialog.table.cellWidget(0, 2).currentData() == 'outline_ok'
+    assert dialog.table.item(0, 3).text() == 'Synthetic full module stays'
+    assert dialog.deleted.count() == 3  # Placeholder plus two deleted IDs.
+    dialog._save()
+    dialog.close()
+    reopened = PartialThermalPVReviewDialog(value)
+    reopened.show()
+    assert reopened.table.rowCount() == 1 and not reopened._run.isEnabled()
+    assert len(reopened.proposal_result.proposals) == 1
+    assert reopened.deleted.findData(ids[1]) > 0 and reopened.deleted.findData(ids[2]) > 0
+    # New additions reserve both deleted IDs, and row actions target the right ID.
+    reopened.add.click()
+    editor = reopened._editor_dialog
+    _corners(editor, ADDED)
+    editor.apply.click()
+    assert reopened.table.item(1, 0).text() == 'A1:M-0004'
+    reopened.table.item(1, 3).setText('Synthetic added module after deletions')
+    reopened.correct.click()
+    assert reopened._editor_dialog.module_id.endswith(':M-0004')
+    reopened._editor_dialog.reject()
+    reopened.deleted.setCurrentIndex(reopened.deleted.findData(ids[2]))
+    assert reopened.restore.isEnabled()
+    reopened.restore.click()
+    assert [e['module_id'] for e in pv.active_entries(reopened.regions[key])] == [ids[0], ids[2],
+        reopened.regions[key]['entries'][-1]['module_id']]
+    assert reopened.table.item(1, 3).text() == 'Synthetic remaining nested outline'
+    assert reopened.table.item(2, 3).text() == 'Synthetic added module after deletions'
+    reopened._save()
+    reopened.close()
+    final = PartialThermalPVReviewDialog(value)
+    assert final.table.rowCount() == 3
+    assert final.deleted.findData(ids[1]) > 0 and final.deleted.findData(ids[2]) == -1
+    assert all(p.read_bytes() == data for p, data in originals.items())
+    final.close()
+
+
+def test_delete_all_close_without_save_then_save_empty_and_restore(module_scene, qapp, monkeypatch):
+    from test_thermal_partial_pv import nested_result
+    _, value = module_scene
+    result = nested_result(value)
+    region = pv.make_region(value, result)
+    key = pv.region_key(result.rgb_window)
+    pv.save_module_review(value, {key: region}, key)
+    saved = (value.folder / pv.STATE).read_bytes()
+    dialog = PartialThermalPVReviewDialog(value)
+    dialog.show()
+    dialog.delete.click()
+    dialog.close()
+    assert (value.folder / pv.STATE).read_bytes() == saved
+    dialog = PartialThermalPVReviewDialog(value)
+    dialog.show()
+    assert dialog.table.rowCount() == 3
+    monkeypatch.setattr(dialog, '_detect', lambda *a: pytest.fail('Empty saved result must not re-detect'))
+    for _ in range(3):
+        dialog.delete.click()
+    assert dialog.table.rowCount() == 0 and not dialog.proposal_result.proposals
+    assert not dialog.delete.isEnabled() and not dialog.correct.isEnabled() and dialog.add.isEnabled()
+    dialog._save()
+    dialog.close()
+    reopened = PartialThermalPVReviewDialog(value)
+    reopened.show()
+    assert reopened.table.rowCount() == 0 and not reopened._run.isEnabled()
+    assert reopened.deleted.count() == 4
+    reopened.deleted.setCurrentIndex(1)
+    restored_id = reopened.deleted.currentData()
+    reopened.restore.click()
+    assert reopened.table.rowCount() == 1
+    assert reopened.table.item(0, 0).data(Qt.ItemDataRole.UserRole) == restored_id
+    reopened.close()

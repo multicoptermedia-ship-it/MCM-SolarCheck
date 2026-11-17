@@ -1,5 +1,19 @@
 # Thermal-Orthofoto mit der vorhandenen OpenSfM-Umgebung
 
+## Falsch erkannte Umrisse einzeln löschen17.11.2026
+
+Der Nutzer bestätigt die verbesserte Ansicht und meldet zwei kleine falsche Umrisse innerhalb eines richtig erkannten großen Moduls. Mit der **neuen festen Startfassung unten** denselben gespeicherten RGB-/PV-Ausschnitt öffnen. Keine erneute Modulsuche nötig.
+
+1. Die Tabellenzeile des **kleinen falschen Umrisses** wählen. Der ausgewählte Umriss wird orange hervorgehoben. Bei Unsicherheit über **Ausgewählten Umriss korrigieren** gezielt vergrößert ansehen und mit **Abbrechen** zurückgehen.
+2. **Ausgewählten Umriss löschen** anklicken. Genau dieser Umriss verschwindet aus Bild und Tabelle. Den zweiten kleinen Fehlumriss ebenso einzeln auswählen/löschen. Der große Modul-Umriss bleibt erhalten; andere Entwurfs-IDs, Beurteilungen und Notizen werden nicht umnummeriert oder verändert.
+3. **Modul-Entwürfe und Prüfung lokal speichern**, schließen und erneut öffnen. Die gelöschten Umrisse bleiben entfernt; der große Umriss soll mit derselben ID/Beurteilung erscheinen.
+4. Bei versehentlicher Löschung in **Gelöschte Umrisse** die betreffende ID wählen → **Wiederherstellen**, danach wieder lokal speichern. Das funktioniert auch nach Wiederöffnung. Schließen ohne Speichern behält den vorher gespeicherten Stand.
+
+Gelöschte Entwürfe werden ausschließlich lokal für Wiederherstellung und reservierte IDs aufbewahrt. Sie werden nicht gezeichnet, nicht als aktive Vorschläge gezählt und blockieren keine neuen Umrisse. Neue Ergänzungen erhalten neue IDs; auch ein Ausschnitt ohne aktive Entwürfe bleibt ohne Neudetektion wieder ladbar. Maximal2000Einträge einschließlich gelöschter. Alte lokale Dateien(Schema1/2) werden gelesen; nach Speicherung als Schema3 dieselbe oder eine neuere Programmfassung verwenden, damit ältere Versionen gelöschte Umrisse nicht wieder anzeigen.
+
+Originale/Raster/GeoTIFF-Tags, gespeicherte Thermal-Kameralösung und produktive DB bleiben unverändert. Keine neue Erkennung/Matching-/Orthofotoberechnung. **unvollständig: 280 von 287 Bildern**, Paarimport-Sperre und fehlende Freigabe vollständiger Abdeckung/Geometrie/Celsius bleiben bestehen; private Umrisse/IDs/Notizen bleiben lokal.116gezielte synthetische Tests grün einschließlich genau dieses verschachtelten Falls, Speichern/Wiederöffnung/Wiederherstellung und Zeilenzuordnung nach Löschungen; realer Löschtest beim Nutzer noch offen. Neue exakte HEAD-CI separat prüfen.
+
+
 ## Größere Ansicht und gezieltes Modulfinden17.11.2026
 
 Die bisherige Umrandungsansicht war laut Nutzer zu klein und das gewünschte Modul schwer zu finden. Mit der **neuen festen Startfassung unten** den gespeicherten RGB-/PV-Ausschnitt öffnen; **keine erneute Modulsuche oder Orthofoto-Berechnung starten**.
