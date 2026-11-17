@@ -6,13 +6,39 @@ Der Nutzer hat die zusätzliche isolierte Einrichtung ausdrücklich freigegeben 
 
 ## Was eingerichtet wird
 
-Ein eigener Ordner **`E:\SolarCheck-PV-KI-Pilot`** mit eigenem Python3.10-Environment, TensorFlow-CPU2.10.1/Keras2.10.0 und festgelegten Paketen aus [requirements-pv-hawk-cpu.txt](../requirements-pv-hawk-cpu.txt). Das vorhandene `E:\SolarCheck-OpenSfM\env\python.exe` dient nur zum Erstellen des eigenen Environments. Das bisherige F:-SolarCheck-Python, OpenSfM-Environment, Datenbank und sämtliche Bilder bleiben erhalten. Keine Administratorrechte, CUDA-, Compiler-, SDK- oder Docker-Installation nötig. Mindestens2GiB freier Platz auf E:; während der Einrichtung dort auch Paketcache/Temp. Internet nur für Einrichtung/öffentliche Downloads; Modellvergleich danach lokal.
+Ein eigener Ordner **`E:\SolarCheck-PV-KI-Pilot`** mit eigenem Python3.10-Environment, TensorFlow-CPU2.10.1/Keras2.10.0 und festgelegten Paketen aus [requirements-pv-hawk-cpu.txt](../requirements-pv-hawk-cpu.txt). Das vorhandene `E:\SolarCheck-OpenSfM\env\python.exe` dient nur zum Erstellen des eigenen Environments. Das bisherige F:-SolarCheck-Python, OpenSfM-Environment, Datenbank und sämtliche Bilder bleiben erhalten. Keine Administratorrechte, CUDA-, Compiler-, SDK- oder Docker-Installation nötig. Für Environment/Modell/Cache mindestens4GiB freien Platz auf E: einplanen(Linux-Vergleich2,2GiB); während der Einrichtung dort auch Paketcache/Temp. Internet nur für Einrichtung/öffentliche Downloads; Modellvergleich danach lokal.
 
 Nur sechs festgelegte PV-Hawk-Quelldateien/Lizenz und die veröffentlichte **RGB-Gewichtsdatei mit244MiB** werden geladen. Keine Beispiele, Bilddatensätze oder Trainingsläufe. Alle Artefakte gegen festgelegte Größe/SHA-256 prüfen; beim erneuten Start geprüfte Dateien wiederverwenden. Abbruch mit Strg+C, danach denselben Start wiederholen. Bestehende fremde Zielordner ablehnen.
 
 ## Einmalige Einrichtung und Start
 
-Der geprüfte, feste PowerShell-Startblock wird nach erfolgreicher nativer Windows-Prüfung hier ergänzt. Bisherigen Thermal-Start nicht für eine neue Rekonstruktion verwenden.
+In **PowerShell** den gesamten Block ausführen. Er lädt eine feste Quellfassung, prüft deren SHA-256 und startet die zusätzliche Einrichtung. Anschließend öffnet er den Thermal-Dialog für deine bereits gespeicherten Ergebnisse. Keine neue Rekonstruktion starten.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$pilotCommit = '7120a273d52b75f0dbc902b746bda1c665ccc2ef'
+$pilotStart = Join-Path 'E:\SolarCheck-PV-KI-Start' $pilotCommit
+New-Item -ItemType Directory -Force -Path $pilotStart | Out-Null
+$pilotZip = Join-Path $pilotStart 'SolarCheck-source.zip'
+Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
+if ((Get-FileHash -Algorithm SHA256 $pilotZip).Hash.ToLowerInvariant() -ne '39ba2995f296277041748397fb95d5f3a7da06be84a78e94691c3ae949fbb79b') {
+    throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
+}
+Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotStart -Force
+$pilotSource = Join-Path $pilotStart "MCM-SolarCheck-$pilotCommit"
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pilotSource 'scripts\MCM_SolarCheck_PV_HAWK_SETUP.py')
+if ($LASTEXITCODE -ne 0) { throw 'PV-Hawk-Einrichtung nicht abgeschlossen. Fehlermeldung beachten.' }
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pilotSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
+```
+
+QuellZIP3056710Bytes;683Python-Dateien unter src/scripts sowie Modell-Pin und Paketliste mit Repository bytegleich geprüft. Die Installation selbst legt ausschließlich den eigenen Pilotordner an. Modellgewichte sind nicht Teil der QuellZIP.
+
+**Später erneut öffnen, ohne Installation/Downloads:**
+
+```powershell
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PV-KI-Start\7120a273d52b75f0dbc902b746bda1c665ccc2ef\MCM-SolarCheck-7120a273d52b75f0dbc902b746bda1c665ccc2ef\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
+```
+
 
 Der Einrichtungsstart meldet vier Phasen: eigenes Environment, CPU-Pakete, Originalcode/RGB-Gewichte, echte Modellprobe auf einem synthetischen schwarzen RGB-Bild. Erst nach `status: passed` zum Bildvergleich wechseln. Ein schwarzes Bild ohne Treffer ist **kein Erkennungsqualitätsnachweis**. Bei Installations-/Downloadfehler Einrichtung erneut starten; bei wiederholtem Fehler nur die Fehlermeldung als Text mitteilen, keine privaten Bildpfade/Notizen. Paketliste und `cpu-probe.LOCAL.json` bleiben im Pilotordner.
 

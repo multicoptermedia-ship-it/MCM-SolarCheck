@@ -2,7 +2,7 @@
 
 Stand17.11.2026 · PV-AI-MODEL-COMPARE-01 · [verbindlicher Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
-Der Nutzer verlangt automatische Verarbeitung großer Anlagen und manuelle Handlung nur bei unklarer Analyse. Der jetzige OpenCV-Farb-/Formdetektor ist eine Heuristik. Dieser Block verbindet die vorhandene Detektorschnittstelle mit einem **lokalen CPU-ONNX-Instanzmodellvergleich**. Er liefert **noch kein trainiertes/qualifiziertes PV-Modell**, keine Gesamtparkautomatik und keine automatische Qualitätsfreigabe.
+Der Nutzer verlangt automatische Verarbeitung großer Anlagen und manuelle Handlung nur bei unklarer Analyse. Der jetzige OpenCV-Farb-/Formdetektor ist eine Heuristik. Dieser Block verbindet die vorhandene Detektorschnittstelle mit einem **lokalen CPU-ONNX-Instanzmodellvergleich**. Der ergänzte PV-Hawk-Pilot lädt inzwischen tatsächlich veröffentlichte trainierte RGB-Gewichte in einer eigenen CPU-Umgebung; noch kein im Feld qualifiziertes Modell, keine Gesamtparkautomatik und keine automatische Qualitätsfreigabe.
 
 
 **Aktualisierung17.11.:** Zusätzlicher isolierter PV-Hawk-CPU-Pilot vom Nutzer ausdrücklich freigegeben und implementiert. Tatsächliche veröffentlichte RGB-Gewichte/Linux-CPU-Inferenz und gespeicherter Ausschnittvergleich auf synthetischen GeoTIFFs bestanden; eigener expliziter Windows-Einrichtungsstart, keine Installation in SolarCheck/OpenSfM. [Aktueller Start/Prüfstand](PV_HAWK_CPU_PILOT_WINDOWS10.md). Unten beschriebene frühere Freigabenachfrage ist beantwortet; keine erneute Nachfrage. ONNX bleibt optionaler anderer Backendweg; H5 wird direkt in der getrennten TF-Laufzeit geladen. Feldqualität/Produktion/Weitergaberechte weiterhin offen.
