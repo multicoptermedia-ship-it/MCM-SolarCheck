@@ -81,7 +81,8 @@ def setup(prefix, base_python):
         raise RuntimeError('CPU-Modellprobe fehlgeschlagen; Kennzahlenprobe nicht bestanden. Keine Kundendaten verarbeitet.')
     (prefix/'runtime-packages.LOCAL.txt').write_bytes(subprocess.check_output([str(python),'-m','pip','freeze'],env=environment,timeout=30))
     print(result.stdout.decode('utf-8').strip(),flush=True)
-    print('Fertig. Im gespeicherten PV-Ausschnitt KI-Modellvergleich starten und pv-hawk-rgb.LOCAL.json im Pilotordner waehlen.',flush=True)
+    print('Einrichtung und Probe fertig. Bisher wurde nur ein schwarzes Testbild verarbeitet, noch kein Bild deiner Anlage.',flush=True)
+    print('Fuer sichtbare Ergebnisse: gespeicherten PV-Ausschnitt oeffnen, KI-Modellvergleich starten und pv-hawk-rgb.LOCAL.json im Pilotordner waehlen.',flush=True)
 
 
 def probe(prefix):

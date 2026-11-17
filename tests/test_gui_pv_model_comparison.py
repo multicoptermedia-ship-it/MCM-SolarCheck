@@ -123,3 +123,54 @@ def test_pv_hawk_manifest_selects_only_own_isolated_worker_and_invalid_json_stay
     assert len(calls)==1 and 'JSON-Objekt' in dialog._status.text()
     assert not (value.folder/evaluation.STATE).exists()
     dialog.close()
+
+
+@pytest.mark.parametrize('candidate_count',[0,2])
+def test_pv_hawk_flat_metadata_result_opens_after_finish_and_reopens_without_inference(module_scene,qapp,monkeypatch,tmp_path,candidate_count):
+    import json
+    import numpy as np
+    from mcm_solarcheck.vision import pv_hawk_module_detector as hawk
+    source,value=module_scene;reviewed(value)
+    originals={p:p.read_bytes() for p in (value.rgb_path,value.thermal_path,value.folder/pv.STATE,source/'job.json')}
+    spec=hawk.specification();manifest=tmp_path/'pv-hawk-rgb.LOCAL.json'
+    manifest.write_text(json.dumps(dict(profile=hawk.PROFILE,evaluation_allowed=True,production_approved=False,
+        source_commit=spec['source_commit'],weights_sha256=spec['weights_sha256'])))
+    class SyntheticModel:
+        def detect(self,images,verbose):
+            h,w=images[0].shape[:2];masks=np.zeros((h,w,candidate_count),bool)
+            if candidate_count:
+                masks[80:131,80:161,0]=True;masks[280:331,380:461,1]=True
+            return [dict(masks=masks,scores=np.full(candidate_count,.9),class_ids=np.ones(candidate_count))]
+    monkeypatch.setattr(hawk.PVHawkModuleDetector,'_check_weights',lambda self:None)
+    monkeypatch.setattr(hawk,'_model',lambda *a:SyntheticModel())
+    key=pv.region_key((20,20,760,560));token='b'*32
+    record=evaluation.compare_saved_region(source,manifest,key,run_token=token)
+    assert record['model']['provider']=='LukasBommes/PV-Hawk' and 'model' not in record['model']
+    assert record['counts']['candidate_outlines']==candidate_count
+    dialog=PartialThermalPVReviewDialog(value);dialog.show()
+    dialog._model_pending=value.folder/f'pv-model-comparison-{token}.LOCAL.json'
+    dialog._model_finished(0,QProcess.ExitStatus.NormalExit)
+    result=dialog._model_dialog
+    assert result is not None and result.isVisible(),dialog._status.text()
+    assert 'LukasBommes/PV-Hawk' in result._status.text()
+    assert f'KI-Kandidaten: {candidate_count}' in result.findChild(QLabel,'orthophoto_pv_help').text()
+    if candidate_count==0:assert 'Keine KI-Umrisse' in result._status.text()
+    saved=(value.folder/evaluation.STATE).read_bytes()
+    result.close()
+    monkeypatch.setattr(hawk,'_model',lambda *a:pytest.fail('Reopen saved evidence without inference'))
+    dialog.model_open.click()
+    assert dialog._model_dialog is not result and dialog._model_dialog.isVisible()
+    assert (value.folder/evaluation.STATE).read_bytes()==saved
+    assert all(p.read_bytes()==before for p,before in originals.items())
+    dialog.close()
+
+
+def test_setup_without_saved_comparison_explains_next_step_without_worker(module_scene,qapp,monkeypatch):
+    _,value=module_scene;reviewed(value)
+    dialog=PartialThermalPVReviewDialog(value);dialog.show()
+    monkeypatch.setattr(QProcess,'start',lambda *a:pytest.fail('Opening saved evidence must not run model'))
+    dialog.model_open.click()
+    assert dialog._model_dialog is None and dialog._model_process is None
+    assert 'Noch kein gespeicherter KI-Vergleich' in dialog._status.text()
+    assert 'KI-Modellvergleich starten (lokal)' in dialog._status.text()
+    dialog.close()

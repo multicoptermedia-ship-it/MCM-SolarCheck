@@ -522,11 +522,18 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
 
     def _open_model_comparison(self):
         try:
+            from ..services.thermal_partial_model_comparison import STATE
+            if not (self.comparison.folder / STATE).exists():
+                self._status.setText('Noch kein gespeicherter KI-Vergleich. Die Einrichtung allein erstellt keine Anlagen-Ergebnisse. '
+                    'Im gespeicherten PV-Ausschnitt „KI-Modellvergleich starten (lokal)“ wählen.')
+                return
             from .thermal_partial_model_comparison import ModelComparisonDialog
             if self._model_dialog:
                 self._model_dialog.deleteLater()
             self._model_dialog = ModelComparisonDialog(self.comparison, self)
             self._model_dialog.show()
+            self._model_dialog.raise_()
+            self._model_dialog.activateWindow()
         except (ValueError, TypeError, KeyError, OSError, RuntimeError):
             self._status.setText('Kein passender gespeicherter KI-Vergleich; Quellen und gespeicherte Modulprüfung unverändert lassen.')
 

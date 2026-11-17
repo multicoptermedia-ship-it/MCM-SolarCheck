@@ -26,6 +26,7 @@ class ModelComparisonDialog(OrthophotoPVReviewDialog):
         self.layout().insertWidget(0, notice)
         counts = record['counts']
         self.findChild(QLabel, 'orthophoto_pv_help').setText(
+            f"KI-Kandidaten: {counts['candidate_outlines']} · "
             f"Gespeicherte passende Umrisse: {counts['reviewed_outlines']} · "
             f"davon wiedergefunden: {counts['matched_reviewed_outlines']} · "
             f"nicht wiedergefunden: {counts['unmatched_reviewed_outlines']} · "
@@ -35,8 +36,13 @@ class ModelComparisonDialog(OrthophotoPVReviewDialog):
         scroll = self.findChild(QScrollArea, 'orthophoto_pv_result_scroll')
         scroll.setMaximumHeight(16777215)
         self._render_result(result)
-        self._status.setText('Vergleich separat lokal gespeichert. Bestehende Entwürfe/Beurteilungen bleiben erhalten. '
-            f"Modell: {record['model']['model']['provider']} / {record['model']['model']['model_version']}")
+        # ONNX reports embed ModelManifest; existing PV-Hawk reports store
+        # provider/version directly. Reopen either without rewriting evidence.
+        metadata = record['model'].get('model', record['model'])
+        empty = ('Keine KI-Umrisse im Ergebnis. Der Vergleich ist abgeschlossen; '
+            'gelbe Umrisse zeigen die gespeicherte Teilreferenz. ' if not result.proposals else '')
+        self._status.setText(empty + 'Vergleich separat lokal gespeichert. Bestehende Entwürfe/Beurteilungen bleiben erhalten. '
+            f"Modell: {metadata['provider']} / {metadata['model_version']}")
         available = self.screen().availableGeometry()
         self.resize(min(1200, available.width()-40), min(850, available.height()-40))
 

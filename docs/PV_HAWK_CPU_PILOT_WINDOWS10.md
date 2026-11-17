@@ -4,6 +4,14 @@ Stand17.11.2026 · PV-HAWK-CPU-PILOT-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSST
 
 Der Nutzer hat die zusätzliche isolierte Einrichtung ausdrücklich freigegeben und führt sie auf seinem Rechner selbst aus. Ziel dieses Schritts ist ein begrenzter Vergleich eines **tatsächlich vortrainierten RGB-Modulmodells** mit bereits gespeicherten passenden Umrissen. Noch keine automatische Gesamtparkverarbeitung oder Qualitätsfreigabe.
 
+## Ergebnisanzeige aktualisieren ohne Neuinstallation
+
+Bei „KI ist gelaufen, aber kein Ergebnis sichtbar“ liegt ein bestätigter Anzeigefehler vor: Die bisherige Ergebnisansicht las die flachen PV-Hawk-Modellangaben wie eine verschachtelte ONNX-Beschreibung. Ein bereits erfolgreich berechneter Bericht kann trotzdem lokal gespeichert sein. Die korrigierte Oberfläche öffnet beide Berichtsformate, zeigt auch null KI-Kandidaten ausdrücklich an und bringt das Fenster nach vorn. Keine Änderung der gespeicherten Resultate oder Bilder.
+
+Der feste Aktualisierungsstart ohne Paket-/Gewichtsinstallation wird nach Prüfung dieser Korrektur hier ergänzt. Danach vorhandenen Lauf13.11./18:58:37/oh9ptgy5 → RGB-Vergleich → gespeicherten PV-Ausschnitt öffnen → **Gespeicherten KI-Vergleich öffnen**. Bei vorhandener Datei keine erneute Modellberechnung nötig. Nicht erneut Entwürfe/Notizen speichern oder verändern, bevor der vorhandene KI-Vergleich geöffnet wurde: Sein Quellstand wird geprüft.
+
+**Falls bisher nur der PowerShell-Einrichtungsstart lief:** Die CPU-Probe verwendet ein schwarzes synthetisches Bild und erzeugt keine Modulumrisse deiner Anlage. Dann im gespeicherten PV-Ausschnitt einmal **KI-Modellvergleich starten(lokal)** und `E:\SolarCheck-PV-KI-Pilot\pv-hawk-rgb.LOCAL.json` wählen. Das Ergebnis erscheint anschließend im eigenen Fenster: gelbe gespeicherte Teilreferenz, grüne KI-Kandidaten, Zähler darüber. **KI-Kandidaten:0 / Keine KI-Umrisse im Ergebnis** ist ein sichtbarer abgeschlossener Vergleich ohne übernommene KI-Umrisse; keine Aussage „alle Module gesund“ oder vollständige Anlagenabdeckung.
+
 ## Was eingerichtet wird
 
 Ein eigener Ordner **`E:\SolarCheck-PV-KI-Pilot`** mit eigenem Python3.10-Environment, TensorFlow-CPU2.10.1/Keras2.10.0 und festgelegten Paketen aus [requirements-pv-hawk-cpu.txt](../requirements-pv-hawk-cpu.txt). Das vorhandene `E:\SolarCheck-OpenSfM\env\python.exe` dient nur zum Erstellen des eigenen Environments. Das bisherige F:-SolarCheck-Python, OpenSfM-Environment, Datenbank und sämtliche Bilder bleiben erhalten. Keine Administratorrechte, CUDA-, Compiler-, SDK- oder Docker-Installation nötig. Für Environment/Modell/Cache mindestens4GiB freien Platz auf E: einplanen(Linux-Vergleich2,2GiB); während der Einrichtung dort auch Paketcache/Temp. Internet nur für Einrichtung/öffentliche Downloads; Modellvergleich danach lokal.
