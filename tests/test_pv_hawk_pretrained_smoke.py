@@ -67,4 +67,16 @@ def test_pretrained_rgb_cpu_real_worker_saved_comparison_reopen_and_bad_hash(pre
         assert run.returncode==2 and (value.folder/evaluation.STATE).read_bytes()==saved
         assert evaluation.read_model_comparison(value)[0]==record  # no model load
     finally:manifest.write_bytes(previous)
+    # Same single-process boundary as Qt: killing a real TF worker preserves
+    # the previous accepted report and never starts a background child engine.
+    import time
+    cancelled=subprocess.Popen(args+['--run-token','a'*32],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    try:
+        time.sleep(1)
+        assert cancelled.poll() is None
+        cancelled.kill();cancelled.wait(timeout=20)
+    finally:
+        if cancelled.poll() is None:cancelled.kill();cancelled.wait(timeout=20)
+    assert (value.folder/evaluation.STATE).read_bytes()==saved
+    assert not list(value.folder.glob('pv-model-comparison-*.LOCAL.json'))
     assert all(p.read_bytes()==before for p,before in originals.items())

@@ -462,7 +462,10 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
             path = _local(manifest)
             if path.stat().st_size > 32768:
                 raise ValueError('Modellbeschreibung zu groß.')
-            profile = json.loads(path.read_text(encoding='utf-8')).get('profile')
+            description = json.loads(path.read_text(encoding='utf-8'))
+            if not isinstance(description, dict):
+                raise ValueError('Modellbeschreibung muss ein JSON-Objekt sein.')
+            profile = description.get('profile')
             executable = evaluation_python(manifest) if profile == PROFILE else sys.executable
             token = uuid4().hex
             self._model_pending = self.comparison.folder / f'pv-model-comparison-{token}.LOCAL.json'

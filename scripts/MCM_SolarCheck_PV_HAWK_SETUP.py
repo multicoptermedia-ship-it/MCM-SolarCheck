@@ -15,6 +15,8 @@ MARKER = 'solarcheck-pv-hawk-cpu-pilot-1'
 
 
 def download(url, target, check):
+    if any(p.is_symlink() for p in (target,*target.parents)):
+        raise ValueError('Verknuepfung im Downloadziel abgelehnt.')
     if target.is_file() and sha256(target.read_bytes()).hexdigest() == check['sha256'] and target.stat().st_size == check['bytes']:
         return
     target.parent.mkdir(parents=True,exist_ok=True)

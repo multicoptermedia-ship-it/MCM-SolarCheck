@@ -99,3 +99,27 @@ def test_timeout_and_window_close_discard_staging_without_losing_saved_review(mo
     assert not (value.folder/evaluation.STATE).exists()
     assert not list(value.folder.glob('pv-model-comparison-*.LOCAL.json'))
     dialog.close()
+
+
+def test_pv_hawk_manifest_selects_only_own_isolated_worker_and_invalid_json_stays_in_gui(module_scene,qapp,monkeypatch,tmp_path):
+    import json
+    import sys
+    from mcm_solarcheck.vision.pv_hawk_module_detector import specification,PROFILE
+    source,value=module_scene;reviewed(value)
+    root=tmp_path/'own-pilot';root.mkdir()
+    manifest=root/'pv-hawk-rgb.LOCAL.json';spec=specification()
+    manifest.write_text(json.dumps(dict(profile=PROFILE,evaluation_allowed=True,production_approved=False,
+        source_commit=spec['source_commit'],weights_sha256=spec['weights_sha256'])))
+    python=root/('env/Scripts/python.exe' if sys.platform=='win32' else 'env/bin/python')
+    python.parent.mkdir(parents=True);python.write_bytes(b'placeholder, never executed')
+    calls=[]
+    monkeypatch.setattr(QProcess,'start',lambda self,program,args:calls.append((program,args)))
+    monkeypatch.setattr(QFileDialog,'getOpenFileName',lambda *a,**k:(str(manifest),''))
+    dialog=PartialThermalPVReviewDialog(value);dialog.show();dialog.model_start.click()
+    assert calls[0][0]==str(python) and '--source' in calls[0][1]
+    assert str(source) in calls[0][1] and '--run-token' in calls[0][1]
+    dialog._model_finished(2,QProcess.ExitStatus.CrashExit)
+    manifest.write_text('[]');dialog.model_start.click()
+    assert len(calls)==1 and 'JSON-Objekt' in dialog._status.text()
+    assert not (value.folder/evaluation.STATE).exists()
+    dialog.close()

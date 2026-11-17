@@ -39,7 +39,7 @@ def validate_manifest(path):
         raise ValueError('Lokale PV-Hawk-Modellbeschreibung erforderlich.')
     data = json.loads(path.read_text(encoding='utf-8'))
     spec = specification()
-    if (data.get('profile') != PROFILE or data.get('evaluation_allowed') is not True
+    if (not isinstance(data, dict) or data.get('profile') != PROFILE or data.get('evaluation_allowed') is not True
             or data.get('production_approved') is not False
             or data.get('source_commit') != spec['source_commit']
             or data.get('weights_sha256') != spec['weights_sha256']):
