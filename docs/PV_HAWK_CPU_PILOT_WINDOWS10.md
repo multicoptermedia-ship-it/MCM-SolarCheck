@@ -8,7 +8,25 @@ Der Nutzer hat die zusätzliche isolierte Einrichtung ausdrücklich freigegeben 
 
 Bei „KI ist gelaufen, aber kein Ergebnis sichtbar“ liegt ein bestätigter Anzeigefehler vor: Die bisherige Ergebnisansicht las die flachen PV-Hawk-Modellangaben wie eine verschachtelte ONNX-Beschreibung. Ein bereits erfolgreich berechneter Bericht kann trotzdem lokal gespeichert sein. Die korrigierte Oberfläche öffnet beide Berichtsformate, zeigt auch null KI-Kandidaten ausdrücklich an und bringt das Fenster nach vorn. Keine Änderung der gespeicherten Resultate oder Bilder.
 
-Der feste Aktualisierungsstart ohne Paket-/Gewichtsinstallation wird nach Prüfung dieser Korrektur hier ergänzt. Danach vorhandenen Lauf13.11./18:58:37/oh9ptgy5 → RGB-Vergleich → gespeicherten PV-Ausschnitt öffnen → **Gespeicherten KI-Vergleich öffnen**. Bei vorhandener Datei keine erneute Modellberechnung nötig. Nicht erneut Entwürfe/Notizen speichern oder verändern, bevor der vorhandene KI-Vergleich geöffnet wurde: Sein Quellstand wird geprüft.
+In PowerShell diesen Block ausführen. Er lädt ausschließlich die korrigierte Quellfassung und öffnet die Oberfläche mit deinem vorhandenen F:-Python. **Keine Pakete/Gewichte neu installieren und keinen KI-Lauf starten.**
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$pilotCommit = 'dfb6bc9fc6a27fce5049da2f260bba071607d4e8'
+$pilotStart = Join-Path 'E:\SolarCheck-PV-KI-Start' $pilotCommit
+New-Item -ItemType Directory -Force -Path $pilotStart | Out-Null
+$pilotZip = Join-Path $pilotStart 'SolarCheck-source.zip'
+Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
+if ((Get-FileHash -Algorithm SHA256 $pilotZip).Hash.ToLowerInvariant() -ne 'e2a5d4685bc9e4c48d65cc6c96d46abaa869370fc860e885bdf7c21696eb4b04') {
+    throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
+}
+Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotStart -Force
+$pilotSource = Join-Path $pilotStart "MCM-SolarCheck-$pilotCommit"
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pilotSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
+```
+
+Geprüfte QuellZIP3061191Bytes/683Runtime-Python-Dateien bytegleich. Die vorhandene `E:\SolarCheck-PV-KI-Pilot`-Installation wird weiterverwendet. Nur die Oberfläche muss neu geöffnet werden.
+ Danach vorhandenen Lauf13.11./18:58:37/oh9ptgy5 → RGB-Vergleich → gespeicherten PV-Ausschnitt öffnen → **Gespeicherten KI-Vergleich öffnen**. Bei vorhandener Datei keine erneute Modellberechnung nötig. Nicht erneut Entwürfe/Notizen speichern oder verändern, bevor der vorhandene KI-Vergleich geöffnet wurde: Sein Quellstand wird geprüft.
 
 **Falls bisher nur der PowerShell-Einrichtungsstart lief:** Die CPU-Probe verwendet ein schwarzes synthetisches Bild und erzeugt keine Modulumrisse deiner Anlage. Dann im gespeicherten PV-Ausschnitt einmal **KI-Modellvergleich starten(lokal)** und `E:\SolarCheck-PV-KI-Pilot\pv-hawk-rgb.LOCAL.json` wählen. Das Ergebnis erscheint anschließend im eigenen Fenster: gelbe gespeicherte Teilreferenz, grüne KI-Kandidaten, Zähler darüber. **KI-Kandidaten:0 / Keine KI-Umrisse im Ergebnis** ist ein sichtbarer abgeschlossener Vergleich ohne übernommene KI-Umrisse; keine Aussage „alle Module gesund“ oder vollständige Anlagenabdeckung.
 
@@ -24,12 +42,12 @@ In **PowerShell** den gesamten Block ausführen. Er lädt eine feste Quellfassun
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pilotCommit = '7120a273d52b75f0dbc902b746bda1c665ccc2ef'
+$pilotCommit = 'dfb6bc9fc6a27fce5049da2f260bba071607d4e8'
 $pilotStart = Join-Path 'E:\SolarCheck-PV-KI-Start' $pilotCommit
 New-Item -ItemType Directory -Force -Path $pilotStart | Out-Null
 $pilotZip = Join-Path $pilotStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
-if ((Get-FileHash -Algorithm SHA256 $pilotZip).Hash.ToLowerInvariant() -ne '39ba2995f296277041748397fb95d5f3a7da06be84a78e94691c3ae949fbb79b') {
+if ((Get-FileHash -Algorithm SHA256 $pilotZip).Hash.ToLowerInvariant() -ne 'e2a5d4685bc9e4c48d65cc6c96d46abaa869370fc860e885bdf7c21696eb4b04') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotStart -Force
@@ -39,12 +57,12 @@ if ($LASTEXITCODE -ne 0) { throw 'PV-Hawk-Einrichtung nicht abgeschlossen. Fehle
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pilotSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
 ```
 
-QuellZIP3056710Bytes;683Python-Dateien unter src/scripts sowie Modell-Pin und Paketliste mit Repository bytegleich geprüft. Die Installation selbst legt ausschließlich den eigenen Pilotordner an. Modellgewichte sind nicht Teil der QuellZIP.
+QuellZIP3061191Bytes;683Python-Dateien unter src/scripts sowie Modell-Pin und Paketliste mit Repository bytegleich geprüft. Die Installation selbst legt ausschließlich den eigenen Pilotordner an. Modellgewichte sind nicht Teil der QuellZIP.
 
 **Später erneut öffnen, ohne Installation/Downloads:**
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PV-KI-Start\7120a273d52b75f0dbc902b746bda1c665ccc2ef\MCM-SolarCheck-7120a273d52b75f0dbc902b746bda1c665ccc2ef\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PV-KI-Start\dfb6bc9fc6a27fce5049da2f260bba071607d4e8\MCM-SolarCheck-dfb6bc9fc6a27fce5049da2f260bba071607d4e8\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
 ```
 
 
@@ -71,3 +89,5 @@ Nur als Text berichten: ganze Module im Ausschnitt, passende KI-Umrisse, fehlend
 ## Prüfbelege
 
 Linux/Python3.10: tatsächliche veröffentlichte RGB-Gewichte vollständig geladen, synthetische CPU-Inferenz bestanden(14,948s einschließlich Laden, schwarzes512×640RGB). Zusätzlich13Tests im getrennten Environment: echter Modellworker auf synthetischen georeferenzierten Bildern, Speicherung/Wiederöffnung, Fehlererhalt, Abbruch eines echten TF-Workers, Quellschutz, Artefakt-/Manifestgrenzen.147gezielte bestehende/erweiterte Tests grün, ein bewusst optionaler Modelltest außerhalb der isolierten Umgebung übersprungen. Frische Einrichtung unter Linux mit tatsächlichen Paket-/Code-/Gewichtsdownloads und Modellprobe bestanden(15,188s Modellprobe); nativer Windows2022-PV-Hawk-Job44159516437 bestanden: frische Einrichtung/ein echtes Modell/Syntheseprobe plus13Tests. Neue exakte HEAD-CI separat prüfen. Windows Server2022-CI ersetzt keine Abnahme auf dem Windows10-Auswerterechner; reale Erkennungsqualität und Laufzeit erst dort prüfen.
+
+**Ergebnisanzeige-Korrektur17.11.:** Zwei synthetische PV-Hawk-GUI-Fälle(0/2Kandidaten) reproduzieren den ursprünglichen Fehler vor dem Fix; nach dem Fix öffnen fertiger Vergleich und gespeichertes Ergebnis ohne neue Inferenz und ohne Dateiveränderung. Fehlender Bericht nach reiner Einrichtung erklärt den nächsten Schritt.74gezielte Tests plus zwei Übergabeprüfungen grün; neue exakte HEAD-CI prüfen.
