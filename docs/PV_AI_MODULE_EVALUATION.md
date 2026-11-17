@@ -77,7 +77,7 @@ Am17.11.2026 nur öffentliche Dokumentation/Code-/Release-Metadaten gelesen. Kei
 
 ## Testbelege und Grenzen
 
-132gezielte synthetische Tests grün. Neue Fälle führen **tatsächliche OpenCV-CPU-Neuralinferenz mit einem synthetischen NN-Vertragsgraph** aus, prüfen RGB/Letterbox, Format/Hashes/Rechte/externe Tensoren, CLI und Qt→Worker→Vergleich→Speichern→Wiederöffnung, Fehler/Abbruch/Timeout/Schließen und unveränderte Quellen/Entwürfe/Paarimport-Sperre. Der Graph hat künstlich gesetzte Testgewichte und ist ausdrücklich **kein trainiertes PV-Erkennungsmodell**. Neue CI am exakten HEAD prüfen; synthetische Erfolge belegen keine reale Feldleistung oder1000-Modul-Tauglichkeit.
+134gezielte synthetische Tests grün. Neue Fälle führen **tatsächliche OpenCV-CPU-Neuralinferenz mit einem synthetischen NN-Vertragsgraph** aus, prüfen RGB/Letterbox, Format/Hashes/Rechte/externe Tensoren, CLI und Qt→Worker→Vergleich→Speichern→Wiederöffnung, Fehler/Abbruch/Timeout/Schließen und unveränderte Quellen/Entwürfe/Paarimport-Sperre. Der Graph hat künstlich gesetzte Testgewichte und ist ausdrücklich **kein trainiertes PV-Erkennungsmodell**. Neue CI am exakten HEAD prüfen; synthetische Erfolge belegen keine reale Feldleistung oder1000-Modul-Tauglichkeit.
 
 ## Konkreter Vorschlag für den noch zu bestätigenden PV-Hawk-Versuch
 

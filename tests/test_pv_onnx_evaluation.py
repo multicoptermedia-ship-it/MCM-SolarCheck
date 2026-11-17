@@ -156,3 +156,16 @@ def test_rgb_preprocessing_padding_and_invalid_output_are_checked(model_manifest
     assert blob.shape==(1,3,64,64)
     assert not blob[:,:,0].any() and not blob[:,:,-1].any()
     assert blob[0,:,20,20]==pytest.approx([30/255,20/255,10/255])
+
+
+@pytest.mark.parametrize('with_detection',[False,True])
+def test_fixed_size_model_empty_padding_is_not_a_detection_or_error(model_manifest,with_detection):
+    detector=OnnxModuleDetector(model_manifest)
+    class PaddedNet:
+        def setInput(self,blob):pass
+        def forward(self,names):
+            return [np.array([[0,0,0,0],[.2,.2,.4,.4]],np.float32),
+                np.array([0,.9 if with_detection else 0],np.float32),np.ones((2,28,28),np.float32)]
+    detector.net=PaddedNet()
+    found=detector.detect_array(np.zeros((64,64,3),np.uint8))
+    assert len(found)==int(with_detection)

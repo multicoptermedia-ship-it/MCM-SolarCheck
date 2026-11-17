@@ -110,10 +110,10 @@ class OnnxModuleDetector:
             raise ValueError('Ungueltige oder zu grosse ONNX-Instanzausgaben.')
         detections = []
         for box, score, mask in zip(boxes, scores, masks):
+            if score < .25:  # Also skip zero-filled padding in fixed-size exports.
+                continue
             if box[2] <= box[0] or box[3] <= box[1]:
                 raise ValueError('Ungueltige ONNX-Instanzbox.')
-            if score < .25:  # Candidate cutoff, never an automatic approval.
-                continue
             x0, y0, x1, y1 = box*self.size
             # Do not turn padding or clipped instances into complete modules.
             if x0 < left or y0 < top or x1 > left+rw or y1 > top+rh:
