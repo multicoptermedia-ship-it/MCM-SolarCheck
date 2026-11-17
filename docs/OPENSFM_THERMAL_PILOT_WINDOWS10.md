@@ -10,7 +10,7 @@ Die bisherige Umrandungsansicht war laut Nutzer zu klein und das gewünschte Mod
 4. Mit **+ / −** oder **Strg + Mausrad** zoomen(25–800%). **100 %** zeigt Originalpixelgröße; **Ausschnitt einpassen** zeigt den ganzen gewählten Bereich. **Ausgewähltes Modul zeigen** führt jederzeit zurück zum bisherigen Modul. Mit **gedrückter mittlerer Maustaste** oder Scrollleisten verschieben.
 5. Vier Ecken des ganzen Moduls entlang des Randes anklicken. Zoom/Verschieben ändern bereits gesetzte Ecken nicht. **Letzte Ecke zurück** bei Fehlklick, dann übernehmen → prüfen/RGB-Thermal vergleichen → **Modul-Entwürfe und Prüfung lokal speichern** → schließen/wiederöffnen. IDs, Notizen und Korrekturhistorie bleiben erhalten; der korrigierte Entwurf steht zunächst wieder auf Offen.
 
-Zoom ändert nur die Anzeige; gespeichert werden weiterhin die ursprünglichen RGB-Pixelpositionen. Originale/Raster/GeoTIFF-Tags unverändert, keine neue Erkennung oder Lagekorrektur. Dauerlabel **unvollständig: 280 von 287 Bildern**, Paarimport-Sperre und fehlende vollständige Abdeckungs-/Geometrie-/Celsiusfreigabe bleiben bestehen. Kundendaten bleiben lokal.111gezielte synthetische Tests grün; Sichtprüfung der neuen Bedienung beim Nutzer noch offen. Neue exakte HEAD-CI separat prüfen.
+Zoom ändert nur die Anzeige; gespeichert werden weiterhin die ursprünglichen RGB-Pixelpositionen. Originale/Raster/GeoTIFF-Tags unverändert, keine neue Erkennung oder Lagekorrektur. Dauerlabel **unvollständig: 280 von 287 Bildern**, Paarimport-Sperre und fehlende vollständige Abdeckungs-/Geometrie-/Celsiusfreigabe bleiben bestehen. Kundendaten bleiben lokal.111gezielte synthetische Tests grün; Sichtprüfung der neuen Bedienung beim Nutzer noch offen. Quellfassung **d61d6b9cb773436235691e2290ee48498b85f850**, ZIP3006656Bytes/SHA256 im Startblock; alle677Python-Dateien unter src/scripts bytegenau geprüft. Nachfolgenden Dokumentations-HEAD separat in CI prüfen.
 
 
 ## Modulumriss manuell korrigieren oder ergänzen17.11.2026
@@ -24,7 +24,7 @@ Der Nutzer hat den begrenzten Vorschlags-/Prüfweg einschließlich Speicherung u
 
 Keine neuen Matching-/Erkennungs-/Orthofotoläufe. Nur lokale Entwürfe; keine bestätigten physischen Modul-IDs. Thermalzuordnung und gültiger Pixelanteil werden für den gezeichneten Umriss mit der vorhandenen GIS-Logik neu bestimmt; fehlende Thermalbereiche bleiben fehlend. **unvollständig: 280 von 287 Bildern**, Paarimport-Sperre und fehlende Freigabe von vollständiger Abdeckung, Geometrie oder Celsius bleiben bestehen. RGB/Thermal-Dateien/Tags und produktive DB unverändert. Historie/Polygone/Notizen bleiben privat in pv-modules.LOCAL.json; nicht hochladen. Ältere gespeicherte Prüfungen werden gelesen; nach Speicherung mit dieser Fassung dieselbe oder eine neuere Programmversion verwenden.
 
-Technisch107gezielte synthetische Tests bestanden, einschließlich Korrigieren/Ergänzen/Abbrechen/Speichern/Wiederöffnung/Altdaten und Import-Sperre; reale manuelle Umrissprüfung beim Nutzer noch offen. Feste Quellfassung **f3278ff4f16f1fb414888ebb3769def78e139ef7**, QuellZIP **3000493Bytes**, SHA256 im Startblock; sämtliche677Python-Dateien unter src/scripts bytegenau gegen die Quelle geprüft. Nachfolgenden Dokumentations-HEAD separat in CI prüfen.
+Technisch111gezielte synthetische Tests bestanden, einschließlich Korrigieren/Ergänzen/Abbrechen/Speichern/Wiederöffnung/Altdaten und Import-Sperre; reale manuelle Umrissprüfung beim Nutzer noch offen. Feste Quellfassung **d61d6b9cb773436235691e2290ee48498b85f850**, QuellZIP **3006656Bytes**, SHA256 im Startblock; sämtliche677Python-Dateien unter src/scripts bytegenau gegen die Quelle geprüft. Nachfolgenden Dokumentations-HEAD separat in CI prüfen.
 
 
 ## PV-Modul-Entwürfe im gespeicherten Vergleich16.11.2026
@@ -63,7 +63,7 @@ Jetzt **Ausgabeordner oeffnen** und die bereits erzeugte `undistorted/depthmaps/
 
 RGB ist lokal erfolgreich geprüft; nicht neu rechnen. Thermal: Hauptmodell280 von287 Bildern, Zusatzabgleich ausgeschöpft. **Keine neuen Matchingläufe.** Ältere Zusatzabgleich-/Erstlaufanweisungen unten sind Historie; der aktualisierte Startblock öffnet die neue Teilvorschaufassung.
 
-Den aktualisierten Startblock unten verwenden (feste Quellfassungf3278ff4, ZIP-SHA256 und sämtliche677Python-Dateien unter src/scripts bytegenau geprüft; bestehender ZIP-/F:-Python-Start bleibt erhalten). Im Thermal-Dialog **Lauf laden** und den vorhandenen gescheiterten Thermal-Lauf mit dem280er Hauptmodell auswählen. Keine Projektdatei/Originalbilder neu importieren. **Unvollstaendige Thermal-Teilvorschau** anklicken; bewusst gestartete lokale Verarbeitung, maximal60Minuten je Stufe/drei Stunden insgesamt. Es laufen nur native Entzerrung, Cluster, Tiefenkarten, Fusion und GeoTIFF aus den bestehenden eigenen Thermalposen. Kein Matching, keine Kamerarekonstruktion, kein RGB-Neulauf.
+Den aktualisierten Startblock unten verwenden (feste Quellfassungd61d6b9c, ZIP-SHA256 und sämtliche677Python-Dateien unter src/scripts bytegenau geprüft; bestehender ZIP-/F:-Python-Start bleibt erhalten). Im Thermal-Dialog **Lauf laden** und den vorhandenen gescheiterten Thermal-Lauf mit dem280er Hauptmodell auswählen. Keine Projektdatei/Originalbilder neu importieren. **Unvollstaendige Thermal-Teilvorschau** anklicken; bewusst gestartete lokale Verarbeitung, maximal60Minuten je Stufe/drei Stunden insgesamt. Es laufen nur native Entzerrung, Cluster, Tiefenkarten, Fusion und GeoTIFF aus den bestehenden eigenen Thermalposen. Kein Matching, keine Kamerarekonstruktion, kein RGB-Neulauf.
 
 **Ausgabeordner oeffnen** führt zum getrennten `thermal-partial-*`-Ordner. Dort liegen `partial-preview.json` und nach Erfolg `undistorted/depthmaps/UNVOLLSTAENDIG_THERMAL_TEILVORSCHAU.tif` samt Warntext. GeoTIFF-Tags und Dialog tragen dauerhaft „unvollständig: 280 von 287 Bildern“ (tatsächliche Zahlen aus gespeichertem Hauptmodell). `excluded-images.LOCAL.json` ordnet die sieben ausgeschlossenen Bilder ihren gespeicherten Arbeits-/Quellkennungen zu; ausschließlich lokal öffnen, nicht kopieren/hochladen. Quellen und gespeicherte Thermalposen bleiben unverändert; Sperre/Verweis liegen neben dem Quelllauf. Bericht und Dialog nennen einbezogene/ausgeschlossene Bilder.280/287 Bilder sind keine gemessene Flächenabdeckung. Ausgangslauf erneut laden zeigt gespeicherten Vorschauzustand, der Vorschauknopf öffnet den vorhandenen Stand ohne Neuberechnung. Abbrechen beendet den eigenen Prozessbaum; Fehler/Timeout bleiben gespeichert. Nach Abbruch/Timeout den Ausgangslauf laden → **Teilvorschau fortsetzen**: Quell-/Arbeitskopieprüfsummen und eigene Thermalgeometrie prüfen, dann ab der ersten nicht abgeschlossenen Stufe fortsetzen; bereits abgeschlossene Stufen erhalten. Unvollständige Vorbereitung kann nicht fortgesetzt werden. Kein automatischer Wiederholungsversuch.
 
@@ -143,8 +143,8 @@ $pilotPython = 'F:\MCM-SolarCheck\.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pilotPython -PathType Leaf)) {
     throw 'Vorhandenes SolarCheck-Python auf F: nicht gefunden.'
 }
-$pilotCommit = 'f3278ff4f16f1fb414888ebb3769def78e139ef7'
-$pilotSha256 = '3882618ff8059d40d6b015e4db0860456a1ddd2ec7e180ceb6b1c8127abb0a41'
+$pilotCommit = 'd61d6b9cb773436235691e2290ee48498b85f850'
+$pilotSha256 = '7af1beff2d2d4f064d5f1a8a64b52893d3670696ae704f3a1a00295ea80d55de'
 $pilotDir = Join-Path 'E:\SolarCheck-Pilot' ('thermal-' + [guid]::NewGuid().ToString('N').Substring(0,12))
 New-Item -ItemType Directory -Path $pilotDir -ErrorAction Stop | Out-Null
 $pilotZip = Join-Path $pilotDir 'source.zip'
