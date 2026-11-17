@@ -1,11 +1,24 @@
 # Thermal-Orthofoto mit der vorhandenen OpenSfM-Umgebung
 
+## Größere Ansicht und gezieltes Modulfinden17.11.2026
+
+Die bisherige Umrandungsansicht war laut Nutzer zu klein und das gewünschte Modul schwer zu finden. Mit der **neuen festen Startfassung unten** den gespeicherten RGB-/PV-Ausschnitt öffnen; **keine erneute Modulsuche oder Orthofoto-Berechnung starten**.
+
+1. In der Modultabelle die gewünschte Zeile(z.B. **A1:M-0007**) auswählen. Der Umriss wird im Ergebnisbild **orange hervorgehoben** und ins sichtbare Bild gescrollt.
+2. Das PV-Fenster über das **Quadrat oben rechts maximieren**, per Doppelklick auf die Titelleiste oder an Rand/Ecke größer ziehen. Die **Trennlinien zwischen Übersicht, Ergebnisbild und Tabelle** verschieben, um dem Ergebnisbild mehr Platz zu geben; die Übersicht lässt sich zusammenschieben.
+3. **Ausgewählten Umriss korrigieren** öffnen. Der Editor zeigt das gewählte Modul direkt **vergrößert und zentriert mit Umgebung**, gelbem bisherigem Umriss und Entwurfs-ID. Auch dieses Fenster lässt sich maximieren und frei vergrößern.
+4. Mit **+ / −** oder **Strg + Mausrad** zoomen(25–800%). **100 %** zeigt Originalpixelgröße; **Ausschnitt einpassen** zeigt den ganzen gewählten Bereich. **Ausgewähltes Modul zeigen** führt jederzeit zurück zum bisherigen Modul. Mit **gedrückter mittlerer Maustaste** oder Scrollleisten verschieben.
+5. Vier Ecken des ganzen Moduls entlang des Randes anklicken. Zoom/Verschieben ändern bereits gesetzte Ecken nicht. **Letzte Ecke zurück** bei Fehlklick, dann übernehmen → prüfen/RGB-Thermal vergleichen → **Modul-Entwürfe und Prüfung lokal speichern** → schließen/wiederöffnen. IDs, Notizen und Korrekturhistorie bleiben erhalten; der korrigierte Entwurf steht zunächst wieder auf Offen.
+
+Zoom ändert nur die Anzeige; gespeichert werden weiterhin die ursprünglichen RGB-Pixelpositionen. Originale/Raster/GeoTIFF-Tags unverändert, keine neue Erkennung oder Lagekorrektur. Dauerlabel **unvollständig: 280 von 287 Bildern**, Paarimport-Sperre und fehlende vollständige Abdeckungs-/Geometrie-/Celsiusfreigabe bleiben bestehen. Kundendaten bleiben lokal.111gezielte synthetische Tests grün; Sichtprüfung der neuen Bedienung beim Nutzer noch offen. Neue exakte HEAD-CI separat prüfen.
+
+
 ## Modulumriss manuell korrigieren oder ergänzen17.11.2026
 
 Der Nutzer hat den begrenzten Vorschlags-/Prüfweg einschließlich Speicherung und Wiederöffnung bestätigt: zehn Vorschläge, einer nur als Teilfläche erkannt. Das bestätigt keine vollständige Anlagenerkennung. Mit der **neuen festen Startfassung unten** denselben Lauf **13.11.2026,18:58:37,oh9ptgy5** laden → **RGB vergleichen** → **PV-Modulgrenzen und Entwurfs-IDs prüfen**. Gespeicherte Ausschnitte und Beurteilungen öffnen sich ohne neue Detektion. Falls der PV-Knopf grau ist: passende Beurteilung wählen und **Sichtvergleich lokal speichern**.
 
 1. Im gespeicherten Ausschnitt die betroffene Zeile(z.B. **A1:M-0007**) wählen → **Ausgewählten Umriss korrigieren**. Für ein fehlendes Modul **Modul manuell ergänzen** wählen; dafür genügt auch ein neu markierter begrenzter RGB-Ausschnitt ohne Detektionslauf.
-2. Im Editor die **vier Ecken eines ganzen Moduls der Reihe nach entlang des Randes** anklicken. Das RGB erscheint in Originalauflösung; bei Bedarf mit Scrollleisten verschieben. Gelb zeigt den bisherigen Umriss, grün den neuen. **Letzte Ecke zurück** korrigiert einen Klick; **Abbrechen** verwirft die Zeichnung.
+2. Im Editor die **vier Ecken eines ganzen Moduls der Reihe nach entlang des Randes** anklicken. Das gewählte Modul erscheint automatisch vergrößert; mit100%zur Originalpixelgröße wechseln, mit+/−zoomen oder mit mittlerer Maustaste/Scrollleisten verschieben. Gelb zeigt den bisherigen Umriss, grün den neuen. **Letzte Ecke zurück** korrigiert einen Klick; **Abbrechen** verwirft die Zeichnung.
 3. **Umriss als offenen Entwurf übernehmen**. Kreuzende/entartete Ecken, RGB-Lücken und weitgehend überlappende aktive Duplikate werden abgewiesen; im Editor nachbessern. Bei Korrektur bleibt die ID erhalten, alter Umriss/Status/Notiz bleiben in lokaler Historie; der neue Umriss steht wieder auf **Offen**, die Notiz bleibt erhalten. Ergänzungen bekommen eine neue lokale Entwurfs-ID. Frühere Beurteilungen stehen im Tooltip der ID-Zelle. Maximal20Korrekturen je Entwurf.
 4. Den neuen Umriss prüfen und über **Ausgewähltes Modul in RGB / Thermal vergleichen** sichten. Dann **Umriss passt** oder **Verwerfen**, Notiz anpassen, **Modul-Entwürfe und Prüfung lokal speichern**. Schließen und erneut öffnen: Umriss, ID, Status und Notiz sollen wie gespeichert erscheinen. Übernehmen allein speichert noch nicht; Schließen ohne Speichern lässt den letzten gespeicherten Stand erhalten.
 

@@ -2,11 +2,11 @@
 import numpy as np
 import rasterio
 from rasterio.windows import Window
-from PySide6.QtCore import QPointF, Qt, Signal
+from PySide6.QtCore import QPointF, QRectF, QTimer, Qt, Signal
 from PySide6.QtGui import QPainter, QColor, QPen, QPolygonF
 from PySide6.QtWidgets import (
     QLabel, QComboBox, QDialog, QVBoxLayout, QPushButton, QTableWidget, QTableWidgetItem,
-    QAbstractItemView, QScrollArea, QHBoxLayout,
+    QAbstractItemView, QScrollArea, QHBoxLayout, QSplitter, QWidget,
 )
 
 from .orthophoto_pv_review import OrthophotoPVReviewDialog, _rgb_pixels
@@ -21,57 +21,118 @@ from ..services.orthophoto_pv_modules import OrthophotoPVWindowResult
 REVIEW_LABELS = dict(zip(REVIEWS, ('Offen', 'Umriss passt', 'Verwerfen')))
 
 
-class ModuleCornerImage(QLabel):
-    """Four explicit clicks on native RGB pixel centers, without resampling."""
-    changed = Signal()
+def _resizable_dialog(dialog):
+    # QDialog omits the maximize button by default on Windows.
+    dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowType.WindowMinMaxButtonsHint)
+    dialog.setSizeGripEnabled(True)
 
-    def __init__(self, pixels, window, previous=None):
+
+class ModuleCornerImage(QLabel):
+    """Zoom display only; four clicks always address native RGB pixel centers."""
+    changed = Signal()
+    zoom_requested = Signal(float)
+    pan_requested = Signal(float, float)
+
+    def __init__(self, pixels, window, previous=None, module_label=''):
         super().__init__()
         self.setObjectName('partial_pv_corner_image')
         self.base = _pixmap_from_rgb(pixels)
-        self.window = window
+        self.native_window = window
         self.previous = previous or ()
+        self.module_label = module_label
         self.corners = []
+        self.zoom = 1.
+        self._pan_origin = None
         self.setFixedSize(self.base.size())
         self.setCursor(Qt.CursorShape.CrossCursor)
-        self.redraw()
+
+    def display_point(self, native):
+        # Pixel centers under Qt's image scaling, with separate rounded axes.
+        x, y = native
+        return QPointF((x-self.native_window[0]+.5)*self.width()/self.base.width()-.5,
+            (y-self.native_window[1]+.5)*self.height()/self.base.height()-.5)
+
+    def native_point(self, point):
+        return (max(0, min(self.base.width()-1, round((point.x()+.5)*self.base.width()/self.width()-.5)))
+                + self.native_window[0],
+            max(0, min(self.base.height()-1, round((point.y()+.5)*self.base.height()/self.height()-.5)))
+                + self.native_window[1])
+
+    def set_zoom(self, zoom):
+        self.zoom = max(.25, min(8., float(zoom)))
+        self.setFixedSize(max(1, round(self.base.width()*self.zoom)),
+            max(1, round(self.base.height()*self.zoom)))
+        self.update()
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton and len(self.corners) < 4:
-            point = event.position().toPoint()
-            if self.rect().contains(point):
-                self.corners.append((point.x()+self.window[0], point.y()+self.window[1]))
-                self.redraw()
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._pan_origin = event.globalPosition()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+        elif event.button() == Qt.MouseButton.LeftButton and len(self.corners) < 4:
+            if self.rect().contains(event.position().toPoint()):
+                self.corners.append(self.native_point(event.position()))
+                self.update()
                 self.changed.emit()
             event.accept()
         else:
             super().mousePressEvent(event)
 
+    def mouseMoveEvent(self, event):
+        if self._pan_origin is not None:
+            delta = event.globalPosition()-self._pan_origin
+            self._pan_origin = event.globalPosition()
+            self.pan_requested.emit(delta.x(), delta.y())
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._pan_origin = None
+            self.setCursor(Qt.CursorShape.CrossCursor)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def wheelEvent(self, event):
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier and event.angleDelta().y():
+            self.zoom_requested.emit(1.25 if event.angleDelta().y() > 0 else .8)
+            event.accept()
+        else:
+            super().wheelEvent(event)
+
     def undo(self):
         if self.corners:
             self.corners.pop()
-            self.redraw()
+            self.update()
             self.changed.emit()
 
-    def redraw(self):
-        pixmap = self.base.copy()
-        painter = QPainter(pixmap)
-        def points(values):
-            return QPolygonF([QPointF(x-self.window[0], y-self.window[1]) for x, y in values])
-        painter.setPen(QPen(QColor(255, 200, 0), 2, Qt.PenStyle.DashLine))
-        if self.previous:
-            painter.drawPolygon(points(self.previous))
-        painter.setPen(QPen(QColor(0, 255, 160), 2))
-        if self.corners:
-            ring = points(self.corners)
-            painter.drawPolyline(ring)
-            if len(self.corners) == 4:
-                painter.drawLine(ring[-1], ring[0])
-            for index, point in enumerate(ring, 1):
-                painter.drawEllipse(point, 3, 3)
-                painter.drawText(point+QPointF(5, -5), str(index))
-        painter.end()
-        self.setPixmap(pixmap)
+    def paintEvent(self, event):
+        # Paint only the exposed viewport. Never allocate a zoom-sized raster
+        # (a 2048² ROI at 800% would otherwise require hundreds of megabytes).
+        painter = QPainter(self)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, self.zoom < 1)
+            painter.drawPixmap(QRectF(self.rect()), self.base, QRectF(self.base.rect()))
+            def points(values):
+                return QPolygonF([self.display_point(point) for point in values])
+            painter.setPen(QPen(QColor(255, 200, 0), 3, Qt.PenStyle.DashLine))
+            if self.previous:
+                painter.drawPolygon(points(self.previous))
+                label = self.display_point(tuple(np.mean(self.previous, axis=0)))
+                painter.drawText(label+QPointF(6, -6), self.module_label)
+            painter.setPen(QPen(QColor(0, 255, 160), 2))
+            if self.corners:
+                ring = points(self.corners)
+                painter.drawPolyline(ring)
+                if len(self.corners) == 4:
+                    painter.drawLine(ring[-1], ring[0])
+                for index, point in enumerate(ring, 1):
+                    painter.drawEllipse(point, 3, 3)
+                    painter.drawText(point+QPointF(5, -5), str(index))
+        finally:
+            painter.end()
 
 
 class ManualModuleOutlineDialog(QDialog):
@@ -80,6 +141,7 @@ class ManualModuleOutlineDialog(QDialog):
     def __init__(self, comparison, region, module_id=None, parent=None):
         super().__init__(parent)
         self.setObjectName('partial_pv_outline_dialog')
+        _resizable_dialog(self)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowTitle('Modulumriss korrigieren' if module_id else 'Modul manuell ergänzen')
         self.setWindowModality(Qt.WindowModality.WindowModal)
@@ -92,7 +154,7 @@ class ManualModuleOutlineDialog(QDialog):
         old = next((e for e in region['entries'] if e['module_id'] == module_id), None)
         layout = QVBoxLayout(self)
         notice = QLabel(comparison.label + ' · Vier Modulecken der Reihe nach am Rand anklicken. '
-            'RGB in Originalauflösung; Scrollleisten verschieben den Ausschnitt. '
+            'Zoom: +/− oder Strg+Mausrad; Verschieben: mittlere Maustaste oder Scrollleisten. '
             'Gelb: bisheriger Umriss. Grün: neuer Entwurf. Keine Geometrie- oder Celsiusfreigabe.')
         notice.setWordWrap(True)
         layout.addWidget(notice)
@@ -102,10 +164,33 @@ class ManualModuleOutlineDialog(QDialog):
             previous.setWordWrap(True)
             layout.addWidget(previous)
         self.image = ModuleCornerImage(pixels, result.rgb_window,
-            old['proposal']['rgb_polygon_px'] if old else None)
-        scroll = QScrollArea()
-        scroll.setWidget(self.image)
-        layout.addWidget(scroll, 1)
+            old['proposal']['rgb_polygon_px'] if old else None, module_id.split(':')[-1] if module_id else '')
+        toolbar = QHBoxLayout()
+        for title, name, action in (
+                ('−', 'zoom_out', lambda: self._zoom_relative(.8)),
+                ('+', 'zoom_in', lambda: self._zoom_relative(1.25)),
+                ('100 %', 'zoom_native', lambda: self._set_zoom(1.)),
+                ('Ausschnitt einpassen', 'zoom_fit', self._fit_region),
+                ('Ausgewähltes Modul zeigen', 'zoom_selected', self._show_selected)):
+            button = QPushButton(title)
+            button.setObjectName('partial_pv_' + name)
+            button.clicked.connect(action)
+            button.setEnabled(name != 'zoom_selected' or bool(old))
+            toolbar.addWidget(button)
+        self.zoom_label = QLabel('100 %')
+        self.zoom_label.setObjectName('partial_pv_zoom_value')
+        toolbar.addWidget(self.zoom_label)
+        layout.addLayout(toolbar)
+        self.scroll = QScrollArea()
+        self.scroll.setObjectName('partial_pv_editor_scroll')
+        self.scroll.setWidget(self.image)
+        layout.addWidget(self.scroll, 1)
+        self.image.zoom_requested.connect(self._zoom_relative)
+        self.image.pan_requested.connect(self._pan)
+        self._initial_focus_done = False
+        self._initial_focus = QTimer(self)
+        self._initial_focus.setSingleShot(True)
+        self._initial_focus.timeout.connect(self._show_selected if old else self._fit_region)
         self.status = QLabel('0 von 4 Modulecken markiert.')
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -127,6 +212,50 @@ class ManualModuleOutlineDialog(QDialog):
         self.image.changed.connect(self._changed)
         available = self.screen().availableGeometry()
         self.resize(min(1100, available.width()-40), min(750, available.height()-40))
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._initial_focus_done:
+            self._initial_focus_done = True
+            self._initial_focus.start(0)
+
+    def _pan(self, dx, dy):
+        self.scroll.horizontalScrollBar().setValue(self.scroll.horizontalScrollBar().value()-round(dx))
+        self.scroll.verticalScrollBar().setValue(self.scroll.verticalScrollBar().value()-round(dy))
+
+    def _zoom_relative(self, factor):
+        self._set_zoom(self.image.zoom*factor)
+
+    def _set_zoom(self, zoom, center=None):
+        if center is None:
+            center = self.image.native_point(QPointF(
+                self.scroll.horizontalScrollBar().value()+self.scroll.viewport().width()/2,
+                self.scroll.verticalScrollBar().value()+self.scroll.viewport().height()/2))
+        self.image.set_zoom(zoom)
+        self.zoom_label.setText(f'{100*self.image.zoom:.0f} %')
+        # Update the scroll ranges before re-centering the enlarged widget.
+        self.scroll.horizontalScrollBar().setRange(0, max(0, self.image.width()-self.scroll.viewport().width()))
+        self.scroll.verticalScrollBar().setRange(0, max(0, self.image.height()-self.scroll.viewport().height()))
+        position = self.image.display_point(center)
+        self.scroll.horizontalScrollBar().setValue(round(position.x()-self.scroll.viewport().width()/2))
+        self.scroll.verticalScrollBar().setValue(round(position.y()-self.scroll.viewport().height()/2))
+
+    def _fit_region(self):
+        col, row, width, height = self.image.native_window
+        self._set_zoom(min(self.scroll.viewport().width()/width, self.scroll.viewport().height()/height),
+            (col+(width-1)/2, row+(height-1)/2))
+
+    def _show_selected(self):
+        if not self.image.previous:
+            return
+        xy = np.asarray(self.image.previous)
+        left, top = xy.min(axis=0)
+        right, bottom = xy.max(axis=0)
+        # Include neighboring module edges even when the old draft is partial.
+        margin = max(32., max(right-left, bottom-top)*.75)
+        zoom = min(self.scroll.viewport().width()/(right-left+2*margin),
+            self.scroll.viewport().height()/(bottom-top+2*margin))
+        self._set_zoom(zoom, ((left+right)/2, (top+bottom)/2))
 
     def _changed(self):
         self.apply.setEnabled(len(self.image.corners) == 4)
@@ -152,6 +281,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
         self.setWindowTitle('PV-Modul-Entwürfe – unvollständige Thermal-Teilvorschau')
         self.setObjectName('partial_pv_review_dialog')
+        _resizable_dialog(self)
         self.findChild(QLabel, 'orthophoto_pv_help').setText(
             'Einen begrenzten RGB-Bereich mit der Maus markieren und die vorhandenen Modulvorschläge suchen. '
             'Die Umrisse werden in Originalauflösung geprüft und zur unvollständigen Thermal-Teilvorschau zugeordnet.')
@@ -165,14 +295,11 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         self.saved_regions.setObjectName('partial_pv_regions')
         self.saved_regions.currentIndexChanged.connect(self._choose_region)
         layout.insertWidget(1, self.saved_regions)
-        self.findChild(QScrollArea, 'orthophoto_pv_selection_scroll').setMaximumHeight(240)
-        self.findChild(QScrollArea, 'orthophoto_pv_result_scroll').setMaximumHeight(200)
         self.table = QTableWidget(0, 4)
         self.table.setObjectName('partial_pv_modules')
         self.table.setHorizontalHeaderLabels(('Entwurfs-ID', 'Gültige Thermalpixel %', 'Umrissprüfung', 'Lokale Notiz'))
         self.table.horizontalHeaderItem(1).setToolTip('Anteil nur innerhalb dieses Modulpolygons; keine Anlagenabdeckung.')
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setMaximumHeight(180)
         self.table.horizontalHeader().setStretchLastSection(True)
         layout.insertWidget(layout.count()-1, self.table)
         detail = QPushButton('Ausgewähltes Modul in RGB / Thermal vergleichen')
@@ -190,6 +317,32 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         edits.addWidget(self.add)
         layout.insertLayout(layout.count()-1, edits)
         self.table.itemSelectionChanged.connect(self._edit_buttons)
+        self.table.itemSelectionChanged.connect(self._highlight_selected)
+        self._labelled_result = None
+        # The images grow with the window; dividers allocate working space.
+        self.panes = QSplitter(Qt.Orientation.Vertical)
+        self.panes.setObjectName('partial_pv_panes')
+        overview = QWidget()
+        overview_layout = QVBoxLayout(overview)
+        overview_layout.setContentsMargins(0, 0, 0, 0)
+        for name in ('orthophoto_pv_selection_scroll', 'orthophoto_pv_result_scroll'):
+            scroll = self.findChild(QScrollArea, name)
+            scroll.setMaximumHeight(16777215)
+            scroll.setMinimumHeight(80)
+            layout.removeWidget(scroll)
+            if name == 'orthophoto_pv_selection_scroll':
+                overview_layout.addWidget(scroll, 1)
+            else:
+                result_scroll = scroll
+        layout.removeWidget(self._run)
+        overview_layout.addWidget(self._run)
+        layout.removeWidget(self.table)
+        self.panes.addWidget(overview)
+        self.panes.addWidget(result_scroll)
+        self.panes.addWidget(self.table)
+        self.panes.setSizes([160, 340, 140])
+        self.panes.setStretchFactor(1, 3)
+        layout.insertWidget(4, self.panes, 1)
         self._edit_buttons()
         save = QPushButton('Modul-Entwürfe und Prüfung lokal speichern')
         save.setObjectName('partial_pv_save')
@@ -301,6 +454,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         self.saved_regions.blockSignals(False)
 
     def _after_result(self, result):
+        self._labelled_result = None
         key = region_key(result.rgb_window)
         if key not in self.regions:
             self.regions[key] = make_region(self.comparison, result)
@@ -335,16 +489,37 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
             x, y = np.mean(proposal.rgb_polygon_px, axis=0)
             painter.drawText(QPointF((x-col)*factor, (y-row)*factor), entry['module_id'].split(':')[-1])
         painter.end()
+        self._labelled_result = pixmap
         self._output.setPixmap(pixmap)
         self.table.resizeColumnToContents(0)
         self.table.resizeColumnToContents(1)
         if entries:
             self.table.selectRow(0)
+        self._highlight_selected()
         self._refresh_regions(key)
         self._edit_buttons()
         self._status.setText(f'{len(entries)} lokale Modul-Entwürfe. IDs gelten nur in diesem RGB-Ausschnitt. '
             'Gültige Thermalpixel sind kein Nachweis vollständiger Anlagenabdeckung. '
             'Der vorhandene Detektor liefert konservative Vorschläge nur für abgrenzbare Modulflächen.')
+
+    def _highlight_selected(self):
+        index = self.table.currentRow()
+        if (self._labelled_result is None or self.proposal_result is None
+                or not 0 <= index < len(self.proposal_result.proposals)):
+            return
+        result = self.proposal_result
+        polygon = result.proposals[index].rgb_polygon_px
+        col, row, width, height = result.rgb_window
+        factor = min(1., 1024/max(width, height))
+        pixmap = self._labelled_result.copy()
+        painter = QPainter(pixmap)
+        painter.setPen(QPen(QColor(255, 80, 0), 4))
+        painter.drawPolygon(QPolygonF([QPointF((x-col)*factor, (y-row)*factor) for x, y in polygon]))
+        painter.end()
+        self._output.setPixmap(pixmap)
+        center = np.mean(polygon, axis=0)
+        scroll = self.findChild(QScrollArea, 'orthophoto_pv_result_scroll')
+        scroll.ensureVisible(round((center[0]-col)*factor), round((center[1]-row)*factor), 60, 60)
 
     def _save(self):
         try:
@@ -366,6 +541,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
             dialog = QDialog(self)
             dialog.setWindowTitle('Modul-Entwurf: RGB / Thermal-Sichtvergleich')
             dialog.setObjectName('partial_pv_detail_dialog')
+            _resizable_dialog(dialog)
             layout = QVBoxLayout(dialog)
             module_id = self.regions[self.current_region]['entries'][index]['module_id']
             text = QLabel(module_id + f' · gültige Thermalpixel: {proposal.thermal_valid_pixel_count}/'

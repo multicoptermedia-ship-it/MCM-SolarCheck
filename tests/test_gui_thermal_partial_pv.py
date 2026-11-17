@@ -100,9 +100,9 @@ def test_unreviewed_comparison_button_and_oversize_selection_cannot_run(module_s
 def _corners(editor, polygon):
     from PySide6.QtTest import QTest
     from PySide6.QtCore import QPoint
-    col, row = editor.image.window[:2]
     for x, y in polygon:
-        QTest.mouseClick(editor.image, Qt.MouseButton.LeftButton, pos=QPoint(x-col, y-row))
+        point = editor.image.display_point((x, y)).toPoint()
+        QTest.mouseClick(editor.image, Qt.MouseButton.LeftButton, pos=point)
 
 
 def test_manual_corners_cancel_correct_add_save_reopen_and_detail(module_scene, qapp, monkeypatch):
@@ -200,3 +200,100 @@ def dispose_windows(qapp):
         widget.deleteLater()
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     qapp.processEvents()
+
+
+def test_editor_centers_selected_module_resizes_zooms_pans_and_saves_native_corners(module_scene, qapp, monkeypatch):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    from test_thermal_partial_pv import MANUAL
+    _, value = module_scene
+    originals = {p: p.read_bytes() for p in (value.rgb_path, value.thermal_path)}
+    dialog = PartialThermalPVReviewDialog(value)
+    dialog.show()
+    dialog._select_window((20, 20, 760, 560))
+    dialog._run.click()
+    dialog._save()
+    saved = (value.folder / pv.STATE).read_bytes()
+    monkeypatch.setattr(dialog, '_detect', lambda *a: pytest.fail('Display actions do not detect'))
+    selected = max(range(2), key=lambda i: min(p[0] for p in dialog.proposal_result.proposals[i].rgb_polygon_px))
+    dialog.table.selectRow(selected)
+    module_id = dialog.table.item(selected, 0).data(Qt.ItemDataRole.UserRole)
+    base = dialog._labelled_result.toImage()
+    highlighted = dialog._output.pixmap().toImage()
+    assert base != highlighted
+    before = dialog.panes.widget(1).height()
+    dialog.resize(dialog.width(), dialog.height()+150)
+    qapp.processEvents()
+    dialog.panes.setSizes([100, 450, 100])
+    qapp.processEvents()
+    assert dialog.panes.widget(1).height() > before
+    for widget in (dialog,):
+        assert widget.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
+        assert widget.isSizeGripEnabled()
+    dialog.correct.click()
+    editor = dialog._editor_dialog
+    qapp.processEvents()  # Initial selected-module focus after viewport layout.
+    assert editor.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
+    assert editor.isSizeGripEnabled() and editor.image.zoom > 1
+    polygon = dialog.proposal_result.proposals[selected].rgb_polygon_px
+    center = tuple(sum(p[i] for p in polygon)/len(polygon) for i in range(2))
+    visible = editor.image.mapTo(editor.scroll.viewport(), editor.image.display_point(center).toPoint())
+    assert editor.scroll.viewport().rect().contains(visible)
+    editor.showMaximized()
+    qapp.processEvents()
+    assert editor.isMaximized()
+    editor.showNormal()
+    qapp.processEvents()
+    editor.findChild(QPushButton, 'partial_pv_zoom_fit').click()
+    assert editor.image.zoom <= 1
+    editor.findChild(QPushButton, 'partial_pv_zoom_selected').click()
+    assert editor.image.zoom > 1
+    editor.findChild(QPushButton, 'partial_pv_zoom_native').click()
+    assert editor.image.zoom == 1
+    editor.findChild(QPushButton, 'partial_pv_zoom_in').click()
+    assert editor.image.zoom > 1
+    editor.findChild(QPushButton, 'partial_pv_zoom_out').click()
+    assert editor.image.zoom == pytest.approx(1)
+    editor._set_zoom(2.)
+    _corners(editor, MANUAL[:2])
+    editor._set_zoom(8., center=(620, 100))
+    assert editor.image.base.width() == 760  # No zoom-sized backing raster.
+    hbar = editor.scroll.horizontalScrollBar()
+    vbar = editor.scroll.verticalScrollBar()
+    old_h, old_v = hbar.value(), vbar.value()
+    position = editor.image.display_point((620, 100)).toPoint()
+    QTest.mousePress(editor.image, Qt.MouseButton.MiddleButton, pos=position)
+    QTest.mouseMove(editor.image, position+QPoint(20, 10))
+    QTest.mouseRelease(editor.image, Qt.MouseButton.MiddleButton, pos=position+QPoint(20, 10))
+    assert (hbar.value(), vbar.value()) != (old_h, old_v)
+    assert editor.image.corners == list(MANUAL[:2])  # Panning adds no corner.
+    _corners(editor, MANUAL[2:])
+    assert editor.image.corners == list(MANUAL)
+    assert (value.folder / pv.STATE).read_bytes() == saved
+    editor.apply.click()
+    dialog._save()
+    dialog.close()
+    reopened = PartialThermalPVReviewDialog(value)
+    entries = reopened.regions[reopened.current_region]['entries']
+    assert entries[selected]['module_id'] == module_id
+    assert entries[selected]['proposal']['rgb_polygon_px'] == MANUAL
+    assert entries[selected]['status'] == 'pending'
+    assert len(entries[selected]['history']) == 1
+    assert all(p.read_bytes() == data for p, data in originals.items())
+    reopened.close()
+
+
+@pytest.mark.parametrize('zoom', [.25, 2., 8.])
+def test_corner_clicks_map_to_same_native_pixels_at_different_zoom(qapp, zoom):
+    import numpy as np
+    from mcm_solarcheck.gui.thermal_partial_pv import ModuleCornerImage
+    image = ModuleCornerImage(np.zeros((560, 760, 3), dtype=np.uint8), (20, 20, 760, 560))
+    image.set_zoom(zoom)
+    image.show()
+    # Centers represented exactly even in the quarter-size overview.
+    polygon = ((602, 62), (658, 62), (658, 138), (602, 138))
+    from PySide6.QtTest import QTest
+    for point in polygon:
+        QTest.mouseClick(image, Qt.MouseButton.LeftButton, pos=image.display_point(point).toPoint())
+    assert image.corners == list(polygon)
+    image.close()
