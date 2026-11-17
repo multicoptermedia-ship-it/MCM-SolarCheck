@@ -1,12 +1,15 @@
 """Existing ROI/detector review with local draft IDs and labelled module detail."""
 import numpy as np
+import sys
+from pathlib import Path
+from uuid import uuid4
 import rasterio
 from rasterio.windows import Window
-from PySide6.QtCore import QPointF, QRectF, QTimer, Qt, Signal
+from PySide6.QtCore import QPointF, QRectF, QTimer, QProcess, Qt, Signal
 from PySide6.QtGui import QPainter, QColor, QPen, QPolygonF
 from PySide6.QtWidgets import (
     QLabel, QComboBox, QDialog, QVBoxLayout, QPushButton, QTableWidget, QTableWidgetItem,
-    QAbstractItemView, QScrollArea, QHBoxLayout, QSplitter, QWidget,
+    QAbstractItemView, QScrollArea, QHBoxLayout, QSplitter, QWidget, QFileDialog,
 )
 
 from .orthophoto_pv_review import OrthophotoPVReviewDialog, _rgb_pixels
@@ -278,6 +281,10 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         self.current_region = None
         self._detail_dialog = None
         self._editor_dialog = None
+        self._model_process = None
+        self._model_dialog = None
+        self._model_pending = None
+        self._model_cancelled = False
         super().__init__(comparison.rgb_path, comparison.thermal_path, parent)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
         self.setWindowTitle('PV-Modul-Entwürfe – unvollständige Thermal-Teilvorschau')
@@ -333,6 +340,19 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         self.deleted.currentIndexChanged.connect(self._edit_buttons)
         removal.addWidget(self.restore)
         layout.insertLayout(layout.count()-1, removal)
+        model_buttons = QHBoxLayout()
+        self.model_start = QPushButton('KI-Modellvergleich starten (lokal)')
+        self.model_start.setObjectName('partial_pv_model_start')
+        self.model_start.clicked.connect(self._start_model_comparison)
+        model_buttons.addWidget(self.model_start)
+        self.model_open = QPushButton('Gespeicherten KI-Vergleich öffnen')
+        self.model_open.setObjectName('partial_pv_model_open')
+        self.model_open.clicked.connect(self._open_model_comparison)
+        model_buttons.addWidget(self.model_open)
+        layout.insertLayout(layout.count()-1, model_buttons)
+        self._model_timer = QTimer(self)
+        self._model_timer.setSingleShot(True)
+        self._model_timer.timeout.connect(self._cancel_model_comparison)
         self.table.itemSelectionChanged.connect(self._edit_buttons)
         self.table.itemSelectionChanged.connect(self._highlight_selected)
         self._labelled_result = None
@@ -417,6 +437,93 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         self.delete.setEnabled(self.correct.isEnabled())
         self.restore.setEnabled(self.current_region is not None and self.deleted.currentData() is not None)
         self.add.setEnabled(self._window is not None and all(1 <= v <= 2048 for v in self._window[2:]))
+        running = self._model_process is not None and self._model_process.state() != QProcess.ProcessState.NotRunning
+        self.model_start.setEnabled(running or self.current_region is not None)
+
+    def _start_model_comparison(self):
+        if self._model_process and self._model_process.state() != QProcess.ProcessState.NotRunning:
+            self._cancel_model_comparison()
+            return
+        try:
+            self._collect()
+            saved, _ = load_module_review(self.comparison)
+            _, current = parse_region(self.comparison, self.regions[self.current_region])
+            if not self.comparison.source_path or saved.get(self.current_region) != current:
+                raise ValueError('Zuerst aktuelle Modul-Entwürfe lokal speichern.')
+            if not any(e['status'] == 'outline_ok' for e in active_entries(current)):
+                raise ValueError('Mindestens einen Umriss passend beurteilen und lokal speichern.')
+            manifest, _ = QFileDialog.getOpenFileName(self, 'Geprüfte lokale KI-Modellbeschreibung wählen',
+                '', 'ONNX-Modellbeschreibung (*.json)')
+            if not manifest:
+                return
+            token = uuid4().hex
+            self._model_pending = self.comparison.folder / f'pv-model-comparison-{token}.LOCAL.json'
+            process = QProcess(self)
+            process.setStandardOutputFile(QProcess.nullDevice())
+            process.setStandardErrorFile(QProcess.nullDevice())
+            process.finished.connect(self._model_finished)
+            process.errorOccurred.connect(self._model_error)
+            self._model_process = process
+            self._model_cancelled = False
+            script = Path(__file__).resolve().parents[3] / 'scripts/MCM_SolarCheck_PV_MODELLVERGLEICH.py'
+            process.start(sys.executable, [str(script), '--source', str(self.comparison.source_path),
+                '--manifest', manifest, '--region', self.current_region, '--run-token', token])
+            self._model_timer.start(5*60*1000)
+            self.model_start.setText('KI-Vergleich abbrechen')
+            self._status.setText('Lokaler Modellvergleich läuft, maximal fünf Minuten. Gespeicherte Entwürfe bleiben erhalten.')
+        except (ValueError, TypeError, KeyError, OSError, RuntimeError) as error:
+            self._status.setText(str(error))
+
+    def _cancel_model_comparison(self):
+        self._model_cancelled = True
+        if self._model_process:
+            self._model_process.kill()
+
+    def _model_error(self, error):
+        if error == QProcess.ProcessError.FailedToStart:
+            self._model_finished(2, QProcess.ExitStatus.CrashExit)
+
+    def _model_finished(self, code, status):
+        from ..services.thermal_partial_model_comparison import STATE, read_model_comparison
+        self._model_timer.stop()
+        self.model_start.setText('KI-Modellvergleich starten (lokal)')
+        pending = self._model_pending
+        self._model_pending = None
+        try:
+            if self._model_cancelled:
+                raise ValueError('Vergleich abgebrochen; kein Ergebnis übernommen.')
+            if code != 0 or status != QProcess.ExitStatus.NormalExit or pending is None:
+                raise ValueError('Kein Vergleich erstellt. Modellbeschreibung, Gewichte und optionale ONNX-Prüfbibliothek prüfen.')
+            read_model_comparison(self.comparison, pending)
+            target = self.comparison.folder / STATE
+            if target.is_symlink():
+                raise ValueError('Vergleichsziel darf keine Verknüpfung sein.')
+            pending.replace(target)
+            self._status.setText('KI-Vergleich separat lokal gespeichert; vorhandene Entwürfe bleiben erhalten.')
+            self._open_model_comparison()
+        except (ValueError, TypeError, KeyError, OSError, RuntimeError) as error:
+            self._status.setText(str(error))
+        finally:
+            if pending:
+                pending.unlink(missing_ok=True)
+                pending.with_suffix('.next.json').unlink(missing_ok=True)
+            self._edit_buttons()
+
+    def _open_model_comparison(self):
+        try:
+            from .thermal_partial_model_comparison import ModelComparisonDialog
+            if self._model_dialog:
+                self._model_dialog.deleteLater()
+            self._model_dialog = ModelComparisonDialog(self.comparison, self)
+            self._model_dialog.show()
+        except (ValueError, TypeError, KeyError, OSError, RuntimeError):
+            self._status.setText('Kein passender gespeicherter KI-Vergleich; Quellen und gespeicherte Modulprüfung unverändert lassen.')
+
+    def closeEvent(self, event):
+        self._cancel_model_comparison()
+        if self._model_process and self._model_process.state() != QProcess.ProcessState.NotRunning:
+            self._model_process.waitForFinished(1000)
+        super().closeEvent(event)
 
     def _refresh_deleted(self):
         region = self.regions.get(self.current_region)

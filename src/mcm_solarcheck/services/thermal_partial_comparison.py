@@ -49,6 +49,7 @@ class PartialThermalComparison:
     thermal: np.ndarray
     view: dict
     _pair: OrthophotoLayerPair = field(repr=False)
+    source_path: Path | None = field(default=None, repr=False)
 
 
 def open_partial_comparison(source, rgb_path=None):
@@ -110,7 +111,7 @@ def open_partial_comparison(source, rgb_path=None):
         if signatures[name][1] != (stat.st_size, stat.st_mtime_ns, stat.st_ino):
             raise ValueError('Vergleichsdatei beim Lesen veraendert; erneut bewusst waehlen.')
     return PartialThermalComparison(folder, rgb, thermal, report['label'], fingerprints,
-                                    pixels, heat, _view(record or {}), pair)
+                                    pixels, heat, _view(record or {}), pair, Path(source))
 
 
 def save_partial_comparison(comparison, *, opacity, zoom, verdict, note):

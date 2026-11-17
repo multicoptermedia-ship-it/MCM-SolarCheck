@@ -1,5 +1,12 @@
 # Thermal-Orthofoto mit der vorhandenen OpenSfM-Umgebung
 
+## KI-Modellvergleich17.11.2026: technischer Vergleichsweg, PV-Modell noch offen
+
+Nutzer bestätigt den bisherigen Lösch-/Wiederöffnungsweg. Nächster Auftrag automatische Modulerkennung mit manueller Ausnahmenprüfung bei großen Anlagen. Der neue **KI-Modellvergleich starten(lokal)**-Knopf vergleicht einen bewusst gewählten, separat geprüften lokalen ONNX-PV-Modellkandidaten gegen gespeicherte passende Umrisse im selben RGB-Ausschnitt. Bestehende Entwürfe bleiben erhalten. Separater CPU-Prozess/max5min/Abbruch, Ergebnis grün gegen gelbe Referenz, getrennt lokal speichern und über **Gespeicherten KI-Vergleich öffnen** ohne Neuinferenz wiederladen.
+
+**Noch kein trainiertes PV-Modell beigelegt oder freigegeben.** Synthetische NN-Vertragsprüfung ist kein echter PV-Modelltest. Ohne passenden geprüften Modellkandidaten diesen Knopf noch nicht als fertige automatische Erkennung verwenden. Kein Modell-/Datensatzdownload, keine neue Installation beim Nutzer oder Orthofoto-/Matchingrechnung durch die Aktualisierung. Nächster offener Entwicklungsschritt ist die konkrete Gewichts-/Lizenz-/Windows10-CPU-/Formatqualifikation; [Profil, Primärquellen und Grenzen](PV_AI_MODULE_EVALUATION.md). Der bestehende Startblock unten bleibt auf die letzte real bedienbare Löschfassung gepinnt, bis ein echter Modellkandidat qualifiziert ist.
+
+
 ## Falsch erkannte Umrisse einzeln löschen17.11.2026
 
 Der Nutzer bestätigt die verbesserte Ansicht und meldet zwei kleine falsche Umrisse innerhalb eines richtig erkannten großen Moduls. Mit der **neuen festen Startfassung unten** denselben gespeicherten RGB-/PV-Ausschnitt öffnen. Keine erneute Modulsuche nötig.
