@@ -1,5 +1,19 @@
 # Thermal-Orthofoto mit der vorhandenen OpenSfM-Umgebung
 
+## Modulumriss manuell korrigieren oder ergänzen17.11.2026
+
+Der Nutzer hat den begrenzten Vorschlags-/Prüfweg einschließlich Speicherung und Wiederöffnung bestätigt: zehn Vorschläge, einer nur als Teilfläche erkannt. Das bestätigt keine vollständige Anlagenerkennung. Mit der **neuen festen Startfassung unten** denselben Lauf **13.11.2026,18:58:37,oh9ptgy5** laden → **RGB vergleichen** → **PV-Modulgrenzen und Entwurfs-IDs prüfen**. Gespeicherte Ausschnitte und Beurteilungen öffnen sich ohne neue Detektion. Falls der PV-Knopf grau ist: passende Beurteilung wählen und **Sichtvergleich lokal speichern**.
+
+1. Im gespeicherten Ausschnitt die betroffene Zeile(z.B. **A1:M-0007**) wählen → **Ausgewählten Umriss korrigieren**. Für ein fehlendes Modul **Modul manuell ergänzen** wählen; dafür genügt auch ein neu markierter begrenzter RGB-Ausschnitt ohne Detektionslauf.
+2. Im Editor die **vier Ecken eines ganzen Moduls der Reihe nach entlang des Randes** anklicken. Das RGB erscheint in Originalauflösung; bei Bedarf mit Scrollleisten verschieben. Gelb zeigt den bisherigen Umriss, grün den neuen. **Letzte Ecke zurück** korrigiert einen Klick; **Abbrechen** verwirft die Zeichnung.
+3. **Umriss als offenen Entwurf übernehmen**. Kreuzende/entartete Ecken, RGB-Lücken und weitgehend überlappende aktive Duplikate werden abgewiesen; im Editor nachbessern. Bei Korrektur bleibt die ID erhalten, alter Umriss/Status/Notiz bleiben in lokaler Historie; der neue Umriss steht wieder auf **Offen**, die Notiz bleibt erhalten. Ergänzungen bekommen eine neue lokale Entwurfs-ID. Frühere Beurteilungen stehen im Tooltip der ID-Zelle. Maximal20Korrekturen je Entwurf.
+4. Den neuen Umriss prüfen und über **Ausgewähltes Modul in RGB / Thermal vergleichen** sichten. Dann **Umriss passt** oder **Verwerfen**, Notiz anpassen, **Modul-Entwürfe und Prüfung lokal speichern**. Schließen und erneut öffnen: Umriss, ID, Status und Notiz sollen wie gespeichert erscheinen. Übernehmen allein speichert noch nicht; Schließen ohne Speichern lässt den letzten gespeicherten Stand erhalten.
+
+Keine neuen Matching-/Erkennungs-/Orthofotoläufe. Nur lokale Entwürfe; keine bestätigten physischen Modul-IDs. Thermalzuordnung und gültiger Pixelanteil werden für den gezeichneten Umriss mit der vorhandenen GIS-Logik neu bestimmt; fehlende Thermalbereiche bleiben fehlend. **unvollständig: 280 von 287 Bildern**, Paarimport-Sperre und fehlende Freigabe von vollständiger Abdeckung, Geometrie oder Celsius bleiben bestehen. RGB/Thermal-Dateien/Tags und produktive DB unverändert. Historie/Polygone/Notizen bleiben privat in pv-modules.LOCAL.json; nicht hochladen. Ältere gespeicherte Prüfungen werden gelesen; nach Speicherung mit dieser Fassung dieselbe oder eine neuere Programmversion verwenden.
+
+Technisch107gezielte synthetische Tests bestanden, einschließlich Korrigieren/Ergänzen/Abbrechen/Speichern/Wiederöffnung/Altdaten und Import-Sperre; reale manuelle Umrissprüfung beim Nutzer noch offen. Neue exakte HEAD-CI separat prüfen.
+
+
 ## PV-Modul-Entwürfe im gespeicherten Vergleich16.11.2026
 
 Der lokale visuelle RGB-/Thermal-Vergleich, Speicherung und Wiederöffnung sind laut Nutzer bestätigt. Mit der **aktualisierten festen Startfassung** den bisherigen fertigen Thermal-Lauf laden → **RGB vergleichen**. Der gespeicherte Vergleich wird wieder geöffnet; keine Neuberechnung/kein neuer Bildabgleich. **PV-Modulgrenzen und Entwurfs-IDs prüfen** öffnet die bestehende Ausschnitt-/Detektorprüfung. Der Knopf wird erst nach lokal als passend gespeichertem Sichtvergleich aktiv.

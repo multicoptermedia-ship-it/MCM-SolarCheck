@@ -120,3 +120,144 @@ def test_unreviewed_comparison_invalid_roi_and_cancel_do_not_start_detector(modu
     comparison.save_partial_comparison(value, opacity=50, zoom=1, verdict='visible_offset', note='Synthetic offset')
     with pytest.raises(ValueError, match='passend'):
         pv.detect_partial_pv_window(value, window=(0, 0, 100, 100))
+
+
+MANUAL = ((600, 60), (660, 60), (660, 140), (600, 140))
+ADDED = ((600, 350), (660, 350), (660, 430), (600, 430))
+
+
+def test_manual_correction_addition_preserve_ids_history_and_reopen_without_detection(module_scene, monkeypatch):
+    source, value = module_scene
+    original_bytes = {p: p.read_bytes() for p in (value.rgb_path, value.thermal_path, source / 'job.json')}
+    result = pv.detect_partial_pv_window(value, window=(20, 20, 760, 560))
+    key = pv.region_key(result.rgb_window)
+    region = pv.make_region(value, result)
+    entry = region['entries'][0]
+    entry.update(status='rejected', note='Synthetic partial outline rejected')
+    ids = [e['module_id'] for e in region['entries']]
+    original = json.dumps(region, sort_keys=True)
+    monkeypatch.setattr(pv, '_detect_orthophoto_pv_pair', lambda *a, **k: pytest.fail('No new detection'))
+    revised = pv.manual_module_outline(value, region, MANUAL, module_id=ids[0])
+    assert json.dumps(region, sort_keys=True) == original  # No in-place mutation.
+    assert revised['entries'][0]['status'] == 'pending'
+    assert revised['entries'][0]['note'] == entry['note']
+    assert revised['entries'][0]['history'][0]['status'] == 'rejected'
+    assert revised['entries'][0]['history'][0]['proposal'] == entry['proposal']
+    assert revised['entries'][1]['proposal'] == region['entries'][1]['proposal']
+    revised = pv.manual_module_outline(value, revised, ADDED)
+    assert [e['module_id'] for e in revised['entries'][:2]] == ids
+    assert revised['entries'][2]['module_id'].endswith(':M-0003')
+    assert revised['entries'][2]['origin'] == 'manual'
+    for e in (revised['entries'][0], revised['entries'][2]):
+        assert e['proposal']['confidence'] == 0
+        assert e['proposal']['thermal_valid_coverage'] == 1
+        # Same CRS / half-resolution Thermal, including pixel-center conversion.
+        assert e['proposal']['thermal_polygon_px'][0] == pytest.approx(
+            tuple((v+.5)/2-.5 for v in e['proposal']['rgb_polygon_px'][0]))
+    revised['entries'][0]['status'] = 'outline_ok'
+    stored = pv.save_module_review(value, {key: revised}, key)
+    reopened = comparison.open_partial_comparison(source)
+    restored, selected = pv.load_module_review(reopened)
+    assert selected == key and restored[key] == revised
+    assert stored['physical_module_ids_confirmed'] is False
+    assert all(stored[k] is False for k in comparison.FLAGS)
+    assert all(p.read_bytes() == data for p, data in original_bytes.items())
+    with pytest.raises(ValueError, match='Paarimport gesperrt'):
+        detect_orthophoto_pv_window(value.rgb_path, value.thermal_path, window=result.rgb_window)
+
+
+@pytest.mark.parametrize('polygon', [
+    ((600, 60), (660, 140), (660, 60), (600, 140)),
+    ((19, 60), (60, 60), (60, 140), (19, 140)),
+    ((600, 60), (620, 60), (640, 60), (660, 60)),
+    ((600, 60), (float('nan'), 60), (660, 140), (600, 140)),
+])
+def test_invalid_manual_polygon_does_not_replace_saved_review(module_scene, polygon):
+    _, value = module_scene
+    result = pv.detect_partial_pv_window(value, window=(20, 20, 760, 560))
+    key = pv.region_key(result.rgb_window)
+    region = pv.make_region(value, result)
+    pv.save_module_review(value, {key: region}, key)
+    saved = (value.folder / pv.STATE).read_bytes()
+    with pytest.raises(ValueError):
+        pv.manual_module_outline(value, region, polygon)
+    assert (value.folder / pv.STATE).read_bytes() == saved
+    with pytest.raises(ValueError, match='ueberlappt'):
+        pv.manual_module_outline(value, region, result.proposals[0].rgb_polygon_px)
+
+
+def test_manual_rgb_mask_thermal_gap_cancel_and_source_change(module_scene, monkeypatch):
+    source, value = module_scene
+    # A real synthetic GDAL mask, then consciously reopen the changed test source.
+    with rasterio.open(value.rgb_path, 'r+') as raster:
+        mask = np.full((raster.height, raster.width), 255, np.uint8)
+        mask[70:80, 610:620] = 0
+        raster.write_mask(mask)
+    value = comparison.open_partial_comparison(source, value.rgb_path)
+    comparison.save_partial_comparison(value, opacity=50, zoom=1, verdict='looks_aligned', note='Synthetic')
+    result = pv.detect_partial_pv_window(value, window=(20, 20, 760, 560))
+    region = pv.make_region(value, result)
+    with pytest.raises(ValueError, match='RGB-Pixel'):
+        pv.manual_module_outline(value, region, MANUAL)
+    gap = ((50, 400), (100, 400), (100, 480), (50, 480))
+    revised = pv.manual_module_outline(value, region, gap)
+    assert revised['entries'][-1]['proposal']['thermal_valid_coverage'] == 0
+    with pytest.raises(RuntimeError, match='cancelled|abgebrochen'):
+        pv.manual_module_outline(None, region, gap, should_cancel=lambda: True)
+    coverage = pv._thermal_coverage
+    cancelled = False
+    def interrupted(*args):
+        nonlocal cancelled
+        answer = coverage(*args)
+        cancelled = True
+        return answer
+    monkeypatch.setattr(pv, '_thermal_coverage', interrupted)
+    with pytest.raises(RuntimeError, match='cancelled|abgebrochen'):
+        pv.manual_module_outline(value, region, gap, should_cancel=lambda: cancelled)
+    def changed(*args):
+        answer = coverage(*args)
+        with rasterio.open(value.rgb_path, 'r+') as raster:
+            raster.update_tags(SYNTHETIC_CHANGED='true')
+        return answer
+    monkeypatch.setattr(pv, '_thermal_coverage', changed)
+    with pytest.raises(ValueError):
+        pv.manual_module_outline(value, region, gap)
+    assert not (value.folder / pv.STATE).exists()
+
+
+def test_manual_history_and_id_tampering_rejected_and_empty_region_supported(module_scene):
+    _, value = module_scene
+    result = pv.OrthophotoPVWindowResult((), (20, 20, 760, 560), 'manual')
+    region = pv.make_region(value, result)
+    region = pv.manual_module_outline(value, region, MANUAL)
+    module_id = region['entries'][0]['module_id']
+    region['entries'][0]['status'] = 'outline_ok'
+    region = pv.manual_module_outline(value, region, ADDED, module_id=module_id)
+    assert region['entries'][0]['history'][0]['status'] == 'outline_ok'
+    region['entries'][0]['history'][0]['proposal']['thermal_calibration_verified'] = True
+    with pytest.raises(ValueError):
+        pv.parse_region(value, region)
+
+
+def test_legacy_saved_review_upgrades_without_losing_ids_or_notes(module_scene):
+    _, value = module_scene
+    result = pv.detect_partial_pv_window(value, window=(20, 20, 760, 560))
+    key = pv.region_key(result.rgb_window)
+    region = pv.make_region(value, result)
+    region['entries'][0].update(status='rejected', note='Synthetic legacy rejection')
+    record = pv.save_module_review(value, {key: region}, key)
+    record['check'] = pv.LEGACY_CHECK
+    for entry in record['regions'][key]['entries']:
+        del entry['origin'], entry['history']
+    (value.folder / pv.STATE).write_text(json.dumps(record))
+    restored, selected = pv.load_module_review(value)
+    assert restored[key]['entries'][0]['status'] == 'rejected'
+    assert restored[key]['entries'][0]['note'] == 'Synthetic legacy rejection'
+    updated = pv.manual_module_outline(value, restored[key], MANUAL,
+        module_id=restored[key]['entries'][0]['module_id'])
+    assert updated['entries'][0]['history'][0]['note'] == 'Synthetic legacy rejection'
+    saved = pv.save_module_review(value, {key: updated}, selected)
+    assert saved['check'] == pv.CHECK
+    updated['entries'][0]['module_id'] = updated['entries'][1]['module_id']
+    with pytest.raises(ValueError):
+        pv.parse_region(value, updated)

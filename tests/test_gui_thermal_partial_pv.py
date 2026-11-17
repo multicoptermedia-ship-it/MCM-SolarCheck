@@ -95,3 +95,108 @@ def test_unreviewed_comparison_button_and_oversize_selection_cannot_run(module_s
     assert not (value.folder / pv.STATE).exists()
     dialog.close()
     window.close()
+
+
+def _corners(editor, polygon):
+    from PySide6.QtTest import QTest
+    from PySide6.QtCore import QPoint
+    col, row = editor.image.window[:2]
+    for x, y in polygon:
+        QTest.mouseClick(editor.image, Qt.MouseButton.LeftButton, pos=QPoint(x-col, y-row))
+
+
+def test_manual_corners_cancel_correct_add_save_reopen_and_detail(module_scene, qapp, monkeypatch):
+    from test_thermal_partial_pv import MANUAL, ADDED
+    _, value = module_scene
+    dialog = PartialThermalPVReviewDialog(value)
+    dialog.show()
+    dialog._select_window((20, 20, 760, 560))
+    dialog._run.click()
+    dialog.table.cellWidget(0, 2).setCurrentIndex(2)
+    dialog.table.item(0, 3).setText('Synthetic rejected partial outline')
+    dialog._save()
+    saved = (value.folder / pv.STATE).read_bytes()
+    ids = [e['module_id'] for e in dialog.regions[dialog.current_region]['entries']]
+    monkeypatch.setattr(dialog, '_detect', lambda *a: pytest.fail('No new detector'))
+    dialog.table.selectRow(0)
+    dialog.correct.click()
+    editor = dialog._editor_dialog
+    assert editor.isVisible() and value.label in editor.findChildren(QLabel)[0].text()
+    _corners(editor, MANUAL)
+    assert editor.image.corners == list(MANUAL)  # Native center indices, including ROI offset.
+    editor.findChild(QPushButton, 'partial_pv_outline_cancel').click()
+    assert dialog.regions[dialog.current_region]['entries'][0]['status'] == 'rejected'
+    assert (value.folder / pv.STATE).read_bytes() == saved
+    dialog.correct.click()
+    editor = dialog._editor_dialog
+    # Crossing corners stay in the editor; undo then finish in perimeter order.
+    _corners(editor, (MANUAL[0], MANUAL[2], MANUAL[1], MANUAL[3]))
+    editor.apply.click()
+    assert editor.isVisible() and 'Nicht übernommen' in editor.status.text()
+    for _ in range(4):
+        editor.findChild(QPushButton, 'partial_pv_corner_undo').click()
+    assert not editor.apply.isEnabled()
+    _corners(editor, MANUAL)
+    editor.apply.click()
+    assert not editor.isVisible()
+    assert dialog.table.cellWidget(0, 2).currentData() == 'pending'
+    assert dialog.table.item(0, 3).text() == 'Synthetic rejected partial outline'
+    assert dialog.regions[dialog.current_region]['entries'][0]['history'][0]['status'] == 'rejected'
+    assert (value.folder / pv.STATE).read_bytes() == saved  # Accepting is not saving.
+    dialog.table.cellWidget(0, 2).setCurrentIndex(1)
+    dialog.add.click()
+    editor = dialog._editor_dialog
+    _corners(editor, ADDED)
+    editor.apply.click()
+    assert dialog.table.rowCount() == 3
+    assert dialog.table.item(2, 0).text() == 'A1:M-0003'
+    assert dialog.table.item(2, 1).text() == '100.0'
+    dialog.findChild(QPushButton, 'partial_pv_module_detail').click()
+    assert dialog._detail_dialog.isVisible()
+    dialog._detail_dialog.close()
+    dialog._save()
+    assert 'lokal gespeichert' in dialog._status.text()
+    dialog.close()
+    monkeypatch.setattr(PartialThermalPVReviewDialog, '_detect', lambda *a: pytest.fail('No detector on reopen'))
+    reopened = PartialThermalPVReviewDialog(value)
+    assert reopened.table.rowCount() == 3
+    assert [reopened.table.item(i, 0).data(Qt.ItemDataRole.UserRole) for i in range(2)] == ids
+    assert reopened.table.cellWidget(0, 2).currentData() == 'outline_ok'
+    assert reopened.proposal_result.proposals[0].rgb_polygon_px == MANUAL
+    assert reopened.proposal_result.proposals[2].rgb_polygon_px == ADDED
+    assert not reopened._run.isEnabled()
+    reopened.close()
+
+
+def test_manual_add_without_detector_and_close_without_saving(module_scene, qapp, monkeypatch):
+    from test_thermal_partial_pv import MANUAL
+    _, value = module_scene
+    dialog = PartialThermalPVReviewDialog(value)
+    dialog.show()
+    assert not dialog.add.isEnabled() and not dialog.correct.isEnabled()
+    dialog._select_window((20, 20, 760, 560))
+    assert dialog.add.isEnabled() and not dialog.correct.isEnabled()
+    monkeypatch.setattr(dialog, '_detect', lambda *a: pytest.fail('Manual path does not need detection'))
+    dialog.add.click()
+    editor = dialog._editor_dialog
+    _corners(editor, MANUAL)
+    editor.apply.click()
+    assert dialog.table.rowCount() == 1 and dialog.correct.isEnabled()
+    assert dialog.table.item(0, 0).text() == 'A1:M-0001'
+    dialog.close()
+    assert not (value.folder / pv.STATE).exists()
+    reopened = PartialThermalPVReviewDialog(value)
+    assert reopened.table.rowCount() == 0
+    reopened.close()
+
+
+@pytest.fixture(autouse=True)
+def dispose_windows(qapp):
+    # Exercise native close/destruction while QApplication is still alive.
+    from PySide6.QtCore import QCoreApplication, QEvent
+    yield
+    for widget in qapp.topLevelWidgets():
+        widget.close()
+        widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    qapp.processEvents()

@@ -180,6 +180,21 @@ def _validate_window(window):
         raise ValueError("bounded integer RGB window (column, row, width, height) required")
 
 
+def _rgb_valid_pixels(rgb, bands, region):
+    """Shared native pixels/mask for automatic and manually reviewed outlines."""
+    channels = rgb.read(bands, window=region)
+    valid = rgb.dataset_mask(window=region) > 0
+    valid &= np.all(rgb.read_masks(bands, window=region) > 0, axis=0)
+    for layer, band in zip(channels, bands):
+        nodata = rgb.nodatavals[band-1]
+        if nodata is not None:
+            valid &= layer != nodata
+    for index, color in enumerate(rgb.colorinterp, 1):
+        if color == rasterio.enums.ColorInterp.alpha:
+            valid &= rgb.read(index, window=region) > 0
+    return channels, valid
+
+
 def _detect_orthophoto_pv_pair(pair, *, window, detector=None, should_cancel=None):
     """Shared detector/GIS implementation; callers retain their own intake gates."""
     _cancel(should_cancel)
@@ -192,16 +207,7 @@ def _detect_orthophoto_pv_pair(pair, *, window, detector=None, should_cancel=Non
         if col+width > rgb.width or row+height > rgb.height:
             raise ValueError("RGB detection window must remain inside its native raster")
         region = Window(col, row, width, height)
-        channels = rgb.read(pair.rgb_bands, window=region)
-        valid = rgb.dataset_mask(window=region) > 0
-        valid &= np.all(rgb.read_masks(pair.rgb_bands, window=region) > 0, axis=0)
-        for layer, band in zip(channels, pair.rgb_bands):
-            nodata = rgb.nodatavals[band-1]
-            if nodata is not None:
-                valid &= layer != nodata
-        for index, color in enumerate(rgb.colorinterp, 1):
-            if color == rasterio.enums.ColorInterp.alpha:
-                valid &= rgb.read(index, window=region) > 0
+        channels, valid = _rgb_valid_pixels(rgb, pair.rgb_bands, region)
         bgr = np.ascontiguousarray(np.moveaxis(channels, 0, -1)[:, :, ::-1])
         bgr[~valid] = 255
         _cancel(should_cancel)

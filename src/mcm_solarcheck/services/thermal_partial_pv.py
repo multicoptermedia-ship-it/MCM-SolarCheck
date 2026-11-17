@@ -3,20 +3,29 @@
 Reuses the existing detector, module normalizer and GIS mapping. Draft IDs are
 scoped to a native RGB window; they are not confirmed physical module identities.
 """
+from copy import deepcopy
 from dataclasses import asdict
 import json
 from math import ceil, floor, isfinite
 
+import numpy as np
+import rasterio
+from rasterio.windows import Window
+from pyproj import Transformer
+
 from .thermal_partial_comparison import STATE as COMPARISON_STATE, FLAGS, _local, verify_partial_comparison
 from .orthophoto_pv_modules import (
     OrthophotoPVModuleProposal, OrthophotoPVWindowResult, _detect_orthophoto_pv_pair, _validate_window,
+    _rgb_valid_pixels, _polygon_mask, _map_polygon, _thermal_coverage, _cancel,
 )
 from .orthophoto_layer_alignment import aligned_preview_arrays
 from ..vision.detection import ModuleDetection, normalize_module_detections
-from ..vision.module_quality import filter_module_detections
+from ..vision.module_quality import filter_module_detections, assess_module_detection
+from ..vision.polygon_geometry import convex_polygon_iou
 
 STATE = 'pv-modules.LOCAL.json'
-CHECK = 'solarcheck-incomplete-thermal-pv-drafts-1'
+CHECK = 'solarcheck-incomplete-thermal-pv-drafts-2'
+LEGACY_CHECK = 'solarcheck-incomplete-thermal-pv-drafts-1'
 REVIEWS = ('pending', 'outline_ok', 'rejected')
 
 
@@ -76,6 +85,37 @@ def _polygon(value, maximum=256):
     return tuple(tuple(v for v in p) for p in value)
 
 
+def _snapshot(value, window, *, manual=False):
+    """Validate one local revision, including its unapproved proposal flags."""
+    col, row, width, height = window
+    p = value['proposal']
+    polygon = _polygon(p['rgb_polygon_px'], 16)
+    local = tuple((x-col, y-row) for x, y in polygon)
+    confidence = p['confidence']
+    if type(confidence) not in (int, float) or not isfinite(confidence) or not 0 <= confidence <= 1:
+        raise ValueError('Ungueltige Vorschlagskonfidenz.')
+    raw = ModuleDetection(local, confidence)
+    accepted = (assess_module_detection(raw, width, height, minimum_area_fraction=0,
+        maximum_area_fraction=1).accepted if manual else bool(filter_module_detections((raw,), width, height)))
+    if not accepted:
+        raise ValueError('Ungueltiger gespeicherter RGB-Modulumriss.')
+    count, total = p['thermal_valid_pixel_count'], p['thermal_polygon_sample_count']
+    coverage = p['thermal_valid_coverage']
+    if (any(type(v) is not int for v in (count, total)) or not 0 <= count <= total <= 1_000_000
+            or type(coverage) not in (int, float) or not isfinite(coverage)
+            or abs(coverage - (count / total if total else 0)) > 1.e-9
+            or p.get('review_status') != 'pending'
+            or any(p.get(k) is not False for k in ('module_analysis_verified',
+                'geometric_registration_verified', 'thermal_calibration_verified'))):
+        raise ValueError('Modulvorschlag darf keine Freigabe enthalten.')
+    status, note = value['status'], value['note']
+    if status not in REVIEWS or not isinstance(note, str) or len(note) > 1000:
+        raise ValueError('Ungueltige lokale Modulbeurteilung (maximal 1000 Zeichen).')
+    proposal = OrthophotoPVModuleProposal(polygon, _polygon(p['thermal_polygon_px']),
+        confidence, coverage, count, total)
+    return proposal, dict(proposal=asdict(proposal), status=status, note=note)
+
+
 def parse_region(comparison, data):
     window = tuple(data['window'])
     _validate_window(window)
@@ -86,33 +126,87 @@ def parse_region(comparison, data):
     entries = data['entries']
     if not isinstance(entries, list) or len(entries) > 2000:
         raise ValueError('Zu viele Modulvorschlaege.')
-    proposals, reviews = [], {}
+    proposals, canonical, roots, detected_ids, manual_ids = [], [], [], [], []
     for entry in entries:
-        p = entry['proposal']
-        polygon = _polygon(p['rgb_polygon_px'], 16)
-        local = tuple((x-col, y-row) for x, y in polygon)
-        raw = ModuleDetection(local, p['confidence'])
-        if not filter_module_detections((raw,), width, height):
-            raise ValueError('Ungueltiger gespeicherter RGB-Modulumriss.')
-        count, total = p['thermal_valid_pixel_count'], p['thermal_polygon_sample_count']
-        coverage = p['thermal_valid_coverage']
-        if (any(type(v) is not int for v in (count, total)) or not 0 <= count <= total <= 1_000_000
-                or type(coverage) not in (int, float) or not isfinite(coverage)
-                or abs(coverage - (count / total if total else 0)) > 1.e-9
-                or p.get('review_status') != 'pending'
-                or any(p.get(k) is not False for k in ('module_analysis_verified',
-                    'geometric_registration_verified', 'thermal_calibration_verified'))):
-            raise ValueError('Modulvorschlag darf keine Freigabe enthalten.')
-        proposals.append(OrthophotoPVModuleProposal(polygon, _polygon(p['thermal_polygon_px']),
-            p['confidence'], coverage, count, total))
-        if entry['module_id'] in reviews:
-            raise ValueError('Doppelte Entwurfs-ID.')
-        reviews[entry['module_id']] = dict(status=entry['status'], note=entry['note'])
-    result = OrthophotoPVWindowResult(tuple(proposals), window, data['detector'])
-    if draft_module_ids(comparison, result) != tuple(e['module_id'] for e in entries):
+        origin, history = entry.get('origin', 'detected'), entry.get('history', [])
+        if origin not in ('detected', 'manual') or not isinstance(history, list) or len(history) > 20:
+            raise ValueError('Ungueltige lokale Umrisshistorie (maximal 20 Korrekturen).')
+        snapshots = []
+        for index, old in enumerate(history):
+            _, snapshot = _snapshot(old, window, manual=origin == 'manual' or index > 0)
+            snapshots.append(snapshot)
+        proposal, current = _snapshot(entry, window, manual=origin == 'manual' or bool(history))
+        module_id = entry['module_id']
+        if not isinstance(module_id, str):
+            raise ValueError('Ungueltige Entwurfs-ID.')
+        if origin == 'detected':
+            if manual_ids:
+                raise ValueError('Manuelle Ergaenzungen muessen nach den Detektorentwuerfen stehen.')
+            root, _ = _snapshot(history[0] if history else entry, window)
+            roots.append(root)
+            detected_ids.append(module_id)
+        else:
+            manual_ids.append(module_id)
+        proposals.append(proposal)
+        canonical.append(dict(module_id=module_id, **current, origin=origin, history=snapshots))
+    baseline = OrthophotoPVWindowResult(tuple(roots), window, data['detector'])
+    if draft_module_ids(comparison, baseline) != tuple(detected_ids):
         raise ValueError('Gespeicherte Entwurfs-IDs passen nicht zum RGB-Ausschnitt.')
-    # This also validates statuses/notes, retaining immutable proposal flags.
-    return result, make_region(comparison, result, reviews)
+    frame = 'RGB-' + comparison.fingerprints['rgb'][:12] + ':' + region_key(window)
+    expected = tuple(f'{frame}:M-{i:04d}' for i in range(len(roots)+1, len(entries)+1))
+    if tuple(manual_ids) != expected or len({e['module_id'] for e in canonical}) != len(entries):
+        raise ValueError('Ungueltige oder doppelte manuelle Entwurfs-ID.')
+    result = OrthophotoPVWindowResult(tuple(proposals), window, data['detector'])
+    return result, dict(window=list(window), detector=data['detector'], entries=canonical)
+
+
+def manual_module_outline(comparison, region, polygon, *, module_id=None, should_cancel=None):
+    """Return a revised region, never writing files or running a detector.
+
+    Native RGB pixel centers, four convex corners in perimeter order. The ID
+    and original rejected/accepted revision survive corrections. Additions use
+    a new local ID; no detection confidence or physical identity is inferred.
+    """
+    _cancel(should_cancel)
+    pair = _ready(comparison)
+    result, updated = parse_region(comparison, region)
+    polygon = _polygon(polygon, 4)
+    if len(polygon) != 4:
+        raise ValueError('Vier Modulecken der Reihe nach markieren.')
+    col, row, width, height = result.rgb_window
+    local = tuple((x-col, y-row) for x, y in polygon)
+    if not assess_module_detection(ModuleDetection(local, 0), width, height,
+            minimum_area_fraction=0, maximum_area_fraction=1).accepted:
+        raise ValueError('Vier konvexe Modulecken innerhalb des RGB-Ausschnitts markieren.')
+    entries = updated['entries']
+    old = next((e for e in entries if e['module_id'] == module_id), None)
+    if module_id is not None and old is None:
+        raise ValueError('Entwurfs-ID nicht in diesem Ausschnitt.')
+    if (old is None and len(entries) >= 2000) or (old is not None and len(old['history']) >= 20):
+        raise ValueError('Grenze fuer lokale Entwuerfe oder Korrekturen erreicht.')
+    for entry in entries:
+        if entry is not old and entry['status'] != 'rejected' and convex_polygon_iou(
+                polygon, entry['proposal']['rgb_polygon_px']) >= .75:
+            raise ValueError('Umriss ueberlappt einen vorhandenen Entwurf; diesen korrigieren oder verwerfen.')
+    with rasterio.open(pair.rgb_path) as rgb, rasterio.open(pair.thermal_path) as thermal:
+        _, valid = _rgb_valid_pixels(rgb, pair.rgb_bands, Window(*result.rgb_window))
+        mask = _polygon_mask(local, width=width, height=height)
+        if not mask.any() or np.any(mask & ~valid):
+            raise ValueError('Modulumriss enthaelt ungueltige RGB-Pixel.')
+        mapped = _map_polygon(polygon, rgb.transform, thermal.transform,
+            Transformer.from_crs(rgb.crs, thermal.crs, always_xy=True))
+        coverage, count, total = _thermal_coverage(thermal, mapped, pair.thermal_bands, should_cancel)
+    proposal = OrthophotoPVModuleProposal(polygon, mapped, 0., coverage, count, total)
+    if old is not None:
+        old['history'].append(deepcopy({k: old[k] for k in ('proposal', 'status', 'note')}))
+        old.update(proposal=asdict(proposal), status='pending')
+    else:
+        frame = 'RGB-' + comparison.fingerprints['rgb'][:12] + ':' + region_key(result.rgb_window)
+        entries.append(dict(module_id=f'{frame}:M-{len(entries)+1:04d}', proposal=asdict(proposal),
+            status='pending', note='', origin='manual', history=[]))
+    _cancel(should_cancel)
+    verify_partial_comparison(comparison)
+    return parse_region(comparison, updated)[1]
 
 
 def load_module_review(comparison):
@@ -122,7 +216,7 @@ def load_module_review(comparison):
         return {}, None
     with _local(path).open(encoding='utf-8') as stream:
         data = json.load(stream)
-    if (not isinstance(data, dict) or data.get('check') != CHECK or data.get('fingerprints') != comparison.fingerprints
+    if (not isinstance(data, dict) or data.get('check') not in (CHECK, LEGACY_CHECK) or data.get('fingerprints') != comparison.fingerprints
             or data.get('label') != comparison.label or not isinstance(data.get('regions'), dict)
             or len(data['regions']) > 20 or any(data.get(k) is not False for k in FLAGS)
             or data.get('physical_module_ids_confirmed') is not False):
