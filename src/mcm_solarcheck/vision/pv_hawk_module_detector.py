@@ -22,6 +22,22 @@ def specification():
     return json.loads(SPEC_PATH.read_text(encoding='utf-8'))
 
 
+def rgb_configuration(config_class, spec):
+    """Apply the official RGB settings before Config derives IMAGE_SHAPE.
+
+    The v1.0.0 base config predates the upstream IR/RGB split. The published
+    RGB weights need PVConfigRGB's trained scale and channel means, NOT the
+    older config's 512/640 and monochrome IR mean. No local parameter search.
+    """
+    rgb = spec['rgb_inference']
+    config_class.IMAGES_PER_GPU = 1
+    config_class.DATASET_MODE = 'rgb'
+    config_class.IMAGE_MIN_DIM = rgb['image_min_dim']
+    config_class.IMAGE_MAX_DIM = rgb['image_max_dim']
+    config_class.MEAN_PIXEL = np.asarray(rgb['mean_rgb'], dtype=np.float64)
+    return config_class()
+
+
 def checked_bytes(path, expected):
     path = Path(path)
     if (not path.is_file() or any(p.is_symlink() for p in (path, *path.parents))
@@ -105,8 +121,7 @@ def _model(root, spec):
     start, end = content.index('try:'), content.index('\n\n\nclass PVConfig')
     content = content[:start] + 'from mrcnn.config import Config' + content[end:]
     config_class = _module('solarcheck_pv_hawk_config', content, root/'vendor/extractor/segmentation/configs.py').PVConfig
-    config_class.IMAGES_PER_GPU = 1
-    config = config_class()
+    config = rgb_configuration(config_class, spec)
     model = package.model.MaskRCNN(mode='inference', config=config, model_dir=str(root/'model-log'))
     # Upstream trains with loss layers, whose order differs from inference.
     # Require every inference layer's full weights, then use upstream's named
@@ -186,12 +201,13 @@ class PVHawkModuleDetector:
         self.root, data, self.spec = validate_manifest(path)
         self._check_weights()
         self.model = _model(self.root, self.spec)
-        self.name = 'pv-hawk-rgb-v1-cpu-evaluation'
+        self.name = 'pv-hawk-rgb-v1-cpu-pvconfigrgb'
         self.description = dict(provider='LukasBommes/PV-Hawk', model_version='v1.0.0-rgb-0059',
             profile=PROFILE, source_commit=self.spec['source_commit'],
             weights_sha256=self.spec['weights_sha256'], code_license='MIT',
             weight_rights='Published project release; separate weight/data terms not independently cleared for production/distribution.',
-            backend='tensorflow-cpu-2.10.1', preprocessing='upstream-PVConfig-RGB-512-640-mean129.4',
+            backend='tensorflow-cpu-2.10.1', preprocessing='pvconfigrgb-720-1280-1',
+            preprocessing_config=dict(self.spec['rgb_inference']),
             evaluation_allowed=True, production_approved=False)
 
     def _check_weights(self):

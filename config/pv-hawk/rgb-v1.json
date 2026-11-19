@@ -31,5 +31,19 @@
       "sha256": "6083f4ed435dd398b06f0d07a955c4541cb64eb4dc4f729fcffc79133ffaf8e9",
       "bytes": 127007
     }
+  },
+  "rgb_inference": {
+    "profile": "pvconfigrgb-720-1280-1",
+    "configuration": "PVConfigRGB",
+    "source_commit": "b641cc3a612047a85d2ffe4b47b608dbfc49aa2d",
+    "source_path": "extractor/segmentation/configs.py",
+    "source_sha256": "936a165806b55d1321a4ac8f5da3c67b3f9241fe3a0b2c0d19c302aa3dc22d13",
+    "image_min_dim": 720,
+    "image_max_dim": 1280,
+    "mean_rgb": [
+      102.99604791,
+      108.6435939,
+      125.23814966
+    ]
   }
 }

@@ -56,6 +56,9 @@ def test_pretrained_rgb_cpu_real_worker_saved_comparison_reopen_and_bad_hash(pre
     assert run.returncode==0
     record,found,references=evaluation.read_model_comparison(value)
     assert record['model']['provider']=='LukasBommes/PV-Hawk'
+    assert record['model']['preprocessing']=='pvconfigrgb-720-1280-1'
+    assert record['model']['preprocessing_config']['image_max_dim']==1280
+    assert evaluation.shareable_counts(record)['input_profile']=='pvconfigrgb-720-1280-1'
     assert record['model']['production_approved'] is False and record['accuracy_verified'] is False
     assert len(references)==2 and record['label']==value.label
     counts=record['diagnostics']

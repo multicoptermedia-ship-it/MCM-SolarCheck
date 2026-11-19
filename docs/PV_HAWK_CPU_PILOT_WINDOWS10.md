@@ -4,6 +4,22 @@ Stand17.11.2026 · PV-HAWK-CPU-PILOT-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSST
 
 Der Nutzer hat die zusätzliche isolierte Einrichtung ausdrücklich freigegeben und führt sie auf seinem Rechner selbst aus. Ziel dieses Schritts ist ein begrenzter Vergleich eines **tatsächlich vortrainierten RGB-Modulmodells** mit bereits gespeicherten passenden Umrissen. Noch keine automatische Gesamtparkverarbeitung oder Qualitätsfreigabe.
 
+## RGB-Eingabekonfiguration korrigieren19.11.
+
+Der kopierte Nutzerbericht zeigt755Regionenvorschläge, aber0als PV klassifizierte Regionen; höchster PV-Wert0,2252. Das Modell gibt0Instanzen aus. SolarChecks Masken-/Geometrie-/NoData-Filter haben nichts verworfen. Regionen sind keine Module; eine kleinere Endschwelle löst die Hintergrundklassifikation nicht.
+
+**Gefundener Integrationsfehler:** Unser Adapter nutzte ältere IR-Eingabewerte mit RGB-Gewichten. Die [Original-PVConfigRGB](https://github.com/LukasBommes/PV-Hawk/blob/b641cc3a612047a85d2ffe4b47b608dbfc49aa2d/extractor/segmentation/configs.py#L74) verlangt andere Skalen und RGB-Mittelwerte:
+
+| Einstellung | Bisheriger Fehlstand | Original-RGB-Konfiguration |
+|---|---|---|
+| Kleine/große Kante vor quadratischem Padding |512/640|720/1280|
+| RGB-Mittelwerte |129.4/129.4/129.4|102.99604791/108.6435939/125.23814966|
+| Bildform im Netzwerk |640×640|1280×1280|
+
+RGB-Konfigurationsquelle b641cc3a612047a85d2ffe4b47b608dbfc49aa2d, SHA256936a165806b55d1321a4ac8f5da3c67b3f9241fe3a0b2c0d19c302aa3dc22d13. config.py/model.py/utils.py bytegleich zum vorhandenen Modellkern; nur ursprüngliche RGB-Eingabewerte als Daten übernehmen. Pakete, Vendor-Dateien, Gewichte, Schwelle0,7 und SolarCheck-Filter bleiben erhalten. Bestehende KI-Installation und Manifest weiterverwenden. Keine neue PV-Hawk-/Video-/SfM-Pipeline.
+
+Der feste Korrekturstart ohne Installation wird nach Prüfung ergänzt. Danach genau einmal denselben gespeicherten Ausschnitt vergleichen und **KI-Kennzahlen kopieren**. Die Ausgabe muss `input_profile: pvconfigrgb-720-1280-1` enthalten; das Fenster zeigt RGB-Eingabe720/1280Pixel. Alte Ergebnisse bleiben lesbar, enthalten aber die alte Eingabe. Eine höhere reale Erkennungsanzahl erst lokal prüfen; keine vollständige Modul-/Geometrie-/Celsiusfreigabe ableiten.
+
 ## Null KI-Kandidaten eingrenzen19.11.
 
 Der Nutzerscreenshot zeigt **KI-Kandidaten:0** und acht gelbe gespeicherte passende Umrisse. Gelbe Umrisse sind die bisherige Teilreferenz, keine neuen KI-Treffer. Die passende Größe dieser Umrisse belegt daher noch keine KI-Erkennung. Der alte Bericht enthält keine Zwischenergebnisse; die Ursache ist damit nicht feststellbar.

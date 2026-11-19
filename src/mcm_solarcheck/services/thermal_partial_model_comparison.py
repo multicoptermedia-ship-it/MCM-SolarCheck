@@ -152,5 +152,14 @@ def validate_diagnostics(record):
 def shareable_counts(record):
     """Allowlisted aggregate-only clipboard data, never private report content."""
     validate_diagnostics(record)
-    return dict(check='solarcheck-pv-counts-1', candidate_outlines=record['counts']['candidate_outlines'],
+    preprocessing = record['model'].get('preprocessing')
+    if not isinstance(preprocessing, str):
+        preprocessing = None
+    # A fixed enum identifies corrected vs old inputs; never copy free-form
+    # model metadata (which could contain operator notes or local paths).
+    input_profile = ({'pvconfigrgb-720-1280-1': 'pvconfigrgb-720-1280-1',
+        'upstream-PVConfig-RGB-512-640-mean129.4': 'legacy-ir-defaults-512-640'}
+        .get(preprocessing, 'not_recorded_or_other_model'))
+    return dict(check='solarcheck-pv-counts-1', input_profile=input_profile,
+        candidate_outlines=record['counts']['candidate_outlines'],
         diagnostics=record.get('diagnostics'), **dict.fromkeys((*FLAGS,*EXTRA_FLAGS),False))

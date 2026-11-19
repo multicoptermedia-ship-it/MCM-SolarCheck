@@ -59,10 +59,13 @@ class ModelComparisonDialog(OrthophotoPVReviewDialog):
         # ONNX reports embed ModelManifest; existing PV-Hawk reports store
         # provider/version directly. Reopen either without rewriting evidence.
         metadata = record['model'].get('model', record['model'])
+        configuration = record['model'].get('preprocessing_config')
+        configuration_text = (f" · RGB-Eingabe: {configuration['image_min_dim']}/{configuration['image_max_dim']} Pixel"
+            if configuration else '')
         empty = ('Keine KI-Umrisse im Ergebnis. Der Vergleich ist abgeschlossen; '
             'gelbe Umrisse zeigen die gespeicherte Teilreferenz. ' if not result.proposals else '')
         self._status.setText(empty + 'Vergleich separat lokal gespeichert. Bestehende Entwürfe/Beurteilungen bleiben erhalten. '
-            f"Modell: {metadata['provider']} / {metadata['model_version']}")
+            f"Modell: {metadata['provider']} / {metadata['model_version']}" + configuration_text)
         available = self.screen().availableGeometry()
         self.resize(min(1200, available.width()-40), min(850, available.height()-40))
 

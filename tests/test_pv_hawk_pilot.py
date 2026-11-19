@@ -165,3 +165,29 @@ def test_observer_uses_one_prediction_and_restores_model_after_failure(fail):
         assert detector.detect_array(np.zeros((30,40,3),np.uint8))==()
         assert detector.last_diagnostics['network']['regions_at_070']==1
     assert detector.model.keras_model.calls==1 and detector.model.keras_model.predict==before
+
+
+def test_rgb_training_configuration_replaces_ir_defaults_before_derived_shape():
+    class OldIRConfig:
+        IMAGE_MIN_DIM=512
+        IMAGE_MAX_DIM=640
+        MEAN_PIXEL=np.array([129.4]*3)
+        GPU_COUNT=1
+        IMAGES_PER_GPU=2
+        def __init__(self):
+            self.IMAGE_SHAPE=np.array([self.IMAGE_MAX_DIM,self.IMAGE_MAX_DIM,3])
+            self.BATCH_SIZE=self.GPU_COUNT*self.IMAGES_PER_GPU
+    config=hawk.rgb_configuration(OldIRConfig,hawk.specification())
+    assert config.DATASET_MODE=='rgb'
+    assert (config.IMAGE_MIN_DIM,config.IMAGE_MAX_DIM)==(720,1280)
+    assert config.IMAGE_SHAPE.tolist()==[1280,1280,3] and config.BATCH_SIZE==1
+    np.testing.assert_array_equal(config.MEAN_PIXEL,[102.99604791,108.6435939,125.23814966])
+    assert not np.array_equal(config.MEAN_PIXEL,[129.4]*3)
+
+
+def test_rgb_configuration_provenance_is_immutable_and_weights_stay_unchanged():
+    spec=hawk.specification();rgb=spec['rgb_inference']
+    assert rgb['source_commit']=='b641cc3a612047a85d2ffe4b47b608dbfc49aa2d'
+    assert rgb['source_sha256']=='936a165806b55d1321a4ac8f5da3c67b3f9241fe3a0b2c0d19c302aa3dc22d13'
+    assert rgb['configuration']=='PVConfigRGB'
+    assert spec['weights_sha256']=='8b862618a58dbd8b8f961d31c7d5dd0230293a013559182c4512780f7166c7d3'
