@@ -20,7 +20,24 @@ Datensatz-Attribution für eine spätere Nutzung: Viktor Kozák, Karel Košnar, 
 
 Das eigenständige Skript [MCM_SolarCheck_CVUT_PAKETPRUEFUNG.py](../scripts/MCM_SolarCheck_CVUT_PAKETPRUEFUNG.py) verwendet nur vorhandenes Python und dessen Standardbibliothek. Der feste Download ist ausschließlich das öffentliche **U-Net-Modellarchiv**, keine Trainingsbilder. Eigener Ordner `E:\SolarCheck-CVUT-Paketpruefung`, ungefähr400MiB freien Platz vorsehen. F:-Python, OpenSfM, bestehende KI-Umgebung und deren gespeicherte Ergebnisse bleiben erhalten.
 
-Der feste geprüfte PowerShell-Start wird nach Veröffentlichung dieses Skripts hier ergänzt. Bis dahin keinen ungeprüften Branch-Download als KI-Modell verwenden.
+In **PowerShell** diesen vollständigen Block ausführen. Er lädt ein einziges festes Skript (9597Bytes), prüft dessen SHA256 und startet die öffentliche Paketprüfung mit dem vorhandenen F:-Python. Kein Git-Checkout und keine neue Python-Umgebung erforderlich.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$cvutCommit = '4960307753794c9db3a885d493bdcc4e0a3e6188'
+$cvutStart = Join-Path 'E:\SolarCheck-CVUT-Start' $cvutCommit
+New-Item -ItemType Directory -Force -Path $cvutStart | Out-Null
+$cvutScript = Join-Path $cvutStart 'MCM_SolarCheck_CVUT_PAKETPRUEFUNG.py'
+Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/multicoptermedia-ship-it/MCM-SolarCheck/$cvutCommit/scripts/MCM_SolarCheck_CVUT_PAKETPRUEFUNG.py" -OutFile $cvutScript
+if ((Get-FileHash -Algorithm SHA256 $cvutScript).Hash.ToLowerInvariant() -ne '721d4da17f1a78de9b63142841385f23ceaed8787bfa1c924d46949ae959914d') {
+    throw 'Skript-Pruefsumme stimmt nicht. Nicht gestartet.'
+}
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' $cvutScript
+if ($LASTEXITCODE -ne 0) { throw 'CVUT-Paketpruefung nicht abgeschlossen. Vorherige Meldung beachten.' }
+```
+
+Feste Skriptquelle49603077 wurde aus GitHub geladen und mit dem Repository bytegleich geprüft. SHA256 gilt nur für dieses Startskript, nicht für das noch ungeprüfte CVUT-Modellarchiv. Bei erneutem Start kann derselbe Block verwendet werden.
+
 
 Das Skript zeigt Downloadfortschritt und anschließend eine öffentliche Dateiliste mit Größe/SHA256. Der Hash dokumentiert die lokal erhaltenen Bytes, **keinen bereits bekannten Anbieterhash**. Vollständiger Bericht `E:\SolarCheck-CVUT-Paketpruefung\cvut-package.LOCAL.json`: Dateiliste und höchstens256KiB README-/Lizenztexte. Keine Modelle extrahieren/deserialisieren, keine Inferenz/Trainingsläufe oder Installationen. Verschlüsselte/verknüpfte/ungewöhnliche ZIP-Einträge und Größenüberschreitungen ablehnen. Der Bericht ist **kein Modellmanifest** für „KI-Modellvergleich starten“.
 
