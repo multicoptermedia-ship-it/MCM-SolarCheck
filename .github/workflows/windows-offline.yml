@@ -37,6 +37,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-ai-evaluation.txt
+      - name: Test CVUT public model package inspection without model execution
+        shell: pwsh
+        run: python -m pytest -q tests/test_cvut_package_inspection.py
       - name: Test external RGB and thermal GeoTIFF intake and PV mapping
         shell: pwsh
         env:

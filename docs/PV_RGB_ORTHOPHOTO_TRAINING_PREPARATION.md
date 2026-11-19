@@ -2,6 +2,8 @@
 
 Stand19.11.2026 · PV-HAWK-FIELD-QUALITY-01 / PV-ORTHO-TRAIN-PREP-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
+**Neueste Nutzerentscheidung19.11.:** Zuerst öffentlicher **CVUT-Pilot**, [Paketprüfung und nächster Einstieg](CVUT_PV_PILOT_WINDOWS10.md). Vortrainiertes konkretes RGB-Modulmodell qualifizieren, dann bestehenden lokalen ROI-Vergleich verwenden; Nachtraining mit öffentlichen Daten erst bei Bedarf. Providerzugriff hier HTTP503, neues Modell noch nicht geladen/trainiert. Kundendaten bleiben lokal zurückgehaltene Prüfung. Die nachfolgende Bestands-/Labelvorbereitung ist der spätere Hintergrund, kein aktueller Auftrag zur manuellen Beschriftung oder zum Export privater Bilder.
+
 ## Befund und Entscheidung
 
 Die korrigierte PVConfigRGB-Eingabe wird real verwendet. Die technische Integration liefert jetzt Vorschläge; die Qualität reicht für zuverlässige automatische Auswertung noch nicht. Die bisherigen Modellläufe sind Inferenz mit unveränderten Gewichten und lernen nicht selbstständig aus Korrekturen.
