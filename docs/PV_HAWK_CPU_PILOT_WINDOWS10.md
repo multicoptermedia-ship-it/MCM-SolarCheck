@@ -4,6 +4,12 @@ Stand19.11.2026 · PV-HAWK-RGB-CONFIG-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSS
 
 Der Nutzer hat die zusätzliche isolierte Einrichtung ausdrücklich freigegeben und führt sie auf seinem Rechner selbst aus. Ziel dieses Schritts ist ein begrenzter Vergleich eines **tatsächlich vortrainierten RGB-Modulmodells** mit bereits gespeicherten passenden Umrissen. Noch keine automatische Gesamtparkverarbeitung oder Qualitätsfreigabe.
 
+## Aktuelles Feldergebnis19.11.: Erkennung noch nicht ausreichend
+
+Nutzer bestätigt input_profile=pvconfigrgb-720-1280-1:21Modellinstanzen,18Vorschläge nach einer ausgeschlossenen Maske/zwei Randfällen. Alle18passieren weitere Filter. Drei von acht Vergleichsumrissen wiedergefunden/fünf nicht/15weitere ungeprüft; teils verschobene/zu kleine grüne Umrisse. RGB-Korrektur technisch wirksam, vortrainiertes Modell für diesen Orthofoto-Fall noch nicht zuverlässig genug. Läufe trainieren nicht weiter, Modellscore keine Genauigkeit.
+
+**Keine weitere unveränderte Inferenzschleife.** Nächster begrenzter Schritt: [vollständig geprüfte kleine RGB-Ausschnitte und lokale Lern-/Prüfvorbereitung](PV_RGB_ORTHOPHOTO_TRAINING_PREPARATION.md). Bestehenden Korrektureditor verwenden, nicht1000Produktionsmodule einzeln freigeben. Acht gelbe Teilreferenzen nicht als vollständige Trainingsannotation exportieren. Desktoptrainer Klassifikation; qualifizierte Instanztrainingsanbindung offen. Keine neue Trainingsfunktion, Training/Kundendatenexporte oder Modellwechsel mit dieser Dokumentationsänderung. Starter/Installation bleiben erhalten.
+
 ## RGB-Eingabekonfiguration korrigieren19.11.
 
 Der kopierte Nutzerbericht zeigt755Regionenvorschläge, aber0als PV klassifizierte Regionen; höchster PV-Wert0,2252. Das Modell gibt0Instanzen aus. SolarChecks Masken-/Geometrie-/NoData-Filter haben nichts verworfen. Regionen sind keine Module; eine kleinere Endschwelle löst die Hintergrundklassifikation nicht.
