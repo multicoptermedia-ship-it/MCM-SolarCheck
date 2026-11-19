@@ -48,7 +48,9 @@ def inventory(path):
         if not 0 < len(members) <= 1000:
             raise ValueError('Unerwartete Anzahl ZIP-Eintraege.')
         for member in members:
-            name = member.filename
+            # ZipInfo.filename normalizes backslashes on Windows. Inspect the
+            # original central-directory spelling before accepting a member.
+            name = member.orig_filename
             parts = PurePosixPath(name).parts
             if (not name or len(name) > 512 or name.startswith('/') or '\\' in name
                     or ':' in name or '..' in parts or name in seen

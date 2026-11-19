@@ -27,7 +27,11 @@ def package(entries=None):
             'README.md': b'Public test fixture; license still requires review.',
             'run.py': b'raise RuntimeError("must never execute")',
         }).items():
-            archive.writestr(name, data)
+            # Preserve deliberately malformed names even on Windows, whose
+            # ZipInfo constructor otherwise converts backslashes to slashes.
+            entry = zipfile.ZipInfo()
+            entry.filename = entry.orig_filename = name
+            archive.writestr(entry, data)
     return stream.getvalue()
 
 
