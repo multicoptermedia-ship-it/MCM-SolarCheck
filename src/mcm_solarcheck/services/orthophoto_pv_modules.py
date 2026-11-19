@@ -54,6 +54,7 @@ class OrthophotoPVWindowResult:
     rgb_window: tuple[int, int, int, int] = field(repr=False)
     detector_name: str = field(repr=False)
     rejected_rgb_nodata_count: int = 0
+    filter_counts: dict | None = field(default=None, repr=False)
 
     def summary(self) -> dict:
         """Aggregate only: no paths, native coordinates or thermal values."""
@@ -250,4 +251,6 @@ def _detect_orthophoto_pv_pair(pair, *, window, detector=None, should_cancel=Non
     _cancel(should_cancel)
     return OrthophotoPVWindowResult(
         tuple(proposals), window, str(getattr(selected_detector, "name", "external_detector")), rejected,
+        dict(input_outlines=len(raw), after_geometry_and_duplicates=len(detections),
+             rejected_rgb_nodata=rejected, final_outlines=len(proposals)),
     )

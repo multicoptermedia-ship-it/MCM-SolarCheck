@@ -46,6 +46,10 @@ def test_actual_gui_worker_model_overlay_reopen_without_model_and_cancel_preserv
     assert result is not None and result.isVisible()
     assert any(value.label in label.text() for label in result.findChildren(QLabel))
     assert 'wiedergefunden: 1' in result.findChild(QLabel,'orthophoto_pv_help').text()
+    assert 'noch keine Filterkennzahlen' in result.findChild(QLabel,'partial_pv_diagnostics').text()
+    result.copy_counts.click()
+    import json
+    assert json.loads(qapp.clipboard().text())['diagnostics'] is None
     saved=(value.folder/evaluation.STATE).read_bytes()
     result.close()
     model_manifest.write_text('{}')
@@ -154,6 +158,15 @@ def test_pv_hawk_flat_metadata_result_opens_after_finish_and_reopens_without_inf
     assert result is not None and result.isVisible(),dialog._status.text()
     assert 'LukasBommes/PV-Hawk' in result._status.text()
     assert f'KI-Kandidaten: {candidate_count}' in result.findChild(QLabel,'orthophoto_pv_help').text()
+    assert f'Modell liefert: {candidate_count}' in result.findChild(QLabel,'partial_pv_diagnostics').text()
+    result.copy_counts.click()
+    copied=json.loads(qapp.clipboard().text())
+    assert copied==evaluation.shareable_counts(record)
+    assert 'fingerprints' not in copied and 'references' not in copied
+    assert str(source) not in qapp.clipboard().text()
+    tampered=json.loads(json.dumps(record))
+    tampered['diagnostics']['filtering']['final_outlines']+=1
+    with pytest.raises(ValueError):evaluation.validate_diagnostics(tampered)
     if candidate_count==0:assert 'Keine KI-Umrisse' in result._status.text()
     saved=(value.folder/evaluation.STATE).read_bytes()
     result.close()

@@ -2,16 +2,17 @@
 import numpy as np
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QPainter, QPen, QColor, QPolygonF
-from PySide6.QtWidgets import QLabel, QScrollArea
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QScrollArea
 from .orthophoto_pv_review import OrthophotoPVReviewDialog
 from .thermal_partial_pv import _resizable_dialog
-from ..services.thermal_partial_model_comparison import read_model_comparison
+from ..services.thermal_partial_model_comparison import read_model_comparison, shareable_counts
 
 
 class ModelComparisonDialog(OrthophotoPVReviewDialog):
     def __init__(self, comparison, parent=None):
         self.comparison = comparison
         record, result, self.references = read_model_comparison(comparison)
+        self._record = record
         super().__init__(comparison.rgb_path, comparison.thermal_path, parent)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
         _resizable_dialog(self)
@@ -24,6 +25,25 @@ class ModelComparisonDialog(OrthophotoPVReviewDialog):
             'Keine automatische Übernahme, physische IDs, Geometrie- oder Celsiusfreigabe.')
         notice.setWordWrap(True)
         self.layout().insertWidget(0, notice)
+        diagnostic = record.get('diagnostics')
+        if diagnostic:
+            masks, filtering = diagnostic['inference']['masks'], diagnostic['filtering']
+            text = (f"Modell liefert: {masks['returned_instances']} Instanzen · "
+                f"nach Maskenprüfung: {masks['accepted_outlines']} · "
+                f"nach Geometrie/Dubletten: {filtering['after_geometry_and_duplicates']} · "
+                f"nach RGB-Datenprüfung: {filtering['final_outlines']}. "
+                'Diese Zähler erklären den Ablauf, keine vollständige Modulanzahl.')
+        else:
+            text = ('Dieser gespeicherte Bericht enthält noch keine Filterkennzahlen. '
+                'Ein neuer begrenzter KI-Vergleich im selben Ausschnitt erfasst sie; keine Neuinstallation nötig.')
+        label = QLabel(text)
+        label.setObjectName('partial_pv_diagnostics')
+        label.setWordWrap(True)
+        self.layout().insertWidget(1, label)
+        self.copy_counts = QPushButton('KI-Kennzahlen kopieren (ohne Bilder und Pfade)')
+        self.copy_counts.setObjectName('partial_pv_copy_counts')
+        self.copy_counts.clicked.connect(self._copy_counts)
+        self.layout().insertWidget(2, self.copy_counts)
         counts = record['counts']
         self.findChild(QLabel, 'orthophoto_pv_help').setText(
             f"KI-Kandidaten: {counts['candidate_outlines']} · "
@@ -48,6 +68,10 @@ class ModelComparisonDialog(OrthophotoPVReviewDialog):
 
     def _inspect_pair(self, rgb_path, thermal_path):
         return self.comparison._pair
+
+    def _copy_counts(self):
+        import json
+        QApplication.clipboard().setText(json.dumps(shareable_counts(self._record),ensure_ascii=False,indent=2))
 
     def _after_result(self, result):
         pixmap = self._output.pixmap().copy()

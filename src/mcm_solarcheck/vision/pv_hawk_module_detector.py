@@ -127,24 +127,57 @@ def _model(root, spec):
     return model
 
 
-def mask_detections(result, shape):
+def network_counts(outputs):
+    """Aggregate already computed classifier outputs; regions are NOT modules."""
+    if not isinstance(outputs, (tuple, list)) or len(outputs) != 7:
+        raise ValueError('Unerwartete PV-Hawk-Netzausgaben.')
+    probabilities, boxes, instances = (np.asarray(outputs[i]) for i in (1, 4, 0))
+    if (probabilities.ndim != 3 or probabilities.shape[0] != 1 or probabilities.shape[2] != 2
+            or boxes.shape != (*probabilities.shape[:2], 4) or probabilities.shape[1] > 2000
+            or instances.shape != (1, 200, 6)
+            or not all(np.isfinite(a).all() for a in (probabilities, boxes, instances))
+            or np.any((probabilities < 0) | (probabilities > 1))):
+        raise ValueError('Ungueltige PV-Hawk-Netzkennzahlen.')
+    valid = (boxes[0,:,2] > boxes[0,:,0]) & (boxes[0,:,3] > boxes[0,:,1])
+    scores = probabilities[0,valid,1]
+    foreground = scores > probabilities[0,valid,0]
+    return dict(region_proposals=int(valid.sum()), foreground_regions=int(foreground.sum()),
+        regions_at_070=int(np.count_nonzero(foreground & (scores >= .7))),
+        regions_at_090=int(np.count_nonzero(foreground & (scores >= .9))),
+        maximum_region_score=round(float(scores.max()), 4) if len(scores) else None,
+        post_nms_instances=int(np.count_nonzero(instances[0,:,4] == 1)))
+
+
+def mask_detections(result, shape, *, diagnostics=None):
     height, width = shape[:2]
     masks, scores, classes = (np.asarray(result[k]) for k in ('masks','scores','class_ids'))
     if (masks.shape != (height, width, len(scores)) or scores.ndim != 1
             or classes.shape != scores.shape or len(scores) > 200
             or not np.isfinite(scores).all() or np.any((scores < 0) | (scores > 1))):
         raise ValueError('Ungueltige PV-Hawk-Instanzmasken.')
+    counts = dict(returned_instances=len(scores), rejected_class_or_score=0,
+        rejected_fragmented_mask=0, rejected_empty_or_small_mask=0,
+        rejected_boundary=0, accepted_outlines=0)
     found = []
     for i, score in enumerate(scores):
         if classes[i] != 1 or score < .7:
+            counts['rejected_class_or_score'] += 1
             continue
         contours, _ = cv2.findContours(masks[:,:,i].astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if len(contours) != 1 or cv2.contourArea(contours[0]) < 4:
+        if len(contours) > 1:
+            counts['rejected_fragmented_mask'] += 1
+            continue
+        if not contours or cv2.contourArea(contours[0]) < 4:
+            counts['rejected_empty_or_small_mask'] += 1
             continue
         polygon = cv2.boxPoints(cv2.minAreaRect(contours[0]))
         if any(x < 0 or y < 0 or x > width-1 or y > height-1 for x,y in polygon):
+            counts['rejected_boundary'] += 1
             continue
         found.append(ModuleDetection(tuple((float(x),float(y)) for x,y in polygon),float(score)))
+    counts['accepted_outlines'] = len(found)
+    if diagnostics is not None:
+        diagnostics.update(counts)
     return tuple(found)
 
 
@@ -169,6 +202,24 @@ class PVHawkModuleDetector:
         if (image.dtype != np.uint8 or image.ndim != 3 or image.shape[2] != 3
                 or not 1 <= min(image.shape[:2]) or max(image.shape[:2]) > 2048):
             raise ValueError('Begrenzter uint8-RGB-Ausschnitt erforderlich.')
-        result = self.model.detect([np.ascontiguousarray(image[:,:,::-1])], verbose=0)[0]
+        self.last_diagnostics = dict(model_score_threshold=.7, network=None)
+        # Observe this one inference only. Do not run a second prediction,
+        # change model thresholds, retain feature maps or store coordinates.
+        keras_model = getattr(self.model, 'keras_model', None)
+        if keras_model is not None:
+            predict = keras_model.predict
+            def observed(*args, **kwargs):
+                outputs = predict(*args, **kwargs)
+                self.last_diagnostics['network'] = network_counts(outputs)
+                return outputs
+            keras_model.predict = observed
+        try:
+            result = self.model.detect([np.ascontiguousarray(image[:,:,::-1])], verbose=0)[0]
+        finally:
+            if keras_model is not None:
+                keras_model.predict = predict
         self._check_weights()
-        return mask_detections(result,image.shape)
+        counts = {}
+        found = mask_detections(result,image.shape,diagnostics=counts)
+        self.last_diagnostics['masks'] = counts
+        return found

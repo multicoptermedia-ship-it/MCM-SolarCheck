@@ -111,3 +111,57 @@ def test_worker_python310_digest_compatibility(monkeypatch):
     monkeypatch.delattr(hashlib,'file_digest',raising=False)
     worker.prepare_runtime()
     assert hashlib.file_digest(BytesIO(b'abc'),'sha256').hexdigest()==hashlib.sha256(b'abc').hexdigest()
+
+
+def prediction_outputs():
+    probabilities=np.array([[[.05,.95],[.4,.6],[.8,.2],[.01,.99]]],np.float32)
+    boxes=np.array([[[.1,.1,.2,.2],[.3,.1,.4,.2],[.5,.1,.6,.2],[0,0,0,0]]],np.float32)
+    instances=np.zeros((1,200,6),np.float32);instances[0,:2,4]=1
+    return [instances,probabilities,None,None,boxes,None,None]
+
+
+def test_network_counts_exclude_padding_and_never_return_private_tensors():
+    counts=hawk.network_counts(prediction_outputs())
+    assert counts==dict(region_proposals=3,foreground_regions=2,regions_at_070=1,regions_at_090=1,
+        maximum_region_score=.95,post_nms_instances=2)
+    assert all(value is None or type(value) in (int,float) for value in counts.values())
+    outputs=prediction_outputs();outputs[1][0,0,0]=np.nan
+    with pytest.raises(ValueError):hawk.network_counts(outputs)
+
+
+def test_each_mask_exclusion_is_counted_without_weakening_existing_filters():
+    masks=np.zeros((80,120,5),bool)
+    masks[20:50,30:90,0]=True
+    masks[10:20,10:20,1]=True;masks[60:70,100:110,1]=True
+    masks[10:20,10:20,2]=True
+    masks[10,10,3]=True
+    masks[10:20,10:20,4]=True
+    result=dict(masks=masks,scores=np.array([.9,.9,.6,.9,.9]),class_ids=np.array([1,1,1,1,0]))
+    counts={};found=hawk.mask_detections(result,(80,120,3),diagnostics=counts)
+    assert len(found)==1
+    assert counts==dict(returned_instances=5,rejected_class_or_score=2,rejected_fragmented_mask=1,
+        rejected_empty_or_small_mask=1,rejected_boundary=0,accepted_outlines=1)
+
+
+@pytest.mark.parametrize('fail',[False,True])
+def test_observer_uses_one_prediction_and_restores_model_after_failure(fail):
+    class Graph:
+        def __init__(self):self.calls=0
+        def predict(self,*args,**kwargs):
+            self.calls+=1
+            if fail:raise RuntimeError('synthetic failure')
+            return prediction_outputs()
+    class Model:
+        def __init__(self):self.keras_model=Graph()
+        def detect(self,images,verbose):
+            self.keras_model.predict(images,verbose=0)
+            return [dict(masks=np.zeros((30,40,0),bool),scores=np.array([]),class_ids=np.array([]))]
+    detector=hawk.PVHawkModuleDetector.__new__(hawk.PVHawkModuleDetector)
+    detector.model=Model();detector._check_weights=lambda:None
+    before=detector.model.keras_model.predict
+    if fail:
+        with pytest.raises(RuntimeError):detector.detect_array(np.zeros((30,40,3),np.uint8))
+    else:
+        assert detector.detect_array(np.zeros((30,40,3),np.uint8))==()
+        assert detector.last_diagnostics['network']['regions_at_070']==1
+    assert detector.model.keras_model.calls==1 and detector.model.keras_model.predict==before

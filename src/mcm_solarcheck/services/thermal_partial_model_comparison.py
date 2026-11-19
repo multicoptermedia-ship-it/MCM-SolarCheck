@@ -65,6 +65,10 @@ def compare_saved_region(source, manifest_path, key, *, run_token=None):
             matched_reviewed_outlines=len(matches), unmatched_reviewed_outlines=len(references)-len(matches),
             additional_unreviewed_candidates=len(candidate.proposals)-len(matches)),
         **dict.fromkeys((*FLAGS, *EXTRA_FLAGS), False))
+    if hasattr(model, 'last_diagnostics'):
+        record['diagnostics'] = dict(check='pv-hawk-counts-1', inference=model.last_diagnostics,
+            filtering=candidate.filter_counts)
+        validate_diagnostics(record)
     target = comparison.folder / (f'pv-model-comparison-{run_token}.LOCAL.json' if run_token else STATE)
     temporary = target.with_suffix('.next.json')
     if target.is_symlink() or temporary.is_symlink():
@@ -106,4 +110,47 @@ def read_model_comparison(comparison, path=None):
         additional_unreviewed_candidates=len(proposals)-len(matches))
     if data['counts'] != counts or data['matches'] != matches:
         raise ValueError('Gespeicherte Vergleichszaehler stimmen nicht mit den Umrissen ueberein.')
+    validate_diagnostics(data)
     return data, OrthophotoPVWindowResult(tuple(proposals), tuple(data['window']), data['detector']), references
+
+
+def validate_diagnostics(record):
+    """Optional old reports remain readable; new counters must reconcile."""
+    data = record.get('diagnostics')
+    if data is None:
+        return
+    if not isinstance(data, dict) or set(data) != {'check', 'inference', 'filtering'} or data['check'] != 'pv-hawk-counts-1':
+        raise ValueError('Ungueltige KI-Kennzahlen.')
+    inference, filtering = data['inference'], data['filtering']
+    if not isinstance(inference, dict) or set(inference) != {'model_score_threshold', 'network', 'masks'} or inference['model_score_threshold'] != .7:
+        raise ValueError('Ungueltige KI-Modellkennzahlen.')
+    masks = inference['masks']
+    expected = {'returned_instances', 'rejected_class_or_score', 'rejected_fragmented_mask',
+        'rejected_empty_or_small_mask', 'rejected_boundary', 'accepted_outlines'}
+    def integers(values, keys, maximum):
+        return isinstance(values, dict) and set(values) == keys and all(type(v) is int and 0 <= v <= maximum for v in values.values())
+    if (not integers(masks, expected, 200)
+            or masks['returned_instances'] != sum(v for k,v in masks.items() if k != 'returned_instances')
+            or not integers(filtering, {'input_outlines','after_geometry_and_duplicates','rejected_rgb_nodata','final_outlines'}, 200)
+            or filtering['input_outlines'] != masks['accepted_outlines']
+            or not filtering['input_outlines'] >= filtering['after_geometry_and_duplicates'] >= filtering['final_outlines']
+            or filtering['after_geometry_and_duplicates'] != filtering['rejected_rgb_nodata']+filtering['final_outlines']
+            or filtering['final_outlines'] != record['counts']['candidate_outlines']):
+        raise ValueError('KI-Filterzaehler stimmen nicht ueberein.')
+    network = inference['network']
+    if network is not None:
+        keys = {'region_proposals','foreground_regions','regions_at_070','regions_at_090','post_nms_instances'}
+        if (not isinstance(network,dict) or set(network) != keys|{'maximum_region_score'}
+                or not integers({k:network[k] for k in keys},keys,2000)
+                or not network['region_proposals'] >= network['foreground_regions'] >= network['regions_at_070'] >= network['regions_at_090']
+                or not 200 >= network['post_nms_instances'] >= masks['returned_instances']
+                or (network['maximum_region_score'] is not None and (type(network['maximum_region_score']) not in (int,float) or not 0 <= network['maximum_region_score'] <= 1))
+                or (network['maximum_region_score'] is None) != (network['region_proposals'] == 0)):
+            raise ValueError('Ungueltige KI-Regionenkennzahlen.')
+
+
+def shareable_counts(record):
+    """Allowlisted aggregate-only clipboard data, never private report content."""
+    validate_diagnostics(record)
+    return dict(check='solarcheck-pv-counts-1', candidate_outlines=record['counts']['candidate_outlines'],
+        diagnostics=record.get('diagnostics'), **dict.fromkeys((*FLAGS,*EXTRA_FLAGS),False))

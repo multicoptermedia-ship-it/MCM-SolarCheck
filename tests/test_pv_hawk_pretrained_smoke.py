@@ -58,6 +58,11 @@ def test_pretrained_rgb_cpu_real_worker_saved_comparison_reopen_and_bad_hash(pre
     assert record['model']['provider']=='LukasBommes/PV-Hawk'
     assert record['model']['production_approved'] is False and record['accuracy_verified'] is False
     assert len(references)==2 and record['label']==value.label
+    counts=record['diagnostics']
+    assert counts['inference']['model_score_threshold']==.7
+    assert counts['inference']['network'] is not None
+    assert counts['filtering']['final_outlines']==len(found.proposals)
+    evaluation.validate_diagnostics(record)
     # A synthetic image is not a field accuracy benchmark; zero candidates valid.
     saved=(value.folder/evaluation.STATE).read_bytes()
     previous=manifest.read_bytes()

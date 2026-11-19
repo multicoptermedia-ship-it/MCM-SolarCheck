@@ -138,9 +138,13 @@ def test_rgb_nodata_proposal_rejected_and_outside_thermal_has_zero_coverage(tmp_
     detector = _fixed_detector(
         ((10., 10.), (30., 10.), (30., 30.), (10., 30.)),
         ((60., 60.), (80., 60.), (80., 80.), (60., 80.)),
+        ((60., 60.), (80., 60.), (80., 80.), (60., 80.)),  # Duplicate.
+        ((0., 0.), (99., 0.), (99., 99.), (0., 99.)),  # Excessive area.
     )
     result = detect_orthophoto_pv_window(rgb, thermal, window=(0, 0, 100, 100), detector=detector)
     assert result.rejected_rgb_nodata_count == 1
+    assert result.filter_counts == dict(input_outlines=4, after_geometry_and_duplicates=2,
+        rejected_rgb_nodata=1, final_outlines=1)
     proposal, = result.proposals
     assert proposal.thermal_valid_coverage == 0.
     assert proposal.thermal_valid_pixel_count == 0

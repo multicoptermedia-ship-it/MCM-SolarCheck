@@ -4,6 +4,21 @@ Stand17.11.2026 · PV-HAWK-CPU-PILOT-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSST
 
 Der Nutzer hat die zusätzliche isolierte Einrichtung ausdrücklich freigegeben und führt sie auf seinem Rechner selbst aus. Ziel dieses Schritts ist ein begrenzter Vergleich eines **tatsächlich vortrainierten RGB-Modulmodells** mit bereits gespeicherten passenden Umrissen. Noch keine automatische Gesamtparkverarbeitung oder Qualitätsfreigabe.
 
+## Null KI-Kandidaten eingrenzen19.11.
+
+Der Nutzerscreenshot zeigt **KI-Kandidaten:0** und acht gelbe gespeicherte passende Umrisse. Gelbe Umrisse sind die bisherige Teilreferenz, keine neuen KI-Treffer. Die passende Größe dieser Umrisse belegt daher noch keine KI-Erkennung. Der alte Bericht enthält keine Zwischenergebnisse; die Ursache ist damit nicht feststellbar.
+
+Die aktualisierte Fassung protokolliert im selben einzelnen KI-Lauf reine Zähler: Modellregionen/Klassifikator vor der unveränderten0,7-Schwelle, gelieferte Instanzen, Masken-/Randprüfung, bestehende Geometrie-/Dublettenfilter und RGB-NoData. Modellregionen sind keine Modulanzahl. Keine Schwellen/Modelle/Bildgröße/Filter ändern, keine zusätzlichen Inferenzläufe automatisch starten. Das verbessert noch nicht nachgewiesen die Erkennungsanzahl; es grenzt die Ursache ein.
+
+Der feste neue Aktualisierungsstart wird nach Prüfung ergänzt. Die bestehende KI-Installation bleibt erhalten. Danach:
+
+1. Vorhandenen Thermal-Lauf13.11./18:58:37/oh9ptgy5 → RGB-Vergleich → denselben gespeicherten PV-Ausschnitt laden. Entwürfe/Notizen erhalten.
+2. **Genau einmal KI-Modellvergleich starten(lokal)** mit vorhandener `E:\SolarCheck-PV-KI-Pilot\pv-hawk-rgb.LOCAL.json`. Kein neuer Orthofoto-/Matchinglauf.
+3. Ergebnis öffnet sich mit Modell→Masken→Geometrie→RGB-Stufen. **KI-Kennzahlen kopieren(ohne Bilder und Pfade)** anklicken und ausschließlich diesen Text mitteilen. Er enthält keine Bildpixel/Koordinaten/Quellpfade/IDs/Notizen/Fingerprints. Noch keine Bilder/privaten Berichte hochladen.
+4. Ergebnis schließen/wiederöffnen funktioniert ohne weitere KI-Berechnung. Alte Berichte bleiben lesbar; sie zeigen ausdrücklich „noch keine Filterkennzahlen“ und keine erfundenen Nullwerte. Ein reines Öffnen des alten Berichts liefert die neuen Zähler noch nicht.
+
+Erst diese Kennzahlen entscheiden, ob das Modell selbst zu wenig liefert oder ob konkrete Filter Vorschläge verwerfen. Keine Module anhand erwarteter Anzahl hinzufügen und keine1000Einzelfreigaben verlangen. Unvollständigkeitslabel/Import-Sperre und sämtliche Fachfreigaben bleiben erhalten.
+
 ## Ergebnisanzeige aktualisieren ohne Neuinstallation
 
 Der Nutzer bestätigt17.11., dass der KI-Modellvergleich im PV-Ausschnitt bereits ausgeführt wurde. Ein bestätigter Anzeigefehler kann das Ergebnis verbergen: Die bisherige Ergebnisansicht las die flachen PV-Hawk-Modellangaben wie eine verschachtelte ONNX-Beschreibung. Ein bereits erfolgreich berechneter Bericht kann trotzdem lokal gespeichert sein. Die korrigierte Oberfläche öffnet beide Berichtsformate, zeigt auch null KI-Kandidaten ausdrücklich an und bringt das Fenster nach vorn. Keine Änderung der gespeicherten Resultate oder Bilder.
