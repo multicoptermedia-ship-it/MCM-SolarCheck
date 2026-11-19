@@ -20,23 +20,23 @@ Datensatz-Attribution für eine spätere Nutzung: Viktor Kozák, Karel Košnar, 
 
 Das eigenständige Skript [MCM_SolarCheck_CVUT_PAKETPRUEFUNG.py](../scripts/MCM_SolarCheck_CVUT_PAKETPRUEFUNG.py) verwendet nur vorhandenes Python und dessen Standardbibliothek. Der feste Download ist ausschließlich das öffentliche **U-Net-Modellarchiv**, keine Trainingsbilder. Eigener Ordner `E:\SolarCheck-CVUT-Paketpruefung`, ungefähr400MiB freien Platz vorsehen. F:-Python, OpenSfM, bestehende KI-Umgebung und deren gespeicherte Ergebnisse bleiben erhalten.
 
-In **PowerShell** diesen vollständigen Block ausführen. Er lädt ein einziges festes Skript (9597Bytes), prüft dessen SHA256 und startet die öffentliche Paketprüfung mit dem vorhandenen F:-Python. Kein Git-Checkout und keine neue Python-Umgebung erforderlich.
+In **PowerShell** diesen vollständigen Block ausführen. Er lädt ein einziges festes Skript (9757Bytes), prüft dessen SHA256 und startet die öffentliche Paketprüfung mit dem vorhandenen F:-Python. Kein Git-Checkout und keine neue Python-Umgebung erforderlich.
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$cvutCommit = '4960307753794c9db3a885d493bdcc4e0a3e6188'
+$cvutCommit = 'dd9f1d8c10423239d7a6d7f1c2bc3e1c1f43962c'
 $cvutStart = Join-Path 'E:\SolarCheck-CVUT-Start' $cvutCommit
 New-Item -ItemType Directory -Force -Path $cvutStart | Out-Null
 $cvutScript = Join-Path $cvutStart 'MCM_SolarCheck_CVUT_PAKETPRUEFUNG.py'
 Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/multicoptermedia-ship-it/MCM-SolarCheck/$cvutCommit/scripts/MCM_SolarCheck_CVUT_PAKETPRUEFUNG.py" -OutFile $cvutScript
-if ((Get-FileHash -Algorithm SHA256 $cvutScript).Hash.ToLowerInvariant() -ne '721d4da17f1a78de9b63142841385f23ceaed8787bfa1c924d46949ae959914d') {
+if ((Get-FileHash -Algorithm SHA256 $cvutScript).Hash.ToLowerInvariant() -ne '28eafd02868487f82b8fb380e9bfc97a406c4531e7cd157ea217a7f771b782e4') {
     throw 'Skript-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' $cvutScript
 if ($LASTEXITCODE -ne 0) { throw 'CVUT-Paketpruefung nicht abgeschlossen. Vorherige Meldung beachten.' }
 ```
 
-Feste Skriptquelle49603077 wurde aus GitHub geladen und mit dem Repository bytegleich geprüft. SHA256 gilt nur für dieses Startskript, nicht für das noch ungeprüfte CVUT-Modellarchiv. Bei erneutem Start kann derselbe Block verwendet werden.
+Feste Skriptquelledd9f1d8c wurde aus GitHub geladen und mit dem Repository bytegleich geprüft. SHA256 gilt nur für dieses Startskript, nicht für das noch ungeprüfte CVUT-Modellarchiv. Bei erneutem Start kann derselbe Block verwendet werden.
 
 
 Das Skript zeigt Downloadfortschritt und anschließend eine öffentliche Dateiliste mit Größe/SHA256. Der Hash dokumentiert die lokal erhaltenen Bytes, **keinen bereits bekannten Anbieterhash**. Vollständiger Bericht `E:\SolarCheck-CVUT-Paketpruefung\cvut-package.LOCAL.json`: Dateiliste und höchstens256KiB README-/Lizenztexte. Keine Modelle extrahieren/deserialisieren, keine Inferenz/Trainingsläufe oder Installationen. Verschlüsselte/verknüpfte/ungewöhnliche ZIP-Einträge und Größenüberschreitungen ablehnen. Der Bericht ist **kein Modellmanifest** für „KI-Modellvergleich starten“.
@@ -57,6 +57,6 @@ Falls Nachtraining nötig ist: zuerst öffentliche CVUT-Bilder/Masken in einem g
 
 ## Nachweis und Grenzen
 
-13synthetische Paketprüfungen bestanden: Download/Wiederverwendung/Wiederöffnung, HTTP503→Fortsetzung, Abbruch/Quellschutz, geänderte Archive, fremde Ordner, Git-/Link-/ZIP-/Größengrenzen und paralleler Start. Native Windows-Prüfung in CI ergänzt; exakten HEAD separat prüfen. Tatsächlicher CVUT-Download hier HTTP503, deshalb keine reale Format-/Gewichts-/Lizenz-/Inferenzprobe oder Windows10-Abnahme behaupten.
+Windows-Prüfung fand eine abweichende ZIP-Namensnormalisierung: Originalnamen werden jetzt vor Normalisierung geprüft und manipulierte Testnamen plattformgleich geschrieben.13synthetische Paketprüfungen lokal bestanden: Download/Wiederverwendung/Wiederöffnung, HTTP503→Fortsetzung, Abbruch/Quellschutz, geänderte Archive, fremde Ordner, Git-/Link-/ZIP-/Größengrenzen und paralleler Start. Native Windows-Prüfung in CI ergänzt; exakten HEAD separat prüfen. Tatsächlicher CVUT-Download hier HTTP503, deshalb keine reale Format-/Gewichts-/Lizenz-/Inferenzprobe oder Windows10-Abnahme behaupten.
 
 Dauerlabel **unvollständig: 280 von 287 Bildern**, GeoTIFF-Tags, reguläre RGB-/Thermal-Paarimport-Sperre und alle offenen Fachfreigaben erhalten. Kein Matching, keine Rekonstruktion, keine bestätigte vollständige Abdeckung/Geometrie/Celsius/physische Modul-ID. Feature-Branch/DraftPR9, main unverändert.
