@@ -1,6 +1,6 @@
 # PV-Hawk RGB-Modulerkennung: getrennter Windows-10-CPU-Pilot
 
-Stand17.11.2026 · PV-HAWK-CPU-PILOT-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md)
+Stand19.11.2026 · PV-HAWK-RGB-CONFIG-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md)
 
 Der Nutzer hat die zusätzliche isolierte Einrichtung ausdrücklich freigegeben und führt sie auf seinem Rechner selbst aus. Ziel dieses Schritts ist ein begrenzter Vergleich eines **tatsächlich vortrainierten RGB-Modulmodells** mit bereits gespeicherten passenden Umrissen. Noch keine automatische Gesamtparkverarbeitung oder Qualitätsfreigabe.
 
@@ -22,20 +22,22 @@ Der feste Korrekturstart ohne Installation wird nach Prüfung ergänzt. Danach g
 
 ## Null KI-Kandidaten eingrenzen19.11.
 
+**Historischer Diagnoseablauf vor dem RGB-Konfigurationsnachweis:** Für den aktuellen Test den oberen Abschnitt „RGB-Eingabekonfiguration korrigieren“ verwenden. Die damalige Messung ergab Hintergrundklassifikation statt Filterverlust.
+
 Der Nutzerscreenshot zeigt **KI-Kandidaten:0** und acht gelbe gespeicherte passende Umrisse. Gelbe Umrisse sind die bisherige Teilreferenz, keine neuen KI-Treffer. Die passende Größe dieser Umrisse belegt daher noch keine KI-Erkennung. Der alte Bericht enthält keine Zwischenergebnisse; die Ursache ist damit nicht feststellbar.
 
-Die aktualisierte Fassung protokolliert im selben einzelnen KI-Lauf reine Zähler: Modellregionen/Klassifikator vor der unveränderten0,7-Schwelle, gelieferte Instanzen, Masken-/Randprüfung, bestehende Geometrie-/Dublettenfilter und RGB-NoData. Modellregionen sind keine Modulanzahl. Keine Schwellen/Modelle/Bildgröße/Filter ändern, keine zusätzlichen Inferenzläufe automatisch starten. Das verbessert noch nicht nachgewiesen die Erkennungsanzahl; es grenzt die Ursache ein.
+Die aktualisierte Fassung protokolliert im selben einzelnen KI-Lauf reine Zähler: Modellregionen/Klassifikator vor der unveränderten0,7-Schwelle, gelieferte Instanzen, Masken-/Randprüfung, bestehende Geometrie-/Dublettenfilter und RGB-NoData. Modellregionen sind keine Modulanzahl. Die erste Diagnose änderte keine Schwellen/Modelle/Bildgröße/Filter und startete keine zusätzlichen Inferenzläufe automatisch. Das verbessert noch nicht nachgewiesen die Erkennungsanzahl; es grenzt die Ursache ein.
 
 In PowerShell diesen Block ausführen. Er lädt nur die aktualisierte Quellfassung und öffnet den vorhandenen Thermal-Dialog mit F:-Python. **Die bestehende KI-Umgebung wird weiterverwendet; keine Pakete oder Gewichte neu installieren.**
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pilotCommit = '57ba138ef3c5408ddc7a86641e41a59c4ea887e0'
+$pilotCommit = '818f4e905b97afd9296138fabcf9deaa9dda7860'
 $pilotStart = Join-Path 'E:\SolarCheck-PV-KI-Start' $pilotCommit
 New-Item -ItemType Directory -Force -Path $pilotStart | Out-Null
 $pilotZip = Join-Path $pilotStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
-if ((Get-FileHash -Algorithm SHA256 $pilotZip).Hash.ToLowerInvariant() -ne 'a6edf3d59c6d40d8fc277dbf0a87e99f5ac8a798be5c136f962ad0cdfb6b91d5') {
+if ((Get-FileHash -Algorithm SHA256 $pilotZip).Hash.ToLowerInvariant() -ne 'c1b4b578cda35b2fa76cae5150047919d11518985aa7c52b10fd0a2144f19f6e') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotStart -Force
@@ -43,7 +45,7 @@ $pilotSource = Join-Path $pilotStart "MCM-SolarCheck-$pilotCommit"
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pilotSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
 ```
 
-Feste Quelle57ba138e/ZIP3067719Bytes/683Runtime-Python-Dateien mit Repository bytegleich geprüft. Die reine Aktualisierung startet noch keinen KI-Lauf. Anschließend genau diesen begrenzten Nutzerweg ausführen:
+Feste Quelle57ba138e/ZIP3072483Bytes/683Runtime-Python-Dateien mit Repository bytegleich geprüft. Die reine Aktualisierung startet noch keinen KI-Lauf. Anschließend genau diesen begrenzten Nutzerweg ausführen:
 
 1. Vorhandenen Thermal-Lauf13.11./18:58:37/oh9ptgy5 → RGB-Vergleich → denselben gespeicherten PV-Ausschnitt laden. Entwürfe/Notizen erhalten.
 2. **Genau einmal KI-Modellvergleich starten(lokal)** mit vorhandener `E:\SolarCheck-PV-KI-Pilot\pv-hawk-rgb.LOCAL.json`. Kein neuer Orthofoto-/Matchinglauf.
@@ -60,12 +62,12 @@ In PowerShell diesen Block ausführen. Er lädt ausschließlich die korrigierte 
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pilotCommit = '57ba138ef3c5408ddc7a86641e41a59c4ea887e0'
+$pilotCommit = '818f4e905b97afd9296138fabcf9deaa9dda7860'
 $pilotStart = Join-Path 'E:\SolarCheck-PV-KI-Start' $pilotCommit
 New-Item -ItemType Directory -Force -Path $pilotStart | Out-Null
 $pilotZip = Join-Path $pilotStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
-if ((Get-FileHash -Algorithm SHA256 $pilotZip).Hash.ToLowerInvariant() -ne 'a6edf3d59c6d40d8fc277dbf0a87e99f5ac8a798be5c136f962ad0cdfb6b91d5') {
+if ((Get-FileHash -Algorithm SHA256 $pilotZip).Hash.ToLowerInvariant() -ne 'c1b4b578cda35b2fa76cae5150047919d11518985aa7c52b10fd0a2144f19f6e') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotStart -Force
@@ -73,7 +75,7 @@ $pilotSource = Join-Path $pilotStart "MCM-SolarCheck-$pilotCommit"
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pilotSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
 ```
 
-Geprüfte QuellZIP3067719Bytes/683Runtime-Python-Dateien bytegleich. Die vorhandene `E:\SolarCheck-PV-KI-Pilot`-Installation wird weiterverwendet. Nur die Oberfläche muss neu geöffnet werden.
+Geprüfte QuellZIP3072483Bytes/683Runtime-Python-Dateien bytegleich. Die vorhandene `E:\SolarCheck-PV-KI-Pilot`-Installation wird weiterverwendet. Nur die Oberfläche muss neu geöffnet werden.
  Danach vorhandenen Lauf13.11./18:58:37/oh9ptgy5 → RGB-Vergleich → gespeicherten PV-Ausschnitt öffnen → **Gespeicherten KI-Vergleich öffnen**. Bei vorhandener Datei keine erneute Modellberechnung nötig. Nicht erneut Entwürfe/Notizen speichern oder verändern, bevor der vorhandene KI-Vergleich geöffnet wurde: Sein Quellstand wird geprüft.
 
 **Falls bisher nur der PowerShell-Einrichtungsstart lief:** Die CPU-Probe verwendet ein schwarzes synthetisches Bild und erzeugt keine Modulumrisse deiner Anlage. Dann im gespeicherten PV-Ausschnitt einmal **KI-Modellvergleich starten(lokal)** und `E:\SolarCheck-PV-KI-Pilot\pv-hawk-rgb.LOCAL.json` wählen. Das Ergebnis erscheint anschließend im eigenen Fenster: gelbe gespeicherte Teilreferenz, grüne KI-Kandidaten, Zähler darüber. **KI-Kandidaten:0 / Keine KI-Umrisse im Ergebnis** ist ein sichtbarer abgeschlossener Vergleich ohne übernommene KI-Umrisse; keine Aussage „alle Module gesund“ oder vollständige Anlagenabdeckung.
@@ -90,12 +92,12 @@ In **PowerShell** den gesamten Block ausführen. Er lädt eine feste Quellfassun
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pilotCommit = '57ba138ef3c5408ddc7a86641e41a59c4ea887e0'
+$pilotCommit = '818f4e905b97afd9296138fabcf9deaa9dda7860'
 $pilotStart = Join-Path 'E:\SolarCheck-PV-KI-Start' $pilotCommit
 New-Item -ItemType Directory -Force -Path $pilotStart | Out-Null
 $pilotZip = Join-Path $pilotStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pilotCommit" -OutFile $pilotZip
-if ((Get-FileHash -Algorithm SHA256 $pilotZip).Hash.ToLowerInvariant() -ne 'a6edf3d59c6d40d8fc277dbf0a87e99f5ac8a798be5c136f962ad0cdfb6b91d5') {
+if ((Get-FileHash -Algorithm SHA256 $pilotZip).Hash.ToLowerInvariant() -ne 'c1b4b578cda35b2fa76cae5150047919d11518985aa7c52b10fd0a2144f19f6e') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pilotZip -DestinationPath $pilotStart -Force
@@ -105,12 +107,12 @@ if ($LASTEXITCODE -ne 0) { throw 'PV-Hawk-Einrichtung nicht abgeschlossen. Fehle
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pilotSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
 ```
 
-QuellZIP3067719Bytes;683Python-Dateien unter src/scripts sowie Modell-Pin und Paketliste mit Repository bytegleich geprüft. Die Installation selbst legt ausschließlich den eigenen Pilotordner an. Modellgewichte sind nicht Teil der QuellZIP.
+QuellZIP3072483Bytes;683Python-Dateien unter src/scripts sowie Modell-Pin und Paketliste mit Repository bytegleich geprüft. Die Installation selbst legt ausschließlich den eigenen Pilotordner an. Modellgewichte sind nicht Teil der QuellZIP.
 
 **Später erneut öffnen, ohne Installation/Downloads:**
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PV-KI-Start\57ba138ef3c5408ddc7a86641e41a59c4ea887e0\MCM-SolarCheck-57ba138ef3c5408ddc7a86641e41a59c4ea887e0\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PV-KI-Start\818f4e905b97afd9296138fabcf9deaa9dda7860\MCM-SolarCheck-818f4e905b97afd9296138fabcf9deaa9dda7860\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
 ```
 
 
@@ -130,7 +132,7 @@ Nur als Text berichten: ganze Module im Ausschnitt, passende KI-Umrisse, fehlend
 
 - Original [PV-Hawk v1.0.0](https://github.com/LukasBommes/PV-Hawk/releases/tag/v1.0.0), Commit **af07a5e5690326837d1e9b26bdbb32f5582e89fd**; Code [MIT](https://github.com/LukasBommes/PV-Hawk/blob/af07a5e5690326837d1e9b26bdbb32f5582e89fd/LICENSE). Darin verwendeter Matterport-Code behält seine Copyright-/MIT-Hinweise. Keine gesamte PV-Hawk-Video-/SfM-Pipeline starten.
 - Original RGB-Datei **mask_rcnn_pv_modules_rgb_0059.h5**,255858144Bytes, SHA-256 **8b862618a58dbd8b8f961d31c7d5dd0230293a013559182c4512780f7166c7d3**. Hashbestätigung belegt Identität, keine Feldqualität und keine zusätzliche Lizenz.
-- Gewichte werden in die bekannte, hashgeprüfte ursprüngliche Modellarchitektur geladen; alle Inferenzschichten auf vollständige Gewichte/Form prüfen. Keine H5-Architektur-/Lambda-Deserialisierung. Originaldateien unverändert; Adapter verwendet TensorFlow-v1-Kompatibilitäts-API, Keras-Layeralias und zwei dynamische Shape-Korrekturen im Speicher. Original-PVConfig, RGB-Reihenfolge,512/640-Skalierung und Mittelwert129.4 erhalten. Instanzmasken zu gedrehten Rechtecken über vorhandene OpenCV-Geometrie, danach bestehende ROI-/NoData-/GIS-/Thermalmaskenprüfung. Scores≥0.7 sind Vorschläge, keine Freigabe. Die Original-PVConfig dient zunächst als Ausgangswert; Skalierung/Mittelwerte und übertragbare RGB-Erkennungsleistung müssen am lokalen Ausschnitt geprüft werden.
+- Gewichte werden in die bekannte, hashgeprüfte ursprüngliche Modellarchitektur geladen; alle Inferenzschichten auf vollständige Gewichte/Form prüfen. Keine H5-Architektur-/Lambda-Deserialisierung. Originaldateien unverändert; Adapter verwendet TensorFlow-v1-Kompatibilitäts-API, Keras-Layeralias und zwei dynamische Shape-Korrekturen im Speicher. RGB-Reihenfolge und nun die belegte PVConfigRGB mit720/1280 sowie deren RGB-Mittelwerten verwenden; die frühere512/640-/129.4-Zuordnung war der oben beschriebene Fehler. Instanzmasken zu gedrehten Rechtecken über vorhandene OpenCV-Geometrie, danach bestehende ROI-/NoData-/GIS-/Thermalmaskenprüfung. Scores≥0.7 sind Vorschläge, keine Freigabe. Die übertragbare RGB-Erkennungsleistung muss nach dieser Konfigurationskorrektur am lokalen Ausschnitt geprüft werden.
 - Eigenständige Gewichts-/Trainingsdatenrechte sind für Produktion/Weiterverteilung nicht abschließend geklärt. Dies ist der ausdrücklich freigegebene technische Versuch; keine kommerzielle/distributive Gesamtfreigabe behaupten. Gewichte nicht in QuellZIP/Git übernehmen.
 - Dauerlabel **unvollständig: 280 von 287 Bildern** und reguläre RGB-/Thermal-Paarimport-Sperre bleiben erhalten. Keine vollständige Abdeckung, unabhängige Geometriequalität, bestätigten physischen Modul-IDs oder Celsiuswerte. Fehlende Erkennung bedeutet nicht gesund.
 
@@ -141,3 +143,5 @@ Linux/Python3.10: tatsächliche veröffentlichte RGB-Gewichte vollständig gelad
 **Ergebnisanzeige-Korrektur17.11.:** Zwei synthetische PV-Hawk-GUI-Fälle(0/2Kandidaten) reproduzieren den ursprünglichen Fehler vor dem Fix; nach dem Fix öffnen fertiger Vergleich und gespeichertes Ergebnis ohne neue Inferenz und ohne Dateiveränderung. Fehlender Bericht nach reiner Einrichtung erklärt den nächsten Schritt.74gezielte Tests plus zwei Übergabeprüfungen grün; neue exakte HEAD-CI prüfen.
 
 **Kennzahlenprüfung19.11.:**152gezielte synthetische Tests grün; echte veröffentlichte RGB-Gewichte mit Netz-/Masken-/Filterkennzahlen auf synthetischen GeoTIFFs erfolgreich geprüft. Vorhersagebeobachter ruft keine zweite Inferenz auf und wird bei Fehler restauriert. Konsistenzprüfungen/Altberichte/GUI-Kopierfunktion/Quellschutz und kombinierte Geometrie-/Dubletten-/NoData-Ausschlüsse geprüft. Neue exakte HEAD-CI prüfen; keine reale Erkennungsverbesserung aus diesen Tests ableiten.
+
+**RGB-Konfigurationsprüfung19.11.:**154gezielte Tests plus zwei Übergabeprüfungen grün. Tatsächliche veröffentlichte RGB-Gewichte mit720/1280-Eingabe auf synthetischen GeoTIFFs erfolgreich geprüft(26,72s Test mit Worker/Speichern/Wiederöffnung/Abbruch). Kernconfig.py/model.py/utils.py mit offiziellem RGB-Quellstand bytegleich. Korrekte Ableitung von IMAGE_SHAPE1280² vor Modellbau und unveränderte Gewichte geprüft; Quelle/Konfiguration im Bericht, festes Eingabeprofil in kopierten Kennzahlen. Neue exakte HEAD-CI prüfen; reale Erkennungsanzahl weiterhin lokal zu prüfen.
