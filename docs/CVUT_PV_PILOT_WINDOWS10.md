@@ -4,7 +4,23 @@ Stand20.11.2026 · PV-CVUT-INTAKE-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND
 
 Der Nutzer hat den öffentlichen CVUT-Pilot gewählt. Zuerst ein vorhandenes Modell prüfen und auf demselben zurückgehaltenen lokalen RGB-Ausschnitt vergleichen, anschließend über Nachtraining entscheiden. Wiederholte PV-Hawk-Inferenz trainiert keine Gewichte. Eine bessere Erkennung durch CVUT ist noch nicht belegt.
 
-## Gespeicherten Ausschnitt vergleichen – aktueller nächster Schritt20.11.
+## Aktueller Feldbefund20.11.: technisch erfolgreich, Erkennung nicht bestanden
+
+**CVUT-FIELD-QUALITY-01:** Der Nutzer hat den gespeicherten RGB-Ausschnitt mit dem Kandidaten tatsächlich verglichen. Kennzahlen: input_profile=cvut-rgb-unit-480x270-candidate-1,73Kandidaten. Die mitgeteilte Ergebnisanzeige meldet acht gespeicherte passende Teilreferenzen, davon keine wiedergefunden, acht nicht wiedergefunden und73zusätzliche ungeprüfte Kandidaten. Sichtbar sind viele kleine Flächen innerhalb ganzer Module und Teilumrisse. Das Ergebnis reicht für automatische Modulgrenzen nicht aus.73ist keine bestätigte Modulzahl; aus acht Teilreferenzen folgen weder eine Gesamtanlagen-Trefferquote noch73nachgewiesene Fehlalarme. Alle Fachflags bleiben false. Dauer und reale Wiederöffnung dieses Berichts noch nicht mitgeteilt.
+
+**diagnostics=null ist hier kein Modellfehler.** Der CVUT-Adapter stellt bisher keine Zwischenzähler bereit; der gemeinsame Bericht erlaubt deshalb null. Die73fertigen Umrisse und die geöffnete Ergebnisansicht belegen den ausgeführten Vergleich. Das ist vom früheren schwarzen technischen Testbild zu unterscheiden.
+
+**Keinen unveränderten Test wiederholen oder neu installieren.** Vorhandene Berichte/Entwürfe/Quelle27ccb184 und beide Pilotumgebungen erhalten. Kein weiteres Matching, Orthofoto, Training oder manuelles Abarbeiten aller73Vorschläge. Es gibt noch keine belegte Korrektur der Ursache.
+
+### Nächster Entwicklungsblock: Originalprofil und öffentliche Referenzprüfung
+
+Die Codeprüfung zeigt den vorhandenen Weg Raster-RGB→BGR→RGB0..1,480×270 und Zwei-Klassen-Softmax/Kanal1 vor Opening3×3/Komponentenrechtecken und bestehenden ROI-/GIS-Filtern. Ein einfacher fehlender RGB-Tausch oder eine einkanalige Sigmoidbehandlung ist in diesem Codeweg nicht gefunden. Das beweist nicht die originale CVUT-Vorverarbeitung oder Klassenzuordnung.
+
+Die [Publikation, Abschnitte3.3.1/4.1.3](https://arxiv.org/html/2501.14587v1) nennt480×270, Schwelle0,8, Erosion/Dilatation und Komponentenrechtecke. Exakte Normalisierung, Kanalzuordnung und Kernel sind daraus nicht vollständig belegt. Die [Anbieterseite](https://imr.ciirc.cvut.cz/Datasets/PVsegmentation) beschreibt öffentliche RGB-Bilder samt Modulmasken; direkter Abruf hier20.11. Timeout/502. Keine Gewichte, Bilder oder Pakete in diesem Prüfschritt heruntergeladen. Mögliche Ursachen sind Verarbeitung/Klassenzuordnung, Bildmaßstab, Nachverarbeitung oder mangelnde Übertragbarkeit; keine davon ist aus den jetzigen Zählern bewiesen.
+
+Vor dem nächsten Kundenlauf einen kleinen öffentlichen, annotierten Referenzfall mit nachgewiesener Datenherkunft/Lizenz und zum Gewicht gehörigem Eingabe-/Klassenprofil qualifizieren. Rohmaske und daraus gebildete ganze Modulflächen getrennt gegen die vollständige Referenz prüfen, Profil/Hashes festhalten; keine Auswahl nur nach erwarteter Modulzahl. Wenn die Integration dort nachvollziehbar arbeitet, denselben lokalen Ausschnitt erneut begrenzt vergleichen. Erst danach über geeignetes Nachtraining mit öffentlichen Daten entscheiden. Noch kein Benchmark/Trainer implementiert und keine Modellverbesserung behauptet. Kundenbilder bleiben lokal, keine pauschale Produktions-/Weitergabefreigabe.
+
+## Gespeicherten Ausschnitt vergleichen – bereits ausgeführter Bedienweg20.11.
 
 **Einrichtung und technische CPU-Probe auf dem Nutzerrechner erfolgreich.** Mitgeteiltes Protokoll solarcheck-cvut-cpu-probe-1: status passed, pretrained_weights_loaded=true,118Zustandseinträge,2Ausgangsklassen, PyTorch2.15.0+cpu, erwarteter Gewichts-SHA8e862b64…fa1cac8/Referenz21d7850f. foreground_pixels_at_080=0 bezieht sich ausschließlich auf das schwarze synthetische Bild. Keine Aussage über erkannte Module der Anlage, Genauigkeit, Abdeckung, Geometrie oder Celsius. Eingabe-/Klassenzuordnungs-/Produktionsflags weiterhin false; kein Training.
 
@@ -15,7 +31,7 @@ Der Nutzer hat den öffentlichen CVUT-Pilot gewählt. Zuerst ein vorhandenes Mod
 3. Nur den Text aus **KI-Kennzahlen kopieren(ohne Bilder und Pfade)** mitteilen; dazu kurz ganze/passende, fehlende/zu kleine/doppelte Umrisse und Dauer beschreiben. Keine Bilder oder privaten Berichte nötig. Acht gelbe Referenzen sind keine vollständige Anlagenannotation.
 4. Schließen → **Gespeicherten KI-Vergleich öffnen** → **CVUT-Kandidat**; bei zwei Berichten bleibt **Bisheriger KI-Vergleich** separat verfügbar. Ohne erneute Inferenz wiederöffnen. Ergebnisse/Entwürfe/Originale erhalten.
 
-Dieser erste reale gespeicherte Ausschnittvergleich ist noch offen. Die bestandene schwarze Modellprobe ist ein technischer Lade-/Laufzeitnachweis, keine fachliche Erkennungsfreigabe. Keine neuen Matching-/Orthofoto-/Trainingsläufe. Dauerlabel unvollständig280/287/GeoTIFF-Tags/Paarimport-Sperre und alle False-Fachflags bleiben.
+Dieser erste reale Ausschnittvergleich ist ausgeführt; sein Feldbefund steht oben. Eine erfolgreiche Wiederöffnung des CVUT-Berichts ist noch nicht mitgeteilt. Die bestandene schwarze Modellprobe ist ein technischer Lade-/Laufzeitnachweis, keine fachliche Erkennungsfreigabe. Keine neuen Matching-/Orthofoto-/Trainingsläufe. Dauerlabel unvollständig280/287/GeoTIFF-Tags/Paarimport-Sperre und alle False-Fachflags bleiben.
 
 ## CPU-Pilot einrichten – real technisch bestanden20.11.
 

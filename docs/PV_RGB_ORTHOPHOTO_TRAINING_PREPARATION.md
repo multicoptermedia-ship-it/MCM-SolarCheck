@@ -2,7 +2,7 @@
 
 Stand19.11.2026 · PV-HAWK-FIELD-QUALITY-01 / PV-ORTHO-TRAIN-PREP-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
-**Neueste Nutzerentscheidung19.11.:** Zuerst öffentlicher **CVUT-Pilot**, [Paketprüfung und nächster Einstieg](CVUT_PV_PILOT_WINDOWS10.md). Vortrainiertes konkretes RGB-Modulmodell qualifizieren, dann bestehenden lokalen ROI-Vergleich verwenden; Nachtraining mit öffentlichen Daten erst bei Bedarf. Providerzugriff hier HTTP503, neues Modell noch nicht geladen/trainiert. Kundendaten bleiben lokal zurückgehaltene Prüfung. Die nachfolgende Bestands-/Labelvorbereitung ist der spätere Hintergrund, kein aktueller Auftrag zur manuellen Beschriftung oder zum Export privater Bilder.
+**Aktueller Feldbefund20.11.:** Öffentlicher CVUT-Pilot technisch eingerichtet und real im gespeicherten RGB-Ausschnitt ausgeführt:73Kandidaten,0/8Teilreferenzen wiedergefunden, sichtbare kleine/Teilumrisse; Feldqualität FAIL. [Befund und nächster Entwicklungsblock](CVUT_PV_PILOT_WINDOWS10.md): Originaleingabe/Klassenzuordnung und öffentliche annotierte Referenzprüfung zuerst; noch keine belegte Ursache oder Korrektur. Keine unveränderte Wiederholung/Neuinstallation oder Pflicht zur manuellen Prüfung aller Module. Nachtraining mit öffentlichen Daten erst nach qualifizierter Integration. Kundendaten bleiben lokale zurückgehaltene Prüfung. Nachfolgende Labelvorbereitung bleibt Hintergrund, kein Auftrag zum Export privater Bilder.
 
 ## Befund und Entscheidung
 
