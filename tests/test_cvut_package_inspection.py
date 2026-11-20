@@ -1,9 +1,13 @@
 """Public model intake: inventory only, no dependency/model execution."""
 import importlib.util
+import errno
+import http.client
 import io
 import json
 from pathlib import Path
 import stat
+import socket
+import ssl
 import urllib.error
 import zipfile
 
@@ -187,3 +191,73 @@ def test_concurrent_start_does_not_remove_active_download(intake, tmp_path, monk
         assert (prefix / intake.REPORT).read_bytes() == saved
     assert intake.main(['--prefix', str(prefix)]) == 0
     assert not partial.exists()
+
+
+PRIVATE_DETAIL = r'C:\private-customer\roof\coordinates-and-proxy-secret'
+
+
+@pytest.mark.parametrize('error,code', [
+    (urllib.error.HTTPError(PRIVATE_DETAIL, 503, PRIVATE_DETAIL, {}, None), 'HTTP_ERROR'),
+    (urllib.error.URLError(ssl.SSLCertVerificationError(1, PRIVATE_DETAIL)), 'TLS_CERTIFICATE'),
+    (ssl.SSLError(1, PRIVATE_DETAIL), 'TLS_CONNECTION'),
+    (urllib.error.URLError(socket.gaierror(-2, PRIVATE_DETAIL)), 'DNS_LOOKUP'),
+    (urllib.error.URLError(TimeoutError(PRIVATE_DETAIL)), 'NETWORK_TIMEOUT'),
+    (TimeoutError(PRIVATE_DETAIL), 'NETWORK_TIMEOUT'),
+    (urllib.error.URLError(PRIVATE_DETAIL), 'NETWORK_CONNECTION'),
+    (http.client.IncompleteRead(b'private partial data', 100), 'DOWNLOAD_INTERRUPTED'),
+    (ConnectionResetError(PRIVATE_DETAIL), 'DOWNLOAD_INTERRUPTED'),
+    (PermissionError(errno.EACCES, PRIVATE_DETAIL, PRIVATE_DETAIL), 'LOCAL_ACCESS'),
+    (OSError(errno.ENOSPC, PRIVATE_DETAIL, PRIVATE_DETAIL), 'DISK_FULL'),
+    (FileNotFoundError(errno.ENOENT, PRIVATE_DETAIL, PRIVATE_DETAIL), 'LOCAL_FILE_MISSING'),
+    (OSError(errno.EIO, PRIVATE_DETAIL, PRIVATE_DETAIL), 'LOCAL_IO'),
+    (RuntimeError(PRIVATE_DETAIL), 'UNEXPECTED_ERROR'),
+])
+def test_main_reports_specific_failure_without_paths_or_raw_exception(
+        intake, tmp_path, monkeypatch, capsys, error, code):
+    def failed_download(url, **kwargs):
+        assert url == intake.URL
+        assert kwargs == {'timeout': 30}  # Default verified TLS; no insecure context.
+        raise error
+    monkeypatch.setattr(intake.urllib.request, 'urlopen', failed_download)
+    prefix = tmp_path / 'pilot'
+    assert intake.main(['--prefix', str(prefix)]) == 2
+    output = capsys.readouterr().out
+    record, remainder = json.JSONDecoder().raw_decode(output[output.index('{'):])
+    assert record['check'] == intake.FAILURE_CHECK
+    assert record['error_code'] == code
+    assert record['model_loaded'] is record['training_started'] is record['inference_started'] is False
+    if code == 'HTTP_ERROR':
+        assert record['http_status'] == 503
+    assert PRIVATE_DETAIL not in output
+    assert 'private-customer' not in output and 'private partial data' not in output
+    assert str(tmp_path) not in output
+    assert not (prefix / intake.REPORT).exists()
+    assert not (prefix / (intake.ARCHIVE + '.download')).exists()
+
+
+@pytest.mark.parametrize('data,code', [(b'<html>unavailable</html>', 'INVALID_ZIP'), (b'not JSON', 'LOCAL_METADATA')])
+def test_format_failures_have_safe_diagnosis(intake, tmp_path, monkeypatch, capsys, data, code):
+    prefix = tmp_path / 'pilot'
+    if code == 'INVALID_ZIP':
+        monkeypatch.setattr(intake.urllib.request, 'urlopen', lambda *a, **k: response(intake, data))
+    else:
+        prefix.mkdir()
+        (prefix / 'cvut-intake.json').write_bytes(data)
+    assert intake.main(['--prefix', str(prefix)]) == 2
+    output = capsys.readouterr().out
+    record, _ = json.JSONDecoder().raw_decode(output[output.index('{'):])
+    assert record['error_code'] == code
+    assert str(tmp_path) not in output
+
+
+def test_rejected_response_reason_is_visible_without_remote_url(intake, tmp_path, monkeypatch, capsys):
+    def redirected(url, **kwargs):
+        result = response(intake, package())
+        result.geturl = lambda: 'https://other.invalid/' + PRIVATE_DETAIL
+        return result
+    monkeypatch.setattr(intake.urllib.request, 'urlopen', redirected)
+    assert intake.main(['--prefix', str(tmp_path / 'pilot')]) == 2
+    output = capsys.readouterr().out
+    assert 'PACKAGE_CHECK' in output and 'Unerwartete Downloadantwort' in output
+    assert PRIVATE_DETAIL not in output and 'other.invalid' not in output
+    assert not (tmp_path / 'pilot' / intake.ARCHIVE).exists()

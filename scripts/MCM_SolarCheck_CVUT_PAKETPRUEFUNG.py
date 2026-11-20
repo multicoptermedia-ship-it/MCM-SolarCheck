@@ -1,11 +1,15 @@
 """Inspect the public CVUT U-Net package without extracting/loading any model."""
 import argparse
 from contextlib import contextmanager
+import errno
 from hashlib import sha256
+import http.client
 import json
 import os
 from pathlib import Path, PurePosixPath
 import stat
+import socket
+import ssl
 import sys
 import tempfile
 import urllib.error
@@ -20,13 +24,72 @@ MAX_ARCHIVE = 400 * 1024**2
 MAX_EXPANDED = 1024**3
 MAX_TEXT = 64 * 1024
 WEIGHT_SUFFIXES = {'.onnx', '.h5', '.hdf5', '.keras', '.pt', '.pth', '.ckpt', '.pb'}
+FAILURE_CHECK = 'solarcheck-cvut-failure-1'
+
+
+class PackageCheckError(ValueError):
+    """Only fixed, path-free validation messages authored in this script."""
+
+
+def failure_details(error):
+    """Shareable diagnosis: never copy exception text, filenames or URLs."""
+    cause = error.reason if isinstance(error, urllib.error.URLError) else error
+    action = 'Offiziellen Download im Browser pruefen; oeffentliches ZIP optional mit --archive pruefen.'
+    if isinstance(error, PackageCheckError):
+        code, message = 'PACKAGE_CHECK', str(error)
+        action = 'Genannte Paket-/Ordnerbedingung pruefen. Vorhandenen Bericht erhalten.'
+    elif isinstance(error, urllib.error.HTTPError):
+        code, message = 'HTTP_ERROR', 'Der Downloadserver meldet einen HTTP-Fehler.'
+    elif isinstance(cause, ssl.SSLCertVerificationError):
+        code, message = 'TLS_CERTIFICATE', 'Python kann das HTTPS-Zertifikat nicht bestaetigen.'
+        action = 'Zertifikatspruefung eingeschaltet lassen; offiziellen Download bewusst im Browser pruefen.'
+    elif isinstance(cause, ssl.SSLError):
+        code, message = 'TLS_CONNECTION', 'Die verschluesselte Verbindung ist fehlgeschlagen.'
+    elif isinstance(cause, socket.gaierror):
+        code, message = 'DNS_LOOKUP', 'Der Downloadserver konnte nicht per Namensaufloesung erreicht werden.'
+    elif isinstance(cause, TimeoutError):
+        code, message = 'NETWORK_TIMEOUT', 'Verbindung oder Download hat das Zeitlimit von30Sekunden erreicht.'
+    elif isinstance(error, (http.client.IncompleteRead, ConnectionError, urllib.error.ContentTooShortError)):
+        code, message = 'DOWNLOAD_INTERRUPTED', 'Die Uebertragung wurde vorzeitig unterbrochen.'
+    elif isinstance(error, urllib.error.URLError):
+        code, message = 'NETWORK_CONNECTION', 'Python konnte den Downloadserver nicht erreichen.'
+    elif isinstance(error, (zipfile.BadZipFile, zipfile.LargeZipFile)):
+        code, message = 'INVALID_ZIP', 'Die erhaltene Datei ist kein lesbares vollstaendiges ZIP-Archiv.'
+    elif isinstance(error, (json.JSONDecodeError, UnicodeError)):
+        code, message = 'LOCAL_METADATA', 'Eine lokale Steuer-/Berichtsdatei ist nicht lesbar.'
+        action = 'Diagnosecode mitteilen; gespeicherte Berichte nicht loeschen.'
+    elif isinstance(error, PermissionError):
+        code, message = 'LOCAL_ACCESS', 'Eine lokale Datei ist gesperrt oder nicht beschreibbar.'
+        action = 'Andere Paketpruefung schliessen; Schreibzugriff auf den eigenen Pilotordner pruefen.'
+    elif isinstance(error, OSError) and (error.errno == errno.ENOSPC or getattr(error, 'winerror', None) == 112):
+        code, message = 'DISK_FULL', 'Auf dem Ziellaufwerk ist zu wenig freier Platz.'
+        action = 'Freien Platz im Pilotlaufwerk pruefen; vorhandene Projektdateien erhalten.'
+    elif isinstance(error, FileNotFoundError):
+        code, message = 'LOCAL_FILE_MISSING', 'Eine benoetigte lokale Datei oder ein Ordner fehlt.'
+        action = 'Ausgewaehltes oeffentliches Archiv und Pilotordner pruefen.'
+    elif isinstance(error, OSError):
+        code, message = 'LOCAL_IO', 'Ein lokaler Datei-/Sperrzugriff ist fehlgeschlagen.'
+        action = 'Diagnosecode und Fehlernummer mitteilen; keine Dateien vorsorglich loeschen.'
+    else:
+        code, message = 'UNEXPECTED_ERROR', 'Die Paketpruefung wurde durch einen weiteren Fehler beendet.'
+        action = 'Diesen Diagnoseblock als Text mitteilen; keine Bilder oder Projektdateien senden.'
+    record = dict(check=FAILURE_CHECK, error_code=code, message=message, next_step=action,
+                  exception_type=type(error).__name__, model_loaded=False,
+                  training_started=False, inference_started=False, production_approved=False)
+    if isinstance(error, urllib.error.HTTPError):
+        record['http_status'] = error.code
+    for name in ('errno', 'winerror'):
+        value = getattr(cause, name, None)
+        if type(value) is int:
+            record[name] = value
+    return record
 
 
 def local(path):
     path = Path(path)
     if (not path.is_absolute() or any(p.is_symlink() for p in (path, *path.parents))
             or any((p / '.git').is_file() or (p / '.git/HEAD').is_file() for p in (path, *path.parents))):
-        raise ValueError('Absoluten privaten Ordner ausserhalb eines Git-Checkout verwenden.')
+        raise PackageCheckError('Absoluten privaten Ordner ausserhalb eines Git-Checkout verwenden.')
     return path
 
 
@@ -41,12 +104,12 @@ def digest(path):
 def inventory(path):
     """Central directory plus bounded documentation; never deserialize weights."""
     if not 0 < path.stat().st_size <= MAX_ARCHIVE:
-        raise ValueError('Modellarchiv fehlt/ist zu gross; Grenze400MiB.')
+        raise PackageCheckError('Modellarchiv fehlt/ist zu gross; Grenze400MiB.')
     entries, documents, seen, expanded, text_bytes = [], [], set(), 0, 0
     with zipfile.ZipFile(path) as archive:
         members = archive.infolist()
         if not 0 < len(members) <= 1000:
-            raise ValueError('Unerwartete Anzahl ZIP-Eintraege.')
+            raise PackageCheckError('Unerwartete Anzahl ZIP-Eintraege.')
         for member in members:
             # ZipInfo.filename normalizes backslashes on Windows. Inspect the
             # original central-directory spelling before accepting a member.
@@ -56,11 +119,11 @@ def inventory(path):
                     or ':' in name or '..' in parts or name in seen
                     or any(ord(c) < 32 or ord(c) == 127 for c in name)
                     or stat.S_ISLNK(member.external_attr >> 16) or member.flag_bits & 1):
-                raise ValueError('Unerwarteter/verknuepfter/verschluesselter ZIP-Eintrag.')
+                raise PackageCheckError('Unerwarteter/verknuepfter/verschluesselter ZIP-Eintrag.')
             seen.add(name)
             expanded += member.file_size
             if expanded > MAX_EXPANDED:
-                raise ValueError('Entpackte Paketgroesse ueber1GiB; keine Verarbeitung.')
+                raise PackageCheckError('Entpackte Paketgroesse ueber1GiB; keine Verarbeitung.')
             suffix = PurePosixPath(name).suffix.lower()
             entries.append(dict(name=name, bytes=member.file_size,
                                 compressed_bytes=member.compress_size,
@@ -70,11 +133,11 @@ def inventory(path):
                     and suffix in {'.txt', '.md', '.rst', ''} and member.file_size <= MAX_TEXT):
                 text_bytes += member.file_size
                 if text_bytes > 4 * MAX_TEXT:
-                    raise ValueError('Zu viele Dokumentationstexte im Modellpaket.')
+                    raise PackageCheckError('Zu viele Dokumentationstexte im Modellpaket.')
                 with archive.open(member) as stream:
                     content = stream.read(MAX_TEXT + 1)
                 if len(content) > MAX_TEXT:
-                    raise ValueError('Dokumentation groesser als angekuendigt.')
+                    raise PackageCheckError('Dokumentation groesser als angekuendigt.')
                 documents.append(dict(name=name, text=content.decode('utf-8', errors='replace')))
     return dict(check=CHECK, source_url=URL, archive_bytes=path.stat().st_size,
                 archive_sha256=digest(path), checksum_kind='locally_observed_not_publisher_verified',
@@ -124,12 +187,12 @@ def inspect_package(prefix, archive_path=None):
     if archive_path is not None:
         archive_path = local(archive_path)
         if archive_path.name != ARCHIVE or not archive_path.is_file():
-            raise ValueError('Nur bewusst heruntergeladenes PV_UNET_models.zip auswaehlen.')
+            raise PackageCheckError('Nur bewusst heruntergeladenes PV_UNET_models.zip auswaehlen.')
     marker = prefix / 'cvut-intake.json'
     local(marker)
     if prefix.exists() and any(prefix.iterdir()):
         if not marker.is_file() or json.loads(marker.read_text(encoding='utf-8')) != {'check': CHECK}:
-            raise ValueError('Ziel ist kein eigener CVUT-Paketpruefordner; leeren Ordner waehlen.')
+            raise PackageCheckError('Ziel ist kein eigener CVUT-Paketpruefordner; leeren Ordner waehlen.')
     prefix.mkdir(parents=True, exist_ok=True)
     if not marker.exists():
         atomic_json(marker, {'check': CHECK})
@@ -153,7 +216,7 @@ def _inspect_locked(prefix, archive_path):
         try:
             with urllib.request.urlopen(URL, timeout=30) as response, temporary.open('xb') as output:
                 if response.status != 200 or response.geturl() != URL:
-                    raise ValueError('Unerwartete Downloadantwort; keine fremde Quelle verwenden.')
+                    raise PackageCheckError('Unerwartete Downloadantwort; keine fremde Quelle verwenden.')
                 total = 0
                 while True:
                     block = response.read(1024**2)
@@ -161,18 +224,18 @@ def _inspect_locked(prefix, archive_path):
                         break
                     total += len(block)
                     if total > MAX_ARCHIVE:
-                        raise ValueError('Download groesser als400MiB.')
+                        raise PackageCheckError('Download groesser als400MiB.')
                     output.write(block)
                     if total % (16 * 1024**2) < len(block):
                         print('Modellpaket geladen: ' + str(total // 1024**2) + 'MiB', flush=True)
             record = inventory(temporary)
             if previous is not None and previous.get('archive_sha256') != record['archive_sha256']:
-                raise ValueError('Paket unterscheidet sich vom gespeicherten Stand; nicht uebernommen.')
+                raise PackageCheckError('Paket unterscheidet sich vom gespeicherten Stand; nicht uebernommen.')
             temporary.replace(target)
         finally:
             temporary.unlink(missing_ok=True)
     if previous is not None and previous.get('archive_sha256') != record['archive_sha256']:
-        raise ValueError('Paket unterscheidet sich vom gespeicherten Stand; Bericht erhalten.')
+        raise PackageCheckError('Paket unterscheidet sich vom gespeicherten Stand; Bericht erhalten.')
     atomic_json(report, record)
     return record
 
@@ -194,11 +257,10 @@ def main(argv=None):
     except KeyboardInterrupt:
         print('Paketpruefung abgebrochen. Erneuter Start verwendet ein fertig geprueftes Paket.')
         return 130
-    except urllib.error.HTTPError as error:
-        print('CVUT-Download nicht abgeschlossen: HTTP ' + str(error.code) + '. Keine Installation/Inferenz.')
-        return 2
-    except Exception:
-        print('CVUT-Paketpruefung nicht abgeschlossen. Paket/Ordner/Zugang pruefen; kein Modell ausgefuehrt.')
+    except Exception as error:
+        print('CVUT-Paketpruefung nicht abgeschlossen. Diagnose (ohne lokale Pfade):')
+        print(json.dumps(failure_details(error), ensure_ascii=True, indent=2))
+        print('Kein Modell ausgefuehrt. Bitte nur diesen Diagnoseblock als Text mitteilen.')
         return 2
 
 
