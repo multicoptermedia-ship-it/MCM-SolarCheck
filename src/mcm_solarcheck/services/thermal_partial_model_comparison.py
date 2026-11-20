@@ -11,8 +11,14 @@ from ..vision.onnx_module_detector import OnnxModuleDetector
 from ..vision.polygon_geometry import convex_polygon_iou
 
 STATE = 'pv-model-comparison.LOCAL.json'
+CVUT_STATE = 'pv-cvut-model-comparison.LOCAL.json'
 CHECK = 'solarcheck-pv-model-comparison-1'
 EXTRA_FLAGS = ('accuracy_verified', 'automatically_accepted', 'physical_module_ids_confirmed')
+
+
+def state_for_model(description):
+    from ..vision.cvut_module_detector import PROFILE
+    return CVUT_STATE if description.get('profile') == PROFILE else STATE
 
 
 def _digest(path):
@@ -50,7 +56,13 @@ def compare_saved_region(source, manifest_path, key, *, run_token=None):
     review_sha = _digest(comparison.folder / MODULE_STATE)
     profile = json.loads(_local(manifest_path).read_text(encoding='utf-8')).get('profile')
     from ..vision.pv_hawk_module_detector import PROFILE, PVHawkModuleDetector
-    model = PVHawkModuleDetector(manifest_path) if profile == PROFILE else OnnxModuleDetector(manifest_path)
+    from ..vision.cvut_module_detector import PROFILE as CVUT_PROFILE, CVUTModuleDetector
+    if profile == PROFILE:
+        model = PVHawkModuleDetector(manifest_path)
+    elif profile == CVUT_PROFILE:
+        model = CVUTModuleDetector(manifest_path)
+    else:
+        model = OnnxModuleDetector(manifest_path)
     candidate = detect_partial_pv_window(comparison, window=tuple(regions[key]['window']), detector=model)
     matches = _associate(references, candidate.proposals)
     if review_sha != _digest(comparison.folder / MODULE_STATE):
@@ -69,7 +81,7 @@ def compare_saved_region(source, manifest_path, key, *, run_token=None):
         record['diagnostics'] = dict(check='pv-hawk-counts-1', inference=model.last_diagnostics,
             filtering=candidate.filter_counts)
         validate_diagnostics(record)
-    target = comparison.folder / (f'pv-model-comparison-{run_token}.LOCAL.json' if run_token else STATE)
+    target = comparison.folder / (f'pv-model-comparison-{run_token}.LOCAL.json' if run_token else state_for_model(model.description))
     temporary = target.with_suffix('.next.json')
     if target.is_symlink() or temporary.is_symlink():
         raise ValueError('Vergleichsbericht darf keine Verknuepfung sein.')
@@ -158,7 +170,8 @@ def shareable_counts(record):
     # A fixed enum identifies corrected vs old inputs; never copy free-form
     # model metadata (which could contain operator notes or local paths).
     input_profile = ({'pvconfigrgb-720-1280-1': 'pvconfigrgb-720-1280-1',
-        'upstream-PVConfig-RGB-512-640-mean129.4': 'legacy-ir-defaults-512-640'}
+        'upstream-PVConfig-RGB-512-640-mean129.4': 'legacy-ir-defaults-512-640',
+        'cvut-rgb-unit-480x270-candidate-1': 'cvut-rgb-unit-480x270-candidate-1'}
         .get(preprocessing, 'not_recorded_or_other_model'))
     return dict(check='solarcheck-pv-counts-1', input_profile=input_profile,
         candidate_outlines=record['counts']['candidate_outlines'],

@@ -458,6 +458,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
                 return
             import json
             from ..vision.pv_hawk_module_detector import PROFILE, evaluation_python
+            from ..vision.cvut_module_detector import PROFILE as CVUT_PROFILE, evaluation_python as cvut_python
             from ..services.thermal_partial_comparison import _local
             path = _local(manifest)
             if path.stat().st_size > 32768:
@@ -466,7 +467,8 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
             if not isinstance(description, dict):
                 raise ValueError('Modellbeschreibung muss ein JSON-Objekt sein.')
             profile = description.get('profile')
-            executable = evaluation_python(manifest) if profile == PROFILE else sys.executable
+            executable = (evaluation_python(manifest) if profile == PROFILE else
+                          cvut_python(manifest) if profile == CVUT_PROFILE else sys.executable)
             token = uuid4().hex
             self._model_pending = self.comparison.folder / f'pv-model-comparison-{token}.LOCAL.json'
             process = QProcess(self)
@@ -495,7 +497,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
             self._model_finished(2, QProcess.ExitStatus.CrashExit)
 
     def _model_finished(self, code, status):
-        from ..services.thermal_partial_model_comparison import STATE, read_model_comparison
+        from ..services.thermal_partial_model_comparison import read_model_comparison, state_for_model
         self._model_timer.stop()
         self.model_start.setText('KI-Modellvergleich starten (lokal)')
         pending = self._model_pending
@@ -505,13 +507,13 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
                 raise ValueError('Vergleich abgebrochen; kein Ergebnis übernommen.')
             if code != 0 or status != QProcess.ExitStatus.NormalExit or pending is None:
                 raise ValueError('Kein Vergleich erstellt. Modellbeschreibung, Gewichte und optionale ONNX-Prüfbibliothek prüfen.')
-            read_model_comparison(self.comparison, pending)
-            target = self.comparison.folder / STATE
+            record, _, _ = read_model_comparison(self.comparison, pending)
+            target = self.comparison.folder / state_for_model(record['model'])
             if target.is_symlink():
                 raise ValueError('Vergleichsziel darf keine Verknüpfung sein.')
             pending.replace(target)
             self._status.setText('KI-Vergleich separat lokal gespeichert; vorhandene Entwürfe bleiben erhalten.')
-            self._open_model_comparison()
+            self._open_model_comparison(report_path=target)
         except (ValueError, TypeError, KeyError, OSError, RuntimeError) as error:
             self._status.setText(str(error))
         finally:
@@ -520,17 +522,30 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
                 pending.with_suffix('.next.json').unlink(missing_ok=True)
             self._edit_buttons()
 
-    def _open_model_comparison(self):
+    def _open_model_comparison(self, *, report_path=None):
         try:
-            from ..services.thermal_partial_model_comparison import STATE
-            if not (self.comparison.folder / STATE).exists():
+            from ..services.thermal_partial_model_comparison import STATE, CVUT_STATE
+            from PySide6.QtWidgets import QInputDialog
+            paths = [('Bisheriger KI-Vergleich', self.comparison.folder / STATE),
+                     ('CVUT-Kandidat', self.comparison.folder / CVUT_STATE)]
+            paths = [(label, path) for label, path in paths if path.exists()]
+            if report_path is None and not paths:
                 self._status.setText('Noch kein gespeicherter KI-Vergleich. Die Einrichtung allein erstellt keine Anlagen-Ergebnisse. '
                     'Im gespeicherten PV-Ausschnitt „KI-Modellvergleich starten (lokal)“ wählen.')
                 return
+            if report_path is None:
+                if len(paths) == 1:
+                    report_path = paths[0][1]
+                else:
+                    choice, accepted = QInputDialog.getItem(self, 'Gespeicherten KI-Vergleich öffnen',
+                        'Vergleich wählen', [name for name, _ in paths], 1, False)
+                    if not accepted:
+                        return
+                    report_path = dict(paths)[choice]
             from .thermal_partial_model_comparison import ModelComparisonDialog
             if self._model_dialog:
                 self._model_dialog.deleteLater()
-            self._model_dialog = ModelComparisonDialog(self.comparison, self)
+            self._model_dialog = ModelComparisonDialog(self.comparison, self, report_path=report_path)
             self._model_dialog.show()
             self._model_dialog.raise_()
             self._model_dialog.activateWindow()

@@ -39,7 +39,10 @@ jobs:
           python -m pip install -r requirements-ai-evaluation.txt
       - name: Test CVUT public model package inspection without model execution
         shell: pwsh
-        run: python -m pytest -q tests/test_cvut_package_inspection.py
+        env:
+          PYTHONPATH: src
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q tests/test_cvut_package_inspection.py tests/test_cvut_cpu_candidate.py
       - name: Test external RGB and thermal GeoTIFF intake and PV mapping
         shell: pwsh
         env:
@@ -118,3 +121,28 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $pilotPython -m pytest -q tests/test_pv_hawk_pilot.py tests/test_pv_hawk_pretrained_smoke.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+
+  cvut-cpu-reference:
+    # Actual pinned Torch CPU and external GPL reference, synthetic weights only.
+    # No commercial license decision or Windows10/pretrained model acceptance.
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Explicit CPU candidate test dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --only-binary=:all: torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install --only-binary=:all: -r requirements-cvut-cpu.txt pytest==8.3.5
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Restricted weights loading, reference ABI and two-class CPU inference
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+          SOLARCHECK_TEST_CVUT_RUNTIME: '1'
+        run: python -m pytest -q tests/test_cvut_cpu_runtime.py

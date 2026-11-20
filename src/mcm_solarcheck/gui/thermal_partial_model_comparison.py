@@ -9,9 +9,9 @@ from ..services.thermal_partial_model_comparison import read_model_comparison, s
 
 
 class ModelComparisonDialog(OrthophotoPVReviewDialog):
-    def __init__(self, comparison, parent=None):
+    def __init__(self, comparison, parent=None, *, report_path=None):
         self.comparison = comparison
-        record, result, self.references = read_model_comparison(comparison)
+        record, result, self.references = read_model_comparison(comparison, report_path)
         self._record = record
         super().__init__(comparison.rgb_path, comparison.thermal_path, parent)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
@@ -33,6 +33,9 @@ class ModelComparisonDialog(OrthophotoPVReviewDialog):
                 f"nach Geometrie/Dubletten: {filtering['after_geometry_and_duplicates']} · "
                 f"nach RGB-Datenprüfung: {filtering['final_outlines']}. "
                 'Diese Zähler erklären den Ablauf, keine vollständige Modulanzahl.')
+        elif record['model'].get('profile') == 'cvut-unet-rgb-cpu-candidate-1':
+            text = ('Experimenteller CVUT-Kandidat: Eingabe und Klassenzuordnung sowie Produktions-/Weitergaberechte '
+                    'sind noch ungeprüft. Keine vollständige Anlagenbewertung oder automatische Übernahme.')
         else:
             text = ('Dieser gespeicherte Bericht enthält noch keine Filterkennzahlen. '
                 'Ein neuer begrenzter KI-Vergleich im selben Ausschnitt erfasst sie; keine Neuinstallation nötig.')
