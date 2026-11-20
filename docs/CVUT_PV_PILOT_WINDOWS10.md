@@ -4,7 +4,20 @@ Stand20.11.2026 · PV-CVUT-INTAKE-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND
 
 Der Nutzer hat den öffentlichen CVUT-Pilot gewählt. Zuerst ein vorhandenes Modell prüfen und auf demselben zurückgehaltenen lokalen RGB-Ausschnitt vergleichen, anschließend über Nachtraining entscheiden. Wiederholte PV-Hawk-Inferenz trainiert keine Gewichte. Eine bessere Erkennung durch CVUT ist noch nicht belegt.
 
-## CPU-Pilot einrichten – aktueller nächster Schritt20.11.
+## Gespeicherten Ausschnitt vergleichen – aktueller nächster Schritt20.11.
+
+**Einrichtung und technische CPU-Probe auf dem Nutzerrechner erfolgreich.** Mitgeteiltes Protokoll solarcheck-cvut-cpu-probe-1: status passed, pretrained_weights_loaded=true,118Zustandseinträge,2Ausgangsklassen, PyTorch2.15.0+cpu, erwarteter Gewichts-SHA8e862b64…fa1cac8/Referenz21d7850f. foreground_pixels_at_080=0 bezieht sich ausschließlich auf das schwarze synthetische Bild. Keine Aussage über erkannte Module der Anlage, Genauigkeit, Abdeckung, Geometrie oder Celsius. Eingabe-/Klassenzuordnungs-/Produktionsflags weiterhin false; kein Training.
+
+**Kein erneuter Setup-/Download-/Installationslauf nötig.** Die alten setuptools65.5-Metadatenwarnungen haben den gezeigten erfolgreichen Ablauf nicht gestoppt; kein vorsorgliches Löschen/Bereinigen von Paketen oder anderen Umgebungen. Ein vollständig unproblematischer pip-check wird daraus nicht behauptet.
+
+1. In der bereits geöffneten Oberfläche vorhandenen Thermal-Lauf13.11./18:58:37/oh9ptgy5 → gespeicherten RGB-Vergleich → gespeicherte PV-Modul-Entwürfe öffnen. Falls geschlossen, nur den unten dokumentierten Oberflächenstart ohne Setup verwenden.
+2. Denselben gespeicherten Ausschnitt unverändert verwenden. **KI-Modellvergleich starten(lokal)** → **E:\SolarCheck-CVUT-KI-Pilot\cvut-rgb.LOCAL.json**. Nicht Paket-/Probeberichte oder.pth wählen.
+3. Nur den Text aus **KI-Kennzahlen kopieren(ohne Bilder und Pfade)** mitteilen; dazu kurz ganze/passende, fehlende/zu kleine/doppelte Umrisse und Dauer beschreiben. Keine Bilder oder privaten Berichte nötig. Acht gelbe Referenzen sind keine vollständige Anlagenannotation.
+4. Schließen → **Gespeicherten KI-Vergleich öffnen** → **CVUT-Kandidat**; bei zwei Berichten bleibt **Bisheriger KI-Vergleich** separat verfügbar. Ohne erneute Inferenz wiederöffnen. Ergebnisse/Entwürfe/Originale erhalten.
+
+Dieser erste reale gespeicherte Ausschnittvergleich ist noch offen. Die bestandene schwarze Modellprobe ist ein technischer Lade-/Laufzeitnachweis, keine fachliche Erkennungsfreigabe. Keine neuen Matching-/Orthofoto-/Trainingsläufe. Dauerlabel unvollständig280/287/GeoTIFF-Tags/Paarimport-Sperre und alle False-Fachflags bleiben.
+
+## CPU-Pilot einrichten – real technisch bestanden20.11.
 
 **Die Strukturprüfung ist real bestanden.** Öffentliches RGB-Modell124239509Bytes, SHA256 **8e862b6498f8501d5042a9f0127c6dfde1c75f0b22c51d6db56b127a9fa1cac8**; moderner PyTorch-ZIP-Container/Pickleprotokoll2 mit118Schichtbezeichnern/-formhinweisen und ausschließlich den beobachteten Standardreferenzen collections.OrderedDict, torch.FloatStorage/LongStorage und torch._utils._rebuild_tensor_v2. Drei RGB-Eingänge, transponierte Faltungen und **zwei Ausgänge [2,64,1,1]**. Eine einkanalige Sigmoidbehandlung wäre falsch. Die vorherigen Paket-/Strukturstarts unten sind abgeschlossen und müssen nicht wiederholt werden.
 
@@ -59,7 +72,7 @@ Setup hat fünf sichtbare Phasen. **Erst bei check solarcheck-cvut-cpu-probe-1 /
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-CVUT-Start\27ccb184b8003bbd3db43d9f55acb661275dfc6d\MCM-SolarCheck-27ccb184b8003bbd3db43d9f55acb661275dfc6d\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
 ```
 
-132gezielte Regressionen und7CVUT-Gates(überlappend) lokal grün, dazu9isolierte Tests mit echter PyTorch2.15.0-CPU-Laufzeit/externem gehashtem Referenzcode und synthetischen Gewichten: alle118Formen, Vorwärtslauf[1,2,270,480], zwei Klassen/Softmax statt Sigmoid, RGB-Reihenfolge, striktes Gewichtsformat, NaN/Shape-/Typfehler, unbekanntes Pickle-Objekt ohne Ausführung, synthetischer Probebericht. Neuer Windows2022-CPU-Job und exakte finale CI in PR9 prüfen. Reale veröffentlichte CVUT-Gewichte und Windows10-Feldqualität hier nicht ausgeführt; erster lokaler Nutzerweg noch offen. Quellen/GeoTIFF-Tags/unvollständig280/287/Paarimport-Sperre/alle Fachflags false erhalten.
+132gezielte Regressionen und7CVUT-Gates(überlappend) lokal grün, dazu9isolierte Tests mit echter PyTorch2.15.0-CPU-Laufzeit/externem gehashtem Referenzcode und synthetischen Gewichten: alle118Formen, Vorwärtslauf[1,2,270,480], zwei Klassen/Softmax statt Sigmoid, RGB-Reihenfolge, striktes Gewichtsformat, NaN/Shape-/Typfehler, unbekanntes Pickle-Objekt ohne Ausführung, synthetischer Probebericht. Neuer Windows2022-CPU-Job und exakte finale CI in PR9 prüfen. Reale veröffentlichte CVUT-Gewichte hier nicht ausgeführt; Nutzer meldet technische CPU-Probe auf Windows10 bestanden, erster Anlagen-Ausschnittvergleich/Feldqualität weiter offen. Quellen/GeoTIFF-Tags/unvollständig280/287/Paarimport-Sperre/alle Fachflags false erhalten.
 
 ## RGB-Modellstruktur prüfen – bereits real bestanden20.11.
 
