@@ -4,6 +4,8 @@ import errno
 import http.client
 import io
 import json
+import pickle
+from collections import OrderedDict
 from pathlib import Path
 import stat
 import socket
@@ -261,3 +263,155 @@ def test_rejected_response_reason_is_visible_without_remote_url(intake, tmp_path
     assert 'PACKAGE_CHECK' in output and 'Unerwartete Downloadantwort' in output
     assert PRIVATE_DETAIL not in output and 'other.invalid' not in output
     assert not (tmp_path / 'pilot' / intake.ARCHIVE).exists()
+
+
+def rebuild_metadata_tensor(*args):
+    raise AssertionError('A pickle constructor must never execute during inspection')
+
+
+class TensorMetadata:
+    def __init__(self, shape):
+        self.shape = shape
+
+    def __reduce__(self):
+        return rebuild_metadata_tensor, ('storage-reference', 0, self.shape, (), False, OrderedDict())
+
+
+def tensor_pickle():
+    class MetadataPickler(pickle.Pickler):
+        def persistent_id(self, obj):
+            if isinstance(obj, str) and obj == 'storage-reference':
+                return ('storage', 'FloatStorage', '0', 'cpu', 1728)
+    stream = io.BytesIO()
+    MetadataPickler(stream, protocol=2).dump(OrderedDict([
+        ('inc.double_conv.0.weight', TensorMetadata((64, 3, 3, 3))),
+        ('outc.conv.weight', TensorMetadata((1, 64, 1, 1))),
+        ('bn.num_batches_tracked', TensorMetadata(())),
+    ]))
+    return stream.getvalue()
+
+
+def rgb_layout_fixture(intake, tmp_path, monkeypatch, *, metadata=None, extra=None, legacy=False):
+    model = b'legacy-not-loaded' if legacy else package({
+        'weights/data.pkl': metadata if metadata is not None else tensor_pickle(),
+        'weights/data/0': b'not-real-tensor-values',
+        'weights/version': b'3\n',
+        **(extra or {}),
+    })
+    data = package({
+        'UNet_pv_installation_rgb.pth': b'not selected',
+        'UNet_pv_module_rgb.pth': model,
+        'UNet_pv_module_thermo.pth': b'not selected',
+    })
+    path = tmp_path / intake.ARCHIVE
+    path.write_bytes(data)
+    monkeypatch.setattr(intake, 'CVUT_ARCHIVE', dict(
+        bytes=len(data), sha256=intake.sha256(data).hexdigest(),
+        rgb_name='UNet_pv_module_rgb.pth', rgb_bytes=len(model)))
+    monkeypatch.setattr(intake.urllib.request, 'urlopen', lambda *a, **k: pytest.fail('Layout check must be offline'))
+    return path, data, model
+
+
+def test_rgb_layout_reads_only_pinned_model_metadata_and_preserves_package_report(
+        intake, tmp_path, monkeypatch, capsys):
+    path, source, model = rgb_layout_fixture(intake, tmp_path, monkeypatch)
+    prefix = tmp_path / 'pilot'
+    intake.inspect_package(prefix, path)
+    original_report = (prefix / intake.REPORT).read_bytes()
+    monkeypatch.setattr(pickle, 'loads', lambda *a, **k: pytest.fail('No pickle loading'))
+    assert intake.main(['--prefix', str(prefix), '--archive', str(path), '--inspect-rgb-layout']) == 0
+    record = json.loads((prefix / intake.RGB_REPORT).read_text())
+    assert record['check'] == 'solarcheck-cvut-rgb-layout-1'
+    assert record['model_sha256'] == intake.sha256(model).hexdigest()
+    assert record['selected_model'] == 'UNet_pv_module_rgb.pth'
+    assert record['metadata']['pickle_protocol'] == 2
+    assert record['metadata']['tensor_shape_hints'] == [
+        {'parameter': 'inc.double_conv.0.weight', 'shape': [64, 3, 3, 3]},
+        {'parameter': 'outc.conv.weight', 'shape': [1, 64, 1, 1]},
+        {'parameter': 'bn.num_batches_tracked', 'shape': []},
+    ]
+    for field in ('model_loaded', 'training_started', 'inference_started', 'dependencies_installed',
+                  'model_license_verified', 'production_approved'):
+        assert record[field] is False
+    assert path.read_bytes() == source
+    assert (prefix / intake.REPORT).read_bytes() == original_report
+    saved = (prefix / intake.RGB_REPORT).read_bytes()
+    assert intake.main(['--prefix', str(prefix), '--archive', str(path), '--inspect-rgb-layout']) == 0
+    assert (prefix / intake.RGB_REPORT).read_bytes() == saved
+    assert sorted(p.name for p in prefix.iterdir()) == sorted([
+        'cvut-intake.json', 'cvut-package.lock', intake.REPORT, intake.RGB_REPORT])
+    assert str(tmp_path) not in capsys.readouterr().out
+
+
+def write_unwanted_file(path):
+    Path(path).write_text('must not happen')
+
+
+def test_pickle_constructor_is_disassembled_without_execution(intake, tmp_path, monkeypatch):
+    marker = tmp_path / 'should-never-exist'
+    class Payload:
+        def __reduce__(self):
+            return write_unwanted_file, (str(marker),)
+    path, _, _ = rgb_layout_fixture(intake, tmp_path, monkeypatch, metadata=pickle.dumps(Payload(), protocol=2))
+    record = intake.inspect_rgb_layout(tmp_path / 'pilot', path)
+    assert not marker.exists()
+    assert any('write_unwanted_file' in name for name in record['metadata']['global_references'])
+    assert str(marker) not in json.dumps(record)
+    assert record['model_loaded'] is False
+
+
+def test_layout_rejects_changed_archive_and_keeps_last_result(intake, tmp_path, monkeypatch):
+    path, _, _ = rgb_layout_fixture(intake, tmp_path, monkeypatch)
+    prefix = tmp_path / 'pilot'
+    intake.inspect_rgb_layout(prefix, path)
+    before = (prefix / intake.RGB_REPORT).read_bytes()
+    path.write_bytes(path.read_bytes() + b'changed')
+    with pytest.raises(ValueError, match='beobachtete'):
+        intake.inspect_rgb_layout(prefix, path)
+    assert (prefix / intake.RGB_REPORT).read_bytes() == before
+
+
+@pytest.mark.parametrize('case', ['metadata_limit', 'nested_path', 'malformed_pickle'])
+def test_layout_metadata_limits_and_rejections(intake, tmp_path, monkeypatch, case):
+    kwargs = {}
+    if case == 'nested_path':
+        kwargs['extra'] = {'../bad': b'do not read'}
+    if case == 'malformed_pickle':
+        kwargs['metadata'] = b'not pickle opcodes'
+    path, _, _ = rgb_layout_fixture(intake, tmp_path, monkeypatch, **kwargs)
+    if case == 'metadata_limit':
+        monkeypatch.setattr(intake, 'MAX_PICKLE_METADATA', 4)
+    assert intake.main(['--prefix', str(tmp_path / 'pilot'), '--archive', str(path), '--inspect-rgb-layout']) == 2
+    assert not (tmp_path / 'pilot' / intake.RGB_REPORT).exists()
+
+
+def test_layout_cancellation_closes_temporary_model_and_retains_result(intake, tmp_path, monkeypatch):
+    path, source, _ = rgb_layout_fixture(intake, tmp_path, monkeypatch)
+    prefix = tmp_path / 'pilot'
+    intake.inspect_rgb_layout(prefix, path)
+    before = (prefix / intake.RGB_REPORT).read_bytes()
+    original_parser = intake.pickle_layout
+    def cancelled(_):
+        raise KeyboardInterrupt
+    monkeypatch.setattr(intake, 'pickle_layout', cancelled)
+    assert intake.main(['--prefix', str(prefix), '--archive', str(path), '--inspect-rgb-layout']) == 130
+    assert (prefix / intake.RGB_REPORT).read_bytes() == before
+    assert path.read_bytes() == source
+    assert sorted(p.name for p in prefix.iterdir()) == sorted([
+        'cvut-intake.json', 'cvut-package.lock', intake.RGB_REPORT])
+    monkeypatch.setattr(intake, 'pickle_layout', original_parser)
+    assert intake.main(['--prefix', str(prefix), '--archive', str(path), '--inspect-rgb-layout']) == 0
+    assert (prefix / intake.RGB_REPORT).read_bytes() == before
+
+
+def test_legacy_container_is_reported_without_loading(intake, tmp_path, monkeypatch):
+    path, _, _ = rgb_layout_fixture(intake, tmp_path, monkeypatch, legacy=True)
+    record = intake.inspect_rgb_layout(tmp_path / 'pilot', path)
+    assert record['metadata']['format'] == 'legacy_or_unknown_not_loaded'
+    assert record['model_loaded'] is False
+
+
+def test_layout_requires_explicit_local_archive(intake, tmp_path):
+    with pytest.raises(ValueError, match='--archive'):
+        intake.inspect_rgb_layout(tmp_path / 'pilot', None)
+    assert not (tmp_path / 'pilot').exists()

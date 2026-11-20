@@ -7,6 +7,8 @@ import http.client
 import json
 import os
 from pathlib import Path, PurePosixPath
+import pickletools
+import re
 import stat
 import socket
 import ssl
@@ -25,6 +27,12 @@ MAX_EXPANDED = 1024**3
 MAX_TEXT = 64 * 1024
 WEIGHT_SUFFIXES = {'.onnx', '.h5', '.hdf5', '.keras', '.pt', '.pth', '.ckpt', '.pb'}
 FAILURE_CHECK = 'solarcheck-cvut-failure-1'
+RGB_REPORT = 'cvut-rgb-layout.LOCAL.json'
+# User-observed public archive, 20 November 2026; NOT a publisher attestation.
+CVUT_ARCHIVE = dict(bytes=344288853,
+                    sha256='61d981c2ebdd180f184265fb2429dc4151463721fc9121f805f1b84c8b8ab14b',
+                    rgb_name='UNet_pv_module_rgb.pth', rgb_bytes=124239509)
+MAX_PICKLE_METADATA = 2 * 1024**2
 
 
 class PackageCheckError(ValueError):
@@ -101,6 +109,18 @@ def digest(path):
     return value.hexdigest()
 
 
+def checked_member_name(member, seen):
+    # ZipInfo.filename normalizes backslashes on Windows; inspect original bytes' spelling.
+    name = member.orig_filename
+    if (not name or len(name) > 512 or name.startswith('/') or '\\' in name
+            or ':' in name or '..' in PurePosixPath(name).parts or name in seen
+            or any(ord(c) < 32 or ord(c) == 127 for c in name)
+            or stat.S_ISLNK(member.external_attr >> 16) or member.flag_bits & 1):
+        raise PackageCheckError('Unerwarteter/verknuepfter/verschluesselter ZIP-Eintrag.')
+    seen.add(name)
+    return name
+
+
 def inventory(path):
     """Central directory plus bounded documentation; never deserialize weights."""
     if not 0 < path.stat().st_size <= MAX_ARCHIVE:
@@ -111,16 +131,7 @@ def inventory(path):
         if not 0 < len(members) <= 1000:
             raise PackageCheckError('Unerwartete Anzahl ZIP-Eintraege.')
         for member in members:
-            # ZipInfo.filename normalizes backslashes on Windows. Inspect the
-            # original central-directory spelling before accepting a member.
-            name = member.orig_filename
-            parts = PurePosixPath(name).parts
-            if (not name or len(name) > 512 or name.startswith('/') or '\\' in name
-                    or ':' in name or '..' in parts or name in seen
-                    or any(ord(c) < 32 or ord(c) == 127 for c in name)
-                    or stat.S_ISLNK(member.external_attr >> 16) or member.flag_bits & 1):
-                raise PackageCheckError('Unerwarteter/verknuepfter/verschluesselter ZIP-Eintrag.')
-            seen.add(name)
+            name = checked_member_name(member, seen)
             expanded += member.file_size
             if expanded > MAX_EXPANDED:
                 raise PackageCheckError('Entpackte Paketgroesse ueber1GiB; keine Verarbeitung.')
@@ -182,7 +193,7 @@ def package_lock(prefix):
         yield
 
 
-def inspect_package(prefix, archive_path=None):
+def prepare_intake(prefix, archive_path=None):
     prefix = local(prefix)
     if archive_path is not None:
         archive_path = local(archive_path)
@@ -196,8 +207,135 @@ def inspect_package(prefix, archive_path=None):
     prefix.mkdir(parents=True, exist_ok=True)
     if not marker.exists():
         atomic_json(marker, {'check': CHECK})
+    return prefix, archive_path
+
+
+def inspect_package(prefix, archive_path=None):
+    prefix, archive_path = prepare_intake(prefix, archive_path)
     with package_lock(prefix):
         return _inspect_locked(prefix, archive_path)
+
+
+def pickle_layout(data):
+    """Lexical disassembly only. No pickle interpreter, imports or constructors."""
+    operations, globals_seen, parameters = [], set(), []
+    stack_globals, extensions, protocol = 0, 0, None
+    for opcode, argument, _position in pickletools.genops(data):
+        if len(operations) >= 100000:
+            raise PackageCheckError('Zu viele Operationen in den Gewichtsmetadaten.')
+        operations.append((opcode.name, argument))
+        if opcode.name == 'PROTO':
+            protocol = argument
+        elif opcode.name == 'GLOBAL':
+            if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.]* [A-Za-z_][A-Za-z0-9_]*', argument):
+                raise PackageCheckError('Unbekannte Bezeichnerform in den Gewichtsmetadaten.')
+            globals_seen.add(argument)
+        elif opcode.name == 'STACK_GLOBAL':
+            stack_globals += 1
+        elif opcode.name in {'EXT1', 'EXT2', 'EXT4'}:
+            extensions += 1
+        elif opcode.name in {'BINUNICODE', 'SHORT_BINUNICODE', 'UNICODE'}:
+            if re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.]{0,240}\.(weight|bias|running_mean|running_var|num_batches_tracked)', argument):
+                if argument not in parameters:
+                    parameters.append(argument)
+                if len(parameters) > 1024:
+                    raise PackageCheckError('Zu viele Parameterbezeichner in den Gewichtsmetadaten.')
+    if not operations or operations[-1][0] != 'STOP':
+        raise PackageCheckError('Unvollstaendige Gewichtsmetadaten.')
+    # Hints describe integer tuples after persistent storage references. They
+    # do not reconstruct tensors and do not establish a compatible architecture.
+    hints, current = [], None
+    integer_ops = {'BININT', 'BININT1', 'BININT2', 'LONG', 'LONG1', 'LONG4', 'INT'}
+    memo_ops = {'BINPUT', 'LONG_BINPUT', 'MEMOIZE'}
+    for i, (name, value) in enumerate(operations):
+        if name in {'BINUNICODE', 'SHORT_BINUNICODE', 'UNICODE'} and value in parameters:
+            current = value
+        if name != 'BINPERSID' or current is None:
+            continue
+        following = [(op, arg) for op, arg in operations[i+1:i+22] if op not in memo_ops]
+        if not following or following[0][0] not in integer_ops:
+            continue
+        dims = []
+        for op, arg in following[1:]:  # first integer is storage offset
+            if op == 'MARK' and not dims:
+                continue
+            if op in integer_ops and type(arg) is int and 0 <= arg <= 1000000000 and len(dims) < 8:
+                dims.append(arg)
+                continue
+            if (op == 'TUPLE' or op == 'EMPTY_TUPLE' and not dims
+                    or op in {'TUPLE1', 'TUPLE2', 'TUPLE3'} and len(dims) == int(op[-1])):
+                hints.append(dict(parameter=current, shape=dims))
+            break
+        current = None
+    return dict(pickle_protocol=protocol, global_references=sorted(globals_seen),
+                stack_global_count=stack_globals, extension_count=extensions,
+                parameter_names=parameters, tensor_shape_hints=hints,
+                shape_scope='syntactic_hints_not_loaded_tensors')
+
+
+def inspect_rgb_layout(prefix, archive_path):
+    if archive_path is None:
+        raise PackageCheckError('RGB-Strukturpruefung erfordert das bewusst gewaehlte lokale --archive.')
+    prefix, archive_path = prepare_intake(prefix, archive_path)
+    with package_lock(prefix):
+        public = inventory(archive_path)
+        if (public['archive_bytes'] != CVUT_ARCHIVE['bytes']
+                or public['archive_sha256'] != CVUT_ARCHIVE['sha256']):
+            raise PackageCheckError('Fuer RGB-Strukturpruefung anderes als das beobachtete oeffentliche CVUT-Paket gewaehlt.')
+        model_hash, total = sha256(), 0
+        print('Nur oeffentliche RGB-Gewichtsstruktur lesen; kein PyTorch/Modellcode wird gestartet.', flush=True)
+        with zipfile.ZipFile(archive_path) as outer, tempfile.TemporaryFile(mode='w+b', dir=prefix) as copy:
+            member = outer.getinfo(CVUT_ARCHIVE['rgb_name'])
+            if member.file_size != CVUT_ARCHIVE['rgb_bytes']:
+                raise PackageCheckError('Unerwartete Groesse der RGB-Gewichtsdatei.')
+            with outer.open(member) as stream:
+                for block in iter(lambda: stream.read(1024**2), b''):
+                    total += len(block)
+                    if total > CVUT_ARCHIVE['rgb_bytes']:
+                        raise PackageCheckError('RGB-Gewichtsdatei groesser als beobachtet.')
+                    model_hash.update(block)
+                    copy.write(block)
+            if total != CVUT_ARCHIVE['rgb_bytes']:
+                raise PackageCheckError('RGB-Gewichtsdatei unvollstaendig.')
+            copy.seek(0)
+            metadata = {}
+            if zipfile.is_zipfile(copy):
+                copy.seek(0)
+                with zipfile.ZipFile(copy) as inner:
+                    members, seen, expanded, metadata_members = inner.infolist(), set(), 0, []
+                    if len(members) > 2048:
+                        raise PackageCheckError('Zu viele Eintraege im RGB-Gewichtscontainer.')
+                    for item in members:
+                        name = checked_member_name(item, seen)
+                        expanded += item.file_size
+                        if expanded > 256 * 1024**2:
+                            raise PackageCheckError('RGB-Gewichtscontainer zu gross.')
+                        if PurePosixPath(name).name == 'data.pkl':
+                            metadata_members.append(item)
+                    if len(metadata_members) != 1:
+                        raise PackageCheckError('Kein eindeutiger data.pkl-Metadatensatz im RGB-Gewichtscontainer.')
+                    item = metadata_members[0]
+                    if item.file_size > MAX_PICKLE_METADATA:
+                        raise PackageCheckError('Gewichtsmetadaten groesser als2MiB.')
+                    with inner.open(item) as stream:
+                        data = stream.read(MAX_PICKLE_METADATA + 1)
+                    if len(data) > MAX_PICKLE_METADATA:
+                        raise PackageCheckError('Gewichtsmetadaten groesser als2MiB.')
+                    metadata = pickle_layout(data)
+                    metadata.update(format='pytorch_zip_metadata_only', container_entries=len(members))
+            else:
+                metadata = dict(format='legacy_or_unknown_not_loaded')
+        if digest(archive_path) != public['archive_sha256']:
+            raise PackageCheckError('Oeffentliches Quellarchiv waehrend der Strukturpruefung geaendert.')
+        record = dict(check='solarcheck-cvut-rgb-layout-1', source_url=URL,
+                      archive_bytes=public['archive_bytes'], archive_sha256=public['archive_sha256'],
+                      checksum_kind=public['checksum_kind'], selected_model=CVUT_ARCHIVE['rgb_name'],
+                      model_bytes=total, model_sha256=model_hash.hexdigest(), metadata=metadata,
+                      status='metadata_only_architecture_not_verified', model_loaded=False,
+                      training_started=False, inference_started=False, dependencies_installed=False,
+                      model_license_verified=False, production_approved=False)
+        atomic_json(prefix / RGB_REPORT, record)
+        return record
 
 
 def _inspect_locked(prefix, archive_path):
@@ -244,8 +382,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--prefix', default=r'E:\SolarCheck-CVUT-Paketpruefung')
     parser.add_argument('--archive', help='Optional: manuell geladenes oeffentliches PV_UNET_models.zip')
+    parser.add_argument('--inspect-rgb-layout', action='store_true',
+                        help='Nur Metadaten der RGB-Modulgewichte im lokalen oeffentlichen ZIP lesen; keine Modellausfuehrung')
     args = parser.parse_args(argv)
     try:
+        if args.inspect_rgb_layout:
+            record = inspect_rgb_layout(args.prefix, args.archive)
+            print(json.dumps(record, ensure_ascii=True, indent=2))
+            print('RGB-Struktur gespeichert. Noch keine bestaetigte Architektur oder Modellaktivierung.')
+            return 0
         record = inspect_package(args.prefix, args.archive)
         # Public package metadata only; no local path, documentation text or customer input.
         print(json.dumps({k: record[k] for k in (
