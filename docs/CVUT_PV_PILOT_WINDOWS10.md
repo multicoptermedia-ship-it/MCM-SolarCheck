@@ -4,6 +4,45 @@ Stand20.11.2026 · PV-CVUT-INTAKE-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND
 
 Der Nutzer hat den öffentlichen CVUT-Pilot gewählt. Zuerst ein vorhandenes Modell prüfen und auf demselben zurückgehaltenen lokalen RGB-Ausschnitt vergleichen, anschließend über Nachtraining entscheiden. Wiederholte PV-Hawk-Inferenz trainiert keine Gewichte. Eine bessere Erkennung durch CVUT ist noch nicht belegt.
 
+## RGB-Modellstruktur prüfen – aktueller nächster Schritt20.11.
+
+**Lokale Paketprüfung real bestanden.** Die vorherige Python-Diagnose war TLS_CERTIFICATE; der bewusst durchgeführte Browserdownload mit anschließender lokaler Prüfung funktioniert. Der Quellpfad bleibt privat. Die alten Basis-/Diagnosestarts weiter unten sind Historie, kein Auftrag zum erneuten CVUT-Download.
+
+Beobachtetes öffentliches Archiv: **344288853Bytes**, SHA256 **61d981c2ebdd180f184265fb2429dc4151463721fc9121f805f1b84c8b8ab14b**. Das ist die vom Nutzer erhaltene Version, kein vom Anbieter veröffentlichter Hash. Enthalten sind ausschließlich:
+
+| Datei | Größe | Auswahl |
+|---|---:|---|
+|UNet_pv_module_rgb.pth|124239509Bytes|RGB-Einzelmodulmodell, für den nächsten Schritt ausgewählt|
+|UNet_pv_installation_rgb.pth|124239509Bytes|Gesamtanlage, nicht als Einzelmodulmodell verwenden|
+|UNet_pv_module_thermo.pth|124241732Bytes|Thermal, nicht für die RGB-Modulprüfung wählen|
+
+Keine README-/Lizenz-/Architekturdatei im Paket. Die Endung.pth bestätigt weder die konkrete Architektur noch einen kompatiblen Ladeweg. Datenlizenz CC BY4.0 nicht pauschal auf Gewichte/Code/Runtime übertragen. Kein neues Modell wurde geladen/trainiert oder zur Nutzung freigegeben.
+
+Die neue Option **--inspect-rgb-layout** untersucht nur dieses per Größe/SHA gebundene öffentliche ZIP. Sie liest die RGB-Datei in eine automatisch gelöschte temporäre Datei im eigenen E:-Prüfordner, berechnet deren Hash und analysiert begrenzte interne Metadaten mit der Standardbibliothek. Keine Python-/PyTorch-/Pickle-Konstruktoren aus dem Modell ausführen, keine Tensoren/Architektur rekonstruieren, kein Internetzugriff/Installer in diesem Modus. Schichtnamen und syntaktische Formhinweise sind noch kein Nachweis eines passenden Vorwärtslaufs. Original-ZIP und alter Paketbericht bleiben erhalten.
+
+Auf E: mindestens150MiB zusätzlichen freien Platz für die temporäre öffentliche RGB-Datei vorsehen. **Keine neue Software installieren.** In PowerShell diesen vollständigen Block ausführen; beim Pfad denselben bereits heruntergeladenen öffentlichen ZIP wählen:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$cvutCommit = 'd09e130793ba5da4244adf61f9542fac1ddefaf0'
+$cvutStart = Join-Path 'E:\SolarCheck-CVUT-Start' $cvutCommit
+New-Item -ItemType Directory -Force -Path $cvutStart | Out-Null
+$cvutScript = Join-Path $cvutStart 'MCM_SolarCheck_CVUT_PAKETPRUEFUNG.py'
+Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/multicoptermedia-ship-it/MCM-SolarCheck/$cvutCommit/scripts/MCM_SolarCheck_CVUT_PAKETPRUEFUNG.py" -OutFile $cvutScript
+if ((Get-FileHash -Algorithm SHA256 $cvutScript).Hash.ToLowerInvariant() -ne '51c6ea11739929492dbc66294ced5e2347358f8e8523abaa0dc9aebaec12c01a') {
+    throw 'Skript-Pruefsumme stimmt nicht. Nicht gestartet.'
+}
+$cvutZip = (Read-Host 'Vollstaendiger Pfad zur bereits heruntergeladenen PV_UNET_models.zip').Trim().Trim('"')
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' $cvutScript --archive $cvutZip --inspect-rgb-layout
+if ($LASTEXITCODE -ne 0) { Write-Host 'Bitte nur den Diagnoseblock als Text mitteilen. Keine Neuinstallation erforderlich.' }
+```
+
+Feste Skriptquelled09e1307/22178Bytes, SHA25651c6ea11739929492dbc66294ced5e2347358f8e8523abaa0dc9aebaec12c01a, aus GitHub remote bytegleich geprüft. Kein Git-Checkout erforderlich; bestehendes F:-Python, OpenSfM und PV-Hawk-Environment erhalten.
+
+**Danach nur den JSON-Text mit check solarcheck-cvut-rgb-layout-1 mitteilen**, bei Fehlern solarcheck-cvut-failure-1. Keine Bilder/privaten Berichte/Modellgewichte hochladen. Der vollständige neue Bericht liegt in E:\SolarCheck-CVUT-Paketpruefung\cvut-rgb-layout.LOCAL.json. Er enthält öffentliche Parameterbezeichner, beobachtete Gewichtshashes/Format-/Formhinweise und False-Freigaben; keine Bilddaten, privaten Pfade oder bestätigte Modellarchitektur. Der Bericht ist kein aktivierbares Modellmanifest.
+
+39synthetische Paket-/Struktur-/Diagnosetests plus zwei Übergabeprüfungen lokal grün: beobachtetes Archiv erzwingen, nur RGB-Mitglied lesen, Schicht-/Formhinweise, Test-Pickle ohne Konstruktoraufruf, Metadaten-/Pfadgrenzen, Abbruch→Fortsetzung/Wiederöffnung/Tempbereinigung und alte Berichte/Quellbytes erhalten. Reale RGB-Metadaten hier noch nicht verfügbar: eigener Anbieterzugriff weiter HTTP503. Neue exakte HEAD-CI in PR9 belegen; reale Windows10-Strukturprüfung offen. Nach dem Ergebnis erst passende Architektur, Eingabe-/Masken-Nachverarbeitung, Lizenz und Laufzeit qualifizieren, dann bestehenden ROI-/GIS-Vergleich verwenden.
+
 ## Aktualisierung nach dem Abbruch20.11.
 
 Die gemeldete PowerShell-Zeile mit `throw` war eine zusätzliche Abbruchmeldung. Die alte Skriptfassung unterdrückte den eigentlichen Fehlergrund. Weil weder HTTP-Code noch Fortschritt mitgeteilt wurden, ist die konkrete Ursache auf dem Nutzerrechner noch offen. Hier liefert der Anbieter weiterhin HTTP503; das beweist nicht denselben Fehler auf Windows10. Keine neue Software installieren und keine Zertifikatsprüfung ausschalten.
