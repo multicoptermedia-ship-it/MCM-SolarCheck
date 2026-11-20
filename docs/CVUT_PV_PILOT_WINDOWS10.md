@@ -4,7 +4,64 @@ Stand20.11.2026 · PV-CVUT-INTAKE-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND
 
 Der Nutzer hat den öffentlichen CVUT-Pilot gewählt. Zuerst ein vorhandenes Modell prüfen und auf demselben zurückgehaltenen lokalen RGB-Ausschnitt vergleichen, anschließend über Nachtraining entscheiden. Wiederholte PV-Hawk-Inferenz trainiert keine Gewichte. Eine bessere Erkennung durch CVUT ist noch nicht belegt.
 
-## RGB-Modellstruktur prüfen – aktueller nächster Schritt20.11.
+## CPU-Pilot einrichten – aktueller nächster Schritt20.11.
+
+**Die Strukturprüfung ist real bestanden.** Öffentliches RGB-Modell124239509Bytes, SHA256 **8e862b6498f8501d5042a9f0127c6dfde1c75f0b22c51d6db56b127a9fa1cac8**; moderner PyTorch-ZIP-Container/Pickleprotokoll2 mit118Schichtbezeichnern/-formhinweisen und ausschließlich den beobachteten Standardreferenzen collections.OrderedDict, torch.FloatStorage/LongStorage und torch._utils._rebuild_tensor_v2. Drei RGB-Eingänge, transponierte Faltungen und **zwei Ausgänge [2,64,1,1]**. Eine einkanalige Sigmoidbehandlung wäre falsch. Die vorherigen Paket-/Strukturstarts unten sind abgeschlossen und müssen nicht wiederholt werden.
+
+Die Schichtformen passen vollständig zu einer bekannten [U-Net-Referenz](https://github.com/milesial/Pytorch-UNet/tree/21d7850f2af30a9695bbeea75f3136aa538cfc4a/unet), Commit21d7850f2af30a9695bbeea75f3136aa538cfc4a. Deren [GPL-3.0-Lizenz](https://github.com/milesial/Pytorch-UNet/blob/21d7850f2af30a9695bbeea75f3136aa538cfc4a/LICENSE) wird mit den drei kleinen Originaldateien separat im lokalen Pilotordner erhalten; nichts davon wird als permissiv lizenzierter SolarCheck-Code ausgegeben. Das ist ein begrenzter lokaler Kandidat, **keine** Klärung von Produkt-/Weitergaberechten oder aller Drittkomponenten. CVUT-Gewichtsrechte sind separat offen; Dataset-CC-BY4.0 nicht pauschal übertragen. Keine Ultralytics-/AGPL-/Enterprise-Integration.
+
+**Dieses Mal ist zusätzliche Software nötig:** eigene Umgebung **E:\SolarCheck-CVUT-KI-Pilot**, vorhandenes F:-App-Python3.11/3.12-x64 nur als Basis. **PyTorch2.15.0 CPU**, NumPy/OpenCV/rasterio/pyproj/Pillow in dieser eigenen Umgebung, eigene Cache-/Tempordner. Mindestens5GiB freien Platz auf E: vorsehen. Kein TorchVision, CUDA, GPU-/Compiler-/SDK-Setup; kein Paket in F:-Python, OpenSfM oder PV-Hawk installieren. [Offizieller CPU-Wheelkanal](https://download.pytorch.org/whl/cpu/torch/) und [Paketmetadaten2.15.0](https://pypi.org/project/torch/2.15.0/). Das Setup bleibt ein ausdrücklicher manueller Schritt.
+
+Der begrenzte Kandidat prüft das vorhandene öffentliche ZIP und kopiert ausschließlich die RGB-Gewichte in den eigenen Pilotordner. Gewichte per SHA prüfen und ausschließlich mit [torch.load(weights_only=True,map_location=cpu)](https://docs.pytorch.org/docs/stable/generated/torch.load) lesen. Alle118Tensor-Keys/Formen/Datentypen/endlichen Werte prüfen, strict=True, keine benutzerdefinierten Pickle-Globals oder unsichere Fallbackladung. Referenzcode vor Ausführung vollständig gegen SHA prüfen. Erst nach erfolgreichem echtem CPU-Laden und schwarzer synthetischer RGB-Probe entsteht cvut-rgb.LOCAL.json. Alte gültige Manifest-/Probeberichte bleiben bei Fehlern erhalten.
+
+**Kandidatenprofil, nicht als Original-CVUT-Profil bestätigt:** BGR→RGB0..1,480×270Pixel, zwei Klassen via Softmax, Kanal1 als vorläufiger Modulkanal, Pixelgrenze0,8, Opening3×3 und Komponentenrechtecke. Auf native Pixelzentren zurückführen, danach bestehende RGB-/NoData-/Geometrie-/GIS-/Thermalprüfung. Die [CVUT-Publikation](https://arxiv.org/abs/2501.14587) nennt480×270/0,8 und Erosion/Dilatation; sie belegt weder den konkreten Normalisierungscode noch unsere Klassenzuordnung oder Kernelgröße. Deshalb preprocessing_verified/class_mapping_verified=false und sichtbarer Kandidatenhinweis. Referenz-ABI-Kompatibilität ist keine Bestätigung des ursprünglichen Trainings-/Vorwärtscodes oder verbesserter Feldqualität. Ein fester begrenzter Vergleich, keine blinde Parameterrunde.
+
+### Einmaliger PowerShell-Start
+
+Den gesamten Block ausführen. Er lädt eine feste QuellZIP, prüft deren Hash, richtet ausschließlich den neuen Pilotordner ein und rechnet eine synthetische Probe. Bei der Pfadabfrage dasselbe bereits geladene öffentliche PV_UNET_models.zip wählen. **Kein erneuter CVUT-Modelldownload.** Nach erfolgreichem Setup öffnet sich die aktualisierte bisherige Thermal-Oberfläche, noch ohne Anlagen-KI-Lauf.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$cvutCommit = '27ccb184b8003bbd3db43d9f55acb661275dfc6d'
+$cvutStart = Join-Path 'E:\SolarCheck-CVUT-Start' $cvutCommit
+New-Item -ItemType Directory -Force -Path $cvutStart | Out-Null
+$cvutSourceZip = Join-Path $cvutStart 'SolarCheck-source.zip'
+Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$cvutCommit" -OutFile $cvutSourceZip
+if ((Get-FileHash -Algorithm SHA256 $cvutSourceZip).Hash.ToLowerInvariant() -ne 'e5f41162464497d60074c4fa8515b38b464559a755c53256b083a428aeabdf79') {
+    throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
+}
+Expand-Archive -LiteralPath $cvutSourceZip -DestinationPath $cvutStart -Force
+$cvutSource = Join-Path $cvutStart "MCM-SolarCheck-$cvutCommit"
+$cvutInput = (Read-Host 'Vollstaendiger Pfad zum vorhandenen oeffentlichen PV_UNET_models.zip').Trim().Trim('"')
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $cvutSource 'scripts\MCM_SolarCheck_CVUT_CPU_PILOT.py') --archive $cvutInput
+if ($LASTEXITCODE -eq 0) {
+    & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $cvutSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
+} else {
+    Write-Host 'CPU-Pilot nicht fertig. Bitte nur Diagnoseblock mitteilen; bestehende Umgebungen erhalten.'
+}
+```
+
+Feste Quelle27ccb184/ZIP3123544Bytes/SHA256e5f41162464497d60074c4fa8515b38b464559a755c53256b083a428aeabdf79;686Python-Dateien unter src/scripts sowie CVUT-Konfiguration und Paketliste mit Repository bytegleich geprüft. Kein Git-Checkout vorausgesetzt.
+
+Setup hat fünf sichtbare Phasen. **Erst bei check solarcheck-cvut-cpu-probe-1 / status passed weitergehen.** Dieser Bericht enthält einen schwarzen synthetischen Test, keine Anlagenanalyse/Genauigkeit oder Abdeckung. Strg+C beendet Einrichtung/Probe; erneuter Start verwendet geprüfte Gewichte/Quellen und die eigene Umgebung. Ein gefüllter fremder Zielordner wird abgelehnt. TLS-Prüfung bleibt aktiv; Quellenfehler nicht durch Zertifikatsabschaltung beheben. Bitte bei Fehlern nur den festen Diagnoseblock mitteilen, keine kompletten privaten Konsolen-/Projektlogs.
+
+### Danach genau ein vorhandener Ausschnittvergleich
+
+1. Vorhandenen Thermal-Lauf13.11./18:58:37/oh9ptgy5 → gespeicherten RGB-Vergleich → gespeicherte PV-Modul-Entwürfe öffnen. Keine Orthofotos/Rekonstruktion neu starten.
+2. Denselben unveränderten gespeicherten Ausschnitt verwenden, damit der PV-Hawk-Ausgang erhalten/vergleichbar bleibt. **KI-Modellvergleich starten(lokal)** → **E:\SolarCheck-CVUT-KI-Pilot\cvut-rgb.LOCAL.json** wählen. Nicht die.pth-Datei oder Paket-/Strukturberichte wählen. Eigener CPU-Worker maximal5Minuten, derselbe Knopf bricht ab.
+3. Ergebnis gelb/gespeicherte Teilreferenz, grün/Kandidaten und ausdrücklicher Kandidatenhinweis. **Keine** fachliche Freigabe von Klassen-/Eingabeprofil, Gesamtpark oder Temperatur aus grünen Umrissen. Lokaler Bericht jetzt separat **pv-cvut-model-comparison.LOCAL.json**; bisheriger PV-Hawk-/ONNX-Bericht **pv-model-comparison.LOCAL.json** erhalten.
+4. Schließen → **Gespeicherten KI-Vergleich öffnen**. Sind beide vorhanden, zwischen **Bisheriger KI-Vergleich** und **CVUT-Kandidat** wählen. Kein Modellimport/keine neue Inferenz beim Wiederöffnen. Fehler/Abbruch/Timeout erhalten die letzten Ergebnisse und Entwürfe.
+5. Nur **KI-Kennzahlen kopieren(ohne Bilder und Pfade)** als Text mitteilen sowie grob passende/fehlende/zu kleine/doppelte Modulvorschläge und Dauer beschreiben. Acht Teilreferenzen keine vollständige Gesamtflächenannotation; zusätzliche Kandidaten nicht automatisch Fehler. Noch kein Kundentraining/1000Pflichtreview.
+
+**Später nur Oberfläche öffnen, ohne Setup/Downloads:**
+
+```powershell
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-CVUT-Start\27ccb184b8003bbd3db43d9f55acb661275dfc6d\MCM-SolarCheck-27ccb184b8003bbd3db43d9f55acb661275dfc6d\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
+```
+
+132gezielte Regressionen und7CVUT-Gates(überlappend) lokal grün, dazu9isolierte Tests mit echter PyTorch2.15.0-CPU-Laufzeit/externem gehashtem Referenzcode und synthetischen Gewichten: alle118Formen, Vorwärtslauf[1,2,270,480], zwei Klassen/Softmax statt Sigmoid, RGB-Reihenfolge, striktes Gewichtsformat, NaN/Shape-/Typfehler, unbekanntes Pickle-Objekt ohne Ausführung, synthetischer Probebericht. Neuer Windows2022-CPU-Job und exakte finale CI in PR9 prüfen. Reale veröffentlichte CVUT-Gewichte und Windows10-Feldqualität hier nicht ausgeführt; erster lokaler Nutzerweg noch offen. Quellen/GeoTIFF-Tags/unvollständig280/287/Paarimport-Sperre/alle Fachflags false erhalten.
+
+## RGB-Modellstruktur prüfen – bereits real bestanden20.11.
 
 **Lokale Paketprüfung real bestanden.** Die vorherige Python-Diagnose war TLS_CERTIFICATE; der bewusst durchgeführte Browserdownload mit anschließender lokaler Prüfung funktioniert. Der Quellpfad bleibt privat. Die alten Basis-/Diagnosestarts weiter unten sind Historie, kein Auftrag zum erneuten CVUT-Download.
 
