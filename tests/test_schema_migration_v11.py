@@ -1,5 +1,5 @@
 import sqlite3
-from mcm_solarcheck.storage.sqlite import ProjectDatabase
+from mcm_solarcheck.storage.sqlite import ProjectDatabase, SCHEMA_VERSION
 
 
 def test_v10_training_corpus_migrates_without_losing_provenance(tmp_path):
@@ -27,7 +27,7 @@ def test_v10_training_corpus_migrates_without_losing_provenance(tmp_path):
     assert rows[0]["source_frame_id"]=="T1"
     assert rows[0]["rights_status"]=="approved"
     with sqlite3.connect(path) as check:
-        assert check.execute("SELECT version FROM schema_info").fetchone()[0]==21
+        assert check.execute("SELECT version FROM schema_info").fetchone()[0]==SCHEMA_VERSION
         pk={row[1]:row[5] for row in check.execute("PRAGMA table_info(training_samples)")}
         assert pk["project_id"]==1
         assert pk["source_frame_id"]==2

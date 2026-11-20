@@ -1,0 +1,3 @@
+# Optional manifest/ONNX graph validation for the explicit local model comparison.
+# Inference uses the existing OpenCV CPU runtime; no hubs or weight downloads.
+onnx>=1.17,<2

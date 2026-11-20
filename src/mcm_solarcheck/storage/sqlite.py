@@ -8,7 +8,24 @@ from typing import Iterator
 from mcm_solarcheck.domain.models import Finding, ImageFrame, ImagePair, PVModule, ThermalFrame
 from mcm_solarcheck.review.training_corpus import index_m3t_training_sample
 
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 22
+_ORTHOPHOTO_PAIR_TABLE_SQL = """CREATE TABLE IF NOT EXISTS project_orthophoto_pairs(
+    project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+    pair_id TEXT NOT NULL,
+    rgb_source_path TEXT NOT NULL,
+    thermal_source_path TEXT NOT NULL,
+    source_kind TEXT NOT NULL,
+    thermal_value_kind TEXT NOT NULL CHECK(thermal_value_kind IN ('visual','sensor_values')),
+    thermal_nodata_kind TEXT NOT NULL CHECK(thermal_nodata_kind IN ('none','value','nan')),
+    common_pixel_fraction REAL NOT NULL CHECK(common_pixel_fraction > 0 AND common_pixel_fraction <= 1),
+    inspection_status TEXT NOT NULL DEFAULT 'metadata_only' CHECK(inspection_status = 'metadata_only'),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(project_id,pair_id),
+    UNIQUE(project_id,rgb_source_path,thermal_source_path),
+    CHECK(rgb_source_path <> thermal_source_path),
+    FOREIGN KEY(project_id,rgb_source_path) REFERENCES project_geotiffs(project_id,source_path) ON DELETE CASCADE,
+    FOREIGN KEY(project_id,thermal_source_path) REFERENCES project_geotiffs(project_id,source_path) ON DELETE CASCADE
+)"""
 _SCHEMA = """
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL);
@@ -49,6 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_offline_processing_runs_project
 CREATE UNIQUE INDEX IF NOT EXISTS idx_offline_processing_one_running
     ON offline_processing_runs(project_id) WHERE status='running';
 """
+_SCHEMA += _ORTHOPHOTO_PAIR_TABLE_SQL + ";"
 
 def _upsert(table:str, columns:tuple[str,...], conflict:tuple[str,...])->str:
     names=','.join(columns); marks=','.join('?' for _ in columns); updates=','.join(f'{c}=excluded.{c}' for c in columns if c not in conflict)
@@ -240,6 +258,14 @@ def _migrate_20_to_21(db: sqlite3.Connection) -> None:
     db.execute("UPDATE schema_info SET version=21")
 
 
+def _migrate_21_to_22(db: sqlite3.Connection) -> None:
+    """Add explicit unapproved RGB/thermal pairing; preserve every prior record."""
+    if not db.in_transaction:
+        db.execute("BEGIN IMMEDIATE")
+    db.execute(_ORTHOPHOTO_PAIR_TABLE_SQL)
+    db.execute("UPDATE schema_info SET version=22")
+
+
 class ProjectDatabase:
     def __init__(self,path:str|Path)->None:self.path=Path(path)
     @contextmanager
@@ -288,6 +314,9 @@ class ProjectDatabase:
                 if version == 20:
                     _migrate_20_to_21(db)
                     version = 21
+                if version == 21:
+                    _migrate_21_to_22(db)
+                    version = 22
                 if version != SCHEMA_VERSION:
                     raise RuntimeError(f"Unsupported database schema version: {version}; migration required")
                 return
@@ -295,14 +324,88 @@ class ProjectDatabase:
     def save_geotiff_inspection(self, project_id, source_path, source_kind, content_sha256, reference):
         """Record only observed metadata, never an orthophoto approval."""
         with self.connect() as db:
-            db.execute(
-                """INSERT INTO project_geotiffs
-                (project_id,source_path,source_kind,content_sha256,crs,transform_json,width,height,nodata)
-                VALUES (?,?,?,?,?,?,?,?,?)""",
-                (project_id, str(source_path), source_kind, content_sha256,
-                 reference.crs, json.dumps(reference.transform), reference.width,
-                 reference.height, reference.nodata),
+            self._insert_geotiff_inspection(
+                db, project_id, source_path, source_kind, content_sha256, reference,
             )
+
+    @staticmethod
+    def _insert_geotiff_inspection(db, project_id, source_path, source_kind, content_sha256, reference):
+        db.execute(
+            """INSERT INTO project_geotiffs
+            (project_id,source_path,source_kind,content_sha256,crs,transform_json,width,height,nodata)
+            VALUES (?,?,?,?,?,?,?,?,?)""",
+            (project_id, str(source_path), source_kind, content_sha256,
+             reference.crs, json.dumps(reference.transform), reference.width,
+             reference.height, reference.nodata),
+        )
+
+    def save_orthophoto_pair(self, project_id, pair_id, prepared_sources, *,
+                            source_kind, thermal_value_kind, thermal_nodata_kind,
+                            common_pixel_fraction):
+        """Atomically register both inspected rasters and their explicit roles.
+
+        Existing generic provenance may be reused only for unchanged sources.
+        No existing inspection, pair semantics or project approval is replaced.
+        """
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            if db.execute("SELECT 1 FROM projects WHERE project_id=?", (project_id,)).fetchone() is None:
+                raise KeyError(f"Unknown project: {project_id}")
+            for source, digest, reference in prepared_sources:
+                existing = db.execute(
+                    "SELECT * FROM project_geotiffs WHERE project_id=? AND source_path=?",
+                    (project_id, str(source)),
+                ).fetchone()
+                if existing is None:
+                    self._insert_geotiff_inspection(
+                        db, project_id, source, source_kind, digest, reference,
+                    )
+                elif existing["content_sha256"] != digest:
+                    raise ValueError("Registered GeoTIFF source changed; choose a new output file")
+                else:
+                    nodata = reference.nodata
+                    if nodata is not None and nodata != nodata:
+                        nodata = None  # SQLite REAL represents NaN as NULL.
+                    observed = (reference.crs, tuple(reference.transform),
+                                reference.width, reference.height, nodata)
+                    registered = (existing["crs"], tuple(json.loads(existing["transform_json"])),
+                                  existing["width"], existing["height"], existing["nodata"])
+                    if registered != observed:
+                        raise ValueError("Registered GeoTIFF metadata differs from the source file")
+            rgb, thermal = (str(item[0]) for item in prepared_sources)
+            existing = db.execute(
+                """SELECT * FROM project_orthophoto_pairs
+                   WHERE project_id=? AND rgb_source_path=? AND thermal_source_path=?""",
+                (project_id, rgb, thermal),
+            ).fetchone()
+            if existing is not None:
+                if (existing["pair_id"] != pair_id
+                        or existing["source_kind"] != source_kind
+                        or existing["thermal_value_kind"] != thermal_value_kind
+                        or existing["thermal_nodata_kind"] != thermal_nodata_kind
+                        or existing["common_pixel_fraction"] != common_pixel_fraction):
+                    raise ValueError("Registered orthophoto pair has different source semantics")
+                return dict(existing)
+            db.execute(
+                """INSERT INTO project_orthophoto_pairs
+                (project_id,pair_id,rgb_source_path,thermal_source_path,source_kind,
+                 thermal_value_kind,thermal_nodata_kind,common_pixel_fraction)
+                VALUES (?,?,?,?,?,?,?,?)""",
+                (project_id, pair_id, rgb, thermal, source_kind, thermal_value_kind,
+                 thermal_nodata_kind, common_pixel_fraction),
+            )
+            return dict(db.execute(
+                "SELECT * FROM project_orthophoto_pairs WHERE project_id=? AND pair_id=?",
+                (project_id, pair_id),
+            ).fetchone())
+
+    def orthophoto_pairs(self, project_id):
+        """Read only the requested project's locally registered raster pairs."""
+        with self.connect() as db:
+            return tuple(dict(row) for row in db.execute(
+                "SELECT * FROM project_orthophoto_pairs WHERE project_id=? ORDER BY created_at,pair_id",
+                (project_id,),
+            ))
 
     def geotiff_inspections(self, project_id):
         """Return project-scoped GIS provenance records without cross-project leakage."""
