@@ -19,7 +19,7 @@ Die Begrenzung ist eine Maske im ursprünglichen RGB-Fenster; keine neue Bilddat
 
 Die Nutzeridee Belichtungsnormalisierung bleibt separat: Original-CVUT-Vorverarbeitung ungeklärt; keine CLAHE-/Klassen-/Schwellenänderung ohne qualifizierten Vergleich. Diese Funktion löst die Annotation des Hintergrunds, sie belegt keine verbesserte Erkennungsqualität.
 
-132gezielte synthetische Tests einschließlich10neuer Backend-/GUI-Fälle bestanden. Linux3.11 bestand alle4653Tests, stürzte aber bei Prozessende ab: Qt-Testbereinigung sammelt jetzt Python-Signal-/Wrapperzyklen bei lebender QApplication. Neue reale Bedienabnahme und exakte HEAD-CI separat; bestehende Quell-/Gruppen-/Maskenverträge geprüft.
+133gezielte synthetische Tests einschließlich11neuer Backend-/GUI-/Qt-Fälle bestanden. Linux3.11 bestand alle4653Tests, stürzte aber bei Prozessende ab. Reine Qt-Signalprobe reproduziert den Fehler mit PySide6.12/CPython3.11; mit Qt6.11.3/3.11 und Qt6.12/3.12 endet sie sauber. Requirements begrenzen Qt für Python<3.12 auf<6.12; vorhandene Nutzerumgebung unverändert. Das zusätzliche Aufräumen der Qt-Testfenster allein reichte nicht. Neue reale Bedienabnahme und exakte HEAD-CI separat; bestehende Quell-/Gruppen-/Maskenverträge geprüft.
 
 ## Aktuell: nicht sichtbare Modulecken ausdrücklich ausnehmen
 

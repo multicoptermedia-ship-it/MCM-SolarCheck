@@ -1,4 +1,6 @@
-PySide6>=6.7,<7
+# PySide 6.12 loses references in signal callbacks on pre-3.12 CPython.
+PySide6>=6.7,<6.12; python_version < "3.12"
+PySide6>=6.7,<7; python_version >= "3.12"
 Pillow>=10.4,<12
 piexif>=1.1.3,<2
 numpy>=1.26,<3
