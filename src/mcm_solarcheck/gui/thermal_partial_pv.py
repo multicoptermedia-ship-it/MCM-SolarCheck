@@ -281,6 +281,7 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         self.current_region = None
         self._detail_dialog = None
         self._editor_dialog = None
+        self._learning_dialog = None
         self._model_process = None
         self._model_dialog = None
         self._model_pending = None
@@ -385,6 +386,11 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         save.setObjectName('partial_pv_save')
         save.clicked.connect(self._save)
         layout.insertWidget(layout.count()-1, save)
+        self.learning = QPushButton('Lernmuster lokal vorbereiten')
+        self.learning.setObjectName('partial_pv_learning_prepare')
+        self.learning.clicked.connect(self._open_learning_preparation)
+        layout.insertWidget(layout.count()-1, self.learning)
+        self.learning.setEnabled(self.current_region is not None)
         available = self.screen().availableGeometry()
         self.resize(min(1200, available.width()-40), min(900, available.height()-40))
         self._refresh_regions(last)
@@ -439,6 +445,24 @@ class PartialThermalPVReviewDialog(OrthophotoPVReviewDialog):
         self.add.setEnabled(self._window is not None and all(1 <= v <= 2048 for v in self._window[2:]))
         running = self._model_process is not None and self._model_process.state() != QProcess.ProcessState.NotRunning
         self.model_start.setEnabled(running or self.current_region is not None)
+        if hasattr(self, 'learning'):
+            self.learning.setEnabled(not running and self.current_region is not None)
+
+    def _open_learning_preparation(self):
+        try:
+            self._collect()
+            saved, _ = load_module_review(self.comparison)
+            _, current = parse_region(self.comparison, self.regions[self.current_region])
+            if saved.get(self.current_region) != current:
+                raise ValueError('Zuerst aktuelle Modul-Entwürfe lokal speichern.')
+            from .thermal_partial_training import LearningPreparationDialog
+            if self._learning_dialog:
+                self._learning_dialog.close()
+                self._learning_dialog.deleteLater()
+            self._learning_dialog = LearningPreparationDialog(self.comparison, self.current_region, self)
+            self._learning_dialog.show()
+        except (ValueError, TypeError, KeyError, OSError, RuntimeError):
+            self._status.setText('Lernvorbereitung nicht geöffnet. Zuerst aktuelle Modul-Entwürfe lokal speichern; Quellen prüfen.')
 
     def _start_model_comparison(self):
         if self._model_process and self._model_process.state() != QProcess.ProcessState.NotRunning:
