@@ -10,12 +10,12 @@ Alte SolarCheck-Vergleichsfenster schließen, anschließend diesen gesamten Bloc
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pvLearnCommit = '058da3a73c95f4a6c7562fef747a713ee2f04821'
+$pvLearnCommit = 'dfd04e9d1760cbff83052a02b1953f62d3bc444f'
 $pvLearnStart = Join-Path 'E:\SolarCheck-Lernmuster-Start' $pvLearnCommit
 New-Item -ItemType Directory -Force -Path $pvLearnStart | Out-Null
 $pvLearnZip = Join-Path $pvLearnStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvLearnCommit" -OutFile $pvLearnZip
-if ((Get-FileHash -Algorithm SHA256 $pvLearnZip).Hash.ToLowerInvariant() -ne '48a32719b51ed4a0ac4dbf9c4d4f37e6cb9cae498fb774a2f35edede4eb4ea40') {
+if ((Get-FileHash -Algorithm SHA256 $pvLearnZip).Hash.ToLowerInvariant() -ne '58db45024f2835a1d7900e117932b3690c380606cda68224ef32e348c44e0429') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pvLearnZip -DestinationPath $pvLearnStart -Force
@@ -23,12 +23,12 @@ $pvLearnSource = Join-Path $pvLearnStart "MCM-SolarCheck-$pvLearnCommit"
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pvLearnSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
 ```
 
-Feste Quelle **058da3a73c95f4a6c7562fef747a713ee2f04821**, ZIP **3149197Bytes**, SHA256 **48a32719b51ed4a0ac4dbf9c4d4f37e6cb9cae498fb774a2f35edede4eb4ea40**. Alle **688Python-Dateien unter src/scripts** sowie bestehende CVUT-Konfiguration/Paketlisten mit dem remote geladenen Archiv bytegleich geprüft. Für diesen Bedienweg kein Git-Checkout und kein neues Installationsprogramm nötig. Spätere Dokumentationsnachträge ändern diese Laufzeitquelle nicht.
+Feste Quelle **dfd04e9d1760cbff83052a02b1953f62d3bc444f**, ZIP **3151183Bytes**, SHA256 **58db45024f2835a1d7900e117932b3690c380606cda68224ef32e348c44e0429**. Alle **688Python-Dateien unter src/scripts** sowie bestehende CVUT-Konfiguration/Paketlisten mit dem remote geladenen Archiv bytegleich geprüft. Für diesen Bedienweg kein Git-Checkout und kein neues Installationsprogramm nötig. Spätere Dokumentationsnachträge ändern diese Laufzeitquelle nicht.
 
 **Später nur Oberfläche öffnen, ohne erneuten Download:**
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-Lernmuster-Start\058da3a73c95f4a6c7562fef747a713ee2f04821\MCM-SolarCheck-058da3a73c95f4a6c7562fef747a713ee2f04821\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-Lernmuster-Start\dfd04e9d1760cbff83052a02b1953f62d3bc444f\MCM-SolarCheck-dfd04e9d1760cbff83052a02b1953f62d3bc444f\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
 ```
 
 ## Neuer Bedienweg21.11.: vorhandene Umrisse als Lernmuster vorbereiten
@@ -36,7 +36,7 @@ Feste Quelle **058da3a73c95f4a6c7562fef747a713ee2f04821**, ZIP **3149197Bytes**,
 Passende, korrigierte und ergänzte Umrisse müssen nicht neu gezeichnet werden. Verwendet wird ausschließlich die **zuletzt gespeicherte** Modulprüfung. Alle Aktionen bleiben lokal; Codex verwendet ausschließlich Code und synthetische Raster.
 
 1. Aktualisierte Oberfläche → vorhandener Thermal-Lauf13.11./18:58:37/oh9ptgy5 → gespeicherter RGB-Vergleich → **PV-Modul-Entwürfe**. Keine neue Rekonstruktion/KI-Berechnung nötig.
-2. Wenige kleine geeignete RGB-Ausschnitte vollständig beschriften: passende ganze Module behalten, fehlende ergänzen, falsche verwerfen/löschen. Alle verbleibenden ganzen Module als **Umriss passt** beurteilen → **Modul-Entwürfe und Prüfung lokal speichern**. Offene Umrisse, erhebliche Überlappungen, Randumrisse oder RGB-NoData blockieren. Bei angeschnittenen/unklaren Modulen noch keine Vollständigkeit bestätigen; ein Editor für Ignorierbereiche ist in diesem ersten Weg nicht enthalten.
+2. Wenige kleine geeignete RGB-Ausschnitte vollständig beschriften: passende ganze Module behalten, fehlende ergänzen, falsche verwerfen/löschen. Alle verbleibenden ganzen Module als **Umriss passt** beurteilen → **Modul-Entwürfe und Prüfung lokal speichern**. Offene Umrisse, erhebliche Überlappungen (auch sehr kleine Teilumrisse innerhalb ganzer Module), Randumrisse oder RGB-NoData blockieren. Bei angeschnittenen/unklaren Modulen noch keine Vollständigkeit bestätigen; ein Editor für Ignorierbereiche ist in diesem ersten Weg nicht enthalten.
 3. **Lernmuster lokal vorbereiten** → lokale **Anlagengruppe** und **Geprüft von** eintragen. Dieselbe Anlage und zusammengehörige Befliegungen auch bei anderen Orthofotos immer gleich benennen. Alle Ausschnitte eines Orthofotos behalten dieselbe Gruppe; Groß-/Kleinschreibung/Leerzeichen werden vereinheitlicht.
 4. Erst nach vollständiger Sichtprüfung **Vollständige Beschriftung dieses Ausschnitts bestätigen** → **Lernmuster-Vorbereitung lokal speichern**. Eine menschliche Beschriftungsbestätigung erkennt fehlende Module nicht automatisch und bestätigt keine physische Modul-ID, Geometrie, Thermalabdeckung oder Celsiuswerte.
 5. Ergebnis zeigt Modulflächenzahl und festen Datenteil der Gruppe: Training, Validierung oder unabhängige Prüfung. Wiederöffnung lädt ohne Inferenz. Bestehender80/10/10-Gruppenmechanismus hält korrelierte Ausschnitte zusammen; Gruppe nicht zum Erzwingen eines anderen Datenteils umbenennen. Ein Orthofoto/eine Gruppe ergibt **kein unabhängiges Prüfset oder vollständigen Trainingsdatensatz**.
@@ -44,7 +44,7 @@ Passende, korrigierte und ergänzte Umrisse müssen nicht neu gezeichnet werden.
 
 **pv-learning-preparation.LOCAL.json** enthält lokale Geometrien/Metadaten mit Quell-, Review- und Snapshot-Hashes. Nur aktuelle passende Umrisse werden positive **pv_module**-Labels; Historie/verworfene/gelöschte Umrisse keine Trainingsziele. Insbesondere gelöschte kleine Rechtecke innerhalb richtiger Module sind keine Hintergrundlabels. RGB-Fensterkoordinaten und exaktes **source_window** bleiben zusammen; ein späterer Export muss genau diesen Bildausschnitt lesen, nicht das ganze TIFF mit lokalen Polygonkoordinaten verwenden.
 
-Kein Bildexport, Trainer-/Modellimport, Training, Modellwechsel, Installation oder SQLite-Eingriff. **training_authorized=false** bleibt bestehen. Nutzungsrechte/Zustimmung, geeigneter Trainer und das tatsächliche Eingabe-/Klassenprofil sind vor echtem Training separat zu belegen; bestehende Einwilligungs-/Trainingsarchitektur bleibt erhalten. Abbruch oder konkurrierende Quell-/Review-/Speicheränderung erhalten die vorherige Vorbereitung.83gezielte synthetische Regressionen inkl.19neuer Backend-/GUI-Fälle bestanden. Neue GUI-Tests verwenden die vorhandene Qt-Aufräumfixture und zerstören Fenster noch bei lebender QApplication;27Lebenszyklusregressionen bestanden. Finaler Gesamtprozess muss einschließlich Interpreterende sauber enden; exakte HEAD-CI in PR9. Laufzeitquelle058da3a7 unverändert. Reale Windows10-Bedienabnahme offen. Noch keine verbesserte Erkennung durch diese Vorbereitung.
+Kein Bildexport, Trainer-/Modellimport, Training, Modellwechsel, Installation oder SQLite-Eingriff. **training_authorized=false** bleibt bestehen. Nutzungsrechte/Zustimmung, geeigneter Trainer und das tatsächliche Eingabe-/Klassenprofil sind vor echtem Training separat zu belegen; bestehende Einwilligungs-/Trainingsarchitektur bleibt erhalten. Abbruch oder konkurrierende Quell-/Review-/Speicheränderung erhalten die vorherige Vorbereitung.84gezielte synthetische Regressionen inkl.20neuer Backend-/GUI-Fälle bestanden. Neue GUI-Tests verwenden die vorhandene Qt-Aufräumfixture und zerstören Fenster noch bei lebender QApplication;27Lebenszyklusregressionen bestanden. Finaler Gesamtprozess muss einschließlich Interpreterende sauber enden; exakte HEAD-CI in PR9. Laufzeitquelledfd04e9d unverändert. Reale Windows10-Bedienabnahme offen. Noch keine verbesserte Erkennung durch diese Vorbereitung.
 
 ## Hinweise aus den Nutzerquellen21.11.
 
