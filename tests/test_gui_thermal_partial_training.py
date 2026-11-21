@@ -2,9 +2,6 @@
 import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
-import pytest
-from PySide6.QtWidgets import QApplication
-
 from mcm_solarcheck.gui.thermal_partial_pv import PartialThermalPVReviewDialog
 from mcm_solarcheck.services import thermal_partial_pv as pv
 from mcm_solarcheck.services import thermal_partial_training as learning
@@ -12,11 +9,7 @@ from test_thermal_partial_training import reviewed
 from test_thermal_partial_pv import module_scene
 from test_thermal_partial_comparison import scene
 from test_opensfm_sparse_bridge import sparse_source
-
-
-@pytest.fixture(scope='module')
-def qapp():
-    return QApplication.instance() or QApplication([])
+from test_gui_thermal_partial_pv import qapp, dispose_windows
 
 
 def test_prepare_save_reopen_stale_and_unsaved_edits_through_module_editor(module_scene, qapp, monkeypatch):
