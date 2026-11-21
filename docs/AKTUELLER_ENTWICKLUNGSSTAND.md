@@ -30,3 +30,5 @@ Masken im Speicher:0Hintergrund/1PV/255Ignorieren+1nativer PixelRand; beim480×2
 
 ## Übergabe und Abnahme
 Vor Chatende zuerst Checkpoint(1000–8500Zeichen), dann Register/Vereinbarung/Handoff/Roadmap mit Block-/Test-/Commitbelegen, offener Lücke und nächstem Einstieg. Exakte HEAD-CI prüfen; technische Tests, Quellenprüfung und reale Abnahme trennen. Beide qualifizierten GeoTIFFs/scharfe Modulgrenzen/unabhängige Geometrie/Thermalzuordnung und gemessene Laufzeit bleiben Ziel. VERT-02/Befund→Modul-ID→RGB-Vergleich→gespeicherte Entscheidung→Bericht danach; Online/Zahlung/Installer nachrangig.
+
+Startquellee5ce87f7/ZIP3161628Bytes/SHAdbeefdc6…e012be57/688Runtime-Dateien+Konfig/Paketlisten remote bytegleich.
