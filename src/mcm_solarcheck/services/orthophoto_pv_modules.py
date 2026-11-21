@@ -81,9 +81,15 @@ def _cancel(should_cancel):
 
 
 def _polygon_mask(polygon, *, width, height, left=0, top=0):
-    ring = [tuple(point) for point in polygon]
+    return _polygons_mask((polygon,), width=width, height=height, left=left, top=top)
+
+
+def _polygons_mask(polygons, *, width, height, left=0, top=0):
+    rings = [[tuple(point) for point in polygon] for polygon in polygons]
+    if not rings:
+        return np.zeros((height, width), dtype=bool)
     return geometry_mask(
-        [{"type": "Polygon", "coordinates": [ring + [ring[0]]]}],
+        [{"type": "Polygon", "coordinates": [ring + [ring[0]]]} for ring in rings],
         # geometry_mask samples pixel centers. This transform places native
         # center-index (left, top) at the first output sample, not at its corner.
         out_shape=(height, width), transform=Affine.translation(left-.5, top-.5),

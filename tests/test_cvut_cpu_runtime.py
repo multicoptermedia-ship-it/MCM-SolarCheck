@@ -125,3 +125,21 @@ def test_two_channel_softmax_rgb_order_and_unit_range(runtime):
     image=np.full((20,30,3),(0,128,255),np.uint8)
     p=detector.probabilities(image)
     assert np.allclose(p,1/(1+np.exp(1)))  # softmax([3,2]), not sigmoid(2)
+
+
+def test_learning_ignore_target_has_zero_loss_gradient_on_unknown_pixels(runtime):
+    torch, _, _ = runtime
+    from mcm_solarcheck.services.thermal_partial_training import MASK_POLICY, learning_target
+    entry = {'manifest': {'mask_policy': MASK_POLICY,
+        'samples': [{'source_window': [0, 0, 24, 20]}],
+        'geometries': [{'polygon_px': [(4, 4), (14, 4), (14, 15), (4, 15)]}],
+        'ignore_polygons_px': [[(9, 0), (23, 0), (23, 19), (9, 19)]]}}
+    target = torch.from_numpy(learning_target(entry).astype(np.int64)).unsqueeze(0)
+    logits = torch.zeros((1, 2, 20, 24), requires_grad=True)
+    loss = torch.nn.functional.cross_entropy(logits, target, ignore_index=255)
+    loss.backward()
+    assert torch.isfinite(loss)
+    for channel in range(2):
+        assert torch.all(logits.grad[:, channel][target == 255] == 0)
+        assert torch.any(logits.grad[:, channel][target == 1] != 0)
+        assert torch.any(logits.grad[:, channel][target == 0] != 0)

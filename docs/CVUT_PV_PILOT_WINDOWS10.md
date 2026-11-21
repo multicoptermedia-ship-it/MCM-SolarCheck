@@ -1,5 +1,7 @@
 # CVUT: öffentlicher PV-Modellpilot unter Windows 10
 
+**Fortsetzung21.11.:** Lernvorbereitung laut Nutzer gespeichert/wiedergeöffnet;29Einträge, teilweise Ecken nicht sichtbar. Vor Training zuerst [unklare Bereiche ausnehmen und Lernmaske prüfen](PV_RGB_ORTHOPHOTO_TRAINING_PREPARATION.md). Kein neuer Modell-/Setup-Lauf, Originalprofil weiter ungeklärt; keine bestätigte Qualitätsverbesserung.
+
 Stand20.11.2026 · PV-CVUT-INTAKE-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 Der Nutzer hat den öffentlichen CVUT-Pilot gewählt. Zuerst ein vorhandenes Modell prüfen und auf demselben zurückgehaltenen lokalen RGB-Ausschnitt vergleichen, anschließend über Nachtraining entscheiden. Wiederholte PV-Hawk-Inferenz trainiert keine Gewichte. Eine bessere Erkennung durch CVUT ist noch nicht belegt.

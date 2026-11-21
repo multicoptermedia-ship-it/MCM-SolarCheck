@@ -141,8 +141,9 @@ class ModuleCornerImage(QLabel):
 
 class ManualModuleOutlineDialog(QDialog):
     outline_changed = Signal(object, object)
+    area_selected = Signal(object)
 
-    def __init__(self, comparison, region, module_id=None, parent=None):
+    def __init__(self, comparison, region, module_id=None, parent=None, *, learning_ignore=False):
         super().__init__(parent)
         self.setObjectName('partial_pv_outline_dialog')
         _resizable_dialog(self)
@@ -150,6 +151,9 @@ class ManualModuleOutlineDialog(QDialog):
         self.setWindowTitle('Modulumriss korrigieren' if module_id else 'Modul manuell ergänzen')
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.comparison, self.region, self.module_id = comparison, region, module_id
+        self.learning_ignore = learning_ignore
+        if learning_ignore:
+            self.setWindowTitle('Unklaren Bereich vom Lernen ausnehmen')
         pair = verify_partial_comparison(comparison)
         result, _ = parse_region(comparison, region)
         with rasterio.open(pair.rgb_path) as raster:
@@ -160,6 +164,10 @@ class ManualModuleOutlineDialog(QDialog):
         notice = QLabel(comparison.label + ' · Vier Modulecken der Reihe nach am Rand anklicken. '
             'Zoom: +/− oder Strg+Mausrad; Verschieben: mittlere Maustaste oder Scrollleisten. '
             'Gelb: bisheriger Umriss. Grün: neuer Entwurf. Keine Geometrie- oder Celsiusfreigabe.')
+        if learning_ignore:
+            notice.setText(comparison.label + ' · Vier Ecken um den gesamten unklaren Bereich markieren. '
+                'Keine unsichtbaren Modulecken erraten. Berührte Modulvorschläge werden als ganze Flächen vom Lernen ausgenommen. '
+                'Zoom: +/− oder Strg+Mausrad; Verschieben: mittlere Maustaste oder Scrollleisten. Modulprüfung bleibt unverändert.')
         notice.setWordWrap(True)
         layout.addWidget(notice)
         if old:
@@ -195,7 +203,7 @@ class ManualModuleOutlineDialog(QDialog):
         self._initial_focus = QTimer(self)
         self._initial_focus.setSingleShot(True)
         self._initial_focus.timeout.connect(self._show_selected if old else self._fit_region)
-        self.status = QLabel('0 von 4 Modulecken markiert.')
+        self.status = QLabel('0 von 4 Bereichsecken markiert.' if learning_ignore else '0 von 4 Modulecken markiert.')
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
         buttons = QHBoxLayout()
@@ -204,6 +212,8 @@ class ManualModuleOutlineDialog(QDialog):
         undo.clicked.connect(self.image.undo)
         buttons.addWidget(undo)
         self.apply = QPushButton('Umriss als offenen Entwurf übernehmen')
+        if learning_ignore:
+            self.apply.setText('Bereich vom Lernen ausnehmen')
         self.apply.setObjectName('partial_pv_outline_apply')
         self.apply.setEnabled(False)
         self.apply.clicked.connect(self._apply)
@@ -263,10 +273,20 @@ class ManualModuleOutlineDialog(QDialog):
 
     def _changed(self):
         self.apply.setEnabled(len(self.image.corners) == 4)
-        self.status.setText(f'{len(self.image.corners)} von 4 Modulecken markiert.')
+        kind = 'Bereichsecken' if self.learning_ignore else 'Modulecken'
+        self.status.setText(f'{len(self.image.corners)} von 4 {kind} markiert.')
 
     def _apply(self):
         try:
+            if self.learning_ignore:
+                from ..services.thermal_partial_training import validate_ignore_areas
+                col, row, _, _ = self.region['window']
+                validate_ignore_areas(self.region['window'],
+                    [tuple((x-col, y-row) for x, y in self.image.corners)])
+                verify_partial_comparison(self.comparison)
+                self.area_selected.emit(tuple(self.image.corners))
+                self.accept()
+                return
             region = manual_module_outline(self.comparison, self.region, self.image.corners, module_id=self.module_id)
             self.outline_changed.emit(region, self.module_id)
             self.accept()
