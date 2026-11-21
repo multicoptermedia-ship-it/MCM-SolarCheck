@@ -4,6 +4,33 @@ Stand21.11.2026 · PV-ORTHO-TRAIN-PREP-01 implementiert / reale Abnahme offen ·
 
 **Aktueller Feldbefund20.11.:** Öffentlicher CVUT-Pilot technisch eingerichtet und real im gespeicherten RGB-Ausschnitt ausgeführt:73Kandidaten,0/8Teilreferenzen wiedergefunden, sichtbare kleine/Teilumrisse; Feldqualität FAIL. [Befund und nächster Entwicklungsblock](CVUT_PV_PILOT_WINDOWS10.md): Originaleingabe/Klassenzuordnung und öffentliche annotierte Referenzprüfung zuerst; noch keine belegte Ursache oder Korrektur. Keine unveränderte Wiederholung/Neuinstallation oder Pflicht zur manuellen Prüfung aller Module. Nachtraining mit öffentlichen Daten erst nach qualifizierter Integration. Kundendaten bleiben lokale zurückgehaltene Prüfung. Nutzer beauftragt21.11. die lokale Vorbereitung vorhandener geprüfter/korrigierter Umrisse. Kein Bildexport oder tatsächlicher Trainingsstart.
 
+## Aktueller Start ohne Installation
+
+Alte SolarCheck-Vergleichsfenster schließen, anschließend diesen gesamten Block in **PowerShell** ausführen. Er lädt ausschließlich eine fest geprüfte Quellcode-ZIP(ca.3MiB) in einen neuen E:-Startordner und startet die Oberfläche mit dem bereits vorhandenen F:-Python. Keine Pakete/Modelle/Gewichte herunterladen oder neu einrichten. Bestehende CVUT-/PV-Hawk-Umgebungen, Quellen und Projektdateien bleiben erhalten. Der Starter öffnet die Oberfläche; er beginnt kein Training.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$pvLearnCommit = '058da3a73c95f4a6c7562fef747a713ee2f04821'
+$pvLearnStart = Join-Path 'E:\SolarCheck-Lernmuster-Start' $pvLearnCommit
+New-Item -ItemType Directory -Force -Path $pvLearnStart | Out-Null
+$pvLearnZip = Join-Path $pvLearnStart 'SolarCheck-source.zip'
+Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvLearnCommit" -OutFile $pvLearnZip
+if ((Get-FileHash -Algorithm SHA256 $pvLearnZip).Hash.ToLowerInvariant() -ne '48a32719b51ed4a0ac4dbf9c4d4f37e6cb9cae498fb774a2f35edede4eb4ea40') {
+    throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
+}
+Expand-Archive -LiteralPath $pvLearnZip -DestinationPath $pvLearnStart -Force
+$pvLearnSource = Join-Path $pvLearnStart "MCM-SolarCheck-$pvLearnCommit"
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pvLearnSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
+```
+
+Feste Quelle **058da3a73c95f4a6c7562fef747a713ee2f04821**, ZIP **3149197Bytes**, SHA256 **48a32719b51ed4a0ac4dbf9c4d4f37e6cb9cae498fb774a2f35edede4eb4ea40**. Alle **688Python-Dateien unter src/scripts** sowie bestehende CVUT-Konfiguration/Paketlisten mit dem remote geladenen Archiv bytegleich geprüft. Für diesen Bedienweg kein Git-Checkout und kein neues Installationsprogramm nötig. Spätere Dokumentationsnachträge ändern diese Laufzeitquelle nicht.
+
+**Später nur Oberfläche öffnen, ohne erneuten Download:**
+
+```powershell
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-Lernmuster-Start\058da3a73c95f4a6c7562fef747a713ee2f04821\MCM-SolarCheck-058da3a73c95f4a6c7562fef747a713ee2f04821\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
+```
+
 ## Neuer Bedienweg21.11.: vorhandene Umrisse als Lernmuster vorbereiten
 
 Passende, korrigierte und ergänzte Umrisse müssen nicht neu gezeichnet werden. Verwendet wird ausschließlich die **zuletzt gespeicherte** Modulprüfung. Alle Aktionen bleiben lokal; Codex verwendet ausschließlich Code und synthetische Raster.
