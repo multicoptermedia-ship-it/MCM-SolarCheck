@@ -134,21 +134,22 @@ def test_legacy_preparation_is_readable_but_needs_explicit_new_mask_review(modul
     pv.save_module_review(value, {key: region}, key)
     save(value, key)
     path = value.folder/learning.STATE
-    record = json.loads(path.read_text())
+    record = json.loads(path.read_text(encoding='utf-8'))
     record['check'] = learning.LEGACY_CHECK
     entry = record['regions'][key]
     for field in ('mask_policy', 'user_ignore_polygons_px', 'ignore_polygons_px', 'ignored_draft_ids'):
         del entry['manifest'][field]
     entry['snapshot_id'] = learning._digest(entry['manifest'])
-    path.write_text(json.dumps(record))
+    path.write_text(json.dumps(record, ensure_ascii=False), encoding='utf-8')
     before = path.read_bytes()
+    assert value.label.encode('utf-8') in before
     state = learning.read_learning_preparation(value, key)
     assert state['current'] and state['needs_mask_review']
     with pytest.raises(ValueError, match='Ältere Vorbereitung'):
         learning.learning_target(state['entry'])
     assert path.read_bytes() == before
     save(value, key, ignore_areas=[area_for(region)])
-    assert json.loads(path.read_text())['check'] == learning.CHECK
+    assert json.loads(path.read_text(encoding='utf-8'))['check'] == learning.CHECK
     assert not learning.read_learning_preparation(value, key)['needs_mask_review']
 
 
@@ -182,3 +183,17 @@ def test_abort_while_saving_exclusions_keeps_old_masks_and_no_temporary_file(mod
     assert (value.folder/learning.STATE).read_bytes() == before
     assert not list(value.folder.glob('*.next.json'))
     assert learning.read_learning_preparation(value, key)['ignored_count'] == 0
+
+
+def test_unicode_group_reviewer_and_incomplete_label_roundtrip_in_utf8(module_scene):
+    _, value = module_scene
+    key, region = reviewed(value)
+    pv.save_module_review(value, {key: region}, key)
+    learning.save_learning_preparation(value, key, reviewer='Prüferin Änne', group_id='Anlage ÜBERDACHUNG',
+        complete_annotation=True, ignore_areas=[area_for(region)],
+        expected_review_sha256=learning.read_learning_preparation(value, key)['review_sha256'])
+    stored = learning.read_learning_preparation(value, key)
+    assert stored['current']
+    assert stored['group_id'] == 'anlage überdachung'
+    assert stored['entry']['reviewer'] == 'Prüferin Änne'
+    assert value.label.encode('utf-8') in (value.folder/learning.STATE).read_bytes()

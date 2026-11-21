@@ -157,11 +157,11 @@ def test_dialog_open_revision_is_required_and_tampered_snapshot_or_flags_rejecte
     assert not (value.folder / learning.STATE).exists()
     save(value, key)
     path = value.folder / learning.STATE
-    record = json.loads(path.read_text())
+    record = json.loads(path.read_text(encoding='utf-8'))
     for changed in (dict(record, training_started=True), deepcopy(record)):
         if not changed['training_started']:
             changed['regions'][key]['manifest']['geometries'][0]['polygon_px'][0][0] += 1
-        path.write_text(json.dumps(changed))
+        path.write_text(json.dumps(changed), encoding='utf-8')
         with pytest.raises(ValueError): learning.read_learning_preparation(value, key)
 
 

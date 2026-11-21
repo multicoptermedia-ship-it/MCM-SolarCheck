@@ -1,7 +1,9 @@
 """Visible unknown-corner exclusions and safe aggregate-only mask clipboard."""
 import json
+import pytest
 
-from PySide6.QtWidgets import QLabel, QPushButton
+from PySide6.QtWidgets import QLabel, QPushButton, QDialog
+from mcm_solarcheck.gui import thermal_partial_training as view
 
 from mcm_solarcheck.gui.thermal_partial_pv import PartialThermalPVReviewDialog
 from mcm_solarcheck.services import thermal_partial_pv as pv
@@ -100,13 +102,13 @@ def test_legacy_saved_completion_is_not_silently_approved_for_new_ignore_policy(
     pv.save_module_review(value, {key: region}, key)
     save(value, key)
     path = value.folder/learning.STATE
-    record = json.loads(path.read_text())
+    record = json.loads(path.read_text(encoding='utf-8'))
     record['check'] = learning.LEGACY_CHECK
     entry = record['regions'][key]
     for field in ('mask_policy', 'user_ignore_polygons_px', 'ignore_polygons_px', 'ignored_draft_ids'):
         del entry['manifest'][field]
     entry['snapshot_id'] = learning._digest(entry['manifest'])
-    path.write_text(json.dumps(record))
+    path.write_text(json.dumps(record, ensure_ascii=False), encoding='utf-8')
     before = path.read_bytes()
     dialog = PartialThermalPVReviewDialog(value)
     dialog.show()
@@ -121,3 +123,15 @@ def test_legacy_saved_completion_is_not_silently_approved_for_new_ignore_policy(
     prep.close()
     dialog.close()
     assert path.read_bytes() == before
+
+
+def test_failed_preparation_load_can_still_close_parent_owned_dialog(qapp, monkeypatch):
+    parent = QDialog()
+    def fail(*args):
+        raise ValueError('Synthetic unavailable preparation')
+    monkeypatch.setattr(view, 'read_learning_preparation', fail)
+    with pytest.raises(ValueError, match='Synthetic unavailable'):
+        view.LearningPreparationDialog(None, 'synthetic', parent)
+    partial = parent.findChildren(view.LearningPreparationDialog)[0]
+    partial.close()  # The failed constructor must not make closeEvent unsafe.
+    parent.close()

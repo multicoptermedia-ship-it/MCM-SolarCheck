@@ -89,6 +89,9 @@ class LearningMaskDialog(QDialog):
 class LearningPreparationDialog(QDialog):
     def __init__(self, comparison, key, parent=None):
         super().__init__(parent)
+        # Also valid if source/legacy validation aborts construction. Qt can
+        # still close the parent-owned, partially constructed dialog later.
+        self._area_editor = self._mask_dialog = None
         self.setObjectName('pv_learning_preparation')
         self.setWindowTitle('PV-Lernmuster lokal vorbereiten')
         self.setWindowModality(Qt.WindowModality.WindowModal)
@@ -97,7 +100,6 @@ class LearningPreparationDialog(QDialog):
         self.comparison, self.key = comparison, key
         state = read_learning_preparation(comparison, key)
         self.ignore_areas = list(state['ignore_areas'])
-        self._area_editor = self._mask_dialog = None
         self.review_sha256 = state['review_sha256']
         self.problem = state['problem']
         layout = QVBoxLayout(self)
