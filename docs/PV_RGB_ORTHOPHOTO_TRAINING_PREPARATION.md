@@ -29,12 +29,12 @@ Alte SolarCheck-Vergleichsfenster schließen, anschließend diesen gesamten Bloc
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pvLearnCommit = 'e5ce87f716f00612a91b22d9b372f499d40f9786'
+$pvLearnCommit = 'dd4ae3349a4d7bbfe2ac347d6fb82f673018ca99'
 $pvLearnStart = Join-Path 'E:\SolarCheck-Lernmuster-Start' $pvLearnCommit
 New-Item -ItemType Directory -Force -Path $pvLearnStart | Out-Null
 $pvLearnZip = Join-Path $pvLearnStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvLearnCommit" -OutFile $pvLearnZip
-if ((Get-FileHash -Algorithm SHA256 $pvLearnZip).Hash.ToLowerInvariant() -ne 'dbeefdc634a4b06a0b4ae9e0bd2d2cd56b83da518e8161580d7d9110e012be57') {
+if ((Get-FileHash -Algorithm SHA256 $pvLearnZip).Hash.ToLowerInvariant() -ne '94405057d5104e2405f21711863918bec845008a047d2bab8e09bc7d06786622') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pvLearnZip -DestinationPath $pvLearnStart -Force
@@ -42,12 +42,12 @@ $pvLearnSource = Join-Path $pvLearnStart "MCM-SolarCheck-$pvLearnCommit"
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pvLearnSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
 ```
 
-Feste Quelle **e5ce87f716f00612a91b22d9b372f499d40f9786**, ZIP **3161628Bytes**, SHA256 **dbeefdc634a4b06a0b4ae9e0bd2d2cd56b83da518e8161580d7d9110e012be57**. Alle **688Python-Dateien unter src/scripts** sowie bestehende CVUT-Konfiguration/Paketlisten mit dem remote geladenen Archiv bytegleich geprüft. Für diesen Bedienweg kein Git-Checkout und kein neues Installationsprogramm nötig. Spätere Dokumentationsnachträge ändern diese Laufzeitquelle nicht.
+Feste Quelle **dd4ae3349a4d7bbfe2ac347d6fb82f673018ca99**, ZIP **3162586Bytes**, SHA256 **94405057d5104e2405f21711863918bec845008a047d2bab8e09bc7d06786622**. Alle **688Python-Dateien unter src/scripts** sowie bestehende CVUT-Konfiguration/Paketlisten mit dem remote geladenen Archiv bytegleich geprüft. Für diesen Bedienweg kein Git-Checkout und kein neues Installationsprogramm nötig. Spätere Dokumentationsnachträge ändern diese Laufzeitquelle nicht.
 
 **Später nur Oberfläche öffnen, ohne erneuten Download:**
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-Lernmuster-Start\e5ce87f716f00612a91b22d9b372f499d40f9786\MCM-SolarCheck-e5ce87f716f00612a91b22d9b372f499d40f9786\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-Lernmuster-Start\dd4ae3349a4d7bbfe2ac347d6fb82f673018ca99\MCM-SolarCheck-dd4ae3349a4d7bbfe2ac347d6fb82f673018ca99\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
 ```
 
 ## Neuer Bedienweg21.11.: vorhandene Umrisse als Lernmuster vorbereiten
@@ -63,7 +63,7 @@ Passende, korrigierte und ergänzte Umrisse müssen nicht neu gezeichnet werden.
 
 **pv-learning-preparation.LOCAL.json** enthält lokale Geometrien/Metadaten mit Quell-, Review- und Snapshot-Hashes. Nur aktuelle passende Umrisse werden positive **pv_module**-Labels; Historie/verworfene/gelöschte Umrisse keine Trainingsziele. Insbesondere gelöschte kleine Rechtecke innerhalb richtiger Module sind keine Hintergrundlabels. RGB-Fensterkoordinaten und exaktes **source_window** bleiben zusammen; ein späterer Export muss genau diesen Bildausschnitt lesen, nicht das ganze TIFF mit lokalen Polygonkoordinaten verwenden.
 
-Kein Bildexport, Trainer-/Modellimport, Training, Modellwechsel, Installation oder SQLite-Eingriff. **training_authorized=false** bleibt bestehen. Nutzungsrechte/Zustimmung, geeigneter Trainer und das tatsächliche Eingabe-/Klassenprofil sind vor echtem Training separat zu belegen; bestehende Einwilligungs-/Trainingsarchitektur bleibt erhalten. Abbruch oder konkurrierende Quell-/Review-/Speicheränderung erhalten die vorherige Vorbereitung.84gezielte synthetische Regressionen inkl.20neuer Backend-/GUI-Fälle bestanden. Neue GUI-Tests verwenden die vorhandene Qt-Aufräumfixture und zerstören Fenster noch bei lebender QApplication;27Lebenszyklusregressionen bestanden. Finaler Gesamtprozess muss einschließlich Interpreterende sauber enden; exakte HEAD-CI in PR9. Laufzeitquellee5ce87f7 unverändert. Reale Windows10-Bedienabnahme offen. Noch keine verbesserte Erkennung durch diese Vorbereitung.
+Kein Bildexport, Trainer-/Modellimport, Training, Modellwechsel, Installation oder SQLite-Eingriff. **training_authorized=false** bleibt bestehen. Nutzungsrechte/Zustimmung, geeigneter Trainer und das tatsächliche Eingabe-/Klassenprofil sind vor echtem Training separat zu belegen; bestehende Einwilligungs-/Trainingsarchitektur bleibt erhalten. Abbruch oder konkurrierende Quell-/Review-/Speicheränderung erhalten die vorherige Vorbereitung.84gezielte synthetische Regressionen inkl.20neuer Backend-/GUI-Fälle bestanden. Neue GUI-Tests verwenden die vorhandene Qt-Aufräumfixture und zerstören Fenster noch bei lebender QApplication;27Lebenszyklusregressionen bestanden. Finaler Gesamtprozess muss einschließlich Interpreterende sauber enden; exakte HEAD-CI in PR9. Laufzeitquelledd4ae334 unverändert. Reale Windows10-Bedienabnahme offen. Noch keine verbesserte Erkennung durch diese Vorbereitung.
 
 ## Hinweise aus den Nutzerquellen21.11.
 
