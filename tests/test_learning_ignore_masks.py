@@ -197,3 +197,95 @@ def test_unicode_group_reviewer_and_incomplete_label_roundtrip_in_utf8(module_sc
     assert stored['group_id'] == 'anlage überdachung'
     assert stored['entry']['reviewer'] == 'Prüferin Änne'
     assert value.label.encode('utf-8') in (value.folder/learning.STATE).read_bytes()
+
+
+def test_reviewed_learning_area_ignores_unlabelled_exterior_and_keeps_local_frame(module_scene):
+    source, value = module_scene
+    key, region = reviewed(value)
+    region['entries'][1]['status'] = 'pending'  # Outside: no forced review.
+    pv.save_module_review(value, {key: region}, key)
+    originals = {p: p.read_bytes() for p in (value.rgb_path, value.thermal_path, value.folder/pv.STATE, source/'job.json')}
+    area = area_for(region, margin=12)
+    entry = save(value, key, learning_area=area)
+    target = learning.learning_target(entry)
+    assert target[center(region, 0)] == 1
+    assert target[center(region, 1)] == 255
+    assert target[10, 10] == 255  # Even unlabelled pixels outside are never background.
+    assert set(np.unique(target)) == {0, 1, 255}
+    manifest = entry['manifest']
+    assert manifest['mask_policy'] == learning.AREA_MASK_POLICY
+    assert len(manifest['labels']) == 1 and manifest['user_ignore_polygons_px'] == ()
+    assert manifest['samples'][0]['source_window'] == region['window']
+    assert manifest['geometries'][0]['polygon_px'][0] == tuple(
+        v-origin for v, origin in zip(region['entries'][0]['proposal']['rgb_polygon_px'][0], region['window'][:2]))
+    index = learning.learning_index(entry)[0]
+    assert index['learning_area_px'] == area and index['ignore_value'] == 255
+    assert all(p.read_bytes() == data for p, data in originals.items())
+    restored = learning.read_learning_preparation(value, key)
+    assert restored['current'] and restored['module_count'] == 1
+    assert learning.learning_counts(entry)['learning_area_limited'] is True
+    assert np.array_equal(learning.learning_target(restored['entry']), target)
+    assert np.all(learning.learning_target(entry, (480, 270))[:4] == 255)
+
+
+def test_crossing_learning_boundary_excludes_whole_draft_and_explicit_exclusions_still_apply(module_scene):
+    _, value = module_scene
+    key, region = reviewed(value)
+    pv.save_module_review(value, {key: region}, key)
+    # A slanted convex boundary contains first module but crosses the second.
+    first, second = area_for(region, 0, 8), area_for(region, 1, 8)
+    a = np.asarray(first)
+    b = np.asarray(second)
+    left, top = np.minimum(a.min(axis=0), b.min(axis=0))
+    right, bottom = np.maximum(a.max(axis=0), b.max(axis=0))
+    bx, by = np.mean(b, axis=0)
+    # Actual synthetic fixture has side-by-side panels.
+    area = ((float(left), float(top)), (float(bx), float(top+2)),
+        (float(bx), float(bottom)), (float(left), float(bottom-2)))
+    tiny = ((300., 100.), (301., 100.), (301., 101.), (300., 101.))
+    entry = save(value, key, learning_area=area, ignore_areas=[tiny])
+    assert len(entry['manifest']['labels']) == 1
+    assert entry['manifest']['ignored_draft_ids'] == [region['entries'][1]['module_id']]
+    target = learning.learning_target(entry)
+    assert target[center(region, 0)] == 1 and target[center(region, 1)] == 255
+    assert target[100, 300] == 255
+
+
+@pytest.mark.parametrize('kind', ['outside', 'self_crossing', 'no_module', 'all_ignored', 'cancelled'])
+def test_invalid_or_cancelled_learning_area_preserves_saved_preparation(module_scene, kind):
+    _, value = module_scene
+    key, region = reviewed(value)
+    pv.save_module_review(value, {key: region}, key)
+    save(value, key)
+    before = (value.folder/learning.STATE).read_bytes()
+    options = dict(learning_area=area_for(region, margin=10))
+    if kind == 'outside': options['learning_area'] = ((-1, 0), (50, 0), (50, 50), (0, 50))
+    if kind == 'self_crossing': options['learning_area'] = ((0, 0), (100, 100), (0, 100), (100, 0))
+    if kind == 'no_module': options['learning_area'] = ((0, 0), (10, 0), (10, 10), (0, 10))
+    if kind == 'all_ignored': options['ignore_areas'] = [area_for(region)]
+    if kind == 'cancelled':
+        calls = 0
+        def cancel():
+            nonlocal calls
+            calls += 1
+            return calls == 2
+        options['should_cancel'] = cancel
+    with pytest.raises((ValueError, RuntimeError)):
+        save(value, key, **options)
+    assert (value.folder/learning.STATE).read_bytes() == before
+    assert not list(value.folder.glob('*.next.json'))
+
+
+def test_scope_policy_cannot_be_silently_read_as_old_background_policy(module_scene):
+    _, value = module_scene
+    key, region = reviewed(value)
+    pv.save_module_review(value, {key: region}, key)
+    save(value, key, learning_area=area_for(region, margin=10))
+    path = value.folder/learning.STATE
+    record = json.loads(path.read_text(encoding='utf-8'))
+    entry = record['regions'][key]
+    entry['manifest']['mask_policy'] = learning.MASK_POLICY
+    entry['snapshot_id'] = learning._digest(entry['manifest'])
+    path.write_text(json.dumps(record, ensure_ascii=False), encoding='utf-8')
+    with pytest.raises(ValueError):
+        learning.read_learning_preparation(value, key)

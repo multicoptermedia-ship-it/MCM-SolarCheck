@@ -1,8 +1,25 @@
 # RGB-Orthofoto-Modulgrenzen: lokale Lern- und Prüfvorbereitung
 
-Stand21.11.2026 · Vorbereitung real bedienbar / PV-ORTHO-TRAIN-IGNORE-01 implementiert, neue Abnahme offen · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+Stand 21.11.2026 · Ausnahmevorschau real bedienbar / PV-ORTHO-TRAIN-AREA-01 implementiert, neue Abnahme offen · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 **Aktueller Feldbefund20.11.:** Öffentlicher CVUT-Pilot technisch eingerichtet und real im gespeicherten RGB-Ausschnitt ausgeführt:73Kandidaten,0/8Teilreferenzen wiedergefunden, sichtbare kleine/Teilumrisse; Feldqualität FAIL. [Befund und nächster Entwicklungsblock](CVUT_PV_PILOT_WINDOWS10.md): Originaleingabe/Klassenzuordnung und öffentliche annotierte Referenzprüfung zuerst; noch keine belegte Ursache oder Korrektur. Keine unveränderte Wiederholung/Neuinstallation oder Pflicht zur manuellen Prüfung aller Module. Nachtraining mit öffentlichen Daten erst nach qualifizierter Integration. Kundendaten bleiben lokale zurückgehaltene Prüfung. Nutzer beauftragt21.11. die lokale Vorbereitung vorhandener geprüfter/korrigierter Umrisse. Kein Bildexport oder tatsächlicher Trainingsstart.
+
+## Aktuell: kleinen vollständig geprüften Lernbereich begrenzen
+
+Die reale Vorschau zeigt acht Lernflächen und eine funktionierende Ausnahme U1. Die übrigen sichtbaren, unbeschrifteten Module waren weiterhin Hintergrund. **Das ist keine vollständige Trainingsannotation.** Statt den großen Ausschnitt vollständig nachzuzeichnen, kann ein kleiner Bereich mit vorhandenen geprüften Umrissen begrenzt werden.
+
+1. Oberfläche mit dem aktuellen Startblock unten öffnen → gespeicherter RGB-/Thermal-Vergleich → **PV-Modul-Entwürfe** → **Lernmuster lokal vorbereiten**. Anlagengruppe und Geprüft von müssen ausgefüllt sein.
+2. **Lernbereich begrenzen** → im vorhandenen maximierbaren Vier-Ecken-/Zoomeditor eine kleine Gruppe ganzer bereits passender Module umschließen. Etwas Abstand zu ihren Umrissen lassen. Nicht alle acht verstreuten Module gemeinsam umfassen, wenn dazwischen unbeschriftete Module liegen; eine kleine vollständig beschriftete Gruppe genügt für diesen Bedienversuch. Unten **Lernbereich übernehmen**.
+3. Nur ganze passende Module strikt innerhalb bleiben Lernziele. Umrisse außerhalb oder über der Grenze werden vollständig ausgenommen. **Alle Außenpixel werden ignoriert**, auch Module ohne gespeicherten Umriss. Zusätzliche unklare Innenbereiche weiterhin über **Unklaren Bereich markieren** ausnehmen. Ganze Originalumrisse/IDs/Notizen bleiben erhalten.
+4. **Lernmaske prüfen**: Grün sind die verbleibenden Lernziele, Magenta sind Außenbereich und Ausnahmen einschließlich Sicherheitsrand. Übrige Innenpixel sind Hintergrund. Innen darf kein sichtbares Modul unbeschriftet und zugleich unignoriert bleiben. Die Software erkennt fehlende Beschriftungen nicht automatisch. Die native Ansicht zeigt Details; rechts bleibt das bisherige480×270-Kandidatenraster, keine neue CVUT-Vorverarbeitung.
+5. Mindestens eine ganze passende Lernfläche und echte Hintergrundpixel müssen nach Ausnahmen/Verkleinerung erhalten bleiben. Bei gesperrtem Vorschauknopf steht der Grund im Fenster und am Tooltip. **Begrenzung entfernen** oder Ausnahmen ändern gilt erst nach erneutem Speichern; alte Vorbereitung bleibt bei Abbruch erhalten. Noch nicht gespeicherte Änderungen zurücklassen heißt nicht, sie seien übernommen.
+6. Erst nach vollständiger Prüfung **innerhalb** bestätigen → **Lernmuster-Vorbereitung lokal speichern** → schließen/wiederöffnen → Begrenzung und Maske erneut ansehen. **Lernmasken-Kennzahlen kopieren (ohne Bilder und Pfade)**: nur JSON-Text mitteilen. Erwartet learning_area_limited=true, mindestens eine Modulfläche und ignorierte Pixel. Die genaue Zahl wird nicht vorgegeben.
+
+Die Begrenzung ist eine Maske im ursprünglichen RGB-Fenster; keine neue Bilddatei, Detektion oder Änderung der Georeferenz. learning_area_px und eigene Maskenrichtlinie sind im Snapshot/Index enthalten. Die neue Richtlinie heißt whole-pv1-reviewed-area-background0-outside-ignore255-margin1-1. Eine ältere Oberfläche lehnt sie ab, statt Außenpixel als Hintergrund zu behandeln. Bisherige Schema1/2-Vorbereitungen ohne Begrenzung bleiben lesbar. Ein späterer Trainer muss Außenbereich, explizite Ausnahmen und Sicherheitsrand als255 mit ignore_index=255 ausschließen. Anlagengruppe/Datenteil bleiben zusammen; ein Orthofoto liefert kein unabhängiges Prüfset. Kein Training/Bildexport/Modellwechsel oder Software-Setup.
+
+Die Nutzeridee Belichtungsnormalisierung bleibt separat: Original-CVUT-Vorverarbeitung ungeklärt; keine CLAHE-/Klassen-/Schwellenänderung ohne qualifizierten Vergleich. Diese Funktion löst die Annotation des Hintergrunds, sie belegt keine verbesserte Erkennungsqualität.
+
+132gezielte synthetische Tests einschließlich10neuer Backend-/GUI-Fälle bestanden. Neue reale Bedienabnahme und exakte HEAD-CI separat; bestehende Quell-/Gruppen-/Maskenverträge geprüft.
 
 ## Aktuell: nicht sichtbare Modulecken ausdrücklich ausnehmen
 

@@ -48,6 +48,8 @@ class LearningMaskDialog(QDialog):
                 'Übrige Pixel: Hintergrund. Nicht sichtbare Ecken werden nicht ergänzt oder erraten.',
                 f"{counts['module_outlines']} ausgewählte Modulflächen · {counts['ignored_outlines']} ausgenommene Vorschläge · "
                 f"{counts['ignored_areas']} markierte Bereiche · Datenteil: {SPLIT_LABELS[counts['split']]}",
+                'Lernbereich begrenzt: Alles außerhalb ist Magenta und wird ignoriert.' if counts['learning_area_limited'] else
+                'Gesamter Ausschnitt: Weitere sichtbare Module müssen beschriftet oder ausgenommen sein. Bei Teilbeschriftung zuerst Lernbereich begrenzen.',
                 'Links: ursprünglicher RGB-Ausschnitt. Rechts: 480 × 270 Pixel des bisherigen Kandidatenprofils. '
                 'Das originale CVUT-Eingabeprofil bleibt ungeprüft. Die Vorschau startet weder Modell noch Training; '
                 'Änderungen anschließend in der Lernvorbereitung speichern.'):
@@ -100,6 +102,7 @@ class LearningPreparationDialog(QDialog):
         self.comparison, self.key = comparison, key
         state = read_learning_preparation(comparison, key)
         self.ignore_areas = list(state['ignore_areas'])
+        self.learning_area = state['learning_area']
         self.review_sha256 = state['review_sha256']
         self.problem = state['problem']
         layout = QVBoxLayout(self)
@@ -125,6 +128,16 @@ class LearningPreparationDialog(QDialog):
         self.reviewer.setMaxLength(100)
         form.addRow('Geprüft von:', self.reviewer)
         layout.addLayout(form)
+        scope_buttons = QHBoxLayout()
+        limit = QPushButton('Lernbereich begrenzen')
+        limit.setObjectName('pv_learning_area_set')
+        limit.clicked.connect(lambda: self._add_area(True))
+        scope_buttons.addWidget(limit)
+        self.unlimit = QPushButton('Begrenzung entfernen')
+        self.unlimit.setObjectName('pv_learning_area_clear')
+        self.unlimit.clicked.connect(self._clear_limit)
+        scope_buttons.addWidget(self.unlimit)
+        layout.addLayout(scope_buttons)
         area_buttons = QHBoxLayout()
         add = QPushButton('Unklaren Bereich markieren')
         add.setObjectName('pv_learning_ignore_add')
@@ -193,6 +206,12 @@ class LearningPreparationDialog(QDialog):
         self.save.setEnabled(not self.problem and self.complete.isChecked()
             and bool(self.group.text().strip()) and bool(self.reviewer.text().strip()))
         self.preview.setEnabled(not self.problem and bool(self.group.text().strip()) and bool(self.reviewer.text().strip()))
+        reason = self.problem
+        if not reason and (not self.group.text().strip() or not self.reviewer.text().strip()):
+            reason = 'Anlagengruppe und Geprüft von ausfüllen, dann Lernmaske prüfen.'
+        self.preview.setToolTip(reason or 'Lernmaske vor der Vollständigkeitsbestätigung prüfen.')
+        if reason:
+            self.status.setText(reason)
 
     def _saved(self, entry):
         self.status.setText(f"Vorbereitung lokal gespeichert · {len(entry['manifest']['labels'])} Modulflächen · "
@@ -202,7 +221,7 @@ class LearningPreparationDialog(QDialog):
         try:
             entry = save_learning_preparation(self.comparison, self.key, reviewer=self.reviewer.text(),
                 group_id=self.group.text(), complete_annotation=self.complete.isChecked(),
-                expected_review_sha256=self.review_sha256, ignore_areas=self.ignore_areas)
+                expected_review_sha256=self.review_sha256, ignore_areas=self.ignore_areas, learning_area=self.learning_area)
             self.group.setText(entry['manifest']['group_id'])
             self.group.setReadOnly(True)
             self._saved(entry)
@@ -227,20 +246,23 @@ class LearningPreparationDialog(QDialog):
         for index in range(len(self.ignore_areas)):
             self.areas.addItem(f'Unklarer Bereich {index+1}')
         self.remove.setEnabled(bool(self.ignore_areas))
-        state = learning_selection(self.comparison, self.key, self.ignore_areas)
+        self.unlimit.setEnabled(self.learning_area is not None)
+        state = learning_selection(self.comparison, self.key, self.ignore_areas, self.learning_area)
         self.problem = state['problem']
-        self.summary.setText(f"{state['module_count']} ausgewählte Modulflächen · {state['ignored_count']} Vorschläge vom Lernen ausgenommen. "
-            'Berührte Vorschläge werden vollständig ausgenommen; verworfene/gelöschte Fehlumrisse werden nicht zu Lernzielen.')
+        self.summary.setText(f"{state['module_count']} ausgewählte Modulflächen · {state['ignored_count']} Vorschläge vom Lernen ausgenommen. " +
+            ('Lernbereich begrenzt: Außerhalb wird alles ignoriert. Innerhalb alle sichtbaren Module prüfen.' if self.learning_area is not None else
+            'Gesamter Ausschnitt: Bei Teilbeschriftung Lernbereich begrenzen; unbeschriftete Module sind sonst Hintergrund.'))
 
-    def _add_area(self):
+    def _add_area(self, limit=False):
         try:
             from .thermal_partial_pv import ManualModuleOutlineDialog
             regions, _ = load_module_review(self.comparison)
             if self._area_editor:
                 self._area_editor.raise_()
                 return
-            self._area_editor = ManualModuleOutlineDialog(self.comparison, regions[self.key], parent=self, learning_ignore=True)
-            self._area_editor.area_selected.connect(self._apply_area)
+            self._area_editor = ManualModuleOutlineDialog(self.comparison, regions[self.key], parent=self,
+                learning_ignore=not limit, learning_scope=limit)
+            self._area_editor.area_selected.connect(self._apply_limit if limit else self._apply_area)
             self._area_editor.finished.connect(self._area_closed)
             self._area_editor.show()
         except (ValueError, TypeError, KeyError, OSError, RuntimeError):
@@ -248,6 +270,20 @@ class LearningPreparationDialog(QDialog):
 
     def _area_closed(self):
         self._area_editor = None
+
+    def _apply_limit(self, polygon):
+        try:
+            regions, _ = load_module_review(self.comparison)
+            window = regions[self.key]['window']
+            col, row = window[:2]
+            self.learning_area = validate_ignore_areas(window, [tuple((x-col, y-row) for x, y in polygon)])[0]
+            self._areas_changed()
+        except (ValueError, TypeError, KeyError, OSError, RuntimeError) as error:
+            self.status.setText(str(error))
+
+    def _clear_limit(self):
+        self.learning_area = None
+        self._areas_changed()
 
     def _apply_area(self, polygon):
         try:
@@ -269,13 +305,14 @@ class LearningPreparationDialog(QDialog):
     def _areas_changed(self):
         self.complete.setChecked(False)
         self._refresh_areas()
-        self._controls()
         self.status.setText(self.problem or 'Ausnahmen geändert, noch nicht gespeichert. Lernmaske prüfen und Vollständigkeit erneut bestätigen.')
+        self._controls()
 
     def _preview(self):
         try:
             entry = preview_learning_preparation(self.comparison, self.key, reviewer=self.reviewer.text(),
-                group_id=self.group.text(), ignore_areas=self.ignore_areas, expected_review_sha256=self.review_sha256)
+                group_id=self.group.text(), ignore_areas=self.ignore_areas, learning_area=self.learning_area,
+                expected_review_sha256=self.review_sha256)
             if self._mask_dialog:
                 self._mask_dialog.close()
                 self._mask_dialog.deleteLater()

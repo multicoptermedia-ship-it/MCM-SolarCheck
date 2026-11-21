@@ -26,6 +26,7 @@ STATE = 'pv-learning-preparation.LOCAL.json'
 CHECK = 'solarcheck-pv-learning-preparation-2'
 LEGACY_CHECK = 'solarcheck-pv-learning-preparation-1'
 MASK_POLICY = 'whole-pv1-background0-ignore255-margin1-1'
+AREA_MASK_POLICY = 'whole-pv1-reviewed-area-background0-outside-ignore255-margin1-1'
 FALSE_FLAGS = (*FLAGS, 'accuracy_verified', 'physical_module_ids_confirmed',
     'automatically_accepted', 'training_authorized', 'training_started',
     'images_exported', 'model_updated')
@@ -83,7 +84,9 @@ def _read(comparison):
                 or entry['manifest'].get('complete_annotation') is not True
                 or entry['manifest'].get('region_key') != key
                 or entry['manifest'].get('group_id') != data['group_id']
-                or entry['manifest'].get('mask_policy', MASK_POLICY) != MASK_POLICY
+                or entry['manifest'].get('mask_policy', MASK_POLICY) not in (MASK_POLICY, AREA_MASK_POLICY)
+                or (('learning_area_px' in entry['manifest']) !=
+                    (entry['manifest'].get('mask_policy') == AREA_MASK_POLICY))
                 or (data['check'] == LEGACY_CHECK and 'mask_policy' in entry['manifest'])
                 or any(entry['manifest'].get(k) is not False for k in FALSE_FLAGS)):
             raise ValueError('Ungültiger gespeicherter Lernmusterstand.')
@@ -130,13 +133,21 @@ def validate_ignore_areas(window, areas):
     return tuple(normalized)
 
 
-def _selection(region, areas):
+def _selection(region, areas, learning_area=None):
     areas = validate_ignore_areas(region['window'], areas)
+    if learning_area is not None:
+        learning_area = validate_ignore_areas(region['window'], [learning_area])[0]
     col, row, _, _ = region['window']
     candidates = [(e, tuple((float(x-col), float(y-row)) for x, y in e['proposal']['rgb_polygon_px']))
         for e in active_entries(region) if e['status'] != 'rejected']
     ignored = {e['module_id'] for e, polygon in candidates
         if any(convex_polygon_iou(polygon, area) > 0 for area in areas)}
+    if learning_area is not None:
+        boundary = np.asarray(learning_area, dtype=np.float32)
+        # Only whole modules strictly inside the reviewed area remain targets.
+        # Crossing/outside drafts are ignored in their entirety, never clipped.
+        ignored.update(e['module_id'] for e, polygon in candidates
+            if any(cv2.pointPolygonTest(boundary, point, False) <= 0 for point in polygon))
     # Include whole intersected proposals, including nested false fragments.
     # No guessed module geometry becomes a positive target through this path.
     changed = True
@@ -151,16 +162,19 @@ def _selection(region, areas):
     return areas, ignored, effective
 
 
-def learning_selection(comparison, key, ignore_areas=()):
+def learning_selection(comparison, key, ignore_areas=(), learning_area=None):
     region = _saved_region(comparison, key)
-    areas, ignored, _ = _selection(region, ignore_areas)
+    areas, ignored, _ = _selection(region, ignore_areas, learning_area)
+    problem = annotation_problem(region, ignored)
+    if problem and not any(e['status'] == 'outline_ok' and e['module_id'] not in ignored for e in active_entries(region)):
+        problem = 'Keine passende Lernfläche übrig. Lernbereich vergrößern oder Ausnahmen verkleinern; mindestens ein ganzes geprüftes Modul muss erhalten bleiben.'
     return dict(ignore_areas=areas, ignored_count=len(ignored),
-        problem=annotation_problem(region, ignored),
+        problem=problem,
         module_count=sum(e['status'] == 'outline_ok' and e['module_id'] not in ignored for e in active_entries(region)))
 
 
-def _entry(comparison, key, region, reviewer, group, ignore_areas=(), *, mask_policy=True):
-    areas, ignored, effective = _selection(region, ignore_areas)
+def _entry(comparison, key, region, reviewer, group, ignore_areas=(), *, mask_policy=True, learning_area=None):
+    areas, ignored, effective = _selection(region, ignore_areas, learning_area)
     problem = annotation_problem(region, ignored)
     if problem:
         raise ValueError(problem)
@@ -195,6 +209,9 @@ def _entry(comparison, key, region, reviewer, group, ignore_areas=(), *, mask_po
     if mask_policy:
         manifest.update(mask_policy=MASK_POLICY, user_ignore_polygons_px=areas,
             ignore_polygons_px=effective, ignored_draft_ids=sorted(ignored))
+        if learning_area is not None:
+            manifest.update(mask_policy=AREA_MASK_POLICY,
+                learning_area_px=validate_ignore_areas(region['window'], [learning_area])[0])
     encoded = _json(manifest)
     snapshot = TrainingSnapshot(sha256(encoded.encode('utf-8')).hexdigest(), 1, len(labels), encoded)
     # All samples of the same plant/flight group receive the same deterministic
@@ -212,13 +229,14 @@ def read_learning_preparation(comparison, key):
     entry = data['regions'].get(key) if data else None
     current = bool(entry and entry['review_sha256'] == _digest(region))
     areas = entry['manifest'].get('user_ignore_polygons_px', ()) if entry else ()
+    learning_area = entry['manifest'].get('learning_area_px') if entry else None
     needs_mask_review = bool(entry and 'mask_policy' not in entry['manifest'])
     if current and _json(_entry(comparison, key, region, entry['reviewer'], data['group_id'], areas,
-            mask_policy=not needs_mask_review)) != _json(entry):
+            mask_policy=not needs_mask_review, learning_area=learning_area)) != _json(entry):
         raise ValueError('Lernmuster passen nicht zu den gespeicherten Modulkorrekturen.')
-    _, ignored, _ = _selection(region, areas)
+    _, ignored, _ = _selection(region, areas, learning_area)
     return dict(group_id=data['group_id'] if data else '', entry=entry, current=current, review_sha256=_digest(region),
-        ignore_areas=areas, needs_mask_review=needs_mask_review, ignored_count=len(ignored),
+        ignore_areas=areas, learning_area=learning_area, needs_mask_review=needs_mask_review, ignored_count=len(ignored),
         problem=annotation_problem(region, ignored),
         module_count=sum(e['status'] == 'outline_ok' and e['module_id'] not in ignored for e in active_entries(region)))
 
@@ -232,6 +250,7 @@ def learning_index(entry):
     snapshot = TrainingSnapshot(entry['snapshot_id'], 1, len(manifest['labels']), _json(manifest))
     return tuple(dict(row, source_window=manifest['samples'][0]['source_window'],
         geometry_coordinate_frame='source_window', mask_policy=manifest.get('mask_policy'),
+        learning_area_px=manifest.get('learning_area_px'),
         ignore_polygons_px=manifest.get('ignore_polygons_px', ()), ignore_value=255)
         for row in build_spatial_training_index(snapshot, 'segmentation'))
 
@@ -241,7 +260,7 @@ def prepared_split(entry):
 
 
 def save_learning_preparation(comparison, key, *, reviewer, group_id, complete_annotation,
-        expected_review_sha256, ignore_areas=(), should_cancel=None):
+        expected_review_sha256, ignore_areas=(), learning_area=None, should_cancel=None):
     """Explicit atomic metadata save; preserves previous preparation on abort."""
     _cancel(should_cancel)
     if complete_annotation is not True:
@@ -253,7 +272,7 @@ def save_learning_preparation(comparison, key, *, reviewer, group_id, complete_a
     data, previous = _read(comparison)
     if data and data['group_id'] != group:
         raise ValueError('Alle Ausschnitte dieses Orthofotos müssen dieselbe Anlagengruppe behalten.')
-    entry = _entry(comparison, key, region, reviewer, group, ignore_areas)
+    entry = _entry(comparison, key, region, reviewer, group, ignore_areas, learning_area=learning_area)
     target_mask = learning_target(entry)
     learning_target(entry, (480, 270))
     pair = verify_partial_comparison(comparison)
@@ -279,11 +298,15 @@ def learning_target(entry, size=None):
     pixel excludes the destination pixel. No model, exports or Celsius data.
     """
     manifest = entry['manifest']
-    if manifest.get('mask_policy') != MASK_POLICY:
+    if manifest.get('mask_policy') not in (MASK_POLICY, AREA_MASK_POLICY):
         raise ValueError('Ältere Vorbereitung zuerst als Lernmaske prüfen und erneut speichern.')
     width, height = manifest['samples'][0]['source_window'][2:]
     target = _polygons_mask([g['polygon_px'] for g in manifest['geometries']], width=width, height=height).astype(np.uint8)
     ignored = _polygons_mask(manifest['ignore_polygons_px'], width=width, height=height).astype(np.uint8)
+    if manifest['mask_policy'] == AREA_MASK_POLICY:
+        area = validate_ignore_areas((0, 0, width, height), [manifest['learning_area_px']])[0]
+        inside = _polygons_mask([area], width=width, height=height)
+        ignored[~inside] = 1
     ignored = cv2.dilate(ignored, np.ones((3, 3), np.uint8))
     target[ignored > 0] = 255
     if size is not None:
@@ -298,11 +321,11 @@ def learning_target(entry, size=None):
     return target
 
 
-def preview_learning_preparation(comparison, key, *, reviewer, group_id, ignore_areas=(), expected_review_sha256):
+def preview_learning_preparation(comparison, key, *, reviewer, group_id, ignore_areas=(), learning_area=None, expected_review_sha256):
     region = _saved_region(comparison, key)
     if _digest(region) != expected_review_sha256:
         raise ValueError('Modulprüfung geändert; Lernvorbereitung erneut öffnen.')
-    return _entry(comparison, key, region, _text(reviewer), normalize_group(group_id), ignore_areas)
+    return _entry(comparison, key, region, _text(reviewer), normalize_group(group_id), ignore_areas, learning_area=learning_area)
 
 
 def learning_counts(entry):
@@ -310,6 +333,7 @@ def learning_counts(entry):
     manifest = entry['manifest']
     return dict(check='solarcheck-pv-learning-counts-1', module_outlines=len(manifest['labels']),
         ignored_outlines=len(manifest['ignored_draft_ids']), ignored_areas=len(manifest['user_ignore_polygons_px']),
+        learning_area_limited=manifest.get('mask_policy') == AREA_MASK_POLICY,
         split=prepared_split(entry),
         native_pixels={name: int(np.count_nonzero(native == value)) for name, value in (('background', 0), ('pv', 1), ('ignored', 255))},
         candidate_480x270_pixels={name: int(np.count_nonzero(resized == value)) for name, value in (('background', 0), ('pv', 1), ('ignored', 255))},

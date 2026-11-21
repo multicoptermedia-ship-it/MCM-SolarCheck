@@ -135,3 +135,65 @@ def test_failed_preparation_load_can_still_close_parent_owned_dialog(qapp, monke
     partial = parent.findChildren(view.LearningPreparationDialog)[0]
     partial.close()  # The failed constructor must not make closeEvent unsafe.
     parent.close()
+
+
+def test_limit_learning_area_preview_save_reopen_and_unsaved_removal(module_scene, qapp):
+    _, value = module_scene
+    key, region = reviewed(value)
+    pv.save_module_review(value, {key: region}, key)
+    original_reviews = (value.folder/pv.STATE).read_bytes()
+    prep = view.LearningPreparationDialog(value, key)
+    prep.show()
+    prep.group.setText('Synthetic plant A')
+    prep.reviewer.setText('Synthetic reviewer')
+    prep.findChild(QPushButton, 'pv_learning_area_set').click()
+    editor = prep._area_editor
+    qapp.processEvents()
+    assert editor.learning_scope and editor.apply.text() == 'Lernbereich übernehmen'
+    col, row = region['window'][:2]
+    _corners(editor, [(x+col, y+row) for x, y in area_for(region, margin=12)])
+    editor.apply.click()
+    assert prep.learning_area and not prep.complete.isChecked()
+    assert '1 ausgewählte Modulflächen' in prep.summary.text() and prep.preview.isEnabled()
+    prep.preview.click()
+    mask = prep._mask_dialog
+    assert mask.isVisible() and mask.counts['learning_area_limited'] is True
+    assert mask.counts['native_pixels']['ignored'] > 0
+    mask.close()
+    prep.complete.setChecked(True)
+    prep.save.click()
+    assert 'lokal gespeichert' in prep.status.text()
+    before = (value.folder/learning.STATE).read_bytes()
+    prep.close()
+    restored = view.LearningPreparationDialog(value, key)
+    assert restored.learning_area and restored.complete.isChecked()
+    restored.unlimit.click()
+    assert restored.learning_area is None and not restored.complete.isChecked()
+    assert '2 ausgewählte Modulflächen' in restored.summary.text()
+    restored.close()
+    assert (value.folder/learning.STATE).read_bytes() == before
+    assert (value.folder/pv.STATE).read_bytes() == original_reviews
+
+
+def test_cancel_limit_editor_preserves_existing_preparation_and_block_reason_is_visible(module_scene, qapp):
+    _, value = module_scene
+    key, region = reviewed(value)
+    pv.save_module_review(value, {key: region}, key)
+    save(value, key)
+    before = (value.folder/learning.STATE).read_bytes()
+    prep = view.LearningPreparationDialog(value, key)
+    prep.show()
+    prep.findChild(QPushButton, 'pv_learning_area_set').click()
+    qapp.processEvents()
+    prep._area_editor.reject()
+    assert prep.learning_area is None and prep.complete.isChecked()
+    col, row = region['window'][:2]
+    # A scope around no module must show the reason beside the disabled button.
+    prep._apply_limit(((col, row), (col+10, row), (col+10, row+10), (col, row+10)))
+    assert not prep.preview.isEnabled()
+    assert 'Keine passende Lernfläche übrig' in prep.status.text()
+    assert 'Lernbereich' in prep.preview.toolTip()
+    prep.unlimit.click()
+    assert prep.preview.isEnabled() and not prep.complete.isChecked()
+    prep.close()
+    assert (value.folder/learning.STATE).read_bytes() == before

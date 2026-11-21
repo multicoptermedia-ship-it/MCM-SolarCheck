@@ -143,7 +143,7 @@ class ManualModuleOutlineDialog(QDialog):
     outline_changed = Signal(object, object)
     area_selected = Signal(object)
 
-    def __init__(self, comparison, region, module_id=None, parent=None, *, learning_ignore=False):
+    def __init__(self, comparison, region, module_id=None, parent=None, *, learning_ignore=False, learning_scope=False):
         super().__init__(parent)
         self.setObjectName('partial_pv_outline_dialog')
         _resizable_dialog(self)
@@ -151,9 +151,12 @@ class ManualModuleOutlineDialog(QDialog):
         self.setWindowTitle('Modulumriss korrigieren' if module_id else 'Modul manuell ergänzen')
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.comparison, self.region, self.module_id = comparison, region, module_id
-        self.learning_ignore = learning_ignore
+        self.learning_ignore = learning_ignore or learning_scope
+        self.learning_scope = learning_scope
         if learning_ignore:
             self.setWindowTitle('Unklaren Bereich vom Lernen ausnehmen')
+        if learning_scope:
+            self.setWindowTitle('Vollständig geprüften Lernbereich begrenzen')
         pair = verify_partial_comparison(comparison)
         result, _ = parse_region(comparison, region)
         with rasterio.open(pair.rgb_path) as raster:
@@ -168,6 +171,12 @@ class ManualModuleOutlineDialog(QDialog):
             notice.setText(comparison.label + ' · Vier Ecken um den gesamten unklaren Bereich markieren. '
                 'Keine unsichtbaren Modulecken erraten. Berührte Modulvorschläge werden als ganze Flächen vom Lernen ausgenommen. '
                 'Zoom: +/− oder Strg+Mausrad; Verschieben: mittlere Maustaste oder Scrollleisten. Modulprüfung bleibt unverändert.')
+        if learning_scope:
+            notice.setText(comparison.label + ' · Vier Bereichsecken um wenige vollständig beschriftete Module markieren. '
+                'Etwas Abstand zu den ganzen Modulumrissen lassen. Innerhalb müssen alle sichtbaren Module korrekt beschriftet '
+                'oder ausdrücklich ausgenommen sein. Außerhalb wird alles vom Lernen ausgenommen, auch unbeschriftete Module. '
+                'Die grüne Linie zeigt die Bereichsgrenze, keinen neuen Modulumriss. '
+                'Zoom: +/− oder Strg+Mausrad; Verschieben: mittlere Maustaste oder Scrollleisten.')
         notice.setWordWrap(True)
         layout.addWidget(notice)
         if old:
@@ -203,7 +212,7 @@ class ManualModuleOutlineDialog(QDialog):
         self._initial_focus = QTimer(self)
         self._initial_focus.setSingleShot(True)
         self._initial_focus.timeout.connect(self._show_selected if old else self._fit_region)
-        self.status = QLabel('0 von 4 Bereichsecken markiert.' if learning_ignore else '0 von 4 Modulecken markiert.')
+        self.status = QLabel('0 von 4 Bereichsecken markiert.' if self.learning_ignore else '0 von 4 Modulecken markiert.')
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
         buttons = QHBoxLayout()
@@ -214,6 +223,8 @@ class ManualModuleOutlineDialog(QDialog):
         self.apply = QPushButton('Umriss als offenen Entwurf übernehmen')
         if learning_ignore:
             self.apply.setText('Bereich vom Lernen ausnehmen')
+        if learning_scope:
+            self.apply.setText('Lernbereich übernehmen')
         self.apply.setObjectName('partial_pv_outline_apply')
         self.apply.setEnabled(False)
         self.apply.clicked.connect(self._apply)
