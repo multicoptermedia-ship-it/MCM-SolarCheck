@@ -46,12 +46,12 @@ Alte SolarCheck-Vergleichsfenster schließen, anschließend diesen gesamten Bloc
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pvLearnCommit = 'ddcba263a87adc03e22fabb60c13cc73d6962ab4'
+$pvLearnCommit = '8cb1498ac3c95d5e0c959b020806b9e00dbfab09'
 $pvLearnStart = Join-Path 'E:\SolarCheck-Lernmuster-Start' $pvLearnCommit
 New-Item -ItemType Directory -Force -Path $pvLearnStart | Out-Null
 $pvLearnZip = Join-Path $pvLearnStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvLearnCommit" -OutFile $pvLearnZip
-if ((Get-FileHash -Algorithm SHA256 $pvLearnZip).Hash.ToLowerInvariant() -ne '12b0e0e8c4999dfecdc347cd713f9015e6f53b40db34440986b5b908c946b8b4') {
+if ((Get-FileHash -Algorithm SHA256 $pvLearnZip).Hash.ToLowerInvariant() -ne '78cf080a14a21afe29565ba7771755576e8c04aa398ef69552f29480e708ba26') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pvLearnZip -DestinationPath $pvLearnStart -Force
@@ -59,12 +59,12 @@ $pvLearnSource = Join-Path $pvLearnStart "MCM-SolarCheck-$pvLearnCommit"
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pvLearnSource 'scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py')
 ```
 
-Feste Quelle **ddcba263a87adc03e22fabb60c13cc73d6962ab4**, ZIP **3167715Bytes**, SHA256 **12b0e0e8c4999dfecdc347cd713f9015e6f53b40db34440986b5b908c946b8b4**. Alle **688Python-Dateien unter src/scripts** sowie bestehende CVUT-Konfiguration/Paketlisten mit dem remote geladenen Archiv bytegleich geprüft. Für diesen Bedienweg kein Git-Checkout und kein neues Installationsprogramm nötig. Spätere Dokumentationsnachträge ändern diese Laufzeitquelle nicht.
+Feste Quelle **8cb1498ac3c95d5e0c959b020806b9e00dbfab09**, ZIP **3169825Bytes**, SHA256 **78cf080a14a21afe29565ba7771755576e8c04aa398ef69552f29480e708ba26**. Alle **688Python-Dateien unter src/scripts** sowie bestehende CVUT-Konfiguration/Paketlisten mit dem remote geladenen Archiv bytegleich geprüft. Für diesen Bedienweg kein Git-Checkout und kein neues Installationsprogramm nötig. Spätere Dokumentationsnachträge ändern diese Laufzeitquelle nicht.
 
 **Später nur Oberfläche öffnen, ohne erneuten Download:**
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-Lernmuster-Start\ddcba263a87adc03e22fabb60c13cc73d6962ab4\MCM-SolarCheck-ddcba263a87adc03e22fabb60c13cc73d6962ab4\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-Lernmuster-Start\8cb1498ac3c95d5e0c959b020806b9e00dbfab09\MCM-SolarCheck-8cb1498ac3c95d5e0c959b020806b9e00dbfab09\scripts\MCM_SolarCheck_OPENSFM_THERMAL_PILOT.py'
 ```
 
 ## Neuer Bedienweg21.11.: vorhandene Umrisse als Lernmuster vorbereiten

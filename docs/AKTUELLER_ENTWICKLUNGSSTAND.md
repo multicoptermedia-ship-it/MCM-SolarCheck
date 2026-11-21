@@ -31,4 +31,4 @@ Kein Export/Training/Modellwechsel/Installation/DB-Eingriff, Nutzungs-/Fachflags
 ## Übergabe und Abnahme
 Vor Chatende zuerst Checkpoint(1000–8500Zeichen), dann Register/Vereinbarung/Handoff/Roadmap mit Block-/Test-/Commitbelegen, offener Lücke und nächstem Einstieg. Exakte HEAD-CI prüfen; technische Tests, Quellenprüfung und reale Abnahme trennen. Beide qualifizierten GeoTIFFs/scharfe Modulgrenzen/unabhängige Geometrie/Thermalzuordnung und gemessene Laufzeit bleiben Ziel. VERT-02/Befund→Modul-ID→RGB-Vergleich→gespeicherte Entscheidung→Bericht danach; Online/Zahlung/Installer nachrangig.
 
-Startquelle ddcba263/ZIP3167715Bytes/SHA12b0e0e8…946b8b4/688Runtime-Dateien bytegleich; finale HEAD-CI in PR9.
+Startquelle 8cb1498a/ZIP3169825Bytes/SHA78cf080a…708ba26/688Runtime-Dateien bytegleich; finale HEAD-CI in PR9.
