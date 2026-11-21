@@ -64,7 +64,7 @@ def test_corrected_added_rejected_deleted_labels_geometry_identity_and_reopening
     assert not list(value.folder.glob('*.next.json'))
 
 
-@pytest.mark.parametrize('failure', ['pending', 'no_positive', 'incomplete', 'reviewer', 'group', 'overlap', 'boundary'])
+@pytest.mark.parametrize('failure', ['pending', 'no_positive', 'incomplete', 'reviewer', 'group', 'overlap', 'tiny_overlap', 'boundary'])
 def test_incomplete_or_invalid_annotations_cannot_replace_previous_preparation(module_scene, failure):
     _, value = module_scene
     key, region = reviewed(value)
@@ -76,11 +76,12 @@ def test_incomplete_or_invalid_annotations_cannot_replace_previous_preparation(m
     elif failure == 'no_positive':
         for entry in region['entries']:
             entry['status'] = 'rejected'
-    elif failure == 'overlap':
+    elif failure in ('overlap', 'tiny_overlap'):
         poly = region['entries'][0]['proposal']['rgb_polygon_px']
         xs, ys = zip(*poly)
         cx, cy = sum(xs)/len(xs), sum(ys)/len(ys)
-        child = tuple((cx+(x-cx)*.5, cy+(y-cy)*.5) for x, y in poly)
+        scale = .1 if failure == 'tiny_overlap' else .5
+        child = tuple((cx+(x-cx)*scale, cy+(y-cy)*scale) for x, y in poly)
         region = pv.manual_module_outline(value, region, child)
         region['entries'][-1]['status'] = 'outline_ok'
     elif failure == 'boundary':

@@ -9,6 +9,8 @@ import json
 import unicodedata
 from uuid import uuid4
 
+import cv2
+import numpy as np
 import rasterio
 from rasterio.windows import Window
 
@@ -93,6 +95,17 @@ def annotation_problem(region):
     return ''
 
 
+def _overlapping(a, b):
+    # IoU alone misses tiny false outlines inside a whole module. Measure
+    # intersection relative to the SMALLER polygon, using the existing IoU.
+    iou = convex_polygon_iou(a, b)
+    if iou <= 0:
+        return False
+    areas = [abs(cv2.contourArea(np.asarray(p, dtype=np.float32))) for p in (a, b)]
+    intersection = iou * sum(areas) / (1 + iou)
+    return intersection > .05 * min(areas)
+
+
 def _entry(comparison, key, region, reviewer, group):
     problem = annotation_problem(region)
     if problem:
@@ -110,7 +123,7 @@ def _entry(comparison, key, region, reviewer, group):
         box = (min(xs), min(ys), max(xs), max(ys))
         if any(box[0] < bounds[2] and bounds[0] < box[2]
                 and box[1] < bounds[3] and bounds[1] < box[3]
-                and convex_polygon_iou(polygon, old) > .05 for old, bounds in polygons):
+                and _overlapping(polygon, old) for old, bounds in polygons):
             raise ValueError('Überlappende passende Umrisse zuerst korrigieren oder verwerfen.')
         polygons.append((polygon, box))
         geometry = validate_geometry_bounds(ReviewedGeometry(frame, reviewer, 'rendered_rgb',
