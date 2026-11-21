@@ -193,11 +193,18 @@ def test_manual_add_without_detector_and_close_without_saving(module_scene, qapp
 @pytest.fixture(autouse=True)
 def dispose_windows(qapp):
     # Exercise native close/destruction while QApplication is still alive.
+    import gc
     from PySide6.QtCore import QCoreApplication, QEvent
     yield
     for widget in qapp.topLevelWidgets():
         widget.close()
         widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    qapp.processEvents()
+    # Qt signal closures can keep Python dialog wrappers in cycles after their
+    # native widgets were deleted. Reclaim these while Qt is alive, rather than
+    # leaving Shiboken finalization to CPython 3.11's interpreter shutdown.
+    gc.collect()
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     qapp.processEvents()
 

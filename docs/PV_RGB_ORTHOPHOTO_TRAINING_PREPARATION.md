@@ -19,7 +19,7 @@ Die Begrenzung ist eine Maske im ursprünglichen RGB-Fenster; keine neue Bilddat
 
 Die Nutzeridee Belichtungsnormalisierung bleibt separat: Original-CVUT-Vorverarbeitung ungeklärt; keine CLAHE-/Klassen-/Schwellenänderung ohne qualifizierten Vergleich. Diese Funktion löst die Annotation des Hintergrunds, sie belegt keine verbesserte Erkennungsqualität.
 
-132gezielte synthetische Tests einschließlich10neuer Backend-/GUI-Fälle bestanden. Neue reale Bedienabnahme und exakte HEAD-CI separat; bestehende Quell-/Gruppen-/Maskenverträge geprüft.
+132gezielte synthetische Tests einschließlich10neuer Backend-/GUI-Fälle bestanden. Linux3.11 bestand alle4653Tests, stürzte aber bei Prozessende ab: Qt-Testbereinigung sammelt jetzt Python-Signal-/Wrapperzyklen bei lebender QApplication. Neue reale Bedienabnahme und exakte HEAD-CI separat; bestehende Quell-/Gruppen-/Maskenverträge geprüft.
 
 ## Aktuell: nicht sichtbare Modulecken ausdrücklich ausnehmen
 
