@@ -37,12 +37,12 @@ Den **vollständigen Block** in PowerShell ausführen:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pvReferenceCommit = 'SOURCE_COMMIT'
+$pvReferenceCommit = '9c4c637392864be3212037d7742a6297a4f9e737'
 $pvReferenceStart = Join-Path 'E:\SolarCheck-PVIS-Start' $pvReferenceCommit
 New-Item -ItemType Directory -Force -Path $pvReferenceStart | Out-Null
 $pvReferenceZip = Join-Path $pvReferenceStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvReferenceCommit" -OutFile $pvReferenceZip
-if ((Get-FileHash -Algorithm SHA256 $pvReferenceZip).Hash.ToLowerInvariant() -ne 'SOURCE_SHA256') {
+if ((Get-FileHash -Algorithm SHA256 $pvReferenceZip).Hash.ToLowerInvariant() -ne 'ab56c712945bfd463b03c494e03ff09ee43ba2b56bdab8ca5b990719748725e0') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pvReferenceZip -DestinationPath $pvReferenceStart -Force
@@ -50,7 +50,7 @@ $pvReferenceSource = Join-Path $pvReferenceStart "MCM-SolarCheck-$pvReferenceCom
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pvReferenceSource 'scripts\MCM_SolarCheck_PVIS_REFERENZ.py') --prefix 'E:\SolarCheck-PVIS-Referenz'
 ```
 
-Feste Startquelle **SOURCE_COMMIT**, ZIP **SOURCE_BYTES Bytes**, SHA256 **SOURCE_SHA256**. Vor Übergabe remote gegen alle Python-Dateien unter src/scripts sowie Konfiguration/Paketlisten geprüft. Keine Pakete werden installiert oder ausführbare Fremddateien aus dem Datensatz geladen.
+Feste Startquelle **9c4c637392864be3212037d7742a6297a4f9e737**, ZIP **3207493 Bytes**, SHA256 **ab56c712945bfd463b03c494e03ff09ee43ba2b56bdab8ca5b990719748725e0**. Alle **691Python-Dateien** unter src/scripts sowie **9Konfigurations-/Paketlistendateien** mit dem remote geladenen Archiv bytegleich geprüft. Keine Pakete werden installiert oder ausführbare Fremddateien aus dem Datensatz geladen.
 
 Erwartet: **check=solarcheck-pvis-reference-1**, **status=inventory_verified_not_training_ready**, **images=142**, **annotation_observations=37463**, **publisher_sha256_verified=true**, **station_disjoint=true**. validation_stations bleibt0; training_started, training_authorized, model_updated, customer_images_read und sämtliche Qualitäts-/Produktfreigaben bleibenfalse. Kein neues Modellmanifest für den KI-Vergleich auswählen.
 
@@ -59,7 +59,7 @@ Erwartet: **check=solarcheck-pvis-reference-1**, **status=inventory_verified_not
 Nach dem Schließen von PowerShell lässt sich der gespeicherte Stand ausschließlich lokal nachprüfen:
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Start\SOURCE_COMMIT\MCM-SolarCheck-SOURCE_COMMIT\scripts\MCM_SolarCheck_PVIS_REFERENZ.py' --prefix 'E:\SolarCheck-PVIS-Referenz' --show
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Start\9c4c637392864be3212037d7742a6297a4f9e737\MCM-SolarCheck-9c4c637392864be3212037d7742a6297a4f9e737\scripts\MCM_SolarCheck_PVIS_REFERENZ.py' --prefix 'E:\SolarCheck-PVIS-Referenz' --show
 ```
 
 **--show** prüft ZIP-/Dokumentprüfsummen und Annotationen erneut gegen den gespeicherten Bericht. Kein Netzabruf, kein Modellstart. Die Kennzahlen bleiben gleich. Bitte nur diesen JSON-Bericht als Text mitteilen; keine Bilder oder privaten Berichte senden.
@@ -80,7 +80,7 @@ Dann den bereits geladenen SolarCheck-Prüfer mit dem tatsächlichen Quellordner
 
 ```powershell
 $pvPublicSource = Read-Host 'Vollstaendiger Pfad zum Ordner mit den fuenf oeffentlichen PVIS-Dateien'
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Start\SOURCE_COMMIT\MCM-SolarCheck-SOURCE_COMMIT\scripts\MCM_SolarCheck_PVIS_REFERENZ.py' --prefix 'E:\SolarCheck-PVIS-Referenz' --archive-dir $pvPublicSource
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Start\9c4c637392864be3212037d7742a6297a4f9e737\MCM-SolarCheck-9c4c637392864be3212037d7742a6297a4f9e737\scripts\MCM_SolarCheck_PVIS_REFERENZ.py' --prefix 'E:\SolarCheck-PVIS-Referenz' --archive-dir $pvPublicSource
 ```
 
 Dieser Weg kopiert ausschließlich die fünf fest gebundenen öffentlichen Dateien in den Referenzordner, lässt die Downloads unverändert und verwendet keine Netzverbindung. Bei Fehler bitte nur den ausgegebenen Diagnoseblock mitteilen; keine Neuinstallation erforderlich.

@@ -30,3 +30,5 @@ Kundendaten/Originalbilder/EXIF/GPS/RTK/private Raster/produktive SQLite/Backups
 
 ## Übergabe und Abnahme
 Vor Chatende Checkpoint(1000–8500Zeichen), Register/Vereinbarung/Handoff/Roadmap aktualisieren; exakte HEAD-CI in PR9 prüfen. Technische Tests/Quellenprüfung/reale Abnahme trennen. Ziel: beide GeoTIFFs/scharfe Module/unabhängige Geometrie/Thermalzuordnung. Danach VERT-02/Befund→Modul→RGB→Entscheidung→Bericht; Online/Installer später.
+
+PVIS-Quelle9c4c6373/ZIP3207493Bytes/SHAab56c712…748725e0;691Runtime-Dateien remote bytegleich.
