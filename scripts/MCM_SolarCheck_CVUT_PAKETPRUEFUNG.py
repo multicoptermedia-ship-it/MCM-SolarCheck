@@ -176,10 +176,12 @@ def atomic_json(target, value):
 
 
 @contextmanager
-def package_lock(prefix):
+def package_lock(prefix, lock_name='cvut-package.lock'):
     # OS releases this lock on exit, cancellation and hard kill. The tiny lock
     # file remains so a second process cannot lock an unlinked replacement.
-    with local(prefix / 'cvut-package.lock').open('a+b') as stream:
+    if Path(lock_name).name != lock_name or not lock_name.endswith('.lock'):
+        raise ValueError('Invalid package lock name')
+    with local(prefix / lock_name).open('a+b') as stream:
         if os.name == 'nt':
             import msvcrt
             if stream.tell() == 0:

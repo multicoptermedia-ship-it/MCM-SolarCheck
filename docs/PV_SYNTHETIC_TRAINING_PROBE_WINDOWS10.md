@@ -1,6 +1,6 @@
 # Synthetische Trainingsprobe auf Windows 10
 
-Stand 24.11.2026 · PV-SYNTHETIC-TRAIN-01 implementiert und synthetisch geprüft, reale Windows-10-Bedienabnahme offen. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+Stand 24.11.2026 · PV-SYNTHETIC-TRAIN-01 implementiert und synthetisch geprüft, reale Windows-10-Probe und --show laut Nutzer bestanden. [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 Die gespeicherte Lernvorbereitung mit drei Modulflächen wurde laut Nutzer korrekt wiedergeöffnet. Der danach gestartete PV-Hawk-Vergleich verwendete dieselben veröffentlichten Gewichte wie zuvor:21Modellinstanzen/18Vorschläge/3von8Teilreferenzen. Lernmasken speichern trainiert kein Modell. Bitte diesen unveränderten Vergleich nicht erneut als Lernfortschritt testen.
 
@@ -14,7 +14,7 @@ Dieser neue Befehl qualifiziert die Trainingsmechanik: ausschließlich künstlic
 - Bestehende DatasetBuild-/TrainingRun-/execute_training-Herkunft verwenden. SHA-256 bindet Datenbeschreibung, Parameter und erzeugte Gewichte. Gewichte in eigenem neuen Probenordner speichern, mit weights_only=True/CPU/strikter118Tensorprüfung wieder laden; Validierungs-/Prüfausgaben müssen exakt übereinstimmen.
 - Abbruch/Fehler vor Veröffentlichung entfernen nur den eigenen unvollständigen Lauf. Frühere abgeschlossene Proben bleiben unverändert. Erneutes Starten beginnt frisch ab festem Seed, setzt keinen Optimizerlauf fort. Bei hartem Beenden kann ein Ordner mit Endung.next bleiben; er wird nie als abgeschlossene Probe gelesen.
 
-44gezielte Tests und14isolierte echte Torch-CPU-Fälle bestanden, einschließlich Abbruch während Training/nach Wiederladen, geänderter Referenz, Quellschutz und Wiederöffnung. Exakte finale Windows-/Linux-CI in PR9; reale Bedienabnahme separat.
+44gezielte Tests und14isolierte echte Torch-CPU-Fälle bestanden, einschließlich Abbruch während Training/nach Wiederladen, geänderter Referenz, Quellschutz und Wiederöffnung. Exakte finale Windows-/Linux-CI in PR9; reale Probe und Wiederöffnung am24.11. vom Nutzer mit identischem Bericht bestätigt.
 
 ## Start ohne Installation
 
@@ -58,3 +58,5 @@ probe_id/run_id/weights_sha256 und die Messwerte müssen dabei unverändert blei
 Die Probe bestätigt weder PV-Hawk-Nachtraining noch die originale CVUT-Vorverarbeitung oder eine bessere Feldqualität. Vor tatsächlichem Nachtraining sind geeignete öffentliche bzw. ausdrücklich genehmigte Daten, Modell-/Daten-/Weitergaberechte, vollständige Beschriftungen samt Ausnahmen, ein qualifizierter Daten-/Traineradapter und ein unabhängiges reales Prüfset zu verbinden. Drei Module einer Anlage reichen nicht als allgemeiner Qualitätsnachweis. Bestehende Einwilligungs-/Freigabe-/Gruppenverträge bleiben maßgeblich. Kundenbilder bleiben lokal; keine Pflicht1000Module einzeln zu prüfen. Die unvollständige Thermal-Teilvorschau bleibt280/287, mit ihren GeoTIFF-Tags und der regulären Paarimport-Sperre.
 
 Nutzerhinweis24.11.: [Datature und verlinkte Quellen geprüft](PV_SEGMENTATION_DATATURE_REVIEW.md). SAHI/SAM2/Belichtungsvarianten sind konkrete Prüfoptionen nach diesem Techniknachweis; kein neues Paket oder Feldmodell daraus automatisch übernommen.
+
+Fortsetzung24.11.: [öffentliche PVIS-RGB-Referenz begrenzt aufnehmen](PVIS_RGB_REFERENZ_WINDOWS10.md). Synthetische Probe nicht erneut ausführen; ihr Artefakt bleibt vom Kundenvergleich ausgeschlossen.
