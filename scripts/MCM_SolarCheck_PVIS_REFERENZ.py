@@ -1,4 +1,4 @@
-"""Explicit public PVIS-10K intake: two pinned archives, no image decoding/training."""
+"""Explicit public PVIS-10K intake and held-out validation, without pixels/training."""
 import argparse
 from dataclasses import dataclass
 import json
@@ -19,6 +19,7 @@ from MCM_SolarCheck_CVUT_PAKETPRUEFUNG import (
 )
 from mcm_solarcheck.services.pv_dataset_intake import ImageModality, PublicDatasetRecord
 from mcm_solarcheck.services.pv_yolo_dataset_validation import validate_dataset_relative_path
+from mcm_solarcheck.services.pvis_training_reference import SPLIT_CHECK, REPORT, build_partition
 
 CHECK = 'solarcheck-pvis-reference-1'
 SOURCE = 'https://zenodo.org/records/23886365'
@@ -56,6 +57,8 @@ STATIONS = (
     Station('test', '024', 84, 20766, 260642818, 251234092,
             '9db6b88c49936e47c74f1c77af24e95cf9807e0558c5ff799c16be402beee420'),
 )
+VALIDATION = Station('train', '033', 142, 18675, 402261229, 392372468,
+    '85270e796868b7a242e3f10bee15c17fcb0ff937106b49d8f22d1f53b0cb43f2')
 
 
 def _cancel(should_cancel):
@@ -275,16 +278,79 @@ def intake(prefix, archive_dir=None, should_cancel=lambda: False, show=False):
         return actual
 
 
+def _saved_base(root, should_cancel):
+    marker = local(root / 'pvis-intake.json')
+    if json.loads(marker.read_text('utf-8')) != {'check': CHECK}:
+        raise ValueError('Existing PVIS intake folder required')
+    saved = json.loads(local(root / 'reference.json').read_text('utf-8'))
+    actual = _report(root, should_cancel)
+    if saved != actual:
+        raise ValueError('Original reference report or packages changed')
+    return actual
+
+
+def _split_report(root, base, should_cancel):
+    validation = inspect_station(root / VALIDATION.name, VALIDATION, should_cancel)
+    plan = build_partition([*base['stations'], validation])
+    return dict(base, **dict(plan, check=SPLIT_CHECK,
+        status='partition_verified_not_training_ready', validation_stations=1,
+        base_reference_sha256=digest(root / 'reference.json'),
+        annotation_policy_bound=True,
+        notice='Öffentliche RGB-Referenz mit ganzen getrennten Anlagen:009 Training,033 Validierung,024 Prüfung. '
+               'Modell-/Parameterwahl nur anhand der Validierung; Test024 bleibt für die Abschlussprüfung. '
+               'Projizierte Umrisse samt verdeckten Anteilen bleiben ein eigener Labelvertrag. '
+               'Keine automatische Umwandlung in sichtbare Modulflächen, keine bestätigte Modulzahl oder Modellqualität. '
+               'Bilddekodierung, Trainingsadapter und Rechteentscheidung noch offen; kein Training gestartet.'))
+
+
+def prepare_splits(prefix, archive_dir=None, should_cancel=lambda: False, show=False):
+    """Extend the confirmed intake without replacing its report or downloading it again."""
+    root = local(prefix)
+    source = local(archive_dir) if archive_dir is not None else None
+    if not root.is_dir():
+        raise FileNotFoundError('Confirmed public PVIS reference required')
+    with package_lock(root, 'pvis-package.lock'):
+        base = _saved_base(root, should_cancel)
+        target = local(root / REPORT)
+        if show:
+            saved = json.loads(target.read_text('utf-8'))
+            actual = _split_report(root, base, should_cancel)
+            if saved != actual:
+                raise ValueError('Partition report, label contract or public packages changed')
+            return actual
+        _cancel(should_cancel)
+        archive = local(root / VALIDATION.name)
+        # A hard-killed download is not a reusable archive. Remove only this
+        # fixed owned partial before checking the space needed to restart it.
+        local(archive.with_name(archive.name + '.download')).unlink(missing_ok=True)
+        missing = 0 if archive.exists() else VALIDATION.size
+        if shutil.disk_usage(root).free < missing + 50_000_000:
+            raise OSError(28, 'Insufficient validation-reference storage')
+        print('Pruefe oeffentliche Anlage 033 (lokale Validierung, Quelle train) ...',
+              file=sys.stderr, flush=True)
+        _receive(archive, VALIDATION.size, VALIDATION.sha256, source, should_cancel)
+        actual = _split_report(root, base, should_cancel)
+        _cancel(should_cancel)
+        atomic_json(target, actual)
+        return actual
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--prefix', default=r'E:\SolarCheck-PVIS-Referenz')
-    parser.add_argument('--archive-dir', help='Bewusst lokal geladene zwei ZIPs plus drei Quellen-Dokumente')
-    parser.add_argument('--show', action='store_true', help='Gespeicherte Referenz nur lokal nachpruefen')
+    parser.add_argument('--archive-dir', help='Lokaler Quellordner; bei --prepare-splits nur train_033-ZIP erforderlich')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--show', action='store_true', help='Gespeicherte erste Referenz nur lokal nachpruefen')
+    mode.add_argument('--prepare-splits', action='store_true', help='Bestaetigte Referenz um Validierungsanlage033 erweitern')
+    mode.add_argument('--show-splits', action='store_true', help='Gespeicherte Dreieraufteilung ausschliesslich lokal pruefen')
     args = parser.parse_args(argv)
-    if args.show and args.archive_dir:
-        parser.error('--show benoetigt keinen Quellordner')
+    if (args.show or args.show_splits) and args.archive_dir:
+        parser.error('--show/--show-splits benoetigen keinen Quellordner')
     try:
-        result = intake(args.prefix, args.archive_dir, show=args.show)
+        if args.prepare_splits or args.show_splits:
+            result = prepare_splits(args.prefix, args.archive_dir, show=args.show_splits)
+        else:
+            result = intake(args.prefix, args.archive_dir, show=args.show)
         print(json.dumps(result, indent=2, ensure_ascii=False), flush=True)
         return 0
     except KeyboardInterrupt:

@@ -1,10 +1,12 @@
 # Öffentliche RGB-Modulreferenz auf Windows 10
 
-Stand 24.11.2026 · PVIS-INTAKE-01 · [aktueller Entwicklungsstand](AKTUELLER_ENTWICKLUNGSSTAND.md).
+Stand 24.11.2026 · PVIS-INTAKE-01 real Windows10-PASS · [aktueller Entwicklungsstand](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 Der synthetische Trainingsversuch und seine Wiederöffnung sind laut Nutzer erfolgreich. Er hat die Trainingsmechanik geprüft, kein PV-Modell verbessert. Jetzt folgt die begrenzte Aufnahme einer öffentlichen Referenz: **PVIS-10K, Version 1.0.0**, [Zenodo/DOI 10.5281/zenodo.23886365](https://zenodo.org/records/23886365).
 
 Der neue Befehl lädt zwei fest ausgewählte Originalpakete sowie README, Datenlizenz und Anbietermanifest. Er prüft SHA-256, Paketstruktur und COCO-Annotationen und speichert einen wieder lesbaren Bericht. **Er öffnet kein Programmfenster und startet kein Training.** Die Bilder bleiben unverändert in den öffentlichen ZIPs; keine Entpackung, Bilddekodierung, Normalisierung oder Installation. Kundendaten, Projektdateien, bisherige Modelle und SQLite bleiben unberührt.
+
+**Reale Abnahme24.11.:** Nutzer hat den ursprünglichen Bericht und nach Schließen/Wiederöffnung denselben --show-Bericht mit142Bildern/37463Beobachtungen und passenden Prüfsummen mitgeteilt. Diesen Schritt nicht wiederholen. Nächste Erweiterung: [getrennte Validierungsanlage und Beschriftungsvertrag](PVIS_VALIDIERUNG_WINDOWS10.md). Die folgende ursprüngliche142er-Anleitung bleibt für ihren gespeicherten Stand gültig.
 
 ## Auswahl und fachliche Grenzen
 
