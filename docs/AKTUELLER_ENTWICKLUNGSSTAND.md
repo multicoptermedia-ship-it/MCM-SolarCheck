@@ -31,4 +31,4 @@ Implementiert:44gezielte Tests+14echte Torch-CPU-Fälle grün; neue exakte HEAD-
 ## Übergabe und Abnahme
 Vor Chatende zuerst Checkpoint(1000–8500Zeichen), dann Register/Vereinbarung/Handoff/Roadmap mit Block-/Test-/Commitbelegen, offener Lücke und nächstem Einstieg. Exakte HEAD-CI prüfen; technische Tests, Quellenprüfung und reale Abnahme trennen. Beide qualifizierten GeoTIFFs/scharfe Modulgrenzen/unabhängige Geometrie/Thermalzuordnung und gemessene Laufzeit bleiben Ziel. VERT-02/Befund→Modul-ID→RGB-Vergleich→gespeicherte Entscheidung→Bericht danach; Online/Zahlung/Installer nachrangig.
 
-Startquelle 8cb1498a/ZIP3169825Bytes/SHA78cf080a…708ba26/688Runtime-Dateien bytegleich; finale HEAD-CI in PR9.
+Trainingsquelle 94222381/ZIP3190360Bytes/SHA0aacf8d2…62a6ce6/690Runtime-Dateien bytegleich; finale HEAD-CI in PR9.

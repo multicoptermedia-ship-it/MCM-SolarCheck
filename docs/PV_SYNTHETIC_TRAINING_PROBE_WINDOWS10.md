@@ -24,12 +24,12 @@ Den vollständigen Block in **PowerShell** ausführen:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pvProbeCommit = 'SOURCE_COMMIT_PENDING'
+$pvProbeCommit = '9422238169f2162d3a2159c5b30dfd01c1439fdc'
 $pvProbeStart = Join-Path 'E:\SolarCheck-Trainingsprobe-Start' $pvProbeCommit
 New-Item -ItemType Directory -Force -Path $pvProbeStart | Out-Null
 $pvProbeZip = Join-Path $pvProbeStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvProbeCommit" -OutFile $pvProbeZip
-if ((Get-FileHash -Algorithm SHA256 $pvProbeZip).Hash.ToLowerInvariant() -ne 'SOURCE_SHA256_PENDING') {
+if ((Get-FileHash -Algorithm SHA256 $pvProbeZip).Hash.ToLowerInvariant() -ne '0aacf8d26ddfd7734be509b660ef50a11de9fd1b050f1b88f626ad17162a6ce6') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pvProbeZip -DestinationPath $pvProbeStart -Force
@@ -37,7 +37,7 @@ $pvProbeSource = Join-Path $pvProbeStart "MCM-SolarCheck-$pvProbeCommit"
 & 'E:\SolarCheck-CVUT-KI-Pilot\env\Scripts\python.exe' (Join-Path $pvProbeSource 'scripts\MCM_SolarCheck_PV_TRAININGSPROBE.py') --prefix 'E:\SolarCheck-CVUT-KI-Pilot'
 ```
 
-QuellZIP-Nachweis wird vor Übergabe mit festem Commit/Bytes/SHA und remote bytegleichen Runtime-/Konfigurations-/Paketdateien ergänzt.
+Feste Quelle **9422238169f2162d3a2159c5b30dfd01c1439fdc**, ZIP **3190360Bytes**, SHA256 **0aacf8d26ddfd7734be509b660ef50a11de9fd1b050f1b88f626ad17162a6ce6**. Alle **690Python-Dateien unter src/scripts** sowie CVUT-Konfiguration und bestehende Paketlisten mit dem remote geladenen Archiv bytegleich geprüft. Spätere reine Dokumentationsnachträge ändern diese Laufzeitquelle nicht.
 
 ## Ergebnis lesen und erneut öffnen
 
@@ -48,7 +48,7 @@ Erwartet sind check=solarcheck-pv-synthetic-training-1, status=passed, synthetic
 Anschließend PowerShell schließen und den letzten abgeschlossenen Bericht mit folgendem Befehl erneut prüfen. **--show startet kein Training** und lädt auch kein Modell; Herkunft und Gewichtsdatei werden gelesen/SHA-geprüft:
 
 ```powershell
-& 'E:\SolarCheck-CVUT-KI-Pilot\env\Scripts\python.exe' 'E:\SolarCheck-Trainingsprobe-Start\SOURCE_COMMIT_PENDING\MCM-SolarCheck-SOURCE_COMMIT_PENDING\scripts\MCM_SolarCheck_PV_TRAININGSPROBE.py' --prefix 'E:\SolarCheck-CVUT-KI-Pilot' --show
+& 'E:\SolarCheck-CVUT-KI-Pilot\env\Scripts\python.exe' 'E:\SolarCheck-Trainingsprobe-Start\9422238169f2162d3a2159c5b30dfd01c1439fdc\MCM-SolarCheck-9422238169f2162d3a2159c5b30dfd01c1439fdc\scripts\MCM_SolarCheck_PV_TRAININGSPROBE.py' --prefix 'E:\SolarCheck-CVUT-KI-Pilot' --show
 ```
 
 probe_id/run_id/weights_sha256 und die Messwerte müssen dabei unverändert bleiben. Ein weiterer Aufruf **ohne --show** erzeugt hingegen einen neuen Lauf. Fehler liefern einen separaten JSON-Diagnoseblock ohne rohe lokale Pfade; vorhandene Erkennungsmodelle und Proben bleiben erhalten.
