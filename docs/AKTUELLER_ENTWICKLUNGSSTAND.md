@@ -30,3 +30,5 @@ CVUT: TLS aktiv/Browserdownload nach Zertifikatsfehler, eigene E:\SolarCheck-CVU
 Vor Chatende Checkpoint(1000–8500Zeichen), Register/Vereinbarung/Handoff/Roadmap aktualisieren; exakte HEAD-CI in PR9 prüfen. Technische Tests/Quellenprüfung/reale Abnahme trennen. Ziel: beide GeoTIFFs/scharfe Module/unabhängige Geometrie/Thermalzuordnung. Danach VERT-02/Befund→Modul→RGB→Entscheidung→Bericht; Online/Installer später.
 
 Bestätigte142er-Startquelle9c4c6373 bleibt gültig; neue feste Erweiterungsquelle und finale HEAD-CI in PR9.
+
+Erweiterungsquellea6c1453f/ZIP3220675Bytes/SHA63c7c7c8…17c08fa7;692Runtime-Dateien+9Konfig/Paketlisten remote bytegleich.

@@ -38,12 +38,12 @@ Den **vollständigen Block** in PowerShell ausführen:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pvSplitCommit = 'SOURCE_COMMIT'
+$pvSplitCommit = 'a6c1453f17f9eca35080ac0d48ddac8a173c36d1'
 $pvSplitStart = Join-Path 'E:\SolarCheck-PVIS-Validierung-Start' $pvSplitCommit
 New-Item -ItemType Directory -Force -Path $pvSplitStart | Out-Null
 $pvSplitZip = Join-Path $pvSplitStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvSplitCommit" -OutFile $pvSplitZip
-if ((Get-FileHash -Algorithm SHA256 $pvSplitZip).Hash.ToLowerInvariant() -ne 'SOURCE_SHA256') {
+if ((Get-FileHash -Algorithm SHA256 $pvSplitZip).Hash.ToLowerInvariant() -ne '63c7c7c8cfe8c3d87dfea5fa75dee9daecd64a8963df6a6657e678cc17c08fa7') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pvSplitZip -DestinationPath $pvSplitStart -Force
@@ -51,7 +51,7 @@ $pvSplitSource = Join-Path $pvSplitStart "MCM-SolarCheck-$pvSplitCommit"
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pvSplitSource 'scripts\MCM_SolarCheck_PVIS_REFERENZ.py') --prefix 'E:\SolarCheck-PVIS-Referenz' --prepare-splits
 ```
 
-Feste Quelle **SOURCE_COMMIT**, QuellZIP **SOURCE_BYTES Bytes**, SHA256 **SOURCE_SHA256**. Runtime-Dateien sowie Konfiguration/Paketlisten vor Übergabe mit dem remote geladenen Archiv bytegleich geprüft; finale HEAD-CI in PR9.
+Feste Quelle **a6c1453f17f9eca35080ac0d48ddac8a173c36d1**, QuellZIP **3220675 Bytes**, SHA256 **63c7c7c8cfe8c3d87dfea5fa75dee9daecd64a8963df6a6657e678cc17c08fa7**. Alle **692 Python-Dateien** unter src/scripts sowie **9 Konfigurations-/Paketlistendateien** mit dem remote geladenen Archiv bytegleich geprüft; finale HEAD-CI in PR9.
 
 Erwarteter Bericht:
 
@@ -75,7 +75,7 @@ Die vollständige Ausgabe enthält zusätzlich Prüfsummen, Beschriftungsvertrag
 Der neue Bericht heißt **training-reference.json**. Der frühere reference.json bleibt unverändert. Nach Schließen von PowerShell diesen vollständigen Befehl ausführen:
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Validierung-Start\SOURCE_COMMIT\MCM-SolarCheck-SOURCE_COMMIT\scripts\MCM_SolarCheck_PVIS_REFERENZ.py' --prefix 'E:\SolarCheck-PVIS-Referenz' --show-splits
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Validierung-Start\a6c1453f17f9eca35080ac0d48ddac8a173c36d1\MCM-SolarCheck-a6c1453f17f9eca35080ac0d48ddac8a173c36d1\scripts\MCM_SolarCheck_PVIS_REFERENZ.py' --prefix 'E:\SolarCheck-PVIS-Referenz' --show-splits
 ```
 
 Es müssen dieselben284 Bilder / 56.138 Beobachtungen und derselbe partition_sha256 erscheinen. **--show-splits** prüft ausschließlich lokal, ohne Download oder Training. Das alte --show zeigt weiterhin den bestätigten142er-Bericht; es ist nicht der neue Wiederöffnungsbefehl.
@@ -90,7 +90,7 @@ Offizielle Identität:392372468Bytes, SHA256 **85270e796868b7a242e3f10bee15c17fc
 
 ```powershell
 $pvValidationDownloads = Read-Host 'Vollstaendiger Pfad zum Ordner mit PVDataset_train_033.zip'
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Validierung-Start\SOURCE_COMMIT\MCM-SolarCheck-SOURCE_COMMIT\scripts\MCM_SolarCheck_PVIS_REFERENZ.py' --prefix 'E:\SolarCheck-PVIS-Referenz' --prepare-splits --archive-dir $pvValidationDownloads
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Validierung-Start\a6c1453f17f9eca35080ac0d48ddac8a173c36d1\MCM-SolarCheck-a6c1453f17f9eca35080ac0d48ddac8a173c36d1\scripts\MCM_SolarCheck_PVIS_REFERENZ.py' --prefix 'E:\SolarCheck-PVIS-Referenz' --prepare-splits --archive-dir $pvValidationDownloads
 ```
 
 Dieser Weg kopiert ausschließlich die fest gebundene033-Datei aus dem bewusst ausgewählten Quellordner. Keine Netzverbindung, keine Änderung am Originaldownload. Bei Fehler nur den Diagnoseblock als Text mitteilen; keine Neuinstallation.
