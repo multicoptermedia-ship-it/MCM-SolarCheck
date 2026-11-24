@@ -1,5 +1,7 @@
 # RGB-Orthofoto-Modulgrenzen: lokale Lern- und Prüfvorbereitung
 
+**24.11.: Speichern/Wiederöffnung der begrenzten Lernvorbereitung real bestätigt.** Drei Lernflächen/fünf ausgenommene Umrisse/ein Bereich bleiben erhalten. Erneuter PV-Hawk-Vergleich verwendet weiter alte Gewichte und liefert dieselben18Vorschläge. Diese Vorbereitung startet kein Nachtraining. Nächster bedienbarer Techniknachweis: [ausschließlich synthetische Trainingsprobe](PV_SYNTHETIC_TRAINING_PROBE_WINDOWS10.md), noch kein verbessertes PV-Modell.
+
 Stand 21.11.2026 · Ausnahmevorschau real bedienbar / PV-ORTHO-TRAIN-AREA-01 implementiert, neue Abnahme offen · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 **Aktueller Feldbefund20.11.:** Öffentlicher CVUT-Pilot technisch eingerichtet und real im gespeicherten RGB-Ausschnitt ausgeführt:73Kandidaten,0/8Teilreferenzen wiedergefunden, sichtbare kleine/Teilumrisse; Feldqualität FAIL. [Befund und nächster Entwicklungsblock](CVUT_PV_PILOT_WINDOWS10.md): Originaleingabe/Klassenzuordnung und öffentliche annotierte Referenzprüfung zuerst; noch keine belegte Ursache oder Korrektur. Keine unveränderte Wiederholung/Neuinstallation oder Pflicht zur manuellen Prüfung aller Module. Nachtraining mit öffentlichen Daten erst nach qualifizierter Integration. Kundendaten bleiben lokale zurückgehaltene Prüfung. Nutzer beauftragt21.11. die lokale Vorbereitung vorhandener geprüfter/korrigierter Umrisse. Kein Bildexport oder tatsächlicher Trainingsstart.
