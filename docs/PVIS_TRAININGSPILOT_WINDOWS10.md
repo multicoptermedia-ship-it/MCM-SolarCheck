@@ -1,5 +1,7 @@
 # Begrenzter Trainingspilot mit öffentlichen PV-Modulen
 
+**Training und Wiederöffnung real Windows10-PASS26.11.2026:** beide Nutzerberichte identisch. Nicht erneut trainieren. Weiter mit der [Instanzprüfung vorhandener Gewichte](PVIS_INSTANZPRUEFUNG_WINDOWS10.md). Die folgende Startanleitung bleibt als Nachweis erhalten.
+
 Stand 26.11.2026 · PVIS-PUBLIC-TRAIN-01 · [Entwicklungsstand](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 Dein Bildadapterbericht und beide Kontrollbilder sind geprüft. Diesen Schritt **nicht wiederholen**. Jetzt trainiert erstmals ein eigener begrenzter Versuch mit den vorhandenen öffentlichen RGB-Bildern. Er verwendet acht Trainingsausschnitte aus Anlage 009 und acht Validierungsausschnitte aus Anlage 033. Die Prüfanlage 024 bleibt als Bild unangetastet.
