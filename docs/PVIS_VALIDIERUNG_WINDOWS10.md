@@ -1,8 +1,10 @@
 # PVIS-Referenz um eine eigene Validierungsanlage erweitern
 
-Stand 24.11.2026 · PVIS-SPLIT-POLICY-01 · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
+Stand 24.11.2026 · PVIS-SPLIT-POLICY-01 real Windows10-PASS · [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 Die ursprüngliche öffentliche Referenzprüfung und ihre Wiederöffnung sind laut deinen beiden Berichten bestanden:142 Bilder / 37.463 Modulbeobachtungen. **Diesen 142er-Schritt nicht wiederholen.** Die folgende Erweiterung verwendet die gespeicherten Dateien unter E:\SolarCheck-PVIS-Referenz und ergänzt ausschließlich Anlage 033. Sie benötigt dein vorhandenes App-Python, keine neue Installation. Es erscheint ein JSON-Bericht in PowerShell, kein Programmfenster.
+
+**Abnahme abgeschlossen:** Nutzer liefert am24.11. beide inhaltlich identischen284er-Berichte, einschließlich partition_sha25661e62706…63f9dc9b. Wiederöffnung bestätigt, diesen Schritt nicht erneut ausführen.26Validierungsbilder ohne Annotationen sind erfasst, keine bestätigten Negativbilder. [Nächster Schritt: öffentlicher Bild-/Instanzmaskenadapter](PVIS_BILDADAPTER_WINDOWS10.md).
 
 ## Ganze Anlagen getrennt halten
 
