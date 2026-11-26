@@ -30,4 +30,4 @@ Versionierte Bildprotokolle/Runtime-/Profil-/Partitionsbindung, atomarer image-a
 ## Übergabe und Abnahme
 Vor Chatende Checkpoint(1000–8500Zeichen), Register/Vereinbarung/Handoff/Roadmap aktualisieren; exakte HEAD-CI in PR9 prüfen. Technische Tests/Quellenprüfung/reale Abnahme trennen. Ziel: beide GeoTIFFs/scharfe Module/unabhängige Geometrie/Thermalzuordnung. Danach VERT-02/Befund→Modul→RGB→Entscheidung→Bericht; Online/Installer später.
 
-Bestätigte142er-/284er-Quellen9c4c6373/a6c1453f bleiben gültig. Neue feste Adapterquelle/finale HEAD-CI in PR9.
+Adapterquelle29b651c2/ZIP3241144Bytes/SHA3c8cd2e4…c1b0d6f1;694Runtime-Dateien+9Konfig/Paketlisten remote bytegleich.

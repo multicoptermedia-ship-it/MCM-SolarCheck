@@ -23,12 +23,12 @@ Den **vollständigen Block** in PowerShell ausführen:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pvImageCommit = 'SOURCE_COMMIT'
+$pvImageCommit = '29b651c229d49d92cceced71e3921ee79564c2fc'
 $pvImageStart = Join-Path 'E:\SolarCheck-PVIS-Bildadapter-Start' $pvImageCommit
 New-Item -ItemType Directory -Force -Path $pvImageStart | Out-Null
 $pvImageZip = Join-Path $pvImageStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvImageCommit" -OutFile $pvImageZip
-if ((Get-FileHash -Algorithm SHA256 $pvImageZip).Hash.ToLowerInvariant() -ne 'SOURCE_SHA256') {
+if ((Get-FileHash -Algorithm SHA256 $pvImageZip).Hash.ToLowerInvariant() -ne '3c8cd2e4234711a511f54a534685b6508d95939efc106c497b8dc404c1b0d6f1') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pvImageZip -DestinationPath $pvImageStart -Force
@@ -36,7 +36,7 @@ $pvImageSource = Join-Path $pvImageStart "MCM-SolarCheck-$pvImageCommit"
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pvImageSource 'scripts\MCM_SolarCheck_PVIS_BILDADAPTER.py') --prefix 'E:\SolarCheck-PVIS-Referenz'
 ```
 
-Während des Laufs erscheint alle zehn Bilder ein Fortschrittszähler. Anschließend folgt ein JSON-Bericht in PowerShell; es öffnet sich zunächst kein Programmfenster. Feste Quelle **SOURCE_COMMIT**, QuellZIP **SOURCE_BYTES Bytes**, SHA256 **SOURCE_SHA256**. Runtime-Dateien und Konfiguration/Paketlisten werden vor Übergabe mit dem remote geladenen Archiv bytegleich geprüft; finale HEAD-CI in PR9.
+Während des Laufs erscheint alle zehn Bilder ein Fortschrittszähler. Anschließend folgt ein JSON-Bericht in PowerShell; es öffnet sich zunächst kein Programmfenster. Feste Quelle **29b651c229d49d92cceced71e3921ee79564c2fc**, QuellZIP **3241144 Bytes**, SHA256 **3c8cd2e4234711a511f54a534685b6508d95939efc106c497b8dc404c1b0d6f1**. Alle **694 Python-Dateien** unter src/scripts sowie **9 Konfigurations-/Paketlistendateien** mit dem remote geladenen Archiv bytegleich geprüft; finale HEAD-CI in PR9.
 
 Erwartete Kernwerte:
 
@@ -62,7 +62,7 @@ full_dataset_image_decoding_verified=false ist beabsichtigt: Die 84 Prüfbilder 
 Nach Schließen von PowerShell den folgenden vollständigen Block ausführen. Er prüft den gespeicherten Stand, ohne JPEGs erneut zu dekodieren oder ein Modell zu laden. Bei Erfolg öffnet er die zwei öffentlichen Kontrollbilder im vorhandenen Bildbetrachter:
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Bildadapter-Start\SOURCE_COMMIT\MCM-SolarCheck-SOURCE_COMMIT\scripts\MCM_SolarCheck_PVIS_BILDADAPTER.py' --prefix 'E:\SolarCheck-PVIS-Referenz' --show
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Bildadapter-Start\29b651c229d49d92cceced71e3921ee79564c2fc\MCM-SolarCheck-29b651c229d49d92cceced71e3921ee79564c2fc\scripts\MCM_SolarCheck_PVIS_BILDADAPTER.py' --prefix 'E:\SolarCheck-PVIS-Referenz' --show
 if ($LASTEXITCODE -eq 0) {
     $pvImageReport = Get-Content -LiteralPath 'E:\SolarCheck-PVIS-Referenz\image-adapter.json' -Raw -Encoding UTF8 | ConvertFrom-Json
     $pvImageOutputs = Join-Path 'E:\SolarCheck-PVIS-Referenz\image-adapter' $pvImageReport.adapter_id
