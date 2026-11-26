@@ -31,4 +31,4 @@ Atomare Epochenspeicherpunkte mit Modell/RNG/Verlauf/Hash. Strg+C→gleicher Sta
 Vor Chatende Checkpoint(1000–8500Zeichen), Register/Vereinbarung/Handoff/Roadmap aktualisieren; exakte HEAD-CI in PR9 prüfen. Technische Tests/Quellenprüfung/reale Abnahme trennen. Ziel: beide GeoTIFFs/scharfe Module/unabhängige Geometrie/Thermalzuordnung. Danach VERT-02/Befund→Modul→RGB→Entscheidung→Bericht; Online/Installer später.
 
 
-Trainingsquelle/ZIP-Prüfsumme vor Veröffentlichung fest pinnen; Adapterquellen gegenüber29b651c2 bytegleich erhalten.
+Trainingsquelle825cd57d/ZIP3267779Bytes/SHA637b544f35d9977f44838c349749b165592b76a60cb24ac5a153ec4a0b21f452;697Runtime-Dateien+9Konfig/Paketlisten remote bytegleich. Adapterquellen29b651c2 erhalten.

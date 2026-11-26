@@ -12,12 +12,12 @@ Den vollständigen Block in PowerShell ausführen. **--run-public-pilot startet 
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pvTrainCommit = 'SOURCE_COMMIT'
+$pvTrainCommit = '825cd57dcae617b3b3a03f34e1be980d7d48cc7b'
 $pvTrainStart = Join-Path 'E:\SolarCheck-PVIS-Training-Start' $pvTrainCommit
 New-Item -ItemType Directory -Force -Path $pvTrainStart | Out-Null
 $pvTrainZip = Join-Path $pvTrainStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvTrainCommit" -OutFile $pvTrainZip
-if ((Get-FileHash -Algorithm SHA256 $pvTrainZip).Hash.ToLowerInvariant() -ne 'SOURCE_SHA256') {
+if ((Get-FileHash -Algorithm SHA256 $pvTrainZip).Hash.ToLowerInvariant() -ne '637b544f35d9977f44838c349749b165592b76a60cb24ac5a153ec4a0b21f452') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pvTrainZip -DestinationPath $pvTrainStart -Force
@@ -25,7 +25,7 @@ $pvTrainSource = Join-Path $pvTrainStart "MCM-SolarCheck-$pvTrainCommit"
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pvTrainSource 'scripts\MCM_SolarCheck_PVIS_TRAINING.py') --run-public-pilot --source-prefix 'E:\SolarCheck-PVIS-Referenz' --torch-prefix 'E:\SolarCheck-CVUT-KI-Pilot' --prefix 'E:\SolarCheck-PVIS-Training'
 ```
 
-Feste Quelle SOURCE_COMMIT, ZIP SOURCE_BYTES Bytes, SHA256 SOURCE_SHA256. Quellcode und Konfiguration werden gegen das heruntergeladene Archiv geprüft; exakte finale HEAD-CI in Draft PR9.
+Feste Quelle 825cd57dcae617b3b3a03f34e1be980d7d48cc7b, ZIP 3267779 Bytes, SHA256 637b544f35d9977f44838c349749b165592b76a60cb24ac5a153ec4a0b21f452. Quellcode und Konfiguration werden gegen das heruntergeladene Archiv geprüft; exakte finale HEAD-CI in Draft PR9.
 
 Zuerst prüft das App-Python den abgeschlossenen Adapterstand. Nur die 16 fest ausgewählten öffentlichen Ausschnitte werden erneut dekodiert und gegen ihre gespeicherten Pixel-/Maskenprotokolle geprüft. Ihre primitiven Zahlenfelder bilden ein eigenes SHA-gebundenes NPZ-Paket; kein Pickle. Damit muss die getrennte Torch-Umgebung keine Bilder oder Masken mit abweichenden Bildbibliotheken neu berechnen. Originalarchive und bestehende Adapterberichte bleiben erhalten.
 
@@ -60,7 +60,7 @@ Erwartete Kernwerte nach erfolgreichem Abschluss:
 Nach Schließen und erneutem Öffnen von PowerShell diesen vollständigen Befehl ausführen:
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Training-Start\SOURCE_COMMIT\MCM-SolarCheck-SOURCE_COMMIT\scripts\MCM_SolarCheck_PVIS_TRAINING.py' --prefix 'E:\SolarCheck-PVIS-Training' --show
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Training-Start\825cd57dcae617b3b3a03f34e1be980d7d48cc7b\MCM-SolarCheck-825cd57dcae617b3b3a03f34e1be980d7d48cc7b\scripts\MCM_SolarCheck_PVIS_TRAINING.py' --prefix 'E:\SolarCheck-PVIS-Training' --show
 ```
 
 --show prüft Datenpaket, Laufbericht und Gewichtsprüfsumme ohne Torch-Modell, JPEG-Dekodierung oder neues Training. Der JSON-Bericht muss identisch bleiben. Bitte nur diesen JSON-Text mitteilen; keine Bilder, ZIPs oder Gewichtsdateien hochladen. Bei Fehler reicht der ausgegebene Diagnoseblock; keine Neuinstallation.
