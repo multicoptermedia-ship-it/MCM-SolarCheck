@@ -30,4 +30,4 @@ Quell-/Profil-/Runtime-/Daten-/Parentgewichtsbindung, versionierte atomare Crop-
 Vor Chatende Checkpoint(1000–8500Zeichen), Register/Vereinbarung/Handoff/Roadmap aktualisieren; exakte HEAD-CI in PR9 prüfen. Technische Tests/Quellenprüfung/reale Abnahme trennen. Ziel: beide GeoTIFFs/scharfe Module/unabhängige Geometrie/Thermalzuordnung. Danach VERT-02/Befund→Modul→RGB→Entscheidung→Bericht; Online/Installer später.
 
 
-Instanzprüfquelle/ZIP vor Veröffentlichung fest pinnen; Trainer-/Adapterquellen825cd57d/29b651c2 unverändert erhalten.
+Instanzprüfquellea5cca60d/ZIP3290858Bytes/SHA804e6b65d21a8083898911949dc4c9330b5645b23bbd88e56726e105c3abba6e;700Runtime-Dateien+9Konfig/Paketlisten remote bytegleich. Trainer-/Adapterquellen825cd57d/29b651c2 erhalten.

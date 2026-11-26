@@ -14,12 +14,12 @@ Den vollständigen Block in PowerShell ausführen. Er lädt nur die geprüfte So
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pvInstanceCommit = 'SOURCE_COMMIT'
+$pvInstanceCommit = 'a5cca60d2f07ba00198adde17521c46dfcafcece'
 $pvInstanceStart = Join-Path 'E:\SolarCheck-PVIS-Instanzpruefung-Start' $pvInstanceCommit
 New-Item -ItemType Directory -Force -Path $pvInstanceStart | Out-Null
 $pvInstanceZip = Join-Path $pvInstanceStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvInstanceCommit" -OutFile $pvInstanceZip
-if ((Get-FileHash -Algorithm SHA256 $pvInstanceZip).Hash.ToLowerInvariant() -ne 'SOURCE_SHA256') {
+if ((Get-FileHash -Algorithm SHA256 $pvInstanceZip).Hash.ToLowerInvariant() -ne '804e6b65d21a8083898911949dc4c9330b5645b23bbd88e56726e105c3abba6e') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pvInstanceZip -DestinationPath $pvInstanceStart -Force
@@ -35,7 +35,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 ```
 
-Feste Quelle SOURCE_COMMIT, ZIP SOURCE_BYTES Bytes, SHA256 SOURCE_SHA256. Laufzeitquellen und Konfiguration werden gegen das remote geladene Archiv geprüft; exakte finale HEAD-CI in Draft PR9.
+Feste Quelle a5cca60d2f07ba00198adde17521c46dfcafcece, ZIP 3290858 Bytes, SHA256 804e6b65d21a8083898911949dc4c9330b5645b23bbd88e56726e105c3abba6e. Laufzeitquellen und Konfiguration werden gegen das remote geladene Archiv geprüft; exakte finale HEAD-CI in Draft PR9.
 
 In PowerShell erscheinen acht Fortschrittszeilen **Instanzpruefung Validierung** und ein JSON-Bericht. Es erscheinen keine neuen Trainingsepochen. Anschließend öffnet der vorhandene Bildbetrachter das erste öffentliche Kontrollbild. Weitere Kontrollbilder liegen im gleichen Auswertungsordner. Rund20MB freier Platz reichen für diese begrenzten Diagnoseartefakte.
 
@@ -59,7 +59,7 @@ Die zusätzliche öffentliche Linux-Probe mit unveränderten Gewichten hat **noc
 Nach Schließen und erneutem Öffnen von PowerShell diesen vollständigen Befehl ausführen:
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Instanzpruefung-Start\SOURCE_COMMIT\MCM-SolarCheck-SOURCE_COMMIT\scripts\MCM_SolarCheck_PVIS_INSTANZPRUEFUNG.py' --prefix 'E:\SolarCheck-PVIS-Training' --show
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Instanzpruefung-Start\a5cca60d2f07ba00198adde17521c46dfcafcece\MCM-SolarCheck-a5cca60d2f07ba00198adde17521c46dfcafcece\scripts\MCM_SolarCheck_PVIS_INSTANZPRUEFUNG.py' --prefix 'E:\SolarCheck-PVIS-Training' --show
 ```
 
 --show prüft Parent-Lauf, Zahlenpaket, Gewichte, gespeicherte Masken und Kontrollbilder, rechnet Maskenzuordnung/Kennzahlen erneut aus den gespeicherten Rastern und vergleicht den Abschlussbericht. **Keine Torch-Modellinstanz, Inferenz, Trainingsrunde oder Original-JPEG-Dekodierung.** Derselbe Bericht muss wieder erscheinen. Bitte nur den JSON-Text mitteilen, keine Bilder oder Gewichte hochladen.
