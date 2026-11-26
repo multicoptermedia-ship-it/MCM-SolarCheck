@@ -1,5 +1,7 @@
 # Öffentliche RGB-Bilder und Instanzmasken prüfen
 
+**Reale Windows10-Abnahme26.11.2026 abgeschlossen:** Bericht, Wiederöffnung und beide Kontrollbilder laut Nutzer plausibel. Nicht erneut ausführen. Weiter mit dem [begrenzten öffentlichen Trainingspilot](PVIS_TRAININGSPILOT_WINDOWS10.md). Die folgende Adapteranleitung bleibt als Nachweis erhalten.
+
 Stand 26.11.2026 · PVIS-IMAGE-ADAPTER-01 · [aktueller Entwicklungsstand](AKTUELLER_ENTWICKLUNGSSTAND.md).
 
 Deine beiden Berichte bestätigen die gespeicherte Aufteilung und Wiederöffnung: 58 Trainingsbilder aus Anlage 009, 142 Validierungsbilder aus 033, 84 Prüfbilder aus 024. **Die Referenz- und Aufteilungsschritte nicht wiederholen.** Dieser neue Schritt lädt die vorhandenen öffentlichen JPEGs tatsächlich als RGB-Pixel und erzeugt begrenzte Instanzmasken im Speicher. Er startet kein Training und verändert kein Erkennungsmodell.
@@ -89,7 +91,7 @@ Bei Fehler bitte nur den ausgegebenen Diagnoseblock mitteilen. Das vorhandene Ap
 
 140 gezielte synthetische Tests, davon 24 neue Adapterfälle, bestanden: tatsächliche erzeugte JPEG-Pixel, RGB-/Pixelzuordnung, Mehrfragmente/benachbarte Instanzen, ignorierte Überlappungen/Ränder/Auffüllung, unbekannte Bilder/Gültigkeitsmaske, Testpixelsperre, Abbruch/Fortsetzung/Wiederöffnung, Quellschutz, Manipulation, Parallelprozess und Platzmangel. Die synthetische Kontrolldarstellung ist gesichtet.
 
-Echte öffentliche Linux-Probe:200 JPEGs dekodiert,58/114 geeignete Trainings-/Validierungs-Prüfausschnitte,328/615 Instanzbeobachtungen,26 unannotierte Bilder vollständig ignoriert. Zwei weitere annotierte Validierungs-Prüfausschnitte ohne geeignete vollständige Instanz, keine Negativfreigabe. Wiederöffnungsbericht identisch,0 Testpixelbilder. Diese Werte stammen aus der geprüften Runtime, keine Vollbild-Modulzahlen oder allgemeine Qualitätsquote. Native Windows-CI und reale Windows10-Bedienabnahme werden getrennt dokumentiert; letztere für diesen Adapter noch offen.
+Echte öffentliche Linux-Probe:200 JPEGs dekodiert,58/114 geeignete Trainings-/Validierungs-Prüfausschnitte,328/615 Instanzbeobachtungen,26 unannotierte Bilder vollständig ignoriert. Zwei weitere annotierte Validierungs-Prüfausschnitte ohne geeignete vollständige Instanz, keine Negativfreigabe. Wiederöffnungsbericht identisch,0 Testpixelbilder. Diese Werte stammen aus der geprüften Runtime, keine Vollbild-Modulzahlen oder allgemeine Qualitätsquote. Native Windows-CI und reale Windows10-Bedienabnahme werden getrennt dokumentiert; letztere laut Nutzerbericht und beiden Kontrollbildern inzwischen positiv abgeschlossen, keine allgemeine Qualitätsfreigabe.
 
 Als Nächstes einen qualifizierten Trainer verbinden, der Instanzen und Gültigkeit korrekt verarbeitet, mit passenden Daten-/Code-/Modellrechten. Erst danach begrenztes echtes Nachtraining und unabhängige Prüfung. Die öffentliche [PVIS-Datenlizenz](https://zenodo.org/records/23886365/files/LICENSE.md?download=1) nennt CC BY4.0; bei Weitergabe Attribution/Lizenzlink/Änderungskennzeichnung einschließlich Urheberangaben aus dem Zenodo-Zitiervorschlag erhalten. Keine pauschale Produktionsfreigabe oder Weitergabe der Kontrollbilder als eigene Originale.
 

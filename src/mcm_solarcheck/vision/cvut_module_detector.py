@@ -47,7 +47,9 @@ def evaluation_python(path):
     return str(executable)
 
 
-def reference_model(root, spec, torch):
+def reference_model(root, spec, torch, *, n_classes=2):
+    if type(n_classes) is not int or n_classes not in (2, 4):
+        raise ValueError('Only the original two-class or separate four-channel research head is supported.')
     # Check ALL sources before executing the small selected reference subset.
     # Ignore neighboring modules, pyc files and model-serialized Python objects.
     sources = {n: checked_bytes(root / 'vendor' / n, check) for n, check in spec['sources'].items()}
@@ -62,7 +64,7 @@ def reference_model(root, spec, torch):
         sys.modules[module.__name__] = module
         exec(compile(sources[key], module.__file__, 'exec'), module.__dict__)
         setattr(package, name, module)
-    return package.unet_model.UNet(n_channels=3, n_classes=2, bilinear=False).cpu().eval()
+    return package.unet_model.UNet(n_channels=3, n_classes=n_classes, bilinear=False).cpu().eval()
 
 
 def checked_state(torch, data, model, spec):
