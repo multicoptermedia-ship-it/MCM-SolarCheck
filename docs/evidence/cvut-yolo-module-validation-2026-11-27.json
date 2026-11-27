@@ -1,0 +1,612 @@
+{
+  "check": "solarcheck-cvut-yolo-public-module-validation-1",
+  "status": "finished_public_research_not_production",
+  "profile": {
+    "id": "cvut-yolov8-public-native512-area256-1",
+    "input_size": 256,
+    "rgb": "uint8_div255",
+    "confidence": 0.25,
+    "box_nms_iou": 0.7,
+    "maximum_predictions": 300,
+    "masks": "retina_native_then_min_area_rectangle_of_all_same_instance_pixels",
+    "minimum_mask_pixels": 16,
+    "minimum_fill": 0.5,
+    "minimum_aspect": 1.25,
+    "maximum_aspect": 2.8,
+    "polygon_duplicate_iou": 0.5,
+    "reference_mask_iou": 0.5,
+    "boundary": "reject_box_or_mask_touching_crop_edge",
+    "matching": "maximum_cardinality_on_known_pixels_only"
+  },
+  "corpus_manifest_sha256": "0b3070b4a74e8fb01abb46361bfe639f5e66792bc436f6c5522307d41befafb6",
+  "weights_sha256": "d80be7a0629da05e4f315e3a8ead0fb2438649c191a123a33e14403a334cdc27",
+  "validation_station": "033",
+  "crops": [
+    {
+      "raw_masks": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 22150,
+        "foreground_union": 23295
+      },
+      "module_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 22371,
+        "foreground_union": 25835
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 7,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 18187,
+        "foreground_union": 20694
+      },
+      "module_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 4,
+        "foreground_intersection": 8668,
+        "foreground_union": 20885
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 27931,
+        "foreground_union": 29500
+      },
+      "module_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 28418,
+        "foreground_union": 31243
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 7,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 7892,
+        "foreground_union": 9778
+      },
+      "module_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 4,
+        "foreground_intersection": 3606,
+        "foreground_union": 10303
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 1,
+        "scored_prediction_instances": 16,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 15,
+        "missed_references": 0,
+        "foreground_intersection": 3726,
+        "foreground_union": 4556
+      },
+      "module_outlines": {
+        "reference_instances": 1,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 8,
+        "missed_references": 0,
+        "foreground_intersection": 3853,
+        "foreground_union": 6485
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 4,
+        "missed_references": 0,
+        "foreground_intersection": 15719,
+        "foreground_union": 17112
+      },
+      "module_outlines": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 15851,
+        "foreground_union": 17169
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 5409,
+        "foreground_union": 6205
+      },
+      "module_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 5628,
+        "foreground_union": 8455
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 24,
+        "predictions_wholly_ignored": 10,
+        "matched_instances": 7,
+        "additional_predictions": 17,
+        "missed_references": 0,
+        "foreground_intersection": 6994,
+        "foreground_union": 8022
+      },
+      "module_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 5,
+        "matched_instances": 3,
+        "additional_predictions": 6,
+        "missed_references": 4,
+        "foreground_intersection": 4714,
+        "foreground_union": 7848
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 6630,
+        "foreground_union": 7262
+      },
+      "module_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 2,
+        "missed_references": 3,
+        "foreground_intersection": 1143,
+        "foreground_union": 6956
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 19023,
+        "foreground_union": 20509
+      },
+      "module_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 19538,
+        "foreground_union": 21306
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 13065,
+        "foreground_union": 14526
+      },
+      "module_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 13678,
+        "foreground_union": 17018
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 19457,
+        "foreground_union": 20575
+      },
+      "module_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 19790,
+        "foreground_union": 21577
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 4988,
+        "foreground_union": 5731
+      },
+      "module_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 4968,
+        "foreground_union": 7385
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 7,
+        "missed_references": 0,
+        "foreground_intersection": 19528,
+        "foreground_union": 20859
+      },
+      "module_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 1,
+        "missed_references": 1,
+        "foreground_intersection": 5531,
+        "foreground_union": 20635
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 5,
+        "missed_references": 0,
+        "foreground_intersection": 20510,
+        "foreground_union": 22105
+      },
+      "module_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 1,
+        "missed_references": 1,
+        "foreground_intersection": 10111,
+        "foreground_union": 23024
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 16,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 5,
+        "additional_predictions": 11,
+        "missed_references": 0,
+        "foreground_intersection": 7607,
+        "foreground_union": 8533
+      },
+      "module_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 4,
+        "missed_references": 3,
+        "foreground_intersection": 7752,
+        "foreground_union": 9050
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 12,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 10,
+        "missed_references": 0,
+        "foreground_intersection": 16575,
+        "foreground_union": 18655
+      },
+      "module_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 14448,
+        "foreground_union": 21162
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 23,
+        "scored_prediction_instances": 0,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 0,
+        "missed_references": 23,
+        "foreground_intersection": 0,
+        "foreground_union": 6902
+      },
+      "module_outlines": {
+        "reference_instances": 23,
+        "scored_prediction_instances": 0,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 0,
+        "missed_references": 23,
+        "foreground_intersection": 0,
+        "foreground_union": 6902
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 6,
+        "missed_references": 0,
+        "foreground_intersection": 13821,
+        "foreground_union": 15149
+      },
+      "module_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 4,
+        "missed_references": 0,
+        "foreground_intersection": 14393,
+        "foreground_union": 17517
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 14,
+        "scored_prediction_instances": 14,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 12,
+        "additional_predictions": 2,
+        "missed_references": 2,
+        "foreground_intersection": 9375,
+        "foreground_union": 10879
+      },
+      "module_outlines": {
+        "reference_instances": 14,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 4,
+        "additional_predictions": 2,
+        "missed_references": 10,
+        "foreground_intersection": 6324,
+        "foreground_union": 11751
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 4,
+        "additional_predictions": 3,
+        "missed_references": 1,
+        "foreground_intersection": 5168,
+        "foreground_union": 6996
+      },
+      "module_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 1,
+        "missed_references": 2,
+        "foreground_intersection": 4229,
+        "foreground_union": 7315
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 4,
+        "missed_references": 0,
+        "foreground_intersection": 19599,
+        "foreground_union": 20905
+      },
+      "module_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 2,
+        "missed_references": 1,
+        "foreground_intersection": 10757,
+        "foreground_union": 21305
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 5,
+        "missed_references": 0,
+        "foreground_intersection": 10074,
+        "foreground_union": 10832
+      },
+      "module_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 1,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 0,
+        "missed_references": 2,
+        "foreground_intersection": 3598,
+        "foreground_union": 10898
+      }
+    },
+    {
+      "raw_masks": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 32,
+        "predictions_wholly_ignored": 3,
+        "matched_instances": 5,
+        "additional_predictions": 27,
+        "missed_references": 1,
+        "foreground_intersection": 19230,
+        "foreground_union": 21625
+      },
+      "module_outlines": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 16,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 10,
+        "missed_references": 0,
+        "foreground_intersection": 18135,
+        "foreground_union": 25277
+      }
+    }
+  ],
+  "raw_mask_metrics": {
+    "reference_instances": 117,
+    "scored_prediction_instances": 219,
+    "predictions_wholly_ignored": 14,
+    "matched_instances": 90,
+    "additional_predictions": 129,
+    "missed_references": 27,
+    "foreground_intersection": 312658,
+    "foreground_union": 351205,
+    "precision": 0.410958904109589,
+    "recall": 0.7692307692307693,
+    "f1": 0.5357142857142857,
+    "foreground_iou": 0.8902435899261115,
+    "count_difference": 102
+  },
+  "module_outline_metrics": {
+    "reference_instances": 117,
+    "scored_prediction_instances": 104,
+    "predictions_wholly_ignored": 5,
+    "matched_instances": 59,
+    "additional_predictions": 45,
+    "missed_references": 58,
+    "foreground_intersection": 247504,
+    "foreground_union": 377301,
+    "precision": 0.5673076923076923,
+    "recall": 0.5042735042735043,
+    "f1": 0.5339366515837104,
+    "foreground_iou": 0.6559855393969272,
+    "count_difference": -13
+  },
+  "model_license_declared": "AGPL-3.0",
+  "dataset_license_declared": "CC-BY-4.0",
+  "runtime": {
+    "torch": "2.15.0+cpu",
+    "numpy": "1.26.4",
+    "opencv": "4.10.0",
+    "ultralytics": "8.1.29"
+  },
+  "source_sha256": {
+    "runner": "e9834b44c3cc1738d98dbf797deca87296d8f75f30f66a4601628b6f4e265311",
+    "reference": "1de4e7265aa93f6ae11afa2cddce1548d32615efe9dfe6712ec89d1476a07505",
+    "validation": "48ba2281affcd98c861389b66806f87ef2d69cebc32e9ed2ddea17ec93f268dd",
+    "corpus": "f84d13acfce9a90804a98f3f2f6476ffee619efd0a099f95b1586c17bfe043bf"
+  },
+  "license_decision": "unreviewed",
+  "test_pixels_read": false,
+  "customer_images_read": false,
+  "training_started": false,
+  "model_updated": false,
+  "automatically_accepted": false,
+  "physical_module_ids_confirmed": false,
+  "coverage_verified": false,
+  "georeferencing_verified": false,
+  "temperature_verified": false,
+  "accuracy_verified": false,
+  "commercial_training_approved": false,
+  "production_approved": false,
+  "report_sha256": "d251ba10f7fa70f652d60079591f730a5f788d7b7ac0da71b95d494f2a23e43a"
+}
