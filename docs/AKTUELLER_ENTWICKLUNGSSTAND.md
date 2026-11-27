@@ -37,4 +37,4 @@ PV-Hawk-Feldqualität21→18Vorschläge/3von8Teilreferenzen, CVUT73/0von8 unzure
 Vor Chatende Checkpoint(1000–8500Zeichen), Register/Vereinbarung/Handoff/Roadmap aktualisieren; exakte HEAD-CI in PR9 prüfen. Technische Tests/Quellenprüfung/reale Abnahme trennen. Ziel: beide GeoTIFFs/scharfe Module/unabhängige Geometrie/Thermalzuordnung. Danach VERT-02/Befund→Modul→RGB→Entscheidung→Bericht; Online/Installer später.
 
 
-CVUT-YOLO-Prüfquelleac873071/ZIP3402970Bytes/SHA07e18b14d43513ade78cb2b535cb5cfe6e7734a4c0e21beca0164eacede3aea9;708Runtime-Dateien+10Konfig/Paketlisten remote bytegleich. Keine Nutzerinstallation oder unveränderte Erkennungswiederholung nötig.
+Native-Prüfquelle5cda7481/ZIP3425736Bytes/SHA218f75a3bcde2857e82ea618e661e0f46613fa6323edc350d3cce7ec33bdbff2;711Runtime-Dateien+10Konfig/Paketlisten remote bytegleich. Keine Nutzerinstallation oder unveränderte Erkennungswiederholung nötig.
