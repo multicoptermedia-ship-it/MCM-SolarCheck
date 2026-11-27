@@ -39,4 +39,4 @@ Vor Chatende Checkpoint(1000–8500Zeichen), Register/Vereinbarung/Handoff/Roadm
 
 Instanzprüfquellea5cca60d/ZIP3290858Bytes/SHA804e6b65d21a8083898911949dc4c9330b5645b23bbd88e56726e105c3abba6e;700Runtime-Dateien+9Konfig/Paketlisten remote bytegleich. Trainer-/Adapterquellen825cd57d/29b651c2 erhalten.
 
-Lernquelleb94d3bd0/ZIP3321182Bytes/SHA77dfce82eb789b60a612d8a3ecd13fea053b7bd9a45fdb9ba034ff279d16b888;703Runtime-Dateien+9Konfig/Paketlisten remote bytegleich. Forschungsstart wegen Qualitätsbefund derzeit nicht wiederholen.
+CVUT-YOLO-Prüfquelleac873071/ZIP3402970Bytes/SHA07e18b14d43513ade78cb2b535cb5cfe6e7734a4c0e21beca0164eacede3aea9;708Runtime-Dateien+10Konfig/Paketlisten remote bytegleich. Keine Nutzerinstallation oder unveränderte Erkennungswiederholung nötig.
