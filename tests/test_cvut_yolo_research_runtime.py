@@ -128,3 +128,15 @@ def test_missing_validity_mask_never_defaults_to_background(runtime):
     del batch['valid_pixels']
     with pytest.raises(ValueError, match='validity mask'):
         criterion(model(batch['img']), batch)
+
+
+def test_explicit_native512_forward_and_original256_profile_remain_separate(runtime):
+    import numpy as np
+    from mcm_solarcheck.vision.cvut_yolo_validation import infer
+    torch,model=runtime
+    fresh=research.reference_model(torch,model.state_dict())
+    rgb=np.zeros((512,512,3),np.uint8)
+    with pytest.raises(ValueError):infer(torch,fresh,rgb)
+    boxes,masks,scores=infer(torch,fresh,rgb,size=512)
+    assert boxes.shape==(len(masks),4) and masks.shape[1:]==(512,512)
+    assert scores.shape==(len(masks),) and np.isfinite(scores).all()

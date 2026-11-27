@@ -16,6 +16,7 @@ sys.path[:0] = [str(Path(__file__).resolve().parent),
 from MCM_SolarCheck_CVUT_PAKETPRUEFUNG import atomic_json, local, package_lock
 
 CHECK = 'solarcheck-cvut-yolo-public-module-validation-1'
+NATIVE_CHECK = 'solarcheck-cvut-yolo-native-comparison-1'
 FALSE_FLAGS = ('test_pixels_read', 'customer_images_read', 'training_started',
     'model_updated', 'automatically_accepted', 'physical_module_ids_confirmed',
     'coverage_verified', 'georeferencing_verified', 'temperature_verified',
@@ -37,21 +38,28 @@ def show(path):
     if path.stat().st_size > 1_000_000:
         raise ValueError('Bounded public research report required')
     value = json.loads(path.read_text(encoding='utf-8'))
-    if (not isinstance(value, dict) or value != sealed(value) or value.get('check') != CHECK
+    if (not isinstance(value, dict) or value != sealed(value) or value.get('check') not in (CHECK,NATIVE_CHECK)
             or value.get('status') != 'finished_public_research_not_production'
             or any(value.get(k) is not False for k in FALSE_FLAGS)):
         raise ValueError('Public report identity or scope changed')
     from mcm_solarcheck.vision.pvis_instance_decoding import aggregate
     rows = value.get('crops')
-    if (not isinstance(rows, list) or len(rows) != 24
-            or value.get('raw_mask_metrics') != aggregate([r['raw_masks'] for r in rows])
+    if not isinstance(rows,list) or len(rows)!=24:
+        raise ValueError('Public report totals differ')
+    if value['check']==NATIVE_CHECK:
+        from mcm_solarcheck.services.cvut_yolo_native_comparison import METRICS
+        if (value.get('metrics')!={k:aggregate([r[k] for r in rows]) for k in METRICS}
+                or value.get('reference_geometry')!={k:sum(r['reference_geometry'][k] for r in rows)
+                    for k in ('reference_instances','old_aspect_rejected')}):
+            raise ValueError('Public native comparison totals differ')
+    elif (value.get('raw_mask_metrics') != aggregate([r['raw_masks'] for r in rows])
             or value.get('module_outline_metrics') != aggregate([r['module_outlines'] for r in rows])):
         raise ValueError('Public report totals differ')
     return value
 
 
 def validate(corpus_path, published_path, output, *, candidate=None, candidate_sha256=None,
-             should_cancel=lambda: False):
+             should_cancel=lambda: False, native_source=None):
     if should_cancel():
         raise KeyboardInterrupt
     from mcm_solarcheck.services import pvis_learning_corpus as corpus
@@ -90,15 +98,31 @@ def validate(corpus_path, published_path, output, *, candidate=None, candidate_s
         state = torch.load(BytesIO(data), map_location='cpu', weights_only=True)
         weights_sha = candidate_sha256
     model = reference.reference_model(torch, state)
+    native_result = None
+    native_sources = {}
+    if native_source is not None:
+        import MCM_SolarCheck_PVIS_REFERENZ as public_reference
+        from mcm_solarcheck.services import pvis_native_validation as native
+        from mcm_solarcheck.services import cvut_yolo_native_comparison as comparison
+        from mcm_solarcheck.vision import cvut_yolo_outlines
+        from mcm_solarcheck.vision import module_quality
+        from mcm_solarcheck.services import pvis_public_training_data
+        rgb,targets,samples = native.native_crops(local(native_source),folder,manifest,
+            public_reference,should_cancel=should_cancel)
+        native_result = comparison.compare(torch,model,rgb,targets,samples,should_cancel=should_cancel)
+        native_sources = dict(native_adapter=native,comparison=comparison,
+            outlines=cvut_yolo_outlines,public_reference=public_reference,
+            geometry=module_quality,original_adapter=native.pixels,
+            original_reduction=pvis_public_training_data)
     rows = []
-    for index in indices:
+    for index in ([] if native_result is not None else indices):
         if should_cancel():
             raise KeyboardInterrupt
         boxes, masks, confidence = validation.infer(torch, model, rgb[index])
         outlines = validation.module_masks(boxes, masks, confidence)
         rows.append(dict(raw_masks=validation.score_masks(targets[index], masks),
             module_outlines=validation.score_masks(targets[index], outlines)))
-    result = sealed(dict(check=CHECK, status='finished_public_research_not_production',
+    result = dict(check=CHECK, status='finished_public_research_not_production',
         profile=validation.PROFILE, corpus_manifest_sha256=sha256((folder/'corpus.json').read_bytes()).hexdigest(),
         weights_sha256=weights_sha, validation_station='033', crops=rows,
         raw_mask_metrics=aggregate([r['raw_masks'] for r in rows]),
@@ -108,8 +132,16 @@ def validate(corpus_path, published_path, output, *, candidate=None, candidate_s
                      opencv=validation.cv2.__version__, ultralytics='8.1.29'),
         source_sha256={key: sha256(Path(module.__file__).read_bytes()).hexdigest()
             for key, module in dict(runner=sys.modules[__name__], reference=reference,
-                                    validation=validation, corpus=corpus).items()},
-        license_decision='unreviewed', **{k: False for k in FALSE_FLAGS}))
+                                    validation=validation, corpus=corpus,**native_sources).items()},
+        license_decision='unreviewed', **{k: False for k in FALSE_FLAGS})
+    if native_result is not None:
+        result.update(native_result,check=NATIVE_CHECK,profile=native.PROFILE,
+            public_source_archive_sha256=public_reference.VALIDATION.sha256,
+            public_source_archive_bytes=public_reference.VALIDATION.size,
+            publisher_archive_sha256_verified=True)
+        for key in ('raw_mask_metrics','module_outline_metrics'):
+            result.pop(key)
+    result=sealed(result)
     output.parent.mkdir(parents=True, exist_ok=True)
     with package_lock(output.parent, 'cvut-yolo-validation.lock'):
         if output.exists():
@@ -128,6 +160,8 @@ def main(argv=None):
     parser.add_argument('--candidate', type=Path)
     parser.add_argument('--candidate-sha256')
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--compare-native-source',type=Path,
+        help='Existing verified public PVIS folder; compare same24 crops at256 and512')
     args = parser.parse_args(argv)
     if args.show:
         value = show(args.show)
@@ -135,7 +169,8 @@ def main(argv=None):
         if not all((args.corpus,args.published_rgb,args.output)):
             parser.error('--corpus, --published-rgb and a new --output are required')
         value = validate(args.corpus,args.published_rgb,args.output,
-            candidate=args.candidate,candidate_sha256=args.candidate_sha256)
+            candidate=args.candidate,candidate_sha256=args.candidate_sha256,
+            native_source=args.compare_native_source)
     print(json.dumps(value, sort_keys=True, indent=2, ensure_ascii=False))
     return 0
 

@@ -1,0 +1,2514 @@
+{
+  "check": "solarcheck-cvut-yolo-native-comparison-1",
+  "status": "finished_public_research_not_production",
+  "profile": {
+    "id": "pvis-existing24-validation033-native512-1",
+    "source": "https://zenodo.org/records/23886365",
+    "station": "033",
+    "split": "validation",
+    "crops": 24,
+    "native_size": 512,
+    "decoder": "existing_native_adapter",
+    "source_hash": "publisher_full_zip_sha256_before_jpeg_read",
+    "identity": "original_record_sha_and_exact_existing_rgb_and_label_reduction",
+    "source_training_archive_used_as_local_validation": true,
+    "test_archive_opened": false,
+    "customer_images_read": false,
+    "pixel_cache_written": false
+  },
+  "corpus_manifest_sha256": "0b3070b4a74e8fb01abb46361bfe639f5e66792bc436f6c5522307d41befafb6",
+  "weights_sha256": "d80be7a0629da05e4f315e3a8ead0fb2438649c191a123a33e14403a334cdc27",
+  "validation_station": "033",
+  "crops": [
+    {
+      "source_record_sha256": "72055939363ada02bb5ac6bfcf3d079eee5c39a974b8e515d405929583aa9307",
+      "legacy256_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 22150,
+        "foreground_union": 23295
+      },
+      "legacy256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 22371,
+        "foreground_union": 25835
+      },
+      "projective256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 21487,
+        "foreground_union": 23000
+      },
+      "common512_raw_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 88779,
+        "foreground_union": 93123
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 86141,
+        "foreground_union": 91783
+      },
+      "native512_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 5,
+        "missed_references": 0,
+        "foreground_intersection": 88476,
+        "foreground_union": 92599
+      },
+      "native512_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 2,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 89524,
+        "foreground_union": 92559
+      },
+      "projective256_diagnostics": {
+        "input_instances": 3,
+        "accepted_outlines": 2,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 7,
+        "accepted_outlines": 6,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 2,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "3a421d7bdd36dd7a0cb051949684599724f9e7c56c67473ff166c18f6917366b",
+      "legacy256_raw": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 7,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 18187,
+        "foreground_union": 20694
+      },
+      "legacy256_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 4,
+        "foreground_intersection": 8668,
+        "foreground_union": 20885
+      },
+      "projective256_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 0,
+        "missed_references": 1,
+        "foreground_intersection": 15727,
+        "foreground_union": 20855
+      },
+      "common512_raw_from256": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 7,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 73192,
+        "foreground_union": 82406
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 0,
+        "missed_references": 1,
+        "foreground_intersection": 63124,
+        "foreground_union": 83297
+      },
+      "native512_raw": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 7,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 73997,
+        "foreground_union": 80082
+      },
+      "native512_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 7,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 74243,
+        "foreground_union": 80764
+      },
+      "projective256_diagnostics": {
+        "input_instances": 7,
+        "accepted_outlines": 6,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 8,
+        "accepted_outlines": 8,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 7,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "1b8ab4052b1933fd80a5c0c2aecc9de42d42985287d1fe598ab4a84118f54c02",
+      "legacy256_raw": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 27931,
+        "foreground_union": 29500
+      },
+      "legacy256_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 28418,
+        "foreground_union": 31243
+      },
+      "projective256_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 26707,
+        "foreground_union": 29177
+      },
+      "common512_raw_from256": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 112064,
+        "foreground_union": 117788
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 107090,
+        "foreground_union": 116586
+      },
+      "native512_raw": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 11,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 9,
+        "missed_references": 1,
+        "foreground_intersection": 111740,
+        "foreground_union": 115695
+      },
+      "native512_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 8,
+        "missed_references": 3,
+        "foreground_intersection": 113356,
+        "foreground_union": 121030
+      },
+      "projective256_diagnostics": {
+        "input_instances": 4,
+        "accepted_outlines": 3,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 11,
+        "accepted_outlines": 8,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 3
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 3,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "5726bb0703e79a2687d696e0742c96a0149608502a5d296f0669abb4e71bafa4",
+      "legacy256_raw": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 7,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 7892,
+        "foreground_union": 9778
+      },
+      "legacy256_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 4,
+        "foreground_intersection": 3606,
+        "foreground_union": 10303
+      },
+      "projective256_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 7,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 7373,
+        "foreground_union": 9785
+      },
+      "common512_raw_from256": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 7,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 31823,
+        "foreground_union": 39069
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 7,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 29900,
+        "foreground_union": 38883
+      },
+      "native512_raw": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 15,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 9,
+        "missed_references": 1,
+        "foreground_intersection": 31556,
+        "foreground_union": 38040
+      },
+      "native512_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 4,
+        "missed_references": 2,
+        "foreground_intersection": 31951,
+        "foreground_union": 37390
+      },
+      "projective256_diagnostics": {
+        "input_instances": 8,
+        "accepted_outlines": 7,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 15,
+        "accepted_outlines": 9,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 1,
+          "geometry_or_duplicate": 4
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 7,
+        "old_aspect_rejected": 7
+      }
+    },
+    {
+      "source_record_sha256": "46a93f1be98ec2dc191c0087255ee0b15a97ec9d17231e73ed98174407ae857a",
+      "legacy256_raw": {
+        "reference_instances": 1,
+        "scored_prediction_instances": 16,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 15,
+        "missed_references": 0,
+        "foreground_intersection": 3726,
+        "foreground_union": 4556
+      },
+      "legacy256_outlines": {
+        "reference_instances": 1,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 8,
+        "missed_references": 0,
+        "foreground_intersection": 3853,
+        "foreground_union": 6485
+      },
+      "projective256_outlines": {
+        "reference_instances": 1,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 2,
+        "matched_instances": 1,
+        "additional_predictions": 7,
+        "missed_references": 0,
+        "foreground_intersection": 3675,
+        "foreground_union": 4884
+      },
+      "common512_raw_from256": {
+        "reference_instances": 1,
+        "scored_prediction_instances": 16,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 15,
+        "missed_references": 0,
+        "foreground_intersection": 14972,
+        "foreground_union": 19136
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 1,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 9,
+        "missed_references": 0,
+        "foreground_intersection": 14736,
+        "foreground_union": 20027
+      },
+      "native512_raw": {
+        "reference_instances": 1,
+        "scored_prediction_instances": 17,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 16,
+        "missed_references": 0,
+        "foreground_intersection": 15006,
+        "foreground_union": 17636
+      },
+      "native512_outlines": {
+        "reference_instances": 1,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 3,
+        "matched_instances": 1,
+        "additional_predictions": 9,
+        "missed_references": 0,
+        "foreground_intersection": 15153,
+        "foreground_union": 18918
+      },
+      "projective256_diagnostics": {
+        "input_instances": 16,
+        "accepted_outlines": 10,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 3,
+          "fill": 0,
+          "geometry_or_duplicate": 3
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 17,
+        "accepted_outlines": 13,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 2,
+          "fill": 0,
+          "geometry_or_duplicate": 2
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 1,
+        "old_aspect_rejected": 1
+      }
+    },
+    {
+      "source_record_sha256": "e0a3003ad9c7f60bacb0fdf065b5427b8c5295cb03352c20a662db81b186c133",
+      "legacy256_raw": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 4,
+        "missed_references": 0,
+        "foreground_intersection": 15719,
+        "foreground_union": 17112
+      },
+      "legacy256_outlines": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 15851,
+        "foreground_union": 17169
+      },
+      "projective256_outlines": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 15356,
+        "foreground_union": 16900
+      },
+      "common512_raw_from256": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 4,
+        "missed_references": 0,
+        "foreground_intersection": 63108,
+        "foreground_union": 68283
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 61432,
+        "foreground_union": 67628
+      },
+      "native512_raw": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 62492,
+        "foreground_union": 66042
+      },
+      "native512_outlines": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 61860,
+        "foreground_union": 67065
+      },
+      "projective256_diagnostics": {
+        "input_instances": 10,
+        "accepted_outlines": 7,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 2
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 9,
+        "accepted_outlines": 6,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 3,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 6,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "cb93ba46910fd405eef2889a53bd7445e6238f74a0f3b32d93e15b91e9d6da9a",
+      "legacy256_raw": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 5409,
+        "foreground_union": 6205
+      },
+      "legacy256_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 5628,
+        "foreground_union": 8455
+      },
+      "projective256_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 5143,
+        "foreground_union": 5830
+      },
+      "common512_raw_from256": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 21819,
+        "foreground_union": 24643
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 20638,
+        "foreground_union": 23260
+      },
+      "native512_raw": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 7,
+        "missed_references": 0,
+        "foreground_intersection": 21464,
+        "foreground_union": 23828
+      },
+      "native512_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 3,
+        "missed_references": 1,
+        "foreground_intersection": 20081,
+        "foreground_union": 24587
+      },
+      "projective256_diagnostics": {
+        "input_instances": 3,
+        "accepted_outlines": 3,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 10,
+        "accepted_outlines": 5,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 4,
+          "fill": 0,
+          "geometry_or_duplicate": 1
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 3,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "226fae541570074f4bab7e81a05a58fcf3ec3d1ceffd3ff22b942e2608560322",
+      "legacy256_raw": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 24,
+        "predictions_wholly_ignored": 10,
+        "matched_instances": 7,
+        "additional_predictions": 17,
+        "missed_references": 0,
+        "foreground_intersection": 6994,
+        "foreground_union": 8022
+      },
+      "legacy256_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 5,
+        "matched_instances": 3,
+        "additional_predictions": 6,
+        "missed_references": 4,
+        "foreground_intersection": 4714,
+        "foreground_union": 7848
+      },
+      "projective256_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 14,
+        "predictions_wholly_ignored": 7,
+        "matched_instances": 7,
+        "additional_predictions": 7,
+        "missed_references": 0,
+        "foreground_intersection": 6982,
+        "foreground_union": 8100
+      },
+      "common512_raw_from256": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 24,
+        "predictions_wholly_ignored": 10,
+        "matched_instances": 7,
+        "additional_predictions": 17,
+        "missed_references": 0,
+        "foreground_intersection": 28259,
+        "foreground_union": 32095
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 14,
+        "predictions_wholly_ignored": 7,
+        "matched_instances": 7,
+        "additional_predictions": 7,
+        "missed_references": 0,
+        "foreground_intersection": 28223,
+        "foreground_union": 32369
+      },
+      "native512_raw": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 28,
+        "predictions_wholly_ignored": 10,
+        "matched_instances": 7,
+        "additional_predictions": 21,
+        "missed_references": 0,
+        "foreground_intersection": 28940,
+        "foreground_union": 31887
+      },
+      "native512_outlines": {
+        "reference_instances": 7,
+        "scored_prediction_instances": 22,
+        "predictions_wholly_ignored": 6,
+        "matched_instances": 7,
+        "additional_predictions": 15,
+        "missed_references": 0,
+        "foreground_intersection": 29547,
+        "foreground_union": 31937
+      },
+      "projective256_diagnostics": {
+        "input_instances": 34,
+        "accepted_outlines": 21,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 3,
+          "fill": 0,
+          "geometry_or_duplicate": 10
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 38,
+        "accepted_outlines": 28,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 5,
+          "fill": 0,
+          "geometry_or_duplicate": 5
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 7,
+        "old_aspect_rejected": 7
+      }
+    },
+    {
+      "source_record_sha256": "694fca13f9309c11fee6095c67665c18b6df183f339d7f80a615309e1e591b2d",
+      "legacy256_raw": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 6630,
+        "foreground_union": 7262
+      },
+      "legacy256_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 2,
+        "missed_references": 3,
+        "foreground_intersection": 1143,
+        "foreground_union": 6956
+      },
+      "projective256_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 3,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 6464,
+        "foreground_union": 7077
+      },
+      "common512_raw_from256": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 26649,
+        "foreground_union": 28980
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 3,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 25957,
+        "foreground_union": 28224
+      },
+      "native512_raw": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 20,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 1,
+        "additional_predictions": 19,
+        "missed_references": 2,
+        "foreground_intersection": 22213,
+        "foreground_union": 28271
+      },
+      "native512_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 14,
+        "predictions_wholly_ignored": 2,
+        "matched_instances": 0,
+        "additional_predictions": 14,
+        "missed_references": 3,
+        "foreground_intersection": 21519,
+        "foreground_union": 28008
+      },
+      "projective256_diagnostics": {
+        "input_instances": 5,
+        "accepted_outlines": 5,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 21,
+        "accepted_outlines": 16,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 5
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 3,
+        "old_aspect_rejected": 3
+      }
+    },
+    {
+      "source_record_sha256": "876997625155c7249177ebde7819e076579009fe6729cc223ec49d44178d0413",
+      "legacy256_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 19023,
+        "foreground_union": 20509
+      },
+      "legacy256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 19538,
+        "foreground_union": 21306
+      },
+      "projective256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 18329,
+        "foreground_union": 19889
+      },
+      "common512_raw_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 76389,
+        "foreground_union": 82075
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 73515,
+        "foreground_union": 79374
+      },
+      "native512_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 8,
+        "missed_references": 0,
+        "foreground_intersection": 75503,
+        "foreground_union": 79542
+      },
+      "native512_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 0,
+        "additional_predictions": 6,
+        "missed_references": 2,
+        "foreground_intersection": 77045,
+        "foreground_union": 82958
+      },
+      "projective256_diagnostics": {
+        "input_instances": 4,
+        "accepted_outlines": 2,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 2,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 10,
+        "accepted_outlines": 7,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 2,
+          "fill": 0,
+          "geometry_or_duplicate": 1
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 2,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "42f6fb564deddb0e909f37dc3a0c710d8a32ae698f80a11465fe9ca0d1d3e69f",
+      "legacy256_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 13065,
+        "foreground_union": 14526
+      },
+      "legacy256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 13678,
+        "foreground_union": 17018
+      },
+      "projective256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 13364,
+        "foreground_union": 14405
+      },
+      "common512_raw_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 52594,
+        "foreground_union": 57987
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 53454,
+        "foreground_union": 57777
+      },
+      "native512_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 4,
+        "missed_references": 0,
+        "foreground_intersection": 53341,
+        "foreground_union": 55579
+      },
+      "native512_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 52052,
+        "foreground_union": 56867
+      },
+      "projective256_diagnostics": {
+        "input_instances": 4,
+        "accepted_outlines": 4,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 6,
+        "accepted_outlines": 3,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 2
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 2,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "94dd418503ba9bd7ad4373d18079f08d3b6ea25a1be4b41664eebf6d1407dd59",
+      "legacy256_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 19457,
+        "foreground_union": 20575
+      },
+      "legacy256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 19790,
+        "foreground_union": 21577
+      },
+      "projective256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 18991,
+        "foreground_union": 20090
+      },
+      "common512_raw_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 78090,
+        "foreground_union": 82156
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 76029,
+        "foreground_union": 80308
+      },
+      "native512_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 4,
+        "missed_references": 2,
+        "foreground_intersection": 75735,
+        "foreground_union": 80067
+      },
+      "native512_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 4,
+        "missed_references": 2,
+        "foreground_intersection": 76602,
+        "foreground_union": 83251
+      },
+      "projective256_diagnostics": {
+        "input_instances": 3,
+        "accepted_outlines": 2,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 4,
+        "accepted_outlines": 4,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 2,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "bd74f20f00ad2eea27e1c0f2a178ae0e4bc5976e29a0bffb146294bb58807d3c",
+      "legacy256_raw": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 4988,
+        "foreground_union": 5731
+      },
+      "legacy256_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 0,
+        "missed_references": 0,
+        "foreground_intersection": 4968,
+        "foreground_union": 7385
+      },
+      "projective256_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 4775,
+        "foreground_union": 5811
+      },
+      "common512_raw_from256": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 19953,
+        "foreground_union": 22906
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 19062,
+        "foreground_union": 23303
+      },
+      "native512_raw": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 4,
+        "additional_predictions": 6,
+        "missed_references": 1,
+        "foreground_intersection": 20809,
+        "foreground_union": 22952
+      },
+      "native512_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 5,
+        "missed_references": 2,
+        "foreground_intersection": 19596,
+        "foreground_union": 22656
+      },
+      "projective256_diagnostics": {
+        "input_instances": 8,
+        "accepted_outlines": 8,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 10,
+        "accepted_outlines": 8,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 2
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 5,
+        "old_aspect_rejected": 3
+      }
+    },
+    {
+      "source_record_sha256": "b1217881e3654289dae132c863064725c93478de2e86bfbbddc01e23a0389cc6",
+      "legacy256_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 7,
+        "missed_references": 0,
+        "foreground_intersection": 19528,
+        "foreground_union": 20859
+      },
+      "legacy256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 1,
+        "missed_references": 1,
+        "foreground_intersection": 5531,
+        "foreground_union": 20635
+      },
+      "projective256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 1,
+        "additional_predictions": 5,
+        "missed_references": 1,
+        "foreground_intersection": 19058,
+        "foreground_union": 20518
+      },
+      "common512_raw_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 7,
+        "missed_references": 0,
+        "foreground_intersection": 78360,
+        "foreground_union": 83437
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 6,
+        "missed_references": 1,
+        "foreground_intersection": 76401,
+        "foreground_union": 82069
+      },
+      "native512_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 8,
+        "missed_references": 2,
+        "foreground_intersection": 76819,
+        "foreground_union": 80763
+      },
+      "native512_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 5,
+        "missed_references": 2,
+        "foreground_intersection": 76972,
+        "foreground_union": 84105
+      },
+      "projective256_diagnostics": {
+        "input_instances": 9,
+        "accepted_outlines": 7,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 1
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 8,
+        "accepted_outlines": 5,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 3,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 2,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "a81e821cd982aadd6a427620483e057cf2e83e5fbd8718f8f98a43e1daca60c1",
+      "legacy256_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 5,
+        "missed_references": 0,
+        "foreground_intersection": 20510,
+        "foreground_union": 22105
+      },
+      "legacy256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 2,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 1,
+        "missed_references": 1,
+        "foreground_intersection": 10111,
+        "foreground_union": 23024
+      },
+      "projective256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 20144,
+        "foreground_union": 21842
+      },
+      "common512_raw_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 5,
+        "missed_references": 0,
+        "foreground_intersection": 82364,
+        "foreground_union": 88301
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 80711,
+        "foreground_union": 87370
+      },
+      "native512_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 3,
+        "matched_instances": 2,
+        "additional_predictions": 5,
+        "missed_references": 0,
+        "foreground_intersection": 81012,
+        "foreground_union": 86639
+      },
+      "native512_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 2,
+        "matched_instances": 2,
+        "additional_predictions": 4,
+        "missed_references": 0,
+        "foreground_intersection": 81695,
+        "foreground_union": 86859
+      },
+      "projective256_diagnostics": {
+        "input_instances": 7,
+        "accepted_outlines": 3,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 4,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 10,
+        "accepted_outlines": 8,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 1
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 2,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "ef4ef4dba1f83880dc96e734a4e605b8da1b7085cdc37670e82df33a24053e7d",
+      "legacy256_raw": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 16,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 5,
+        "additional_predictions": 11,
+        "missed_references": 0,
+        "foreground_intersection": 7607,
+        "foreground_union": 8533
+      },
+      "legacy256_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 4,
+        "missed_references": 3,
+        "foreground_intersection": 7752,
+        "foreground_union": 9050
+      },
+      "projective256_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 2,
+        "matched_instances": 4,
+        "additional_predictions": 4,
+        "missed_references": 1,
+        "foreground_intersection": 7741,
+        "foreground_union": 8902
+      },
+      "common512_raw_from256": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 17,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 12,
+        "missed_references": 0,
+        "foreground_intersection": 30547,
+        "foreground_union": 34281
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 4,
+        "additional_predictions": 5,
+        "missed_references": 1,
+        "foreground_intersection": 30970,
+        "foreground_union": 35809
+      },
+      "native512_raw": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 21,
+        "predictions_wholly_ignored": 2,
+        "matched_instances": 5,
+        "additional_predictions": 16,
+        "missed_references": 0,
+        "foreground_intersection": 30258,
+        "foreground_union": 32648
+      },
+      "native512_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 13,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 8,
+        "missed_references": 0,
+        "foreground_intersection": 30623,
+        "foreground_union": 33542
+      },
+      "projective256_diagnostics": {
+        "input_instances": 17,
+        "accepted_outlines": 10,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 2,
+          "fill": 0,
+          "geometry_or_duplicate": 5
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 23,
+        "accepted_outlines": 13,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 3,
+          "fill": 0,
+          "geometry_or_duplicate": 7
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 5,
+        "old_aspect_rejected": 5
+      }
+    },
+    {
+      "source_record_sha256": "d6868c57f411e6d4210387d52a813b7310282611819113cc9d9b8a4276a13c41",
+      "legacy256_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 12,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 10,
+        "missed_references": 0,
+        "foreground_intersection": 16575,
+        "foreground_union": 18655
+      },
+      "legacy256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 14448,
+        "foreground_union": 21162
+      },
+      "projective256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 6,
+        "missed_references": 1,
+        "foreground_intersection": 16908,
+        "foreground_union": 18540
+      },
+      "common512_raw_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 12,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 10,
+        "missed_references": 0,
+        "foreground_intersection": 66692,
+        "foreground_union": 74630
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 6,
+        "missed_references": 1,
+        "foreground_intersection": 67678,
+        "foreground_union": 74697
+      },
+      "native512_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 3,
+        "matched_instances": 0,
+        "additional_predictions": 7,
+        "missed_references": 2,
+        "foreground_intersection": 51396,
+        "foreground_union": 70164
+      },
+      "native512_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 0,
+        "additional_predictions": 6,
+        "missed_references": 2,
+        "foreground_intersection": 68339,
+        "foreground_union": 73908
+      },
+      "projective256_diagnostics": {
+        "input_instances": 12,
+        "accepted_outlines": 7,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 3,
+          "geometry_or_duplicate": 2
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 10,
+        "accepted_outlines": 7,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 2,
+          "fill": 1,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 2,
+        "old_aspect_rejected": 2
+      }
+    },
+    {
+      "source_record_sha256": "d1123db88cbb3fa99e8e42062335634005ccddf25e2c8147c069887dd461f235",
+      "legacy256_raw": {
+        "reference_instances": 23,
+        "scored_prediction_instances": 0,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 0,
+        "missed_references": 23,
+        "foreground_intersection": 0,
+        "foreground_union": 6902
+      },
+      "legacy256_outlines": {
+        "reference_instances": 23,
+        "scored_prediction_instances": 0,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 0,
+        "missed_references": 23,
+        "foreground_intersection": 0,
+        "foreground_union": 6902
+      },
+      "projective256_outlines": {
+        "reference_instances": 23,
+        "scored_prediction_instances": 0,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 0,
+        "missed_references": 23,
+        "foreground_intersection": 0,
+        "foreground_union": 6902
+      },
+      "common512_raw_from256": {
+        "reference_instances": 23,
+        "scored_prediction_instances": 0,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 0,
+        "missed_references": 23,
+        "foreground_intersection": 0,
+        "foreground_union": 27651
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 23,
+        "scored_prediction_instances": 0,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 0,
+        "missed_references": 23,
+        "foreground_intersection": 0,
+        "foreground_union": 27651
+      },
+      "native512_raw": {
+        "reference_instances": 23,
+        "scored_prediction_instances": 0,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 0,
+        "missed_references": 23,
+        "foreground_intersection": 0,
+        "foreground_union": 27651
+      },
+      "native512_outlines": {
+        "reference_instances": 23,
+        "scored_prediction_instances": 0,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 0,
+        "additional_predictions": 0,
+        "missed_references": 23,
+        "foreground_intersection": 0,
+        "foreground_union": 27651
+      },
+      "projective256_diagnostics": {
+        "input_instances": 0,
+        "accepted_outlines": 0,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 0,
+        "accepted_outlines": 0,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 23,
+        "old_aspect_rejected": 23
+      }
+    },
+    {
+      "source_record_sha256": "019528b8da21d5e0997aa77332508b43e342d96cd48889c1eb8e7adfaba85c22",
+      "legacy256_raw": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 6,
+        "missed_references": 0,
+        "foreground_intersection": 13821,
+        "foreground_union": 15149
+      },
+      "legacy256_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 4,
+        "missed_references": 0,
+        "foreground_intersection": 14393,
+        "foreground_union": 17517
+      },
+      "projective256_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 3,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 13112,
+        "foreground_union": 14913
+      },
+      "common512_raw_from256": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 6,
+        "missed_references": 0,
+        "foreground_intersection": 55447,
+        "foreground_union": 60974
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 3,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 52577,
+        "foreground_union": 59981
+      },
+      "native512_raw": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 13,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 10,
+        "missed_references": 0,
+        "foreground_intersection": 55995,
+        "foreground_union": 59257
+      },
+      "native512_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 7,
+        "missed_references": 0,
+        "foreground_intersection": 56727,
+        "foreground_union": 61894
+      },
+      "projective256_diagnostics": {
+        "input_instances": 9,
+        "accepted_outlines": 7,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 2,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 13,
+        "accepted_outlines": 10,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 2,
+          "fill": 0,
+          "geometry_or_duplicate": 1
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 3,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "79f9f00e75ceecbb472475a5ef80f5eac69e53cc095908a9772b9c97164de3f8",
+      "legacy256_raw": {
+        "reference_instances": 14,
+        "scored_prediction_instances": 14,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 12,
+        "additional_predictions": 2,
+        "missed_references": 2,
+        "foreground_intersection": 9375,
+        "foreground_union": 10879
+      },
+      "legacy256_outlines": {
+        "reference_instances": 14,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 4,
+        "additional_predictions": 2,
+        "missed_references": 10,
+        "foreground_intersection": 6324,
+        "foreground_union": 11751
+      },
+      "projective256_outlines": {
+        "reference_instances": 14,
+        "scored_prediction_instances": 12,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 11,
+        "additional_predictions": 1,
+        "missed_references": 3,
+        "foreground_intersection": 9089,
+        "foreground_union": 11856
+      },
+      "common512_raw_from256": {
+        "reference_instances": 14,
+        "scored_prediction_instances": 14,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 12,
+        "additional_predictions": 2,
+        "missed_references": 2,
+        "foreground_intersection": 37847,
+        "foreground_union": 43973
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 14,
+        "scored_prediction_instances": 12,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 11,
+        "additional_predictions": 1,
+        "missed_references": 3,
+        "foreground_intersection": 36520,
+        "foreground_union": 48008
+      },
+      "native512_raw": {
+        "reference_instances": 14,
+        "scored_prediction_instances": 23,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 14,
+        "additional_predictions": 9,
+        "missed_references": 0,
+        "foreground_intersection": 38918,
+        "foreground_union": 42386
+      },
+      "native512_outlines": {
+        "reference_instances": 14,
+        "scored_prediction_instances": 17,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 14,
+        "additional_predictions": 3,
+        "missed_references": 0,
+        "foreground_intersection": 38950,
+        "foreground_union": 42986
+      },
+      "projective256_diagnostics": {
+        "input_instances": 14,
+        "accepted_outlines": 12,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 1
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 23,
+        "accepted_outlines": 17,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 6
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 14,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "128533c9af5c75520fdac31681ea1c0196fc375f3d61123e6f5b64726bd00eba",
+      "legacy256_raw": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 4,
+        "additional_predictions": 3,
+        "missed_references": 1,
+        "foreground_intersection": 5168,
+        "foreground_union": 6996
+      },
+      "legacy256_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 1,
+        "missed_references": 2,
+        "foreground_intersection": 4229,
+        "foreground_union": 7315
+      },
+      "projective256_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 4,
+        "missed_references": 2,
+        "foreground_intersection": 5037,
+        "foreground_union": 7144
+      },
+      "common512_raw_from256": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 4,
+        "additional_predictions": 3,
+        "missed_references": 1,
+        "foreground_intersection": 20759,
+        "foreground_union": 27907
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 4,
+        "missed_references": 2,
+        "foreground_intersection": 20117,
+        "foreground_union": 28602
+      },
+      "native512_raw": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 11,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 9,
+        "missed_references": 3,
+        "foreground_intersection": 23858,
+        "foreground_union": 27986
+      },
+      "native512_outlines": {
+        "reference_instances": 5,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 2,
+        "additional_predictions": 8,
+        "missed_references": 3,
+        "foreground_intersection": 24002,
+        "foreground_union": 28675
+      },
+      "projective256_diagnostics": {
+        "input_instances": 7,
+        "accepted_outlines": 7,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 11,
+        "accepted_outlines": 11,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 0,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 5,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "a1f2a20d4ded00b3782130dfdcb6ade1524f70517dca0f3846346ce81014b1c6",
+      "legacy256_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 4,
+        "missed_references": 0,
+        "foreground_intersection": 19599,
+        "foreground_union": 20905
+      },
+      "legacy256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 2,
+        "missed_references": 1,
+        "foreground_intersection": 10757,
+        "foreground_union": 21305
+      },
+      "projective256_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 19461,
+        "foreground_union": 21268
+      },
+      "common512_raw_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 6,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 2,
+        "additional_predictions": 4,
+        "missed_references": 0,
+        "foreground_intersection": 78690,
+        "foreground_union": 83589
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 3,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 2,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 78078,
+        "foreground_union": 85026
+      },
+      "native512_raw": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 9,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 8,
+        "missed_references": 1,
+        "foreground_intersection": 77508,
+        "foreground_union": 81454
+      },
+      "native512_outlines": {
+        "reference_instances": 2,
+        "scored_prediction_instances": 7,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 6,
+        "missed_references": 1,
+        "foreground_intersection": 79361,
+        "foreground_union": 86573
+      },
+      "projective256_diagnostics": {
+        "input_instances": 6,
+        "accepted_outlines": 4,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 2,
+          "fill": 0,
+          "geometry_or_duplicate": 0
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 9,
+        "accepted_outlines": 7,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 1
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 2,
+        "old_aspect_rejected": 0
+      }
+    },
+    {
+      "source_record_sha256": "d86a1e87b016d8e4b37151cf24c66d02c4baac89902ec494ec4723bf7358ca41",
+      "legacy256_raw": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 5,
+        "missed_references": 0,
+        "foreground_intersection": 10074,
+        "foreground_union": 10832
+      },
+      "legacy256_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 1,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 1,
+        "additional_predictions": 0,
+        "missed_references": 2,
+        "foreground_intersection": 3598,
+        "foreground_union": 10898
+      },
+      "projective256_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 9562,
+        "foreground_union": 10406
+      },
+      "common512_raw_from256": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 8,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 5,
+        "missed_references": 0,
+        "foreground_intersection": 40371,
+        "foreground_union": 43293
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 4,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 1,
+        "missed_references": 0,
+        "foreground_intersection": 38320,
+        "foreground_union": 41545
+      },
+      "native512_raw": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 10,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 3,
+        "additional_predictions": 7,
+        "missed_references": 0,
+        "foreground_intersection": 40220,
+        "foreground_union": 41703
+      },
+      "native512_outlines": {
+        "reference_instances": 3,
+        "scored_prediction_instances": 5,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 3,
+        "additional_predictions": 2,
+        "missed_references": 0,
+        "foreground_intersection": 39870,
+        "foreground_union": 43177
+      },
+      "projective256_diagnostics": {
+        "input_instances": 8,
+        "accepted_outlines": 4,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 1,
+          "geometry_or_duplicate": 2
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 10,
+        "accepted_outlines": 6,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 1,
+          "fill": 0,
+          "geometry_or_duplicate": 3
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 3,
+        "old_aspect_rejected": 3
+      }
+    },
+    {
+      "source_record_sha256": "d7ac5049cc200ab8583eebc7d02d262d375603a63f6090fe537eb99a0703bf44",
+      "legacy256_raw": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 32,
+        "predictions_wholly_ignored": 3,
+        "matched_instances": 5,
+        "additional_predictions": 27,
+        "missed_references": 1,
+        "foreground_intersection": 19230,
+        "foreground_union": 21625
+      },
+      "legacy256_outlines": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 16,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 10,
+        "missed_references": 0,
+        "foreground_intersection": 18135,
+        "foreground_union": 25277
+      },
+      "projective256_outlines": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 21,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 15,
+        "missed_references": 0,
+        "foreground_intersection": 18835,
+        "foreground_union": 24254
+      },
+      "common512_raw_from256": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 35,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 5,
+        "additional_predictions": 30,
+        "missed_references": 1,
+        "foreground_intersection": 77376,
+        "foreground_union": 87222
+      },
+      "common512_outlines_from256": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 21,
+        "predictions_wholly_ignored": 0,
+        "matched_instances": 6,
+        "additional_predictions": 15,
+        "missed_references": 0,
+        "foreground_intersection": 75271,
+        "foreground_union": 98237
+      },
+      "native512_raw": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 31,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 6,
+        "additional_predictions": 25,
+        "missed_references": 0,
+        "foreground_intersection": 76178,
+        "foreground_union": 82432
+      },
+      "native512_outlines": {
+        "reference_instances": 6,
+        "scored_prediction_instances": 18,
+        "predictions_wholly_ignored": 1,
+        "matched_instances": 4,
+        "additional_predictions": 14,
+        "missed_references": 2,
+        "foreground_intersection": 78698,
+        "foreground_union": 103810
+      },
+      "projective256_diagnostics": {
+        "input_instances": 35,
+        "accepted_outlines": 21,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 5,
+          "fill": 0,
+          "geometry_or_duplicate": 9
+        }
+      },
+      "projective512_diagnostics": {
+        "input_instances": 32,
+        "accepted_outlines": 19,
+        "rejected": {
+          "empty_or_small": 0,
+          "boundary": 5,
+          "fill": 0,
+          "geometry_or_duplicate": 8
+        }
+      },
+      "reference_geometry": {
+        "reference_instances": 6,
+        "old_aspect_rejected": 6
+      }
+    }
+  ],
+  "model_license_declared": "AGPL-3.0",
+  "dataset_license_declared": "CC-BY-4.0",
+  "runtime": {
+    "torch": "2.15.0+cpu",
+    "numpy": "1.26.4",
+    "opencv": "4.10.0",
+    "ultralytics": "8.1.29"
+  },
+  "source_sha256": {
+    "runner": "17cf6965e82835b0d8a10926ea698d85695e615e18a25e8423f7f55237c2b48a",
+    "reference": "1de4e7265aa93f6ae11afa2cddce1548d32615efe9dfe6712ec89d1476a07505",
+    "validation": "a0c0c0f166b6351bb50ea28e938a0e19e0924c85b9c38581a264a96438f48a01",
+    "corpus": "f84d13acfce9a90804a98f3f2f6476ffee619efd0a099f95b1586c17bfe043bf",
+    "native_adapter": "1a07d0f5df868b8ea19bb831ac89a30db42f89c2e18664adb1942ceb2981dbf6",
+    "comparison": "a68b518c88f8adf8a7a459e0c140cec6b107670d41e70630d5b36863b2a0c550",
+    "outlines": "e8235366586c3cf259b0875d386388cb8e859578a29c81e5e044c9bc4fae96fe",
+    "public_reference": "6570397871f2016018383ec91c21ca4b49990b0f43d5108f38a1dfe4de421c72",
+    "geometry": "a5f3df03ec856965d995e8c374dc94fb598258f84d7fe25508f11bab78ffb554",
+    "original_adapter": "8220a728eaa00752a83cebd6fb09fbf023df5a056fdbf8c792444198ddd21f31",
+    "original_reduction": "3375d8a6b6fe14cacaeab36f013b60d1821f774e06a5ed229c9c7bb27539ecd2"
+  },
+  "license_decision": "unreviewed",
+  "test_pixels_read": false,
+  "customer_images_read": false,
+  "training_started": false,
+  "model_updated": false,
+  "automatically_accepted": false,
+  "physical_module_ids_confirmed": false,
+  "coverage_verified": false,
+  "georeferencing_verified": false,
+  "temperature_verified": false,
+  "accuracy_verified": false,
+  "commercial_training_approved": false,
+  "production_approved": false,
+  "metrics": {
+    "legacy256_raw": {
+      "reference_instances": 117,
+      "scored_prediction_instances": 219,
+      "predictions_wholly_ignored": 14,
+      "matched_instances": 90,
+      "additional_predictions": 129,
+      "missed_references": 27,
+      "foreground_intersection": 312658,
+      "foreground_union": 351205,
+      "precision": 0.410958904109589,
+      "recall": 0.7692307692307693,
+      "f1": 0.5357142857142857,
+      "foreground_iou": 0.8902435899261115,
+      "count_difference": 102
+    },
+    "legacy256_outlines": {
+      "reference_instances": 117,
+      "scored_prediction_instances": 104,
+      "predictions_wholly_ignored": 5,
+      "matched_instances": 59,
+      "additional_predictions": 45,
+      "missed_references": 58,
+      "foreground_intersection": 247504,
+      "foreground_union": 377301,
+      "precision": 0.5673076923076923,
+      "recall": 0.5042735042735043,
+      "f1": 0.5339366515837104,
+      "foreground_iou": 0.6559855393969272,
+      "count_difference": -13
+    },
+    "projective256_outlines": {
+      "reference_instances": 117,
+      "scored_prediction_instances": 147,
+      "predictions_wholly_ignored": 15,
+      "matched_instances": 85,
+      "additional_predictions": 62,
+      "missed_references": 32,
+      "foreground_intersection": 303320,
+      "foreground_union": 352348,
+      "precision": 0.5782312925170068,
+      "recall": 0.7264957264957265,
+      "f1": 0.6439393939393939,
+      "foreground_iou": 0.860853474405985,
+      "count_difference": 30
+    },
+    "common512_raw_from256": {
+      "reference_instances": 117,
+      "scored_prediction_instances": 223,
+      "predictions_wholly_ignored": 10,
+      "matched_instances": 90,
+      "additional_predictions": 133,
+      "missed_references": 27,
+      "foreground_intersection": 1256144,
+      "foreground_union": 1405905,
+      "precision": 0.40358744394618834,
+      "recall": 0.7692307692307693,
+      "f1": 0.5294117647058824,
+      "foreground_iou": 0.8934771552843186,
+      "count_difference": 106
+    },
+    "common512_outlines_from256": {
+      "reference_instances": 117,
+      "scored_prediction_instances": 151,
+      "predictions_wholly_ignored": 11,
+      "matched_instances": 85,
+      "additional_predictions": 66,
+      "missed_references": 32,
+      "foreground_intersection": 1215944,
+      "foreground_union": 1411814,
+      "precision": 0.5629139072847682,
+      "recall": 0.7264957264957265,
+      "f1": 0.6343283582089553,
+      "foreground_iou": 0.8612635942128354,
+      "count_difference": 34
+    },
+    "native512_raw": {
+      "reference_instances": 117,
+      "scored_prediction_instances": 295,
+      "predictions_wholly_ignored": 20,
+      "matched_instances": 79,
+      "additional_predictions": 216,
+      "missed_references": 38,
+      "foreground_intersection": 1233434,
+      "foreground_union": 1365303,
+      "precision": 0.2677966101694915,
+      "recall": 0.6752136752136753,
+      "f1": 0.38349514563106796,
+      "foreground_iou": 0.9034141139366133,
+      "count_difference": 178
+    },
+    "native512_outlines": {
+      "reference_instances": 117,
+      "scored_prediction_instances": 205,
+      "predictions_wholly_ignored": 19,
+      "matched_instances": 69,
+      "additional_predictions": 136,
+      "missed_references": 48,
+      "foreground_intersection": 1257766,
+      "foreground_union": 1421170,
+      "precision": 0.33658536585365856,
+      "recall": 0.5897435897435898,
+      "f1": 0.42857142857142855,
+      "foreground_iou": 0.885021496372707,
+      "count_difference": 88
+    }
+  },
+  "reference_geometry": {
+    "reference_instances": 117,
+    "old_aspect_rejected": 60
+  },
+  "outline_profile": {
+    "id": "cvut-yolo-public-projective-quad-1",
+    "shape": "same_instance_convex_hull_approx_polygon_2percent_else_min_area_rectangle",
+    "minimum_fill": 0.5,
+    "physical_aspect_ratio_assumed": false,
+    "minimum_mask_pixels_at_256": 16,
+    "maximum_roi_area_fraction": 1.0,
+    "polygon_duplicate_iou": 0.5,
+    "reject_box_or_mask_touching_crop_edge": true,
+    "coordinates": "native_pixel_centers_no_geometric_accuracy_claim"
+  },
+  "common_grid": "native512_reference_for_both_inputs_nearest2x256_prediction",
+  "original_grid": "saved256_reference_for_original_and_projective256_outlines",
+  "public_source_archive_sha256": "85270e796868b7a242e3f10bee15c17fcb0ff937106b49d8f22d1f53b0cb43f2",
+  "public_source_archive_bytes": 392372468,
+  "publisher_archive_sha256_verified": true,
+  "report_sha256": "c84e6dd16cf324f74d5b832442a4d34b46d296e07cb0b8d1df78ca11ee3c8b8c"
+}

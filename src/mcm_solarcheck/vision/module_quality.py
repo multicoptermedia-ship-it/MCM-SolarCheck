@@ -39,10 +39,11 @@ def _bbox_iou(a,b):
     aa=max(0,ax2-ax1)*max(0,ay2-ay1);bb=max(0,bx2-bx1)*max(0,by2-by1)
     return inter/(aa+bb-inter) if aa+bb-inter>0 else 0
 
-def filter_module_detections(detections:tuple[ModuleDetection,...],width:int,height:int,*,duplicate_iou:float=.75)->tuple[ModuleDetection,...]:
+def filter_module_detections(detections:tuple[ModuleDetection,...],width:int,height:int,*,duplicate_iou:float=.75,minimum_area_fraction:float=.00005,maximum_area_fraction:float=.20)->tuple[ModuleDetection,...]:
     """Fail closed on invalid geometry and suppress high-overlap duplicate detections."""
     if not 0<duplicate_iou<=1: raise ValueError("duplicate_iou must be in (0,1]")
-    valid = [q.detection for q in (assess_module_detection(d, width, height) for d in detections) if q.accepted and q.detection.class_name == "pv_module"]
+    if not 0<=minimum_area_fraction<maximum_area_fraction<=1: raise ValueError("invalid explicit image-area fractions")
+    valid = [q.detection for q in (assess_module_detection(d, width, height,minimum_area_fraction=minimum_area_fraction,maximum_area_fraction=maximum_area_fraction) for d in detections) if q.accepted and q.detection.class_name == "pv_module"]
     valid.sort(key=lambda d:(-d.confidence,_center(d.polygon_px)))
     kept=[]
     for d in valid:

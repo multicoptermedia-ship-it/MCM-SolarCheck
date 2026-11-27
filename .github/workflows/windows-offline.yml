@@ -42,7 +42,7 @@ jobs:
         env:
           PYTHONPATH: src
           QT_QPA_PLATFORM: offscreen
-        run: python -m pytest -q tests/test_cvut_package_inspection.py tests/test_cvut_cpu_candidate.py tests/test_pv_synthetic_training.py tests/test_pvis_public_reference.py tests/test_pvis_training_reference.py tests/test_pvis_image_adapter.py tests/test_pvis_public_training.py tests/test_pvis_instance_validation.py tests/test_pvis_controlled_learning.py tests/test_pvis_public_context.py tests/test_cvut_yolo_research.py tests/test_cvut_yolo_validation.py tests/test_cvut_yolo_public_validation.py
+        run: python -m pytest -q tests/test_cvut_package_inspection.py tests/test_cvut_cpu_candidate.py tests/test_pv_synthetic_training.py tests/test_pvis_public_reference.py tests/test_pvis_training_reference.py tests/test_pvis_image_adapter.py tests/test_pvis_public_training.py tests/test_pvis_instance_validation.py tests/test_pvis_controlled_learning.py tests/test_pvis_public_context.py tests/test_cvut_yolo_research.py tests/test_cvut_yolo_validation.py tests/test_cvut_yolo_public_validation.py tests/test_cvut_yolo_projective.py tests/test_pvis_native_validation.py tests/test_cvut_yolo_native_comparison.py
       - name: Test external RGB and thermal GeoTIFF intake and PV mapping
         shell: pwsh
         env:
@@ -173,4 +173,4 @@ jobs:
           YOLO_AUTOINSTALL: 'false'
           YOLO_CONFIG_DIR: ${{ runner.temp }}/solarcheck-yolo-settings
           MPLCONFIGDIR: ${{ runner.temp }}/solarcheck-yolo-matplotlib
-        run: python -m pytest -q tests/test_cvut_yolo_research_runtime.py tests/test_cvut_yolo_research.py tests/test_cvut_yolo_validation.py tests/test_cvut_yolo_public_validation.py
+        run: python -m pytest -q tests/test_cvut_yolo_research_runtime.py tests/test_cvut_yolo_research.py tests/test_cvut_yolo_validation.py tests/test_cvut_yolo_public_validation.py tests/test_cvut_yolo_projective.py tests/test_pvis_native_validation.py tests/test_cvut_yolo_native_comparison.py

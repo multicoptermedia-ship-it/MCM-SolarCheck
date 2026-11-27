@@ -15,10 +15,11 @@ PROFILE = dict(id='cvut-yolov8-public-native512-area256-1', input_size=256,
     matching='maximum_cardinality_on_known_pixels_only')
 
 
-def score_masks(reference, masks):
+def score_masks(reference, masks, *, size=256):
     """Retain overlapping predicted instances, match each reference at most once."""
-    if (not isinstance(reference, np.ndarray) or reference.dtype != np.int32
-            or reference.shape != (256,256) or reference.min() < -1
+    if (type(size) is not int or size not in (256,512)
+            or not isinstance(reference, np.ndarray) or reference.dtype != np.int32
+            or reference.shape != (size,size) or reference.min() < -1
             or reference.max() > 10000 or not np.any(reference >= 0)
             or not isinstance(masks, np.ndarray) or masks.dtype != np.bool_
             or masks.ndim != 3 or masks.shape[1:] != reference.shape or len(masks) > 300):
@@ -82,11 +83,11 @@ def module_masks(boxes, masks, confidence):
                      for p in proposals]) if proposals else np.zeros((0,256,256), bool)
 
 
-def infer(torch, model, rgb):
+def infer(torch, model, rgb, *, size=256):
     """Fixed reference decoder; no labels, count, ignore regions or local notes."""
     from ultralytics.utils import ops
-    if rgb.shape != (256,256,3) or rgb.dtype != np.uint8:
-        raise ValueError('Existing public512-to256 RGB reduction required')
+    if type(size) is not int or size not in (256,512) or rgb.shape != (size,size,3) or rgb.dtype != np.uint8:
+        raise ValueError('Explicit public256 or native512 RGB required')
     with torch.inference_mode():
         x = torch.from_numpy(rgb.transpose(2,0,1).copy()).float().div(255).unsqueeze(0)
         result = model.eval()(x)
@@ -95,7 +96,7 @@ def infer(torch, model, rgb):
         if len(detection) >= 300:
             raise ValueError('Public prediction limit reached; crop remains unscored')
         masks = (ops.process_mask_native(result[1][-1][0], detection[:,6:], detection[:,:4],
-            (256,256)).cpu().numpy().astype(bool) if len(detection)
-            else np.zeros((0,256,256),bool))
+            (size,size)).cpu().numpy().astype(bool) if len(detection)
+            else np.zeros((0,size,size),bool))
         # Do not remove empty masks independently from their boxes/confidences.
         return detection[:,:4].cpu().numpy(), masks, detection[:,4].cpu().numpy()
