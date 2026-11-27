@@ -1,5 +1,7 @@
 # Public PV dataset intake register (review required)
 
+27.11.2026: the publisher advertises already trained YOLOv8n **individual-module** segmentation models, approximately34MB. User supplied the official[PV_YOLOv8_models.zip](https://imr.ciirc.cvut.cz/uploads/Datasets/PV_YOLOv8_models.zip) link. Both provider page and direct archive request here failHTTP503; no verified archive, member inventory, weight hash or runtime yet. User checks member names locally. This is the next candidate after the failed public U-Net learning experiment; do not rerun that experiment. Dataset CC-BY4.0 does not by itself establish model-weight or Ultralytics dependency rights. No new installation/execution/customer processing authorized by this inventory note. [Actual public validation evidence](evidence/pvis-controlled-learning-2026-11-27.json).
+
 Status19.11.2026: the user selected a bounded **CVUT public-data/model pilot**. See [Windows intake](CVUT_PV_PILOT_WINDOWS10.md) and [current handoff](AKTUELLER_ENTWICKLUNGSSTAND.md). Dataset permission, model-weight permission and dependency licenses are separate. No customer imagery is part of this pilot.
 
 | Individual-module candidate | Publisher evidence / scope | Intake decision |

@@ -16,12 +16,12 @@ Den vollständigen Block in PowerShell ausführen. Er bereitet den größeren ö
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$pvLearnCommit = 'SOURCE_COMMIT'
+$pvLearnCommit = 'b94d3bd01810e27e379cb1aeb575bb4e65fd80cb'
 $pvLearnStart = Join-Path 'E:\SolarCheck-PVIS-Lernen-Start' $pvLearnCommit
 New-Item -ItemType Directory -Force -Path $pvLearnStart | Out-Null
 $pvLearnZip = Join-Path $pvLearnStart 'SolarCheck-source.zip'
 Invoke-WebRequest -UseBasicParsing -Uri "https://codeload.github.com/multicoptermedia-ship-it/MCM-SolarCheck/zip/$pvLearnCommit" -OutFile $pvLearnZip
-if ((Get-FileHash -Algorithm SHA256 $pvLearnZip).Hash.ToLowerInvariant() -ne 'SOURCE_SHA256') {
+if ((Get-FileHash -Algorithm SHA256 $pvLearnZip).Hash.ToLowerInvariant() -ne '77dfce82eb789b60a612d8a3ecd13fea053b7bd9a45fdb9ba034ff279d16b888') {
     throw 'QuellZIP-Pruefsumme stimmt nicht. Nicht gestartet.'
 }
 Expand-Archive -LiteralPath $pvLearnZip -DestinationPath $pvLearnStart -Force
@@ -29,7 +29,7 @@ $pvLearnSource = Join-Path $pvLearnStart "MCM-SolarCheck-$pvLearnCommit"
 & 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' (Join-Path $pvLearnSource 'scripts\MCM_SolarCheck_PVIS_LERNEN.py') --learn-public --source-prefix 'E:\SolarCheck-PVIS-Referenz' --parent-prefix 'E:\SolarCheck-PVIS-Training' --prefix 'E:\SolarCheck-PVIS-Lernen' --torch-prefix 'E:\SolarCheck-CVUT-KI-Pilot' --session-minutes 20
 ```
 
-Feste Quelle SOURCE_COMMIT, ZIP SOURCE_BYTES Bytes, SHA256 SOURCE_SHA256. Laufzeitquellen und Konfiguration gegen das remote geladene Archiv geprüft; exakte finale HEAD-CI in Draft PR9.
+Feste Quelle b94d3bd01810e27e379cb1aeb575bb4e65fd80cb, ZIP 3321182 Bytes, SHA256 77dfce82eb789b60a612d8a3ecd13fea053b7bd9a45fdb9ba034ff279d16b888. Laufzeitquellen und Konfiguration gegen das remote geladene Archiv geprüft; exakte finale HEAD-CI in Draft PR9.
 
 Die Vorbereitung zeigt82Crop-Fortschritte. Dabei werden vorhandene öffentliche JPEGs erneut gelesen, um die bereits geprüften Fenster als Zahlen zu speichern; die abgeschlossene Bildadapterprüfung wird nicht erneut ausgeführt. Fertige Crop-Dateien werden bei Fortsetzung geprüft und wiederverwendet. Der bisherige512→256-RGB-/Instanz-/Ignoriervertrag bleibt unverändert. Keine andere Normalisierung.
 
@@ -50,7 +50,7 @@ Bitte nicht parallel eine zweite Sitzung oder --show starten. Die gemeinsame OS-
 Nach Ende der Sitzung, auch nach einer Zeitpause, PowerShell schließen und erneut öffnen. Dann diesen vollständigen Befehl ausführen:
 
 ```powershell
-& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Lernen-Start\SOURCE_COMMIT\MCM-SolarCheck-SOURCE_COMMIT\scripts\MCM_SolarCheck_PVIS_LERNEN.py' --prefix 'E:\SolarCheck-PVIS-Lernen' --parent-prefix 'E:\SolarCheck-PVIS-Training' --show
+& 'F:\MCM-SolarCheck\.venv\Scripts\python.exe' 'E:\SolarCheck-PVIS-Lernen-Start\b94d3bd01810e27e379cb1aeb575bb4e65fd80cb\MCM-SolarCheck-b94d3bd01810e27e379cb1aeb575bb4e65fd80cb\scripts\MCM_SolarCheck_PVIS_LERNEN.py' --prefix 'E:\SolarCheck-PVIS-Lernen' --parent-prefix 'E:\SolarCheck-PVIS-Training' --show
 ```
 
 --show prüft Parent-Lauf, Zahlenkorpus, Quellbindung, Speicherpunkt beziehungsweise ausgewählte Gewichte und fertige Kontrollbilder. **Kein Torch-Modell, neues Training oder neue Inferenz.** Der Bericht bleibt innerhalb derselben Umgebung identisch. Bitte den JSON-Text mitteilen; keine Bilder, ZIPs oder Gewichte hochladen.
@@ -96,4 +96,4 @@ Rechteentscheidung bleibt unreviewed, Daten unter[CC BY4.0/Anbieterangaben](http
 
 Eine getrennte Diagnose mit eingefrorenen Schritt592-Gewichten untersucht den Unterschied zwischen gespeicherten BatchNorm-Statistiken und Statistik je Einzelbild. Auf den ersten acht Validierungscrops erhöht sich die Rohflächen-IoU von0,01934 auf0,37937; der bisherige Instanzdecoder bleibt unzureichend. Ein festes semantisches Verfahren (PV≥0,5,Opening3,Komponenten≥16Pixel) auf allen24Crops trifft19der117Referenzmodule, erzeugt277weitere Vorschläge und übersieht98. Kein Kundenmodell und keine globale Qualitätsquote. Die Diagnose ändert keine gespeicherten Gewichte; keine Bildnormalisierung oder Belichtungskorrektur am Original. [Öffentlicher Zahlenbeleg](evidence/pvis-controlled-learning-2026-11-27.json).
 
-Die offizielle[CVUT-Seite](https://imr.ciirc.cvut.cz/Datasets/PVsegmentation) nennt neben U-Net bereits trainierte **YOLOv8n PV module segmentation models (34MB)**. Der direkte Anbieterabruf liefert hier HTTP503. Die genaue Downloadadresse wurde beim Nutzer angefragt. Zuerst konkretes RGB-Artefakt, Code-/Gewichtsbedingungen und CPU-Laufzeit klären, dann gegen dieselbe öffentliche Validierung bewerten. Die CC-BY4.0-Erklärung der Seite gilt ausdrücklich dem Datensatz; daraus keine pauschale Modell-/Ultralytics-/Produktlizenz ableiten. Noch keine neue Installation oder proprietäre Produktfreigabe.
+Die offizielle[CVUT-Seite](https://imr.ciirc.cvut.cz/Datasets/PVsegmentation) nennt neben U-Net bereits trainierte **YOLOv8n PV module segmentation models (34MB)**. Der direkte Anbieterabruf liefert hier HTTP503. Der Nutzer hat die genaue offizielle[Downloadadresse PV_YOLOv8_models.zip](https://imr.ciirc.cvut.cz/uploads/Datasets/PV_YOLOv8_models.zip) mitgeteilt; auch dieser direkte Abruf liefert hier HTTP503. Er prüft zunächst die im ZIP enthaltenen Dateinamen lokal. Zuerst konkretes RGB-Artefakt, Code-/Gewichtsbedingungen und CPU-Laufzeit klären, dann gegen dieselbe öffentliche Validierung bewerten. Die CC-BY4.0-Erklärung der Seite gilt ausdrücklich dem Datensatz; daraus keine pauschale Modell-/Ultralytics-/Produktlizenz ableiten. Noch keine neue Installation oder proprietäre Produktfreigabe.
