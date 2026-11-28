@@ -29,3 +29,5 @@ CVUT-YOLO-NATIVE-01 abgeschlossen technisch: dieselben24öffentlichen033-Crops/1
 
 ## Übergabe / nächster Teil
 Raster technisch und öffentliche Beispielverbesserung belegt, Modulerkennung fachlich weiter offen. Nächster Teil Maßstabswahl/Teilmodule und zusätzliche Vorschläge gezielt verbessern, danach Kandidat einfrieren und unabhängige Daten prüfen;024nicht zur Parameterwahl. Eigener lokaler ROI-/ONNX-/Windows10-Feldweg anschließend; keine unveränderte Nutzerprobe/Neuinstallation/1000Pflichtreviews. [Befund](CVUT_YOLO_PUBLIC_REVIEW.md). Vor Chatende Checkpoint zuerst, dann Register/Vereinbarung/Handoff/Roadmap; Quelle/ZIP/exakte HEAD-CI und reale Abnahme getrennt nachtragen. Beide GeoTIFFs/Thermalzuordnung/Fachprüfung bleiben Ziel; Kunden/main/unvollständig280/287/Tags/Import-Sperre unverändert.
+
+Raster-Prüfquelleefd4b0dcd052077c86e946414aba1bd973df89cc/ZIP3498807Bytes/SHA9a27290cc1c675a1a7983d3bea26ae6b95eff3188a1761112c36c02d7f6e5aa7;714Runtime-Dateien+10Konfig/Paketlisten remote bytegleich. Keine neue Nutzerinstallation/GUI-Modellübernahme; exakte finale HEAD-CI in PR9 separat.
