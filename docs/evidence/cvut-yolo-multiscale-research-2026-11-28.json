@@ -1,0 +1,620 @@
+{
+  "check": "solarcheck-public-full-image-multiscale-probe-1",
+  "source_archive_sha256": "85270e796868b7a242e3f10bee15c17fcb0ff937106b49d8f22d1f53b0cb43f2",
+  "source_station": "033",
+  "fixed_public_cases": [
+    14,
+    17,
+    18
+  ],
+  "evaluation": "pycocotools2.0.10_coco_segmentation_iou050_and075_maxdet5000",
+  "training_started": false,
+  "customer_images_read": false,
+  "test_pixels_read": false,
+  "accuracy_verified": false,
+  "coverage_verified": false,
+  "production_approved": false,
+  "rows": [
+    {
+      "model": "parent",
+      "weights_sha256": "d80be7a0629da05e4f315e3a8ead0fb2438649c191a123a33e14403a334cdc27",
+      "public_case": 14,
+      "width": 5280,
+      "height": 3956,
+      "metrics": {
+        "whole_image256": {
+          "iou050": {
+            "reference_instances": 152,
+            "predictions": 0,
+            "matched_instances": 0,
+            "additional_predictions": 0,
+            "missed_references": 152,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 152,
+            "predictions": 0,
+            "matched_instances": 0,
+            "additional_predictions": 0,
+            "missed_references": 152,
+            "AP": 0.0
+          }
+        },
+        "grid512_iou": {
+          "iou050": {
+            "reference_instances": 152,
+            "predictions": 268,
+            "matched_instances": 125,
+            "additional_predictions": 143,
+            "missed_references": 27,
+            "AP": 0.767895426351315
+          },
+          "iou075": {
+            "reference_instances": 152,
+            "predictions": 268,
+            "matched_instances": 112,
+            "additional_predictions": 156,
+            "missed_references": 40,
+            "AP": 0.6567672405576859
+          }
+        },
+        "grid1024_iou": {
+          "iou050": {
+            "reference_instances": 152,
+            "predictions": 152,
+            "matched_instances": 134,
+            "additional_predictions": 18,
+            "missed_references": 18,
+            "AP": 0.8608277333809164
+          },
+          "iou075": {
+            "reference_instances": 152,
+            "predictions": 152,
+            "matched_instances": 124,
+            "additional_predictions": 28,
+            "missed_references": 28,
+            "AP": 0.7711649016941536
+          }
+        },
+        "multiscale_iou": {
+          "iou050": {
+            "reference_instances": 152,
+            "predictions": 285,
+            "matched_instances": 136,
+            "additional_predictions": 149,
+            "missed_references": 16,
+            "AP": 0.8246227982730975
+          },
+          "iou075": {
+            "reference_instances": 152,
+            "predictions": 285,
+            "matched_instances": 124,
+            "additional_predictions": 161,
+            "missed_references": 28,
+            "AP": 0.7127456968594049
+          }
+        },
+        "multiscale_ios": {
+          "iou050": {
+            "reference_instances": 152,
+            "predictions": 256,
+            "matched_instances": 131,
+            "additional_predictions": 125,
+            "missed_references": 21,
+            "AP": 0.8097162802846587
+          },
+          "iou075": {
+            "reference_instances": 152,
+            "predictions": 256,
+            "matched_instances": 119,
+            "additional_predictions": 137,
+            "missed_references": 33,
+            "AP": 0.6982493746970874
+          }
+        }
+      },
+      "model_windows_computed": 371
+    },
+    {
+      "model": "parent",
+      "weights_sha256": "d80be7a0629da05e4f315e3a8ead0fb2438649c191a123a33e14403a334cdc27",
+      "public_case": 17,
+      "width": 5280,
+      "height": 3956,
+      "metrics": {
+        "whole_image256": {
+          "iou050": {
+            "reference_instances": 122,
+            "predictions": 0,
+            "matched_instances": 0,
+            "additional_predictions": 0,
+            "missed_references": 122,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 122,
+            "predictions": 0,
+            "matched_instances": 0,
+            "additional_predictions": 0,
+            "missed_references": 122,
+            "AP": 0.0
+          }
+        },
+        "grid512_iou": {
+          "iou050": {
+            "reference_instances": 122,
+            "predictions": 218,
+            "matched_instances": 110,
+            "additional_predictions": 108,
+            "missed_references": 12,
+            "AP": 0.6560164305637101
+          },
+          "iou075": {
+            "reference_instances": 122,
+            "predictions": 218,
+            "matched_instances": 68,
+            "additional_predictions": 150,
+            "missed_references": 54,
+            "AP": 0.2692632767221784
+          }
+        },
+        "grid1024_iou": {
+          "iou050": {
+            "reference_instances": 122,
+            "predictions": 147,
+            "matched_instances": 91,
+            "additional_predictions": 56,
+            "missed_references": 31,
+            "AP": 0.5801260847688524
+          },
+          "iou075": {
+            "reference_instances": 122,
+            "predictions": 147,
+            "matched_instances": 42,
+            "additional_predictions": 105,
+            "missed_references": 80,
+            "AP": 0.14205013315786552
+          }
+        },
+        "multiscale_iou": {
+          "iou050": {
+            "reference_instances": 122,
+            "predictions": 267,
+            "matched_instances": 118,
+            "additional_predictions": 149,
+            "missed_references": 4,
+            "AP": 0.6868904900875852
+          },
+          "iou075": {
+            "reference_instances": 122,
+            "predictions": 267,
+            "matched_instances": 74,
+            "additional_predictions": 193,
+            "missed_references": 48,
+            "AP": 0.2799230667012569
+          }
+        },
+        "multiscale_ios": {
+          "iou050": {
+            "reference_instances": 122,
+            "predictions": 212,
+            "matched_instances": 108,
+            "additional_predictions": 104,
+            "missed_references": 14,
+            "AP": 0.6555442633995042
+          },
+          "iou075": {
+            "reference_instances": 122,
+            "predictions": 212,
+            "matched_instances": 69,
+            "additional_predictions": 143,
+            "missed_references": 53,
+            "AP": 0.2789424832396553
+          }
+        }
+      },
+      "model_windows_computed": 371
+    },
+    {
+      "model": "parent",
+      "weights_sha256": "d80be7a0629da05e4f315e3a8ead0fb2438649c191a123a33e14403a334cdc27",
+      "public_case": 18,
+      "width": 5280,
+      "height": 3956,
+      "metrics": {
+        "whole_image256": {
+          "iou050": {
+            "reference_instances": 74,
+            "predictions": 0,
+            "matched_instances": 0,
+            "additional_predictions": 0,
+            "missed_references": 74,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 74,
+            "predictions": 0,
+            "matched_instances": 0,
+            "additional_predictions": 0,
+            "missed_references": 74,
+            "AP": 0.0
+          }
+        },
+        "grid512_iou": {
+          "iou050": {
+            "reference_instances": 74,
+            "predictions": 36,
+            "matched_instances": 0,
+            "additional_predictions": 36,
+            "missed_references": 74,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 74,
+            "predictions": 36,
+            "matched_instances": 0,
+            "additional_predictions": 36,
+            "missed_references": 74,
+            "AP": 0.0
+          }
+        },
+        "grid1024_iou": {
+          "iou050": {
+            "reference_instances": 74,
+            "predictions": 8,
+            "matched_instances": 0,
+            "additional_predictions": 8,
+            "missed_references": 74,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 74,
+            "predictions": 8,
+            "matched_instances": 0,
+            "additional_predictions": 8,
+            "missed_references": 74,
+            "AP": 0.0
+          }
+        },
+        "multiscale_iou": {
+          "iou050": {
+            "reference_instances": 74,
+            "predictions": 44,
+            "matched_instances": 0,
+            "additional_predictions": 44,
+            "missed_references": 74,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 74,
+            "predictions": 44,
+            "matched_instances": 0,
+            "additional_predictions": 44,
+            "missed_references": 74,
+            "AP": 0.0
+          }
+        },
+        "multiscale_ios": {
+          "iou050": {
+            "reference_instances": 74,
+            "predictions": 42,
+            "matched_instances": 0,
+            "additional_predictions": 42,
+            "missed_references": 74,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 74,
+            "predictions": 42,
+            "matched_instances": 0,
+            "additional_predictions": 42,
+            "missed_references": 74,
+            "AP": 0.0
+          }
+        }
+      },
+      "model_windows_computed": 371
+    },
+    {
+      "model": "focused",
+      "weights_sha256": "538633a36e44d6c3ba7176954a9d3634a2bde9da68fe6e870c1baf972707d87d",
+      "public_case": 14,
+      "width": 5280,
+      "height": 3956,
+      "metrics": {
+        "whole_image256": {
+          "iou050": {
+            "reference_instances": 152,
+            "predictions": 0,
+            "matched_instances": 0,
+            "additional_predictions": 0,
+            "missed_references": 152,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 152,
+            "predictions": 0,
+            "matched_instances": 0,
+            "additional_predictions": 0,
+            "missed_references": 152,
+            "AP": 0.0
+          }
+        },
+        "grid512_iou": {
+          "iou050": {
+            "reference_instances": 152,
+            "predictions": 315,
+            "matched_instances": 124,
+            "additional_predictions": 191,
+            "missed_references": 28,
+            "AP": 0.785331292776513
+          },
+          "iou075": {
+            "reference_instances": 152,
+            "predictions": 315,
+            "matched_instances": 124,
+            "additional_predictions": 191,
+            "missed_references": 28,
+            "AP": 0.785331292776513
+          }
+        },
+        "grid1024_iou": {
+          "iou050": {
+            "reference_instances": 152,
+            "predictions": 175,
+            "matched_instances": 132,
+            "additional_predictions": 43,
+            "missed_references": 20,
+            "AP": 0.8029124649335103
+          },
+          "iou075": {
+            "reference_instances": 152,
+            "predictions": 175,
+            "matched_instances": 120,
+            "additional_predictions": 55,
+            "missed_references": 32,
+            "AP": 0.6730147028877901
+          }
+        },
+        "multiscale_iou": {
+          "iou050": {
+            "reference_instances": 152,
+            "predictions": 355,
+            "matched_instances": 137,
+            "additional_predictions": 218,
+            "missed_references": 15,
+            "AP": 0.8554110027478613
+          },
+          "iou075": {
+            "reference_instances": 152,
+            "predictions": 355,
+            "matched_instances": 137,
+            "additional_predictions": 218,
+            "missed_references": 15,
+            "AP": 0.8554110027478613
+          }
+        },
+        "multiscale_ios": {
+          "iou050": {
+            "reference_instances": 152,
+            "predictions": 302,
+            "matched_instances": 129,
+            "additional_predictions": 173,
+            "missed_references": 23,
+            "AP": 0.8169374464993971
+          },
+          "iou075": {
+            "reference_instances": 152,
+            "predictions": 302,
+            "matched_instances": 128,
+            "additional_predictions": 174,
+            "missed_references": 24,
+            "AP": 0.8155517110628718
+          }
+        }
+      },
+      "model_windows_computed": 371
+    },
+    {
+      "model": "focused",
+      "weights_sha256": "538633a36e44d6c3ba7176954a9d3634a2bde9da68fe6e870c1baf972707d87d",
+      "public_case": 17,
+      "width": 5280,
+      "height": 3956,
+      "metrics": {
+        "whole_image256": {
+          "iou050": {
+            "reference_instances": 122,
+            "predictions": 1,
+            "matched_instances": 0,
+            "additional_predictions": 1,
+            "missed_references": 122,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 122,
+            "predictions": 1,
+            "matched_instances": 0,
+            "additional_predictions": 1,
+            "missed_references": 122,
+            "AP": 0.0
+          }
+        },
+        "grid512_iou": {
+          "iou050": {
+            "reference_instances": 122,
+            "predictions": 353,
+            "matched_instances": 107,
+            "additional_predictions": 246,
+            "missed_references": 15,
+            "AP": 0.5885031277443269
+          },
+          "iou075": {
+            "reference_instances": 122,
+            "predictions": 353,
+            "matched_instances": 69,
+            "additional_predictions": 284,
+            "missed_references": 53,
+            "AP": 0.26841553744947666
+          }
+        },
+        "grid1024_iou": {
+          "iou050": {
+            "reference_instances": 122,
+            "predictions": 189,
+            "matched_instances": 99,
+            "additional_predictions": 90,
+            "missed_references": 23,
+            "AP": 0.5703325835774655
+          },
+          "iou075": {
+            "reference_instances": 122,
+            "predictions": 189,
+            "matched_instances": 52,
+            "additional_predictions": 137,
+            "missed_references": 70,
+            "AP": 0.17254850273005215
+          }
+        },
+        "multiscale_iou": {
+          "iou050": {
+            "reference_instances": 122,
+            "predictions": 431,
+            "matched_instances": 116,
+            "additional_predictions": 315,
+            "missed_references": 6,
+            "AP": 0.6194575261759405
+          },
+          "iou075": {
+            "reference_instances": 122,
+            "predictions": 431,
+            "matched_instances": 73,
+            "additional_predictions": 358,
+            "missed_references": 49,
+            "AP": 0.22943050932853246
+          }
+        },
+        "multiscale_ios": {
+          "iou050": {
+            "reference_instances": 122,
+            "predictions": 323,
+            "matched_instances": 101,
+            "additional_predictions": 222,
+            "missed_references": 21,
+            "AP": 0.5795635276327274
+          },
+          "iou075": {
+            "reference_instances": 122,
+            "predictions": 323,
+            "matched_instances": 62,
+            "additional_predictions": 261,
+            "missed_references": 60,
+            "AP": 0.22117174206707288
+          }
+        }
+      },
+      "model_windows_computed": 371
+    },
+    {
+      "model": "focused",
+      "weights_sha256": "538633a36e44d6c3ba7176954a9d3634a2bde9da68fe6e870c1baf972707d87d",
+      "public_case": 18,
+      "width": 5280,
+      "height": 3956,
+      "metrics": {
+        "whole_image256": {
+          "iou050": {
+            "reference_instances": 74,
+            "predictions": 0,
+            "matched_instances": 0,
+            "additional_predictions": 0,
+            "missed_references": 74,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 74,
+            "predictions": 0,
+            "matched_instances": 0,
+            "additional_predictions": 0,
+            "missed_references": 74,
+            "AP": 0.0
+          }
+        },
+        "grid512_iou": {
+          "iou050": {
+            "reference_instances": 74,
+            "predictions": 108,
+            "matched_instances": 1,
+            "additional_predictions": 107,
+            "missed_references": 73,
+            "AP": 0.00020414412575278147
+          },
+          "iou075": {
+            "reference_instances": 74,
+            "predictions": 108,
+            "matched_instances": 0,
+            "additional_predictions": 108,
+            "missed_references": 74,
+            "AP": 0.0
+          }
+        },
+        "grid1024_iou": {
+          "iou050": {
+            "reference_instances": 74,
+            "predictions": 22,
+            "matched_instances": 0,
+            "additional_predictions": 22,
+            "missed_references": 74,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 74,
+            "predictions": 22,
+            "matched_instances": 0,
+            "additional_predictions": 22,
+            "missed_references": 74,
+            "AP": 0.0
+          }
+        },
+        "multiscale_iou": {
+          "iou050": {
+            "reference_instances": 74,
+            "predictions": 127,
+            "matched_instances": 1,
+            "additional_predictions": 126,
+            "missed_references": 73,
+            "AP": 0.0001737015806843842
+          },
+          "iou075": {
+            "reference_instances": 74,
+            "predictions": 127,
+            "matched_instances": 0,
+            "additional_predictions": 127,
+            "missed_references": 74,
+            "AP": 0.0
+          }
+        },
+        "multiscale_ios": {
+          "iou050": {
+            "reference_instances": 74,
+            "predictions": 101,
+            "matched_instances": 0,
+            "additional_predictions": 101,
+            "missed_references": 74,
+            "AP": 0.0
+          },
+          "iou075": {
+            "reference_instances": 74,
+            "predictions": 101,
+            "matched_instances": 0,
+            "additional_predictions": 101,
+            "missed_references": 74,
+            "AP": 0.0
+          }
+        }
+      },
+      "model_windows_computed": 371
+    }
+  ],
+  "raw_public_probe_sha256": "7d8ea350bcb4bf586272af44103d0c8c5f70170934efa469f6820ca1476cd236"
+}

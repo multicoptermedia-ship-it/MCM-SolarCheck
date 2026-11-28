@@ -11,6 +11,16 @@ def convex_polygon_iou(a,b)->float:
     union=aa+ab-float(inter)
     return float(inter)/union if union>0 else 0.0
 
+
+def convex_polygon_ios(a,b)->float:
+    """Intersection over the smaller polygon, for explicit nested-tile hypotheses."""
+    pa=np.asarray(a,dtype=np.float32);pb=np.asarray(b,dtype=np.float32)
+    if len(pa)<3 or len(pb)<3:return 0.0
+    smaller=min(abs(cv2.contourArea(pa)),abs(cv2.contourArea(pb)))
+    if smaller<=0:return 0.0
+    inter,_=cv2.intersectConvexConvex(pa,pb)
+    return min(1.,max(0.,float(inter)/smaller))
+
 def is_valid_module_polygon(poly)->bool:
     p=np.asarray(poly,dtype=np.float32)
     return len(p)>=4 and cv2.isContourConvex(p) and abs(cv2.contourArea(p))>0

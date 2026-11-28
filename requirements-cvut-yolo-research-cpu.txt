@@ -13,3 +13,6 @@ psutil==7.2.2
 py-cpuinfo==9.0.0
 thop==0.1.1.post2209072238
 PyYAML==6.0.3
+# Official COCO mask evaluator for public full-image development comparisons.
+# FreeBSD license; isolated research environment only, not app/user setup.
+pycocotools==2.0.10
