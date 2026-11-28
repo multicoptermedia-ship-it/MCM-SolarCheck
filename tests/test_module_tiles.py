@@ -97,6 +97,13 @@ def test_budget_is_checked_before_any_model_runs_or_large_plan_is_allocated():
         detect_tiles(np.zeros((512,512,3),np.uint8),lambda _:pytest.fail('Started partial analysis'),maximum_tiles=1)
 
 
+def test_exact_budget_does_not_count_the_last_edge_anchor_twice():
+    assert len(tile_plan(512,256,sizes=(256,),maximum_tiles=3))==3
+    assert len(tile_plan(513,256,sizes=(256,),maximum_tiles=4))==4
+    with pytest.raises(ValueError,match='budget'):
+        tile_plan(513,256,sizes=(256,),maximum_tiles=3)
+
+
 def test_cancel_returns_no_partial_detections_and_reports_only_progress_counts():
     ticks=[]
     with pytest.raises(KeyboardInterrupt):

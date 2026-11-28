@@ -34,7 +34,8 @@ def tile_plan(width,height,*,sizes=(1024,512),maximum_tiles=4096):
         raise ValueError('Bounded native image dimensions and explicit tile scales required')
     def positions(length,size):
         if length<=size:return (0,)
-        if (length-size)//(size//2)+2>maximum_tiles:
+        steps, remainder = divmod(length-size, size//2)
+        if steps+1+bool(remainder)>maximum_tiles:
             raise ValueError('Tile budget exceeded; no partial analysis result')
         return tuple(sorted(set((*range(0,length-size+1,size//2),length-size))))
     result=[]
