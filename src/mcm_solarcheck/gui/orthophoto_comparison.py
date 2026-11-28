@@ -22,14 +22,24 @@ def _pixmap_from_rgb(rgb: np.ndarray) -> QPixmap:
 class OrthophotoComparisonWidget(QWidget):
     """Overlay geographically aligned arrays using an interactive opacity slider."""
 
-    def __init__(self, rgb: np.ndarray, thermal: np.ndarray, parent=None):
+    def __init__(self, rgb: np.ndarray, thermal: np.ndarray, parent=None, *, incomplete_label=None):
         super().__init__(parent)
         if rgb.dtype != np.uint8 or rgb.ndim != 3 or rgb.shape[2] != 3:
             raise ValueError("RGB layer must be uint8 HxWx3")
-        if thermal.ndim != 2 or thermal.shape != rgb.shape[:2]:
+        scalar = thermal.ndim == 2 and thermal.shape == rgb.shape[:2]
+        visual = thermal.ndim == 3 and thermal.shape == rgb.shape
+        if not (scalar or visual):
             raise ValueError("Thermal layer must match aligned RGB grid")
+        if (not np.issubdtype(thermal.dtype, np.number)
+                or np.issubdtype(thermal.dtype, np.complexfloating)):
+            raise ValueError("Thermal layer needs real numeric samples")
+        if visual:
+            finite = thermal[np.isfinite(thermal)]
+            if finite.size and (finite.min() < 0 or finite.max() > 255):
+                raise ValueError("Visual thermal RGB samples must be between 0 and 255")
         self._rgb = rgb.copy()
         self._thermal = thermal.astype(np.float32, copy=True)
+        self._thermal_is_visual = visual
         self._zoom = 1.0
         self._label = QLabel(self)
         self._label.setObjectName("orthophoto_comparison_image")
@@ -40,6 +50,11 @@ class OrthophotoComparisonWidget(QWidget):
         self._slider.setValue(50)
         self._slider.valueChanged.connect(self._update_image)
         layout = QVBoxLayout(self)
+        if incomplete_label:
+            warning = QLabel(incomplete_label + ' · Sichtvergleich, keine Freigabe von Abdeckung, Geometrie oder Celsius.', self)
+            warning.setObjectName('orthophoto_comparison_incomplete_notice')
+            warning.setWordWrap(True)
+            layout.addWidget(warning)
         self._scroll = QScrollArea(self)
         self._scroll.setObjectName('orthophoto_comparison_scroll_area')
         self._scroll.setWidgetResizable(False)
@@ -56,9 +71,21 @@ class OrthophotoComparisonWidget(QWidget):
         reset.clicked.connect(lambda: self._set_zoom(1.0))
         controls.addWidget(reset)
         layout.addLayout(controls)
-        layout.addWidget(QLabel("RGB ← Ebenenüberblendung → Thermal", self))
+        description = ("Thermal-Farbbild (keine Temperaturwerte)" if visual else
+                       "Thermal-Rasterwerte (keine Celsius-Kalibrierung bestätigt)")
+        layout.addWidget(QLabel("RGB ← Ebenenüberblendung → " + description, self))
         layout.addWidget(self._slider)
         self._update_image()
+
+    def view_state(self):
+        return dict(opacity=self._slider.value(), zoom=self._zoom)
+
+    def restore_view_state(self, *, opacity, zoom):
+        if (type(opacity) is not int or not 0 <= opacity <= 100
+                or type(zoom) not in (int, float) or not .25 <= zoom <= 4):
+            raise ValueError('Invalid comparison view state')
+        self._slider.setValue(opacity)
+        self._set_zoom(zoom)
 
     def _set_zoom(self, value: float):
         self._zoom = max(0.25, min(4.0, value))
@@ -66,8 +93,13 @@ class OrthophotoComparisonWidget(QWidget):
 
     def _update_image(self, *_args):
         valid = np.isfinite(self._thermal)
-        thermal_rgb = np.zeros_like(self._rgb)
-        if valid.any():
+        if self._thermal_is_visual:
+            valid = np.all(valid, axis=2)
+            thermal_rgb = np.zeros_like(self._rgb)
+            thermal_rgb[valid] = self._thermal[valid].astype(np.uint8)
+        else:
+            thermal_rgb = np.zeros_like(self._rgb)
+        if not self._thermal_is_visual and valid.any():
             values = self._thermal[valid]
             low, high = np.percentile(values, (2, 98))
             if high > low:

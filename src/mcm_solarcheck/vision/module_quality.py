@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import hypot,isfinite
 from mcm_solarcheck.vision.detection import ModuleDetection
-from mcm_solarcheck.vision.polygon_geometry import convex_polygon_iou,is_valid_module_polygon
+from mcm_solarcheck.vision.polygon_geometry import convex_polygon_iou,convex_polygon_ios,is_valid_module_polygon
 
 def _area(poly):
     return abs(sum(poly[i][0]*poly[(i+1)%len(poly)][1]-poly[(i+1)%len(poly)][0]*poly[i][1] for i in range(len(poly)))/2)
@@ -39,12 +39,15 @@ def _bbox_iou(a,b):
     aa=max(0,ax2-ax1)*max(0,ay2-ay1);bb=max(0,bx2-bx1)*max(0,by2-by1)
     return inter/(aa+bb-inter) if aa+bb-inter>0 else 0
 
-def filter_module_detections(detections:tuple[ModuleDetection,...],width:int,height:int,*,duplicate_iou:float=.75)->tuple[ModuleDetection,...]:
+def filter_module_detections(detections:tuple[ModuleDetection,...],width:int,height:int,*,duplicate_iou:float=.75,minimum_area_fraction:float=.00005,maximum_area_fraction:float=.20,duplicate_metric:str='iou')->tuple[ModuleDetection,...]:
     """Fail closed on invalid geometry and suppress high-overlap duplicate detections."""
     if not 0<duplicate_iou<=1: raise ValueError("duplicate_iou must be in (0,1]")
-    valid = [q.detection for q in (assess_module_detection(d, width, height) for d in detections) if q.accepted and q.detection.class_name == "pv_module"]
+    if duplicate_metric not in ('iou','ios'):raise ValueError('explicit supported duplicate metric required')
+    overlap=convex_polygon_iou if duplicate_metric=='iou' else convex_polygon_ios
+    if not 0<=minimum_area_fraction<maximum_area_fraction<=1: raise ValueError("invalid explicit image-area fractions")
+    valid = [q.detection for q in (assess_module_detection(d, width, height,minimum_area_fraction=minimum_area_fraction,maximum_area_fraction=maximum_area_fraction) for d in detections) if q.accepted and q.detection.class_name == "pv_module"]
     valid.sort(key=lambda d:(-d.confidence,_center(d.polygon_px)))
     kept=[]
     for d in valid:
-        if all(convex_polygon_iou(d.polygon_px,k.polygon_px)<duplicate_iou for k in kept): kept.append(d)
+        if all(overlap(d.polygon_px,k.polygon_px)<duplicate_iou for k in kept): kept.append(d)
     return tuple(kept)

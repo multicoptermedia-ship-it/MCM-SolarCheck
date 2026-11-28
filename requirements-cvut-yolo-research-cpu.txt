@@ -1,0 +1,18 @@
+# Separate developer/CI research environment only, never the application setup.
+# Install Torch2.15.0 and torchvision0.29.2 from the official CPU index first.
+# Then install these dependencies and Ultralytics8.1.29 with --no-deps.
+# The pinned Ultralytics reference is AGPL-3.0; product licensing remains open.
+-r requirements-cvut-cpu.txt
+matplotlib==3.11.2
+scipy==1.17.1
+pandas==3.0.6
+seaborn==0.13.2
+requests==2.34.2
+tqdm==4.70.1
+psutil==7.2.2
+py-cpuinfo==9.0.0
+thop==0.1.1.post2209072238
+PyYAML==6.0.3
+# Official COCO mask evaluator for public full-image development comparisons.
+# FreeBSD license; isolated research environment only, not app/user setup.
+pycocotools==2.0.10

@@ -31,6 +31,34 @@ def test_invalid_reference_fails_closed(changes):
         validate_geotiff_reference(reference(**changes))
 
 
+def test_float_geotiff_nan_nodata_is_a_supported_missing_value(tmp_path):
+    import math
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import inspect_existing_geotiff
+    target = tmp_path / "temperature-or-sensor-values.tif"
+    values = np.array([[np.nan, 300.], [301., 302.]], np.float32)
+    with rasterio.open(target, "w", driver="GTiff", width=2, height=2,
+                       count=1, dtype="float32", nodata=np.nan, crs="EPSG:25832",
+                       transform=from_origin(100., 100., 1., 1.)) as dst:
+        dst.write(values, 1)
+    found = inspect_existing_geotiff(target)
+    assert math.isnan(found.nodata)
+    validate_geotiff_reference(found)
+
+
+@pytest.mark.parametrize("path", ("https://example.invalid/private.tif", "/vsicurl/https://example.invalid/private.tif"))
+def test_geotiff_inspection_rejects_nonlocal_sources_before_gdal_open(monkeypatch, path):
+    import rasterio
+    from mcm_solarcheck.services.orthomosaic_geotiff_contract import inspect_existing_geotiff
+    def unexpected_network_or_file_open(*args, **kwargs):
+        pytest.fail("a remote or nonexistent source must never reach GDAL")
+    monkeypatch.setattr(rasterio, "open", unexpected_network_or_file_open)
+    with pytest.raises(ValueError, match="existing local file"):
+        inspect_existing_geotiff(path)
+
+
 def test_target_must_be_tiff_and_must_not_overwrite(tmp_path):
     with pytest.raises(ValueError, match="GeoTIFF target"):
         require_geotiff_export_target(tmp_path / "preview.png", reference())

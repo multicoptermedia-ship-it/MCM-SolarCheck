@@ -223,19 +223,104 @@ class ProjectApplicationService:
 
     def register_project_geotiff(self, project_id: str, source_path: str | Path, *, source_kind: str):
         """Persist observed GIS provenance; never approve an orthophoto."""
+        if source_kind not in ("webodm", "external_gis", "micmac", "unknown"):
+            raise ValueError("GeoTIFF source_kind must be webodm, external_gis, micmac or unknown")
+        source, digest, reference, _signature = self._prepare_project_geotiff(project_id, source_path)
+        self.database.save_geotiff_inspection(
+            project_id, source, source_kind, digest, reference
+        )
+        return reference
+
+    @staticmethod
+    def _geotiff_file_signature(source):
+        info = source.stat()
+        return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns
+
+    def _prepare_project_geotiff(self, project_id, source_path):
+        """Reuse the GIS inspector and hash one unchanged local file, read-only."""
         import hashlib
-        if source_kind not in ("webodm", "external_gis", "unknown"):
-            raise ValueError("GeoTIFF source_kind must be webodm, external_gis or unknown")
-        reference = self.inspect_project_geotiff(project_id, source_path)
-        source = Path(source_path).resolve(strict=True)
+        if not any(project.project_id == project_id for project in self.projects()):
+            raise KeyError(f"Unknown project: {project_id}")
+        try:
+            source = Path(source_path).resolve(strict=True)
+        except (OSError, RuntimeError) as error:
+            raise ValueError("GeoTIFF could not be opened as a GIS raster") from error
+        signature = self._geotiff_file_signature(source)
+        reference = self.inspect_project_geotiff(project_id, source)
         digest = hashlib.sha256()
         with source.open("rb") as handle:
             for chunk in iter(lambda: handle.read(1024 * 1024), b""):
                 digest.update(chunk)
-        self.database.save_geotiff_inspection(
-            project_id, source, source_kind, digest.hexdigest(), reference
+        if self._geotiff_file_signature(source) != signature:
+            raise ValueError("GeoTIFF changed during inspection")
+        return source, digest.hexdigest(), reference, signature
+
+    def register_project_orthophoto_pair(
+        self, project_id: str, rgb_path: str | Path, thermal_path: str | Path,
+        *, source_kind: str = "external_gis", thermal_value_kind: str = "visual",
+    ):
+        """Register existing RGB/thermal GIS rasters together; no processing or approval.
+
+        ``visual`` permits a scalar display or actual RGB false-color raster.
+        ``sensor_values`` requires one numeric band. Neither setting establishes
+        Celsius calibration, metric accuracy or a verified module assignment.
+        A MicMac provenance label is not software-license approval.
+        """
+        import hashlib
+        import json
+        import math
+        import numpy as np
+        import rasterio
+        from mcm_solarcheck.services.orthophoto_pair_audit import audit_orthophoto_pair
+
+        if not any(project.project_id == project_id for project in self.projects()):
+            raise KeyError(f"Unknown project: {project_id}")
+        if source_kind not in ("external_gis", "micmac", "unknown"):
+            raise ValueError("Orthophoto source_kind must be external_gis, micmac or unknown")
+        if thermal_value_kind not in ("visual", "sensor_values"):
+            raise ValueError("Thermal value kind must be visual or sensor_values; no Celsius approval is inferred")
+        paths = tuple(Path(path) for path in (rgb_path, thermal_path))
+        for path in paths:
+            if (not path.is_file() or any(p.is_symlink() for p in (path, *path.parents))):
+                raise ValueError("Existing local orthophoto files without symlink ancestors required")
+        prepared = tuple(self._prepare_project_geotiff(project_id, path) for path in paths)
+        rgb, thermal = prepared[0][0], prepared[1][0]
+        if rgb.samefile(thermal):
+            raise ValueError("RGB and thermal orthophotos must be distinct files")
+        with rasterio.open(rgb) as rgb_dataset, rasterio.open(thermal) as thermal_dataset:
+            if (rgb_dataset.count not in (3, 4)
+                    or any(np.dtype(dtype) != np.dtype("uint8") for dtype in rgb_dataset.dtypes[:3])):
+                raise ValueError("RGB orthophoto requires three uint8 RGB bands and optional alpha")
+            scalar = (thermal_dataset.count == 1
+                      and np.dtype(thermal_dataset.dtypes[0]).kind in "uif")
+            visual = (thermal_dataset.count in (3, 4)
+                      and all(np.dtype(dtype) == np.dtype("uint8") for dtype in thermal_dataset.dtypes[:3]))
+            if not scalar and not (thermal_value_kind == "visual" and visual):
+                raise ValueError("Thermal sensor values require one numeric band; a visual raster may use RGB bands")
+        audit = audit_orthophoto_pair(rgb, thermal)
+        if not audit.comparison_ready or not 0 < audit.common_pixel_fraction <= 1:
+            raise ValueError("RGB and thermal orthophotos require overlapping valid pixels")
+        for source, _digest, _reference, signature in prepared:
+            if self._geotiff_file_signature(source) != signature:
+                raise ValueError("GeoTIFF changed during pair inspection")
+        identity = [project_id, *(str(item[0]) for item in prepared), *(item[1] for item in prepared)]
+        pair_id = "ortho-" + hashlib.sha256(json.dumps(identity).encode("utf-8")).hexdigest()[:32]
+        thermal_nodata = prepared[1][2].nodata
+        nodata_kind = ("none" if thermal_nodata is None else
+                       "nan" if math.isnan(thermal_nodata) else "value")
+        return self.database.save_orthophoto_pair(
+            project_id, pair_id,
+            tuple((source, digest, reference) for source, digest, reference, _signature in prepared),
+            source_kind=source_kind, thermal_value_kind=thermal_value_kind,
+            thermal_nodata_kind=nodata_kind,
+            common_pixel_fraction=audit.common_pixel_fraction,
         )
-        return reference
+
+    def project_orthophoto_pairs(self, project_id: str):
+        """Return only explicitly registered pairs in an existing project."""
+        if not any(project.project_id == project_id for project in self.projects()):
+            raise KeyError(f"Unknown project: {project_id}")
+        return self.database.orthophoto_pairs(project_id)
 
     def generate_project_planar_orthophotos(
         self, project_id, rgb_frames, thermal_frames, rgb_controls, thermal_controls,

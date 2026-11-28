@@ -40,6 +40,42 @@ def test_widget_rejects_unaligned_layers(qapp):
         )
 
 
+def test_visual_thermal_slider_preserves_original_colors_and_nodata(qapp):
+    rgb = np.full((4, 5, 3), (25, 40, 55), np.uint8)
+    thermal = np.full((4, 5, 3), (12, 100, 200), np.float32)
+    thermal[0, 0] = np.nan
+    before_rgb, before_thermal = rgb.copy(), thermal.copy()
+    widget = OrthophotoComparisonWidget(rgb, thermal)
+    slider = widget.findChild(QSlider, "orthophoto_thermal_opacity_slider")
+    label = widget.findChild(QLabel, "orthophoto_comparison_image")
+    slider.setValue(100)
+    image = label.pixmap().toImage()
+    assert image.pixelColor(1, 1).getRgb() == (12, 100, 200, 255)
+    assert image.pixelColor(0, 0).getRgb() == (25, 40, 55, 255)
+    assert any("keine Temperaturwerte" in item.text() for item in widget.findChildren(QLabel))
+    slider.setValue(0)
+    assert label.pixmap().toImage().pixelColor(1, 1).getRgb() == (25, 40, 55, 255)
+    np.testing.assert_array_equal(rgb, before_rgb)
+    np.testing.assert_array_equal(thermal, before_thermal)
+
+
+def test_visual_thermal_invalid_channel_masks_the_entire_pixel(qapp):
+    rgb = np.full((2, 2, 3), 70, np.uint8)
+    thermal = np.full((2, 2, 3), (10, 80, 190), np.float32)
+    thermal[0, 0, 1] = np.nan
+    widget = OrthophotoComparisonWidget(rgb, thermal)
+    widget.findChild(QSlider, "orthophoto_thermal_opacity_slider").setValue(100)
+    image = widget.findChild(QLabel, "orthophoto_comparison_image").pixmap().toImage()
+    assert image.pixelColor(0, 0).getRgb() == (70, 70, 70, 255)
+    assert image.pixelColor(1, 1).getRgb() == (10, 80, 190, 255)
+
+
+def test_visual_thermal_rejects_untyped_multispectral_values(qapp):
+    with pytest.raises(ValueError, match="between 0 and 255"):
+        OrthophotoComparisonWidget(np.zeros((2, 2, 3), np.uint8),
+                                  np.full((2, 2, 3), 12000., np.float32))
+
+
 def test_import_comparison_requires_project_and_two_files(qapp):
     from PySide6.QtWidgets import QPushButton
     from mcm_solarcheck.gui.import_page import make_import_page

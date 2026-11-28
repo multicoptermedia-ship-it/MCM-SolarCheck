@@ -2,6 +2,9 @@
 
 ## Windows 10 Home – Offline-Desktop (Entwicklungsstand)
 
+**Bestehende ZIP-Testversion aktualisieren:** [ZIP-Anleitung für Windows 10](docs/ZIP_AKTUALISIERUNG_WINDOWS10.md) verwenden. Vorhandenes Python und Projekt weiterverwenden; `-UseExistingProject` bietet die Auswahl samt lokaler Projektsicherung. Die folgende Neueinrichtung ist dafür nicht erneut nötig.
+
+
 Diese Variante ist ausdrücklich für den bestehenden Windows-10-Auswertungsrechner
 vorgesehen. **Keine Windows-11-Voraussetzung**, kein Online-Kundenkonto und
 kein automatischer Download beim Start. Windows-10-Tests auf echter Hardware

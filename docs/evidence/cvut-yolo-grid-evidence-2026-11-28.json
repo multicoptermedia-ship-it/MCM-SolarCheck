@@ -1,0 +1,19 @@
+{
+  "check": "solarcheck-public-grid-evidence-1",
+  "historical_sources": {
+    "solarcheck-target-policy-v1-20261128.py": "dc6182e2ce1e0f770df2575aad460c3e5a4baf926da14cebe5038ad7b215d5d7",
+    "solarcheck_pv_targeted_zoom_trial_20261128.py": "3ad7321209b3aaaa466396b07d34cefffd0a977a588c4d88115718f7adfe1659",
+    "solarcheck_pv_focused_anchor_trial_20261128.py": "fd277101b87fb497071b8c7906454539b9802e131228aec2b910ceef4e2358ab",
+    "solarcheck_full_image_multiscale_20261128.py": "691e49136f52dd5d0059e51547487b9d49b81c9287155e1e10d792e8366e97b6",
+    "solarcheck_pv_error_diagnostic_20261128.py": "21486ded698ad2b92040659907a7d72ad4021aa101b72aef6de8eb60717f2e7b",
+    "solarcheck_pv_fit_diagnostic_20261128.py": "77ed85bf85eea3aebfd271b4141b01d00a915a6850b062726a635dfb9e3387d1",
+    "solarcheck_anchor_support_20261128.py": "b02d6962b49782241bf8b608cb4ef8e27487363c0a0cb3a7ed2372542b13e70b",
+    "pvis_yolo_training_targets-v2.py": "fd039d06cfe5aed515145521a0e0bbf4f7d5dd9852b1fb605d47a35ac2660a7f"
+  },
+  "archive_sha256": "0a51a017ca8bdae4c5799ea2252ab7d26b0fbe5406c8bda0304936b2ddb237f4",
+  "grid_report_sha256": "e79ac72101624967b45140a4b3ac25e7da1fa4f676de84a8ce29f148fd2483ad",
+  "grid_report_reproduces_previous_public_probe": true,
+  "customer_images_read": false,
+  "test_pixels_read": false,
+  "production_approved": false
+}

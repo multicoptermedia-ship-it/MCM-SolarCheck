@@ -109,6 +109,47 @@ def test_windows_offline_powershell_scripts_parse_without_execution():
         assert result.returncode == 0, f"{script}: {result.stderr}"
 
 
+@pytest.mark.parametrize('existing', (True, False))
+def test_windows_zip_launcher_reuses_python_and_forwards_existing_database(tmp_path, existing):
+    if sys.platform != 'win32':
+        pytest.skip('native Windows PowerShell execution required')
+    import json
+    import shutil
+    root = tmp_path / "ZIP update [new] & folder"
+    scripts = root / 'scripts'
+    scripts.mkdir(parents=True)
+    source = Path(__file__).resolve().parents[1] / 'scripts' / 'start_windows10_offline.ps1'
+    target = scripts / source.name
+    shutil.copyfile(source, target)
+    package = root / 'src' / 'mcm_solarcheck' / 'offline'
+    package.mkdir(parents=True)
+    (package.parent / '__init__.py').write_text('')
+    (package / '__init__.py').write_text('')
+    record = tmp_path / 'started.json'
+    (package / '__main__.py').write_text(
+        'import json,os,sys\nfrom pathlib import Path\n'
+        + f'Path({str(record)!r}).write_text(json.dumps({{"args":sys.argv[1:],"path":os.environ["PYTHONPATH"]}}))\n',
+        encoding='utf-8',
+    )
+    database = tmp_path / "old project & [keep].sqlite3"
+    if existing:
+        database.write_bytes(b'synthetic placeholder; CLI validates the real schema separately')
+    result = subprocess.run(
+        ['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+         '-File', str(target), '-PythonExe', sys.executable, '-DatabasePath', str(database)],
+        capture_output=True, text=True, check=False, timeout=40,
+    )
+    if existing:
+        assert result.returncode == 0, result.stdout + result.stderr
+        called = json.loads(record.read_text())
+        assert called['args'] == ['--existing-database', str(database)]
+        assert Path(called['path']) == root / 'src'
+        assert not (root / '.venv').exists()
+    else:
+        assert result.returncode != 0
+        assert not database.exists() and not record.exists()
+
+
 def test_target_install_script_does_not_offer_pip_index_fallback():
     root = Path(__file__).resolve().parents[1]
     install = (root / "scripts/install_windows10_offline_venv.ps1").read_text(

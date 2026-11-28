@@ -5,7 +5,7 @@ This does not generate a GeoTIFF and must not be used to promote RGB previews.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import isfinite
+from math import isfinite, isnan
 from pathlib import Path
 
 
@@ -31,8 +31,9 @@ def validate_geotiff_reference(reference: GeoTIFFSpatialReference) -> None:
     a, b, _, d, e, _ = reference.transform
     if abs(a * e - b * d) <= 1e-15:
         raise ValueError("GeoTIFF affine transform must be invertible")
-    if reference.nodata is not None and not isfinite(reference.nodata):
-        raise ValueError("GeoTIFF NoData must be finite")
+    if (reference.nodata is not None and
+            not (isfinite(reference.nodata) or isnan(reference.nodata))):
+        raise ValueError("GeoTIFF NoData must be finite or NaN")
 
 
 def require_geotiff_export_target(path: str | Path, reference: GeoTIFFSpatialReference) -> Path:
@@ -122,18 +123,28 @@ def write_georeferenced_rgb_geotiff(
     return target
 
 
-def inspect_existing_geotiff(path: str | Path) -> GeoTIFFSpatialReference:
+def inspect_existing_geotiff(path: str | Path, *, allow_incomplete_preview: bool = False) -> GeoTIFFSpatialReference:
     """Read spatial metadata from an existing local GeoTIFF; never infer missing CRS."""
     import rasterio
 
     source = Path(path)
     if source.suffix.lower() not in (".tif", ".tiff"):
         raise ValueError("Expected a GeoTIFF file")
+    # GDAL can otherwise open virtual/network filesystems. The project import
+    # boundary accepts an existing local artifact only, never a URL or VSI path.
+    if not source.is_file():
+        raise ValueError("GeoTIFF must be an existing local file")
     try:
         dataset_context = rasterio.open(source)
     except rasterio.errors.RasterioIOError as error:
         raise ValueError("GeoTIFF could not be opened as a GIS raster") from error
     with dataset_context as dataset:
+        tags = dataset.tags()
+        partial_workspace = any((parent / 'partial-preview.json').is_file() for parent in source.parents)
+        if not allow_incomplete_preview and (partial_workspace or tags.get('SOLARCHECK_INCOMPLETE', '').casefold() == 'true'
+                or tags.get('SOLARCHECK_PREVIEW_KIND') == 'thermal_partial'
+                or tags.get('SOLARCHECK_PAIR_IMPORT_ALLOWED', '').casefold() == 'false'):
+            raise ValueError("Unvollständige Thermal-Teilvorschau: regulärer RGB-/Thermal-Paarimport gesperrt")
         if dataset.driver != "GTiff" or dataset.crs is None:
             raise ValueError("GeoTIFF must contain a valid CRS")
         reference = GeoTIFFSpatialReference(
