@@ -12,7 +12,7 @@ creation/opening operations will be supplied by application services rather
 than invented in Qt widget state.
 """
 
-from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QFormLayout, QGroupBox, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget
 
 
 
@@ -214,6 +214,28 @@ def make_project_page(
     heading = QLabel("SolarCheck / PV-Inspektion", page)
     heading.setObjectName("page_heading")
     layout.addWidget(heading)
+
+    capture_hint = QGroupBox("Aufnahmeempfehlung: Anlagenränder mit erfassen", page)
+    capture_hint.setObjectName("flight_capture_guidance")
+    capture_hint.setAccessibleName(capture_hint.title())
+    capture_layout = QVBoxLayout(capture_hint)
+    capture_text = QLabel(
+        "Planen Sie den Aufnahmebereich über die äußeren Modulreihen hinaus, "
+        "damit auch Randmodule und Ecken in mehreren überlappenden Bildern "
+        "vollständig sichtbar sind. Das unterstützt die Orthofoto-Erstellung "
+        "und Modulerkennung.\n\n"
+        "Die nötige Pufferbreite hängt von Kamera, Flughöhe, Blickrichtung und "
+        "Bildüberlappung ab. Unklare Modulgrenzen bei der Auswertung gezielt prüfen.",
+        capture_hint,
+    )
+    capture_text.setTextFormat(Qt.TextFormat.PlainText)
+    capture_text.setWordWrap(True)
+    capture_text.setTextInteractionFlags(
+        Qt.TextInteractionFlag.TextSelectableByMouse
+        | Qt.TextInteractionFlag.TextSelectableByKeyboard
+    )
+    capture_layout.addWidget(capture_text)
+    layout.addWidget(capture_hint)
 
     create = QPushButton("Neues Projekt erstellen", page)
     create.setObjectName("create_project_button")

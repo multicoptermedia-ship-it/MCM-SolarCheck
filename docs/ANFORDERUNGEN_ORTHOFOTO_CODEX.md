@@ -93,3 +93,12 @@ Für künftige Befliegungen einen äußeren Randpuffer um das gesamte Anlagenpol
 Die nötige Pufferbreite hängt von Kamerabildfeld, Flughöhe/Abstand zur Modulfläche, Blickrichtung und gewünschter Überlappung ab. Keine unbelegte universelle Meterzahl oder neue Höhe festlegen. Die50%Überlappung der späteren Analysekacheln ist ein anderer Parameter und keine Flugvorgabe. Akzeptanz künftig anhand tatsächlicher lokaler Bildabdeckung von Außenkanten und Ecken prüfen, nicht aus einem vergrößerten Flugpolygon Vollabdeckung ableiten.
 
 Diese Aufnahmeempfehlung ergänzt den Korrekturweg. Sie verlangt keine erneute Befliegung oder Neuberechnung des vorhandenen287erRGB-/280erThermalbestands, keine neue Photogrammetrie-/Flugplanungsengine und keine automatische Drohnenanbindung. Bestehende Quellen und der unvollständige Thermalstatus bleiben erhalten.
+
+
+### PV-EDGE-CAPTURE-HOME-01 · Startseitenhinweis28.11.2026
+
+Nutzer bittet, die Aufnahmeempfehlung auf der Programmstartseite für Anwender bereitzustellen. **Technisch umgesetzt** als dauerhaft sichtbare Gruppe „Aufnahmeempfehlung: Anlagenränder mit erfassen“ auf der vorhandenen Projektseite, der Startseite von SolarCheck Offline. Die gemeinsame Projektseite zeigt den Hinweis auch nach dem normalen Seitenneuaufbau und nach erneuter Öffnung. Klartext mit automatischem Zeilenumbruch und kopierbarer Auswahl, keine Pflichtbestätigung/Startblockade, keine neuen Projektdaten oder neue Navigation.
+
+Der Text empfiehlt Aufnahmebereiche über die äußeren Modulreihen hinaus, sodass Randmodule/Ecken in mehreren überlappenden Bildern vollständig sichtbar werden; nennt Kamera, Flughöhe, Blickrichtung und Bildüberlappung als Faktoren der Pufferbreite und weist auf gezieltes Prüfen unklarer Grenzen hin. Er beschreibt den Nutzen für Orthofoto/Modulerkennung ohne Qualitätsgarantie, feste Meterzahl oder Aufforderung zu größeren inneren Bahnabständen. Dies implementiert die Anzeige der Empfehlung; automatische Ausnahmeliste/Flugplanung oder belegte vollständige Flugabdeckung werden dadurch nicht implementiert/freigegeben.
+
+Nachweis:69vorhandene Startseiten-/Navigations-/Übergabetests grün; Qt-Sichtprüfung nur mit synthetischem Projekt bei1366×768 und bestehender Mindestgröße1120×633. Hinweis lesbar, Projektknöpfe erreichbar; Fenster-Mindestgröße mit/ohne Hinweis identisch. Reale Windows10-Sichtabnahme der neuen Anzeige bleibt offen. Keine Kundenbilder/DB-/Modell-/Quelländerung oder neue Befliegung/Installation. Feste Quelle/ZIP/exakte HEAD-CI siehe [Checkpoint](AKTUELLER_ENTWICKLUNGSSTAND.md).
